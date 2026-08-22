@@ -20,7 +20,8 @@ Maximize what every token buys us. Get this right and cost takes care of itself.
 
 ## How This Works
 
-- **[Governance](https://stablekernel.github.io/the-shrine/reference/governance/)**: The official process for proposing, refining, and ratifying principles, patterns, and practices
+- **[Documentation](https://stablekernel.github.io/the-shrine/)**: Ratified principles, patterns, and stack guidance
+- **[Governance](https://stablekernel.github.io/the-shrine/reference/governance/)**: The official process for proposing, refining, and ratifying content
 - **[Discussions](https://github.com/stablekernel/the-shrine/discussions)**: The living forum where ideas are shaped before they solidify
 - **Disagreement is welcome.** Nobody sees the whole board alone
 
