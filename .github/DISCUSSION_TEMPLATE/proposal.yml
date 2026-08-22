@@ -1,0 +1,52 @@
+title: "[Proposal] "
+labels:
+  - proposal
+body:
+  - type: markdown
+    attributes:
+      value: |
+        Use this template to propose a new principle for The Shrine.
+        See [Governance](/the-shrine/reference/governance/) for the full lifecycle.
+
+  - type: textarea
+    id: principle
+    attributes:
+      label: The Principle
+      description: One sentence. What behavior does this encode?
+      placeholder: "Always X when Y because Z."
+    validations:
+      required: true
+
+  - type: textarea
+    id: why
+    attributes:
+      label: Why This Matters
+      description: What goes wrong without it? Cite real examples if possible.
+      placeholder: |
+        Without this principle:
+        - Risk A happens
+        - We saw this in Project X when...
+    validations:
+      required: true
+
+  - type: textarea
+    id: questions
+    attributes:
+      label: Open Questions
+      description: What needs refinement before this solidifies? Leave blank if none.
+      placeholder: |
+        1. Should this apply to client projects or just internal?
+        2. How do we measure compliance?
+    validations:
+      required: false
+
+  - type: textarea
+    id: prior-art
+    attributes:
+      label: Prior Art
+      description: Links to related patterns, external references, or internal docs.
+      placeholder: |
+        - Similar to Google's X principle
+        - See internal doc at...
+    validations:
+      required: false
