@@ -3,9 +3,7 @@ title: "Glossary"
 description: "Key terms and definitions."
 ---
 
-## TTV (Tokens to Value)
-
-How much model consumption it takes to produce a successful, useful outcome. The north star metric: maximum value per token, not minimum token usage.
+<!-- MAINTAINER: Keep entries in alphabetical order -->
 
 ## Context Window
 
@@ -22,3 +20,7 @@ Workarounds, wrappers, and patterns built to compensate for model limitations. M
 ## Skills
 
 Packaged, reusable instructions for accomplishing specific tasks efficiently.
+
+## TTV (Tokens to Value)
+
+How much model consumption it takes to produce a successful, useful outcome. The north star metric: maximum value per token, not minimum token usage.
