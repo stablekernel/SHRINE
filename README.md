@@ -20,11 +20,9 @@ Maximize what every token buys us. Get this right and cost takes care of itself.
 
 ## How This Works
 
-- **The keepers of the shrine** surface direction and hold space for discussion
-- **The community shapes what gets built.** This belongs to everyone who uses it
+- **[Governance](https://stablekernel.github.io/the-shrine/reference/governance/)**: The official process for proposing, refining, and ratifying principles, patterns, and practices
+- **[Discussions](https://github.com/stablekernel/the-shrine/discussions)**: The living forum where ideas are shaped before they solidify
 - **Disagreement is welcome.** Nobody sees the whole board alone
-
-[Discussion Threads](https://github.com/stablekernel/the-shrine/discussions)
 
 ---
 
