@@ -1,0 +1,92 @@
+/*
+ * Stable Kernel brand theme for The Shrine.
+ *
+ * CSS-variable overrides of Starlight's design tokens.
+ * Dark mode is the default; light variant provided for readers who toggle.
+ * Palette derived from stablekernel.com and the shrine-hero.png logo:
+ *   Dark Teal #0D3B4C · Mid Teal #1A5A6E · Bright Cyan #00CED1 · Turquoise #2DD4BF
+ *   Navy #0A2540 · Slate #1E293B · Off-white #F1F5F9
+ */
+
+/* ---- Brand tokens -------------------------------------------------------- */
+:root {
+  --sk-teal-dark: #0d3b4c;
+  --sk-teal-mid: #1a5a6e;
+  --sk-cyan: #00ced1;
+  --sk-cyan-bright: #2dd4bf;
+  --sk-cyan-link: #5eead4;
+  --sk-navy: #0a2540;
+  --sk-slate: #1e293b;
+  --sk-off-white: #f1f5f9;
+}
+
+/* ---- Accent: Stable Kernel teal/cyan ------------------------------------- */
+:root {
+  --sl-color-accent-low: #0d3b4c;
+  --sl-color-accent: #00ced1;
+  --sl-color-accent-high: #2dd4bf;
+}
+
+/* ---- Dark mode (DEFAULT): deep navy/slate base -------------------------- */
+:root,
+:root[data-theme='dark'] {
+  --sl-color-white: #f1f5f9;
+  --sl-color-gray-1: #cbd5e1;
+  --sl-color-gray-2: #94a3b8;
+  --sl-color-gray-3: #64748b;
+  --sl-color-gray-4: #475569;
+  --sl-color-gray-5: #334155;
+  --sl-color-gray-6: #1e293b;
+  --sl-color-black: #0f172a;
+
+  --sl-color-bg: #0f172a;
+  --sl-color-bg-nav: #0a1628;
+  --sl-color-bg-sidebar: #0a1628;
+
+  --sl-color-text-accent: var(--sk-cyan-link);
+  --sl-color-hairline-shade: #334155;
+}
+
+/* ---- Light mode: soft slate/white base ----------------------------------- */
+:root[data-theme='light'] {
+  --sl-color-accent-low: #ccfbf1;
+  --sl-color-accent: #0d9488;
+  --sl-color-accent-high: #0d3b4c;
+
+  --sl-color-white: #0f172a;
+  --sl-color-gray-1: #1e293b;
+  --sl-color-gray-2: #334155;
+  --sl-color-gray-3: #64748b;
+  --sl-color-gray-4: #94a3b8;
+  --sl-color-gray-5: #cbd5e1;
+  --sl-color-gray-6: #e2e8f0;
+  --sl-color-black: #f8fafc;
+
+  --sl-color-bg: #f8fafc;
+  --sl-color-bg-nav: #f1f5f9;
+  --sl-color-bg-sidebar: #f1f5f9;
+
+  --sl-color-text-accent: #0d9488;
+  --sl-color-hairline-shade: #e2e8f0;
+}
+
+/* ---- Accent markers ------------------------------------------------------ */
+.sidebar a[aria-current='page'] {
+  border-inline-start-color: var(--sk-cyan);
+}
+
+.sl-markdown-content blockquote {
+  border-inline-start-color: var(--sk-teal-mid);
+}
+
+/* ---- Hero layout --------------------------------------------------------- */
+.hero > .copy {
+  text-wrap: balance;
+}
+
+/* ---- Nav sizing ---------------------------------------------------------- */
+:root {
+  --sl-nav-height: 4.5rem;
+  --sl-nav-pad-y: 0.6rem;
+  --sl-content-width: 56rem;
+}
