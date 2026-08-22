@@ -22,22 +22,36 @@ export default defineConfig({
       sidebar: [
         { label: 'Home', link: '/' },
         {
-          label: 'Strategy',
+          label: 'Principles',
           collapsed: false,
           items: [
-            { label: 'TTV: Tokens to Value', slug: 'strategy/ttv' },
-            { label: 'Staying Current', slug: 'strategy/staying-current' },
-            { label: 'When to Re-evaluate', slug: 'strategy/re-evaluate' },
+            { label: 'TTV: Tokens to Value', slug: 'principles/ttv' },
+            { label: 'Staying Current', slug: 'principles/staying-current' },
+            { label: 'When to Re-evaluate', slug: 'principles/re-evaluate' },
           ],
         },
         {
-          label: 'Tooling',
+          label: 'Patterns',
+          collapsed: false,
+          items: [
+            { label: 'Overview', slug: 'patterns/index' },
+            { label: 'Adversarial Review', slug: 'patterns/adversarial-review' },
+            { label: 'Multi-Model Consensus', slug: 'patterns/multi-model-consensus' },
+            { label: 'Subagent Fanout', slug: 'patterns/subagent-fanout' },
+            { label: 'Pipeline Orchestration', slug: 'patterns/pipeline-orchestration' },
+            { label: 'Iterative Refinement', slug: 'patterns/iterative-refinement' },
+            { label: 'Seed Planting', slug: 'patterns/seed-planting' },
+          ],
+        },
+        {
+          label: 'Stack',
           collapsed: true,
           items: [
-            { label: 'Model Selection', slug: 'tooling/models' },
-            { label: 'Skills & Prompts', slug: 'tooling/skills' },
-            { label: 'Memory & Context', slug: 'tooling/memory' },
-            { label: 'Agent Architecture', slug: 'tooling/agent-architecture' },
+            { label: 'Harness Selection', slug: 'stack/harness' },
+            { label: 'Model Selection', slug: 'stack/models' },
+            { label: 'Skills & Prompts', slug: 'stack/skills' },
+            { label: 'Memory & Context', slug: 'stack/memory' },
+            { label: 'Agent Architecture', slug: 'stack/agent-architecture' },
           ],
         },
         {

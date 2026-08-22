@@ -5,7 +5,9 @@ description: "What systems keep our tooling stack current in a rapidly evolving 
 
 **The best tooling decision we make this quarter will be wrong by spring. That's not a failure. That's the terrain.**
 
-We just spent real effort getting our stack right: the model choices, the skills, the prompts, the orchestration patterns. It works. Value per token is up. Here's the uncomfortable observation: everything we tuned was tuned against a snapshot. The models it was tuned for will be superseded in months. The prompt that squeezes great output from today's model may actively fight tomorrow's.
+You just spent real effort getting your stack right: the model choices, the skills, the prompts, the orchestration patterns. It works. Value per token is up. Here's the uncomfortable observation: everything you tuned was tuned against a snapshot. The models it was tuned for will be superseded in months. The prompt that squeezes great output from today's model may actively fight tomorrow's.
+
+How do we as a whole maintain a shift-left philosophy so everyone stays current?
 
 ## Things Worth Noticing
 
