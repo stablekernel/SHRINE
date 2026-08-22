@@ -91,16 +91,19 @@
   --sl-content-width: 56rem;
 }
 
-/* ---- Search bar: centered in nav ----------------------------------------- */
+/* ---- Search bar: true-center in nav -------------------------------------- */
+header.header {
+  position: relative;
+}
+
 header.header site-search,
 header.header starlight-search {
-  flex: 1;
-  display: flex;
-  justify-content: center;
+  position: absolute;
+  left: 50%;
+  transform: translateX(-50%);
 }
 
 header.header site-search button,
 header.header starlight-search button {
-  max-width: 24rem;
-  width: 100%;
+  width: 20rem;
 }
