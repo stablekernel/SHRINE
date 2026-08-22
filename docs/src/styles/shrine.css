@@ -27,24 +27,24 @@
   --sl-color-accent-high: #2dd4bf;
 }
 
-/* ---- Dark mode (DEFAULT): deep navy/slate base -------------------------- */
+/* ---- Dark mode (DEFAULT): softer slate base for logo contrast ----------- */
 :root,
 :root[data-theme='dark'] {
-  --sl-color-white: #f1f5f9;
-  --sl-color-gray-1: #cbd5e1;
-  --sl-color-gray-2: #94a3b8;
-  --sl-color-gray-3: #64748b;
-  --sl-color-gray-4: #475569;
-  --sl-color-gray-5: #334155;
-  --sl-color-gray-6: #1e293b;
-  --sl-color-black: #0f172a;
+  --sl-color-white: #f0f4f8;
+  --sl-color-gray-1: #c9d5e0;
+  --sl-color-gray-2: #8fa3b5;
+  --sl-color-gray-3: #5f7a8f;
+  --sl-color-gray-4: #405568;
+  --sl-color-gray-5: #2d3f4f;
+  --sl-color-gray-6: #1f2d3a;
+  --sl-color-black: #151f29;
 
-  --sl-color-bg: #0f172a;
-  --sl-color-bg-nav: #0a1628;
-  --sl-color-bg-sidebar: #0a1628;
+  --sl-color-bg: #151f29;
+  --sl-color-bg-nav: #121a23;
+  --sl-color-bg-sidebar: #121a23;
 
   --sl-color-text-accent: var(--sk-cyan-link);
-  --sl-color-hairline-shade: #334155;
+  --sl-color-hairline-shade: #2d3f4f;
 }
 
 /* ---- Light mode: soft slate/white base ----------------------------------- */
