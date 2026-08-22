@@ -39,3 +39,10 @@ How to structure complex work.
 - [Pipeline Orchestration](/the-shrine/patterns/pipeline-orchestration/): Sequential stages
 - [RAG](/the-shrine/patterns/rag/): Ground in retrieved context
 - [Subagent Fanout](/the-shrine/patterns/subagent-fanout/): Parallel workers
+
+## Evolution Patterns
+
+How systems improve through use.
+
+- [Discovery Propagation](/the-shrine/patterns/discovery-propagation/): Feed improvements back to the system
+- [Dogfooding](/the-shrine/patterns/dogfooding/): Validate by using your own output
