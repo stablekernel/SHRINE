@@ -38,6 +38,7 @@ export default defineConfig({
         {
           label: 'Patterns',
           collapsed: false,
+          // MAINTAINER: Keep entries in alphabetical order (Overview first, then A-Z)
           items: [
             { label: 'Overview', slug: 'patterns/overview' },
             { label: 'Adversarial Review', slug: 'patterns/adversarial-review' },
@@ -58,16 +59,17 @@ export default defineConfig({
         {
           label: 'Stack',
           collapsed: true,
+          // MAINTAINER: Keep entries in alphabetical order (A-Z)
           items: [
-            { label: 'Harness Selection', slug: 'stack/harness' },
-            { label: 'Model Selection', slug: 'stack/models' },
-            { label: 'Skills & Prompts', slug: 'stack/skills' },
-            { label: 'Memory & Context', slug: 'stack/memory' },
             { label: 'Agent Architecture', slug: 'stack/agent-architecture' },
-            { label: 'Tool Integration', slug: 'stack/tool-integration' },
-            { label: 'Evaluation & Benchmarking', slug: 'stack/evaluation' },
-            { label: 'Observability & Logging', slug: 'stack/observability' },
             { label: 'Cost Management', slug: 'stack/cost-management' },
+            { label: 'Evaluation & Benchmarking', slug: 'stack/evaluation' },
+            { label: 'Harness Selection', slug: 'stack/harness' },
+            { label: 'Memory & Context', slug: 'stack/memory' },
+            { label: 'Model Selection', slug: 'stack/models' },
+            { label: 'Observability & Logging', slug: 'stack/observability' },
+            { label: 'Skills & Prompts', slug: 'stack/skills' },
+            { label: 'Tool Integration', slug: 'stack/tool-integration' },
           ],
         },
         {
