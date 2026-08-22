@@ -1,6 +1,6 @@
 ---
 title: "TTV: Tokens to Value"
-description: "The metric that matters: maximum value per token, not minimum token usage."
+description: "The goal is reduced cost. The path is maximizing what every token buys us."
 ---
 
 **Stop optimizing the price of fuel. Optimize the race.**
@@ -35,4 +35,4 @@ The orgs that treat this as a procurement problem will cap their spend and cap t
 
 The orgs that treat it as an engineering discipline, continuously converting ecosystem improvements into lower TTV, get *both* the better outcomes and the better unit economics.
 
-**We shouldn't aim to spend less on AI. We should aim to waste none of it.**
+**Lower cost is the goal. Wasting none of it is how we get there.**

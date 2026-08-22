@@ -12,10 +12,11 @@ This is the org's governance headquarters for both yourself and your agents, a g
 
 ## North Star: TTV (Tokens to Value)
 
-Not minimizing token spend. Maximizing what every token buys us.
+The goal is reduced cost. The path is maximizing what every token buys us.
 
-- Every tool choice, workflow, and practice we discuss gets measured against that
-- The goal is maximum value per token, not minimum token usage
+- Cutting tokens directly caps capability alongside spend
+- Maximizing value per token lowers cost *and* raises quality
+- Every tool choice, workflow, and practice we discuss gets measured against TTV
 
 ## How This Works
 
