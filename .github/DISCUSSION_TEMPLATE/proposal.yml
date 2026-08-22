@@ -62,3 +62,12 @@ body:
         - See internal doc at...
     validations:
       required: false
+
+  - type: input
+    id: pr
+    attributes:
+      label: Documentation PR
+      description: Link to the draft PR with the docs update. Add this once the proposal is refined.
+      placeholder: "https://github.com/stablekernel/the-shrine/pull/..."
+    validations:
+      required: false

@@ -9,6 +9,8 @@ Keepers are repository Maintainers or higher. They endorse proposals, resolve ob
 
 ## What Can Be Proposed
 
+All content in the Shrine follows the same lifecycle:
+
 - **Principles**: Behavioral standards the org commits to
 - **Patterns**: Reusable techniques for working with AI
 - **Stack choices**: Tool, model, or integration recommendations
@@ -29,6 +31,9 @@ What goes wrong without it? Cite real examples if possible.
 
 ## Open Questions
 What needs refinement before this solidifies?
+
+## Documentation PR
+Link to draft PR (added once refined)
 ```
 
 ### 2. Refine
@@ -37,20 +42,28 @@ What needs refinement before this solidifies?
 - The proposer updates the description as consensus emerges
 - Open questions get resolved or split into separate proposals
 
-### 3. Endorse
+### 3. Draft PR
+
+- Once refined, the proposer opens a draft PR with the documentation update
+- The PR adds or updates the relevant page in `docs/src/content/docs/`
+- Link the PR in the discussion under "Documentation PR"
+- The PR remains in draft until ratification
+
+### 4. Endorse
 
 - At least two keepers must explicitly endorse the proposal
 - Endorsement via thumbs-up reaction or comment
+- Endorsement indicates agreement with both the proposal and the draft PR
 
-### 4. Objection Window
+### 5. Objection Window
 
 - Seven days from the first keeper endorsement
 - Objections raised during this window must be addressed
 - A quorum of keepers can override an objection
 
-### 5. Ratify
+### 6. Ratify
 
-- The content is added to the appropriate docs section
+- The draft PR is marked ready and merged
 - The discussion closes with an "Accepted" label
 - The new page links back to the original discussion
 
