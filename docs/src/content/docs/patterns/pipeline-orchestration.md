@@ -48,4 +48,4 @@ Structure work as sequential stages, where:
 
 ## Related Patterns
 
-- [Subagent Fanout](/the-shrine/patterns/subagent-fanout/): Parallel instead of sequential
+- [Subagent Fanout](/SHRINE/patterns/subagent-fanout/): Parallel instead of sequential

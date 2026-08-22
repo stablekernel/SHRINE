@@ -43,4 +43,4 @@ Generate initial output, then run additional passes that:
 
 ## Related Patterns
 
-- [Adversarial Review](/the-shrine/patterns/adversarial-review/): External challenge instead of self-improvement
+- [Adversarial Review](/SHRINE/patterns/adversarial-review/): External challenge instead of self-improvement

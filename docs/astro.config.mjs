@@ -4,20 +4,20 @@ import starlight from '@astrojs/starlight';
 
 export default defineConfig({
   site: 'https://stablekernel.github.io',
-  base: '/the-shrine/',
+  base: '/SHRINE/',
   integrations: [
     starlight({
-      title: 'The Shrine',
+      title: 'SHRINE',
       tagline: 'Stable-Kernel Hosted Reasoning & Inference Network Environment',
       description: 'LLM governance and tooling strategy for the org.',
       logo: {
         src: './src/assets/shrine-hero.png',
-        alt: 'The Shrine',
+        alt: 'SHRINE',
         replacesTitle: true,
       },
       customCss: ['./src/styles/shrine.css'],
       social: [
-        { icon: 'github', label: 'GitHub', href: 'https://github.com/stablekernel/the-shrine' },
+        { icon: 'github', label: 'GitHub', href: 'https://github.com/stablekernel/SHRINE' },
       ],
       sidebar: [
         { label: 'Home', link: '/' },

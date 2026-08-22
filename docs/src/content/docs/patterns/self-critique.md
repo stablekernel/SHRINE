@@ -40,5 +40,5 @@ Or single-pass:
 
 ## Related Patterns
 
-- [Adversarial Review](/the-shrine/patterns/adversarial-review/): External skeptic instead of self-review
-- [Iterative Refinement](/the-shrine/patterns/iterative-refinement/): Multiple passes with different focuses
+- [Adversarial Review](/SHRINE/patterns/adversarial-review/): External skeptic instead of self-review
+- [Iterative Refinement](/SHRINE/patterns/iterative-refinement/): Multiple passes with different focuses

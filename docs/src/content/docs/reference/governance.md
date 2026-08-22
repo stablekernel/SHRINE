@@ -5,11 +5,13 @@ description: "How principles, patterns, and practices are proposed, refined, and
 
 ## Keepers
 
-Keepers are repository Maintainers or higher. They endorse proposals, resolve objections, and ratify additions to the Shrine.
+- Keepers are repository Maintainers or higher
+- They endorse proposals, resolve objections, and ratify additions to SHRINE
+- A quorum is a majority of current keepers
 
 ## What Can Be Proposed
 
-All content in the Shrine follows the same lifecycle:
+All content in SHRINE follows the same lifecycle:
 
 - **Principles**: Behavioral standards the org commits to
 - **Patterns**: Reusable techniques for working with AI
@@ -20,7 +22,7 @@ All content in the Shrine follows the same lifecycle:
 
 Ask yourself:
 
-- What's the maintainability of this proposal?
+- What's the cost of keeping this current as tools and practices change?
 - What's the impact of accepting it?
 - Is this already covered elsewhere?
 - Can I demonstrate this with a real example?
@@ -32,7 +34,8 @@ Ask yourself:
 
 ### 1. Propose
 
-Open a Discussion in the "Proposals" category with this structure:
+- Open a Discussion in the "Proposals" category
+- Use this structure:
 
 ```
 ## The Proposal
@@ -69,9 +72,10 @@ Link to draft PR (added once refined)
 
 ### 5. Objection Window
 
-- Seven days from the first keeper endorsement
-- Objections raised during this window must be addressed
+- Seven days from the second keeper endorsement
+- Objections raised during this window must be addressed before ratification
 - A quorum of keepers can override an objection
+- If an objection stands unresolved, the proposal returns to Refine or the discussion closes with a "Declined" label
 
 ### 6. Ratify
 
@@ -81,7 +85,8 @@ Link to draft PR (added once refined)
 
 ## Immediate Ratification
 
-The CTO or VP of Engineering can bypass the seven-day window.
+- The CTO or VP of Engineering can bypass the objection window
+- The other steps still apply: a discussion, a documentation PR, and the closing "Accepted" label
 
 ## Amendments
 
@@ -92,5 +97,6 @@ The CTO or VP of Engineering can bypass the seven-day window.
 ## Metadata
 
 Every ratified page carries:
+
 - `proposal`: link to the original discussion
 - `last-reviewed`: date of most recent keeper review

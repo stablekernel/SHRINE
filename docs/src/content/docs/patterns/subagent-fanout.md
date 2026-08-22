@@ -42,4 +42,4 @@ Fanout adds orchestration complexity. Worth it when:
 
 ## Related Patterns
 
-- [Pipeline Orchestration](/the-shrine/patterns/pipeline-orchestration/): Sequential stages instead of parallel
+- [Pipeline Orchestration](/SHRINE/patterns/pipeline-orchestration/): Sequential stages instead of parallel

@@ -6,7 +6,7 @@ body:
     attributes:
       value: |
         Use this template to propose a new principle, pattern, stack choice, or governance change.
-        See [Governance](/the-shrine/reference/governance/) for the full lifecycle.
+        See [Governance](/SHRINE/reference/governance/) for the full lifecycle.
 
   - type: checkboxes
     id: self-filter
@@ -89,6 +89,6 @@ body:
     attributes:
       label: Documentation PR
       description: Link to the draft PR with the docs update. Add this once the proposal is refined.
-      placeholder: "https://github.com/stablekernel/the-shrine/pull/..."
+      placeholder: "https://github.com/stablekernel/SHRINE/pull/..."
     validations:
       required: false

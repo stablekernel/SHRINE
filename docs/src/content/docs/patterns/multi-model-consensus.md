@@ -40,4 +40,4 @@ This pattern multiplies inference cost by the number of models. Use it when:
 
 ## Related Patterns
 
-- [Adversarial Review](/the-shrine/patterns/adversarial-review/): One model challenges another's output
+- [Adversarial Review](/SHRINE/patterns/adversarial-review/): One model challenges another's output

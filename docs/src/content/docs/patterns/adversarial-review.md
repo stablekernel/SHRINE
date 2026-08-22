@@ -35,5 +35,5 @@ The adversarial reviewer is not trying to be helpful to the original output. It'
 
 ## Related Patterns
 
-- [Multi-Model Consensus](/the-shrine/patterns/multi-model-consensus/): Multiple independent attempts, then compare
-- [Iterative Refinement](/the-shrine/patterns/iterative-refinement/): Improve based on feedback loops
+- [Multi-Model Consensus](/SHRINE/patterns/multi-model-consensus/): Multiple independent attempts, then compare
+- [Iterative Refinement](/SHRINE/patterns/iterative-refinement/): Improve based on feedback loops
