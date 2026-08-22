@@ -2,7 +2,9 @@
   <img src="shrine-hero.png" alt="The Shrine" width="400">
 </p>
 
-# The Shrine
+<h1 align="center">The Shrine</h1>
+
+<p align="center"><em>Stable-Kernel Hosted Reasoning & Inference Network Environment</em></p>
 
 LLM governance and tooling strategy for the org.
 
