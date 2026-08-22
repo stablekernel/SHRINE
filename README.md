@@ -27,4 +27,4 @@ Maximize what every token buys us. Get this right and cost takes care of itself.
 
 ---
 
-If you've found a tool that changed how you work, a workflow that stopped paying for itself, or a claim that deserves scrutiny, [bring it to Discussions](https://github.com/stablekernel/SHRINE/discussions).
+If you've found a tool that changed how you work, a workflow that stopped paying for itself, or a claim that deserves scrutiny, bring it here.
