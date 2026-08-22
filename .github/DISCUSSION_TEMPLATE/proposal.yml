@@ -5,15 +5,27 @@ body:
   - type: markdown
     attributes:
       value: |
-        Use this template to propose a new principle for The Shrine.
+        Use this template to propose a new principle, pattern, stack choice, or governance change.
         See [Governance](/the-shrine/reference/governance/) for the full lifecycle.
 
-  - type: textarea
-    id: principle
+  - type: dropdown
+    id: type
     attributes:
-      label: The Principle
-      description: One sentence. What behavior does this encode?
-      placeholder: "Always X when Y because Z."
+      label: Proposal Type
+      options:
+        - Principle
+        - Pattern
+        - Stack Choice
+        - Governance Change
+    validations:
+      required: true
+
+  - type: textarea
+    id: proposal
+    attributes:
+      label: The Proposal
+      description: One sentence. What are you proposing?
+      placeholder: "We should adopt X because Y."
     validations:
       required: true
 
@@ -23,7 +35,7 @@ body:
       label: Why This Matters
       description: What goes wrong without it? Cite real examples if possible.
       placeholder: |
-        Without this principle:
+        Without this:
         - Risk A happens
         - We saw this in Project X when...
     validations:
