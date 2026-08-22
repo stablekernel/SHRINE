@@ -56,8 +56,7 @@ What needs refinement before this solidifies?
 
 ## Immediate Ratification
 
-- The CTO or VP of Engineering can bypass the seven-day window
-- Immediately ratifies a proposal without the objection period
+The CTO or VP of Engineering can bypass the seven-day window.
 
 ## Amendments
 
