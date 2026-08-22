@@ -33,30 +33,37 @@ What needs refinement before this solidifies?
 
 ### 2. Refine
 
-The community discusses. The proposer updates the description as consensus emerges. Open questions get resolved or split into separate proposals.
+- The community discusses
+- The proposer updates the description as consensus emerges
+- Open questions get resolved or split into separate proposals
 
 ### 3. Endorse
 
-At least 2 keepers must explicitly endorse the proposal (thumbs-up reaction or comment).
+- At least two keepers must explicitly endorse the proposal
+- Endorsement via thumbs-up reaction or comment
 
 ### 4. Objection Window
 
-7 days from the first keeper endorsement. Objections raised during this window must be addressed. A quorum of keepers can override an objection.
+- Seven days from the first keeper endorsement
+- Objections raised during this window must be addressed
+- A quorum of keepers can override an objection
 
 ### 5. Ratify
 
-After the window closes with no blocking objections:
 - The content is added to the appropriate docs section
 - The discussion closes with an "Accepted" label
 - The new page links back to the original discussion
 
 ## Immediate Ratification
 
-The CTO or VP of Engineering can bypass the 7-day window and immediately ratify a proposal.
+- The CTO or VP of Engineering can bypass the seven-day window
+- Immediately ratifies a proposal without the objection period
 
 ## Amendments
 
-Ratified content remains open for adjustment. To propose a change, open a new Discussion referencing the existing page. Same lifecycle applies.
+- Ratified content remains open for adjustment
+- To propose a change, open a new Discussion referencing the existing page
+- Same lifecycle applies
 
 ## Metadata
 
