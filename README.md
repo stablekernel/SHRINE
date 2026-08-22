@@ -1,3 +1,7 @@
+<p align="center">
+  <img src="shrine-hero.png" alt="The Shrine" width="400">
+</p>
+
 # The Shrine
 
 LLM governance and tooling strategy for the org.
