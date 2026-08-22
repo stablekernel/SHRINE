@@ -34,7 +34,7 @@ export default defineConfig({
           label: 'Patterns',
           collapsed: false,
           items: [
-            { label: 'Overview', slug: 'patterns/index' },
+            { label: 'Overview', slug: 'patterns/overview' },
             { label: 'Adversarial Review', slug: 'patterns/adversarial-review' },
             { label: 'Multi-Model Consensus', slug: 'patterns/multi-model-consensus' },
             { label: 'Subagent Fanout', slug: 'patterns/subagent-fanout' },
