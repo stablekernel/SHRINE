@@ -90,3 +90,17 @@
   --sl-nav-pad-y: 0.6rem;
   --sl-content-width: 56rem;
 }
+
+/* ---- Search bar: centered in nav ----------------------------------------- */
+header.header site-search,
+header.header starlight-search {
+  flex: 1;
+  display: flex;
+  justify-content: center;
+}
+
+header.header site-search button,
+header.header starlight-search button {
+  max-width: 24rem;
+  width: 100%;
+}
