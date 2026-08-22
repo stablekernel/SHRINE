@@ -21,20 +21,7 @@ export default defineConfig({
       ],
       sidebar: [
         { label: 'Home', link: '/' },
-        {
-          label: 'Principles',
-          collapsed: false,
-          items: [
-            { label: 'TTV: Tokens to Value', slug: 'principles/ttv' },
-            { label: 'Staying Current', slug: 'principles/staying-current' },
-            { label: 'When to Re-evaluate', slug: 'principles/re-evaluate' },
-            { label: 'Authority Cascade', slug: 'principles/authority-cascade' },
-            { label: 'Consistency as Leverage', slug: 'principles/consistency-as-leverage' },
-            { label: 'Fail Fast, Recover Smart', slug: 'principles/fail-fast' },
-            { label: 'Human in the Loop', slug: 'principles/human-in-the-loop' },
-            { label: 'Reproducibility', slug: 'principles/reproducibility' },
-          ],
-        },
+        { label: 'Principles', link: '/principles/' },
         {
           label: 'Patterns',
           collapsed: false,
