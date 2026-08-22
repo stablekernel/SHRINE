@@ -5,9 +5,7 @@ description: "How principles, patterns, and practices are proposed, refined, and
 
 ## Keepers
 
-- Keepers are repository Maintainers or higher
-- They endorse proposals, resolve objections, and ratify additions to SHRINE
-- A quorum is a majority of current keepers
+Keepers guide what becomes official. They surface direction and hold space for discussion.
 
 ## What Can Be Proposed
 
