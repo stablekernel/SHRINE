@@ -16,6 +16,18 @@ All content in the Shrine follows the same lifecycle:
 - **Stack choices**: Tool, model, or integration recommendations
 - **Governance changes**: Amendments to this process
 
+## Before You Propose
+
+Ask yourself:
+
+- What's the maintainability of this proposal?
+- What's the impact of accepting it?
+- Is this already covered elsewhere?
+- Can I demonstrate this with a real example?
+- Would I follow this myself?
+- Does this scale across teams and clients?
+- Is this the right altitude? (principle vs pattern vs stack choice)
+
 ## Proposal Lifecycle
 
 ### 1. Propose

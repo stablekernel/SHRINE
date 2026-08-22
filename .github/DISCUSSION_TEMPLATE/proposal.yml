@@ -8,6 +8,27 @@ body:
         Use this template to propose a new principle, pattern, stack choice, or governance change.
         See [Governance](/the-shrine/reference/governance/) for the full lifecycle.
 
+  - type: checkboxes
+    id: self-filter
+    attributes:
+      label: Self-Assessment
+      description: Confirm you've considered these before proposing.
+      options:
+        - label: I've considered the maintainability of this proposal
+          required: true
+        - label: I've considered the impact of accepting it
+          required: true
+        - label: This isn't already covered elsewhere
+          required: true
+        - label: I can demonstrate this with a real example
+          required: true
+        - label: I would follow this myself
+          required: true
+        - label: This scales across teams and clients
+          required: true
+        - label: This is the right altitude (principle vs pattern vs stack)
+          required: true
+
   - type: dropdown
     id: type
     attributes:
