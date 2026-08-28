@@ -9,7 +9,7 @@ Keepers guide what becomes official. They surface direction and hold space for d
 
 ## Anything Can Be Proposed
 
-**Anything.** If it shapes how we work with AI, it's in scope — no idea is too small, too unconventional, or too half-formed. The categories below are common shapes, not boundaries:
+**Anything.** If it shapes how we work with AI, it's in scope: no idea is too small, too unconventional, or too half-formed. The categories below are common shapes, not boundaries:
 
 - **Principles**: Behavioral standards the org commits to
 - **Patterns**: Reusable techniques for working with AI
@@ -20,7 +20,7 @@ If your idea doesn't fit neatly into one of these, propose it anyway. The Refine
 
 ## Before You Propose
 
-The questions below aren't a checklist you must pass — they're the questions the community will explore together, and the proposal template prompts you for them. Skim them, then propose anyway.
+The questions below aren't a checklist you must pass; they're the questions the community will explore together, and the proposal template prompts you for them. Skim them, then propose anyway.
 
 - What's the cost of keeping this current as tools and practices change?
 - What's the impact of accepting it?
