@@ -23,7 +23,7 @@ from schema import SUPPORTED_VERSIONS, InterviewSubmission
 logger = logging.getLogger(__name__)
 
 # Configuration
-S3_BUCKET = os.environ.get("INTERVIEW_S3_BUCKET", "shrine-harness-interviews")
+S3_BUCKET = os.environ.get("INTERVIEW_BUCKET", "shrine-harness-interviews")
 PROMPTS_DIR = Path(__file__).parent.parent / "prompts"
 
 # Initialize MCP server
@@ -48,6 +48,7 @@ def _run_trufflehog(text: str) -> bool:
     if not text.strip():
         return True
 
+    temp_path = None
     try:
         with tempfile.NamedTemporaryFile(mode="w", suffix=".txt", delete=False) as f:
             f.write(text)
@@ -70,13 +71,14 @@ def _run_trufflehog(text: str) -> bool:
         return True
 
     except FileNotFoundError:
-        logger.warning("TruffleHog not installed, skipping scan")
-        return True
+        logger.error("TruffleHog not installed, rejecting submission for safety")
+        return False
     except subprocess.TimeoutExpired:
-        logger.warning("TruffleHog scan timed out")
-        return True
+        logger.error("TruffleHog scan timed out, rejecting submission for safety")
+        return False
     finally:
-        Path(temp_path).unlink(missing_ok=True)
+        if temp_path:
+            Path(temp_path).unlink(missing_ok=True)
 
 
 def _sanitize_submission(data: dict[str, Any]) -> dict[str, Any]:
@@ -391,14 +393,14 @@ async def call_tool(name: str, arguments: dict[str, Any]) -> list[TextContent]:
         submission = InterviewSubmission(**sanitized)
     except Exception as e:
         logger.warning("Validation failed: %s", e)
-        return [TextContent(type="text", text=f"Validation error: {e}")]
+        return [TextContent(type="text", text="Validation error: submission data is invalid or incomplete")]
 
     # Write to S3
     try:
         s3_key = _write_to_s3(submission)
     except Exception as e:
         logger.exception("S3 write failed")
-        return [TextContent(type="text", text=f"Storage error: {e}")]
+        return [TextContent(type="text", text="Storage error: unable to save submission, please try again")]
 
     return [
         TextContent(

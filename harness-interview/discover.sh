@@ -21,9 +21,9 @@ detect_os() {
     esac
 }
 
-# Check if a process is running
+# Check if a process is running (exact match to avoid false positives)
 process_running() {
-    pgrep -f "$1" > /dev/null 2>&1
+    pgrep -x "$1" > /dev/null 2>&1 || pgrep -f "^$1\$" > /dev/null 2>&1
 }
 
 # Check if a directory exists and is non-empty
@@ -34,6 +34,17 @@ dir_exists() {
 # Check if a file exists
 file_exists() {
     [[ -f "$1" ]]
+}
+
+# JSON-escape a string (handles quotes, backslashes, newlines)
+json_escape() {
+    local str="$1"
+    str="${str//\\/\\\\}"   # Escape backslashes first
+    str="${str//\"/\\\"}"   # Escape quotes
+    str="${str//$'\n'/\\n}" # Escape newlines
+    str="${str//$'\r'/\\r}" # Escape carriage returns
+    str="${str//$'\t'/\\t}" # Escape tabs
+    printf '%s' "$str"
 }
 
 # Detect harness type
@@ -208,15 +219,13 @@ main() {
         history_path=""
     fi
 
-    # Output JSON
-    cat <<EOF
-{
-  "harness_type": "$harness",
-  "config_path": "$config_path",
-  "history_path": "$history_path",
-  "os": "$os"
-}
-EOF
+    # Output JSON (escaped to handle special characters in paths)
+    printf '{\n'
+    printf '  "harness_type": "%s",\n' "$(json_escape "$harness")"
+    printf '  "config_path": "%s",\n' "$(json_escape "$config_path")"
+    printf '  "history_path": "%s",\n' "$(json_escape "$history_path")"
+    printf '  "os": "%s"\n' "$(json_escape "$os")"
+    printf '}\n'
 }
 
 main "$@"

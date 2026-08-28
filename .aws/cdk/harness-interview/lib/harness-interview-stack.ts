@@ -46,10 +46,13 @@ export class HarnessInterviewStack extends cdk.Stack {
     interviewBucket.grantWrite(mcpServerFunction);
 
     // Function URL with CORS for OAuth redirect flow
+    // Note: Wide CORS is intentional - harnesses run from various origins (local IDEs,
+    // web apps, CLI tools). Security is enforced at the application layer via Google OAuth
+    // with @stablekernel.com domain restriction. Consider WAF if abuse observed.
     const functionUrl = mcpServerFunction.addFunctionUrl({
       authType: lambda.FunctionUrlAuthType.NONE,
       cors: {
-        allowedOrigins: ['*'],
+        allowedOrigins: ['https://claude.ai', 'https://cursor.sh', 'http://localhost:*'],
         allowedMethods: [lambda.HttpMethod.ALL],
         allowedHeaders: [
           'Content-Type',
