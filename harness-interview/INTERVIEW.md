@@ -16,7 +16,8 @@ Before starting, tell the user:
 > which tools, what kinds of work, what friction they encounter.
 >
 > **What gets collected**: Harness type, tool/MCP/skill counts, task type distribution,
-> and your self-assessment ratings. No actual code, file paths, or conversation content.
+> usage metrics derived from history files, and your self-assessment ratings. No actual
+> code, file paths, or conversation content.
 >
 > **Pseudonymous, not anonymous**: Your submission includes a stable ID derived from
 > your machine so we can track patterns over time without knowing who you are.
@@ -38,30 +39,37 @@ bash discover.sh
 ```
 
 Parse the JSON output. You'll get:
-- `harness_type`: claude-code, cursor, codex, opencode, pi, orca, hermes, or unknown
-- `config_path`: path to the harness config directory
-- `history_path`: path to conversation history (if detectable)
+- `harness_type`: claude-code, claude-desktop, cursor, codex, opencode, pi, orca, hermes, cline, continue, aider, or unknown
+- `config_path`: path to the harness config file or directory
+- `history_path`: path to conversation history
+- `history_stats`: object with session_count, total_size_kb, oldest_session, newest_session
 - `os`: darwin, linux, or windows
 
 If discovery fails or returns unknowns, ask the user to clarify:
 - Which harness are you using?
 - Where is your config stored? (Common paths below)
 
-**Common config paths by harness**:
-| Harness | macOS config path |
-|---------|-------------------|
-| Claude Code | `~/.claude/` |
-| Cursor | `~/Library/Application Support/Cursor/` |
-| Codex | `~/.codex/` |
-| OpenCode | `~/.opencode/` |
-| Pi | `~/.config/pi/` |
-| Orca | `~/.orca/` |
-| Hermes | `~/.hermes/` |
+**Common paths by harness**:
+| Harness | Config path | History path |
+|---------|-------------|--------------|
+| Claude Code | `~/.claude/settings.json` | `~/.claude/projects/*/` (JSONL with UUID chain) |
+| Claude Desktop (macOS) | `~/Library/Application Support/Claude/` | same |
+| Claude Desktop (Linux) | `~/.config/claude/` | same |
+| Cursor | `~/.cursor/mcp.json` | `~/Library/.../Cursor/User/workspaceStorage/` |
+| Codex | `~/.codex/` | `~/.codex/history/` |
+| OpenCode | `~/.config/opencode/` | `~/.config/opencode/commands/` |
+| Pi/OMP | `~/.omp/` | `~/.omp/agent/sessions/` (JSONL tree with parentId) |
+| Orca | `~/.orca/` | `~/.orca/orca.db` (SQLite) |
+| Hermes | `~/.hermes/config.yaml` | `~/.hermes/sessions/` (JSONL) |
+| Cline | `~/.cline/` (v4+) | same (JSONL) |
+| Continue | `~/.continue/config.json` | `~/.continue/` |
+| Aider | `.aider.conf` (project-local) | `.aider.chat.history.md` |
 
 Record:
 - `harness_type`: (measured)
 - `config_path`: (measured or user-provided)
 - `history_path`: (measured or unknown)
+- `history_stats`: (measured)
 - `os`: (measured)
 
 ---
@@ -135,45 +143,127 @@ Method: measured
 
 ---
 
-## 3. Usage Analysis
+## 3. History Analysis
 
-If conversation history is accessible, sample recent sessions to categorize task types.
-Do NOT read actual content - only categorize by the KIND of work.
+If conversation history is accessible (history_path not empty), analyze it to derive
+usage metrics. This section uses SAMPLING, not exhaustive reads.
 
-**Task categories**:
-- `code-write`: Writing new code from scratch
-- `code-fix`: Debugging, fixing bugs
-- `code-refactor`: Restructuring existing code
-- `code-review`: Reviewing code for issues
-- `test-write`: Writing tests
-- `config`: Configuration, setup, tooling
-- `docs`: Documentation, READMEs
-- `research`: Finding information, understanding code
-- `plan`: Planning, architecture, design
-- `ops`: DevOps, CI/CD, deployment
-- `other`: Anything else
+### 3.1 Sampling Approach
 
-Sample up to 20 recent conversations. For each, assign ONE primary category based on
-the dominant task type.
+**IMPORTANT**: Do not read full conversation content. Extract metadata only.
 
-Distribution:
+Sampling rules:
+- Sample LAST 20 SESSIONS maximum
+- Extract: timestamps, turn counts, message lengths (word count buckets)
+- Categorize by keyword/pattern matching, NOT semantic analysis
+- Report `"method": "measured"` when actually counted from files
+- Report `"method": "estimated"` when extrapolated from partial data
+
+For each harness type, history files have different structures:
+- **JSONL files** (Claude Code, Pi, Hermes, Cline): Parse line-by-line, extract message fields
+- **SQLite** (Orca): Query metadata tables only, avoid message content
+- **Markdown** (Aider): Count turn separators (e.g., `---` or `####`)
+
+### 3.2 Usage Metrics (derive from history files)
+
+**Sessions per week**: Count sessions with timestamps in last 4 weeks, divide by 4
 ```
-code-write:   ____%
-code-fix:     ____%
-code-refactor: ____%
-code-review:  ____%
-test-write:   ____%
-config:       ____%
-docs:         ____%
-research:     ____%
-plan:         ____%
-ops:          ____%
-other:        ____%
+sessions_per_week: ____
+method: measured|estimated
 ```
 
-Method: measured|estimated|guessed
+**Average session duration**: From first to last message timestamp per session
+```
+avg_session_duration_minutes: ____
+method: measured|estimated|unavailable
+```
 
-If history is not accessible, ask the user to estimate their typical distribution.
+**Average turns per session**: Count messages in session files, divide by session count
+```
+avg_turns_per_session: ____
+method: measured|estimated
+```
+
+**Task type distribution**: Categorize by keyword patterns in first message or session title
+
+Keyword patterns:
+| Category | Match patterns (case-insensitive) |
+|----------|-----------------------------------|
+| code-write | "create", "implement", "build", "add", "new", "scaffold" |
+| code-fix | "fix", "bug", "error", "broken", "failing", "crash" |
+| code-refactor | "refactor", "clean", "improve", "restructure", "simplify" |
+| code-review | "review", "check", "audit", "look at" |
+| test-write | "test", "spec", "coverage", "assert" |
+| config | "config", "setup", "install", "env", "CI", "deploy" |
+| docs | "doc", "readme", "comment", "explain" |
+| research | "find", "where", "what is", "how does", "understand" |
+| plan | "plan", "design", "architect", "approach" |
+| ops | "devops", "pipeline", "deploy", "monitor" |
+
+```
+task_distribution:
+  code-write:   ____%
+  code-fix:     ____%
+  code-refactor: ____%
+  code-review:  ____%
+  test-write:   ____%
+  config:       ____%
+  docs:         ____%
+  research:     ____%
+  plan:         ____%
+  ops:          ____%
+  other:        ____%
+
+sample_size: ____
+method: measured|estimated|guessed
+```
+
+### 3.3 Efficiency Metrics
+
+**Retry rate**: Similar prompts in sequence (same session, edit distance < 30%)
+```
+retry_rate: ____% (of sessions with at least one retry)
+method: measured|estimated|unavailable
+```
+
+**Context reset rate**: New sessions started vs. continued (fork/resume)
+```
+context_reset_rate: ____% (new / total)
+method: measured|estimated
+```
+
+**Tool invocation patterns**: Which tools appear most in history (if visible)
+```
+top_tools:
+  1. ____ (___%)
+  2. ____ (___%)
+  3. ____ (___%)
+method: measured|unavailable
+```
+
+### 3.4 Behavioral Patterns
+
+**Prompt length distribution**: Word count buckets
+```
+prompt_length:
+  short (<50 words):   ____%
+  medium (50-200):     ____%
+  long (>200 words):   ____%
+method: measured|estimated
+```
+
+**Model switching**: If history shows model changes (harness-dependent)
+```
+model_switching: yes|no|unavailable
+primary_model: ____
+method: measured
+```
+
+**Branching rate**: For Pi/OMP, how often /fork or /tree used
+```
+branching_rate: ____% (sessions with branches)
+method: measured|unavailable
+```
 
 ---
 
@@ -181,6 +271,18 @@ If history is not accessible, ask the user to estimate their typical distributio
 
 Ask the user to rate themselves on three dimensions. Read the anchors aloud so they
 can calibrate.
+
+**If history analysis completed**: Suggest ratings based on observed metrics, but let
+the user adjust. Format: "Based on [metric], I'd suggest [rating]. Does that match
+your experience?"
+
+| Metric observed | Suggested throughput | Suggested efficiency | Suggested skill |
+|-----------------|---------------------|----------------------|-----------------|
+| sessions/week > 20, retry_rate < 10% | 4-5 | 4-5 | - |
+| avg_turns > 50, duration > 60min | 3-4 (complex work) | - | 3-4 |
+| MCP servers > 5, hooks > 3 | - | - | 4-5 |
+| retry_rate > 30% | 2-3 | 2 | - |
+| context_reset_rate > 80% | - | 2-3 | 2-3 |
 
 ### 4.1 Throughput (1-5)
 
@@ -194,6 +296,7 @@ can calibrate.
 | 4 | Reliably complete - 80%+ success rate on routine work |
 | 5 | Consistently ship - complex multi-step work completes routinely |
 
+Suggested rating (from history): ____
 Your rating: ____
 
 ### 4.2 Efficiency (1-5)
@@ -208,6 +311,7 @@ Your rating: ____
 | 4 | Direct - usually get good results in 1-2 attempts |
 | 5 | Surgical - first attempt is usually right, minimal iteration |
 
+Suggested rating (from history): ____
 Your rating: ____
 
 ### 4.3 Skill Level (1-5)
@@ -222,6 +326,7 @@ Your rating: ____
 | 4 | Advanced - MCPs, hooks, custom agents, automation |
 | 5 | Expert - custom tools, advanced patterns, teach others |
 
+Suggested rating (from history): ____
 Your rating: ____
 
 ### 4.4 Friction points (free text)
@@ -244,13 +349,19 @@ Compile all collected data into the submission payload:
 
 ```json
 {
-  "version": "v1",
+  "version": "v2",
   "timestamp": "<ISO8601>",
   "participant_id": "<pseudonymous machine ID>",
   "environment": {
     "harness_type": "...",
     "config_path": "...",
     "history_path": "...",
+    "history_stats": {
+      "session_count": 0,
+      "total_size_kb": 0,
+      "oldest_session": "YYYY-MM-DD",
+      "newest_session": "YYYY-MM-DD"
+    },
     "os": "..."
   },
   "config": {
@@ -261,14 +372,30 @@ Compile all collected data into the submission payload:
     "system_instructions": { "global_lines": 0, "project_lines": 0, "rules_lines": 0 }
   },
   "usage": {
+    "sessions_per_week": 0,
+    "avg_session_duration_minutes": 0,
+    "avg_turns_per_session": 0,
     "task_distribution": { "code-write": 0, "code-fix": 0, "..." },
     "sample_size": 0,
     "method": "..."
   },
+  "efficiency": {
+    "retry_rate": 0,
+    "context_reset_rate": 0,
+    "top_tools": ["...", "...", "..."],
+    "method": "..."
+  },
+  "behavior": {
+    "prompt_length": { "short": 0, "medium": 0, "long": 0 },
+    "model_switching": false,
+    "primary_model": "...",
+    "branching_rate": 0,
+    "method": "..."
+  },
   "self_assessment": {
-    "throughput": 0,
-    "efficiency": 0,
-    "skill_level": 0,
+    "throughput": { "suggested": 0, "actual": 0 },
+    "efficiency": { "suggested": 0, "actual": 0 },
+    "skill_level": { "suggested": 0, "actual": 0 },
     "friction": "...",
     "wishlist": "..."
   }
@@ -294,10 +421,10 @@ manually at: https://shrine.dev/interview/submit
 
 Before finishing, verify:
 
-- [ ] Discovery completed (harness type, config path, OS)
+- [ ] Discovery completed (harness type, config path, history stats, OS)
 - [ ] Config enumerated (tools, MCPs, skills, hooks, system instructions)
-- [ ] Usage analyzed (task distribution with method tag)
-- [ ] Self-assessment collected (3 ratings + 2 free text)
+- [ ] History analyzed (usage metrics, efficiency metrics, behavioral patterns) OR marked unavailable
+- [ ] Self-assessment collected (3 ratings with suggested values + 2 free text)
 - [ ] Payload submitted or displayed for manual submission
 
 If any section is incomplete, note which and why. Partial submissions are accepted.
@@ -319,3 +446,47 @@ If the user needs to stop early or something fails:
 2. Mark incomplete sections with `"status": "incomplete"` and reason
 3. Submit the partial payload - partial data is still valuable
 4. Offer to resume later if the harness supports session continuity
+
+---
+
+## History Format Reference
+
+For implementers parsing history files:
+
+### Claude Code (JSONL)
+```
+~/.claude/projects/<encoded-path>/*/
+  - conversations/*.jsonl (one line per message)
+  - Line format: {"type":"...", "message":{...}, "timestamp":"..."}
+```
+
+### Pi/OMP (JSONL tree)
+```
+~/.omp/agent/sessions/
+  - *.jsonl (one file per session)
+  - Line format: {"id":"...", "parentId":"...", "content":"...", "timestamp":"..."}
+  - parentId links to parent message (for branches/forks)
+```
+
+### Orca (SQLite)
+```
+~/.orca/orca.db
+  - Table: conversations (id, created_at, updated_at)
+  - Table: messages (id, conversation_id, role, created_at)
+  - Query metadata only, avoid content column
+```
+
+### Hermes (JSONL)
+```
+~/.hermes/sessions/
+  - *.jsonl (one file per session)
+  - Line format: {"role":"...", "content":"...", "timestamp":"..."}
+```
+
+### Aider (Markdown)
+```
+.aider.chat.history.md (project-local)
+  - Turn separator: #### or ---
+  - Count separators for turn count
+  - File modification date for timestamps
+```
