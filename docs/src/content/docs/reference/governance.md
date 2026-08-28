@@ -7,26 +7,26 @@ description: "How principles, patterns, and practices are proposed, refined, and
 
 Keepers guide what becomes official. They surface direction and hold space for discussion.
 
-## What Can Be Proposed
+## Anything Can Be Proposed
 
-All content in SHRINE follows the same lifecycle:
+**Anything.** If it shapes how we work with AI, it's in scope — no idea is too small, too unconventional, or too half-formed. The categories below are common shapes, not boundaries:
 
 - **Principles**: Behavioral standards the org commits to
 - **Patterns**: Reusable techniques for working with AI
 - **Stack choices**: Tool, model, or integration recommendations
 - **Governance changes**: Amendments to this process
 
+If your idea doesn't fit neatly into one of these, propose it anyway. The Refine step exists to help raw ideas find their shape.
+
 ## Before You Propose
 
-Ask yourself:
+The questions below aren't a checklist you must pass — they're the questions the community will explore together, and the proposal template prompts you for them. Skim them, then propose anyway.
 
 - What's the cost of keeping this current as tools and practices change?
 - What's the impact of accepting it?
 - Is this already covered elsewhere?
 - Can I demonstrate this with a real example?
-- Would I follow this myself?
 - Does this scale across teams and clients?
-- Is this the right altitude? (principle vs pattern vs stack choice)
 
 ## Proposal Lifecycle
 
@@ -41,6 +41,12 @@ One sentence. What are you proposing?
 
 ## Why This Matters
 What goes wrong without it? Cite real examples if possible.
+
+## Keeping It Current
+What's the cost of keeping this up to date as tools and practices change?
+
+## Scope
+Is this already covered elsewhere? Does it scale across teams and clients?
 
 ## Open Questions
 What needs refinement before this solidifies?
@@ -70,9 +76,9 @@ Link to draft PR (added once refined)
 
 ### 5. Objection Window
 
-- Seven days from the second keeper endorsement
+- Thirty days from the second keeper endorsement
 - Objections raised during this window must be addressed before ratification
-- A quorum of keepers can override an objection
+- A majority of keepers can override an objection
 - If an objection stands unresolved, the proposal returns to Refine or the discussion closes with a "Declined" label
 
 ### 6. Ratify
@@ -81,7 +87,7 @@ Link to draft PR (added once refined)
 - The discussion closes with an "Accepted" label
 - The new page links back to the original discussion
 
-## Immediate Ratification
+## Expedited Ratification
 
 - The CTO or VP of Engineering can bypass the objection window
 - The other steps still apply: a discussion, a documentation PR, and the closing "Accepted" label
@@ -98,3 +104,5 @@ Every ratified page carries:
 
 - `proposal`: link to the original discussion
 - `last-reviewed`: date of most recent keeper review
+
+Keepers periodically sweep pages whose `last-reviewed` date has gone stale, re-examining whether the guidance still holds.
