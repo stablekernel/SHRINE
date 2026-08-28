@@ -1,5 +1,6 @@
 import * as cdk from 'aws-cdk-lib';
 import * as lambda from 'aws-cdk-lib/aws-lambda';
+import { NodejsFunction } from 'aws-cdk-lib/aws-lambda-nodejs';
 import * as s3 from 'aws-cdk-lib/aws-s3';
 import * as iam from 'aws-cdk-lib/aws-iam';
 import { Construct } from 'constructs';
@@ -29,17 +30,37 @@ export class HarnessInterviewStack extends cdk.Stack {
       ],
     });
 
-    // Lambda function for MCP server
-    const mcpServerFunction = new lambda.Function(this, 'McpServerFunction', {
-      runtime: lambda.Runtime.PYTHON_3_12,
-      handler: 'handler.handler',
-      code: lambda.Code.fromAsset(path.join(__dirname, '../../server')),
+    // Lambda function for MCP server (TypeScript with esbuild)
+    const mcpServerFunction = new NodejsFunction(this, 'McpServerFunction', {
+      runtime: lambda.Runtime.NODEJS_20_X,
+      entry: path.join(__dirname, '../../../../harness-interview/server/src/index.ts'),
+      handler: 'handler',
       timeout: cdk.Duration.seconds(30),
       memorySize: 256,
       environment: {
         INTERVIEW_BUCKET: interviewBucket.bucketName,
+        NODE_OPTIONS: '--enable-source-maps',
       },
       description: 'Harness Interview MCP Server',
+      bundling: {
+        minify: true,
+        sourceMap: true,
+        target: 'node20',
+        // AWS SDK v3 is included in Lambda runtime
+        externalModules: ['@aws-sdk/*'],
+        // Include prompts directory as an asset
+        commandHooks: {
+          beforeBundling(inputDir: string, outputDir: string): string[] {
+            return [`cp -r ${inputDir}/../prompts ${outputDir}/prompts`];
+          },
+          afterBundling(): string[] {
+            return [];
+          },
+          beforeInstall(): string[] {
+            return [];
+          },
+        },
+      },
     });
 
     // Grant Lambda write access to S3 bucket
