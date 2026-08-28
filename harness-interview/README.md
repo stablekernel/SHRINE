@@ -4,28 +4,11 @@ Collects structured metadata about how you use your AI coding assistant.
 
 ## Quick Start
 
-### Flow A: CLI Harnesses (Claude Code, Cursor, Codex)
-
-Paste this into your harness:
-
-```
-Read INTERVIEW.md and follow it.
-```
-
-Or give it the repo URL and ask it to run the interview.
-
-### Flow B: Claude Desktop
-
-Run the installer:
-
 ```bash
 curl -fsSL https://raw.githubusercontent.com/stablekernel/SHRINE/main/harness-interview/install.sh | bash
 ```
 
-Then:
-1. Restart Claude Desktop
-2. Authenticate with Google when prompted
-3. Ask Claude: "Run the harness interview"
+Works with Claude Code, Cursor, Codex, Claude Desktop, and other MCP-compatible harnesses.
 
 For manual setup, see `desktop_config.example.json`.
 
