@@ -30,10 +30,13 @@ export class HarnessInterviewStack extends cdk.Stack {
       ],
     });
 
+    // Repo root for NodejsFunction to resolve entry path correctly
+    const repoRoot = path.join(__dirname, '../../../..');
+
     // Lambda function for MCP server (TypeScript with esbuild)
     const mcpServerFunction = new NodejsFunction(this, 'McpServerFunction', {
-      runtime: lambda.Runtime.NODEJS_20_X,
-      entry: path.join(__dirname, '../../../../harness-interview/server/src/index.ts'),
+      runtime: lambda.Runtime.NODEJS_22_X,
+      entry: path.join(repoRoot, 'harness-interview/server/src/index.ts'),
       handler: 'handler',
       timeout: cdk.Duration.seconds(30),
       memorySize: 256,
@@ -42,16 +45,18 @@ export class HarnessInterviewStack extends cdk.Stack {
         NODE_OPTIONS: '--enable-source-maps',
       },
       description: 'Harness Interview MCP Server',
+      projectRoot: repoRoot,
+      depsLockFilePath: path.join(repoRoot, 'harness-interview/server/package-lock.json'),
       bundling: {
         minify: true,
         sourceMap: true,
-        target: 'node20',
+        target: 'node22',
         // AWS SDK v3 is included in Lambda runtime
         externalModules: ['@aws-sdk/*'],
         // Include prompts directory as an asset
         commandHooks: {
           beforeBundling(inputDir: string, outputDir: string): string[] {
-            return [`cp -r ${inputDir}/../prompts ${outputDir}/prompts`];
+            return [`cp -r ${inputDir}/harness-interview/prompts ${outputDir}/prompts`];
           },
           afterBundling(): string[] {
             return [];

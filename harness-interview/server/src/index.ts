@@ -20,8 +20,7 @@ import {
 } from '@modelcontextprotocol/sdk/types.js';
 import { S3Client, PutObjectCommand } from '@aws-sdk/client-s3';
 import { readFileSync, existsSync } from 'fs';
-import { join, dirname } from 'path';
-import { fileURLToPath } from 'url';
+import { join } from 'path';
 import { randomUUID } from 'crypto';
 
 import {
@@ -33,8 +32,9 @@ import {
 import { validateGoogleToken, AuthError } from './oauth.js';
 import { redactIfSecretsDetected } from './trufflehog.js';
 
-const __dirname = dirname(fileURLToPath(import.meta.url));
-const PROMPTS_DIR = join(__dirname, '../prompts');
+// In Lambda, prompts are bundled alongside the handler via commandHooks
+// When bundled, they're at ./prompts relative to the handler
+const PROMPTS_DIR = join(__dirname, 'prompts');
 const S3_BUCKET = process.env['INTERVIEW_BUCKET'] ?? 'shrine-harness-interviews';
 
 const s3Client = new S3Client({});
