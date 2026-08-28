@@ -2,6 +2,33 @@
 
 Collects structured metadata about how you use your AI coding assistant.
 
+## Quick Start
+
+### Flow A: CLI Harnesses (Claude Code, Cursor, Codex)
+
+Paste this into your harness:
+
+```
+Read INTERVIEW.md and follow it.
+```
+
+Or give it the repo URL and ask it to run the interview.
+
+### Flow B: Claude Desktop
+
+Run the installer:
+
+```bash
+curl -fsSL https://raw.githubusercontent.com/stablekernel/SHRINE/main/harness-interview/install.sh | bash
+```
+
+Then:
+1. Restart Claude Desktop
+2. Authenticate with Google when prompted
+3. Ask Claude: "Run the harness interview"
+
+For manual setup, see `desktop_config.example.json`.
+
 ## What this does
 
 Your harness reads INTERVIEW.md and follows it to:
@@ -10,16 +37,6 @@ Your harness reads INTERVIEW.md and follows it to:
 - Sample your conversation history to categorize task types
 - Ask you to self-assess throughput, efficiency, and skill level
 - Submit the results to SHRINE's interview endpoint
-
-## How to run
-
-Paste this into your harness:
-
-```
-Read INTERVIEW.md and follow it.
-```
-
-Or invoke with a slash command if your harness supports it.
 
 ## What gets collected
 
