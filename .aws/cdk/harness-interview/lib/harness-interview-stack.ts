@@ -10,6 +10,12 @@ export class HarnessInterviewStack extends cdk.Stack {
   constructor(scope: Construct, id: string, props?: cdk.StackProps) {
     super(scope, id, props);
 
+    // CI/CD-created roles require this boundary per account policy
+    const boundary = iam.ManagedPolicy.fromManagedPolicyName(
+      this, 'Boundary', 'GitHubActionsPermissionsBoundary'
+    );
+    iam.PermissionsBoundary.of(this).apply(boundary);
+
     // S3 bucket for interview submissions (Hive-partitioned: version=/date=/)
     const interviewBucket = new s3.Bucket(this, 'InterviewBucket', {
       bucketName: `shrine-harness-interviews-${cdk.Aws.ACCOUNT_ID}`,
