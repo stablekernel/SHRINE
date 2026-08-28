@@ -51,7 +51,7 @@ Is this already covered elsewhere? Does it scale across teams and clients?
 ## Open Questions
 What needs refinement before this solidifies?
 
-## Documentation PR
+## Pull Request
 Link to draft PR (added once refined)
 ```
 
@@ -65,7 +65,7 @@ Link to draft PR (added once refined)
 
 - Once refined, the proposer opens a draft PR with the documentation update
 - The PR adds or updates the relevant page in `docs/src/content/docs/`
-- Link the PR in the discussion under "Documentation PR"
+- Link the PR in the discussion under "Pull Request"
 - The PR remains in draft until ratification
 
 ### 4. Endorse
