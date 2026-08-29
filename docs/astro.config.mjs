@@ -22,7 +22,6 @@ export default defineConfig({
       sidebar: [
         { label: 'Home', link: '/' },
         { label: 'Principles', link: '/principles/' },
-        { label: 'FAQ', link: '/faq/' },
         {
           label: 'Patterns',
           collapsed: false,
@@ -60,6 +59,7 @@ export default defineConfig({
             { label: 'Tool Integration', slug: 'stack/tool-integration' },
           ],
         },
+        { label: 'FAQ', link: '/faq/' },
         {
           label: 'Reference',
           collapsed: true,
