@@ -7,16 +7,20 @@ hero:
   image:
     file: ../../assets/shrine-hero.png
   actions:
-    - text: Patterns
+    - text: Start with Principles
+      link: /SHRINE/principles/
+      icon: right-arrow
+    - text: Browse Patterns
       link: /SHRINE/patterns/overview/
       icon: right-arrow
+      variant: secondary
     - text: GitHub
       link: https://github.com/stablekernel/SHRINE
       icon: external
       variant: minimal
 ---
 
-import { Card, CardGrid } from '@astrojs/starlight/components';
+import { LinkCard, CardGrid } from '@astrojs/starlight/components';
 
 ## The Context Window
 
@@ -28,17 +32,37 @@ This is the org's open forum for how we build with AI in a landscape that reinve
 
 Maximize what every token buys us. Get this right and cost takes care of itself.
 
+## Find Your Way
+
 <CardGrid stagger>
-  <Card title="Principles" icon="rocket">
-    TTV, staying current, knowing when to re-evaluate.
-  </Card>
-  <Card title="Patterns" icon="puzzle">
-    Adversarial review, multi-model consensus, subagent fanout.
-  </Card>
-  <Card title="Stack" icon="setting">
-    Harness, models, skills, memory, agents.
-  </Card>
-  <Card title="Disagreement Welcome" icon="open-book">
-    Nobody sees the whole board alone. Bring scrutiny here.
-  </Card>
+  <LinkCard
+    title="Principles"
+    href="/SHRINE/principles/"
+    description="TTV, staying current, knowing when to re-evaluate. Start here."
+  />
+  <LinkCard
+    title="Patterns"
+    href="/SHRINE/patterns/overview/"
+    description="Adversarial review, multi-model consensus, subagent fanout, and more."
+  />
+  <LinkCard
+    title="Stack"
+    href="/SHRINE/stack/harness/"
+    description="Harness, models, skills, memory, agents. What we run and why."
+  />
+  <LinkCard
+    title="FAQ"
+    href="/SHRINE/faq/"
+    description="Common questions, answered. A good first stop for newcomers."
+  />
+  <LinkCard
+    title="Reference"
+    href="/SHRINE/reference/glossary/"
+    description="Glossary and governance. The shared vocabulary behind the rest."
+  />
+  <LinkCard
+    title="Disagreement Welcome"
+    href="https://github.com/stablekernel/SHRINE/discussions"
+    description="Nobody sees the whole board alone. Bring scrutiny, open a discussion."
+  />
 </CardGrid>
