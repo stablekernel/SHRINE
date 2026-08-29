@@ -22,6 +22,7 @@ export default defineConfig({
       sidebar: [
         { label: 'Home', link: '/' },
         { label: 'Principles', link: '/principles/' },
+        { label: 'FAQ', link: '/faq/' },
         {
           label: 'Patterns',
           collapsed: false,
