@@ -24,10 +24,10 @@ Turning one-off prompting wins into reusable assets: skills (packaged workflows 
 
 ## Prompt Craft That Transfers
 
-- Show, don't describe: [Few-Shot Examples](/patterns/few-shot-examples/) outperform abstract instructions
-- Constrain the output shape: [Structured Output](/patterns/structured-output/) makes results machine-checkable
-- Make reasoning visible when the task is judgment-heavy ([Chain of Thought](/patterns/chain-of-thought/))
-- Build in a second pass: [Self-Critique](/patterns/self-critique/) catches what the first draft missed
+- Show, don't describe: [Few-Shot Examples](/SHRINE/patterns/few-shot-examples/) outperform abstract instructions
+- Constrain the output shape: [Structured Output](/SHRINE/patterns/structured-output/) makes results machine-checkable
+- Make reasoning visible when the task is judgment-heavy ([Chain of Thought](/SHRINE/patterns/chain-of-thought/))
+- Build in a second pass: [Self-Critique](/SHRINE/patterns/self-critique/) catches what the first draft missed
 
 ## Key Considerations
 

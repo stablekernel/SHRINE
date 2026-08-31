@@ -27,7 +27,7 @@ Two related budgets: the context window within a session (what the model can see
 - **What to persist**: methods and corrections, not facts you can re-derive from the code
 - **Capture at correction time**: the moment you learn something the hard way is the moment to write it down
 - **Curate**: stale memory is worse than none; a memory that contradicts current code gets trusted anyway
-- **Retrieval matters as much as storage**: memory nobody surfaces is memory nobody has ([RAG](/patterns/rag/))
+- **Retrieval matters as much as storage**: memory nobody surfaces is memory nobody has ([RAG](/SHRINE/patterns/rag/))
 
 ## Key Considerations
 

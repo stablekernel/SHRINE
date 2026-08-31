@@ -8,6 +8,7 @@ export default defineConfig({
   integrations: [
     starlight({
       title: 'SHRINE',
+      favicon: '/favicon.png',
       tagline: 'Stable-Kernel Hosted Reasoning & Inference Network Environment',
       description: 'LLM governance and tooling strategy for the org.',
       logo: {

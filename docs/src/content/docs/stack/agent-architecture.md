@@ -18,10 +18,10 @@ How multi-agent work gets structured: decomposing a goal into agent-sized tasks,
 
 ## Orchestration Topologies
 
-- **Fanout**: independent subtasks run in parallel, results merged ([Subagent Fanout](/patterns/subagent-fanout/))
-- **Pipeline**: staged handoffs where each stage's output is the next stage's input ([Pipeline Orchestration](/patterns/pipeline-orchestration/))
-- **Adversarial**: one agent produces, another attacks the result ([Adversarial Review](/patterns/adversarial-review/))
-- **Consensus**: several models answer independently, a judge reconciles ([Multi-Model Consensus](/patterns/multi-model-consensus/))
+- **Fanout**: independent subtasks run in parallel, results merged ([Subagent Fanout](/SHRINE/patterns/subagent-fanout/))
+- **Pipeline**: staged handoffs where each stage's output is the next stage's input ([Pipeline Orchestration](/SHRINE/patterns/pipeline-orchestration/))
+- **Adversarial**: one agent produces, another attacks the result ([Adversarial Review](/SHRINE/patterns/adversarial-review/))
+- **Consensus**: several models answer independently, a judge reconciles ([Multi-Model Consensus](/SHRINE/patterns/multi-model-consensus/))
 
 ## Key Considerations
 
@@ -33,7 +33,7 @@ How multi-agent work gets structured: decomposing a goal into agent-sized tasks,
 ### Trust and Validation
 - An agent's report is a claim, not evidence: verify the artifact, not the summary
 - Fabrication happens; validation at the seam is what keeps it out of deliverables
-- Use [Verification Loops](/patterns/verification-loops/) at every handoff that feeds a downstream action
+- Use [Verification Loops](/SHRINE/patterns/verification-loops/) at every handoff that feeds a downstream action
 
 ### Recovery
 - What happens when an agent times out, drifts from its brief, or returns garbage?
