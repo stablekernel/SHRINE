@@ -34,7 +34,6 @@ export default defineConfig({
             { label: 'Discovery Propagation', slug: 'patterns/discovery-propagation' },
             { label: 'Dogfooding', slug: 'patterns/dogfooding' },
             { label: 'Few-Shot Examples', slug: 'patterns/few-shot-examples' },
-            { label: 'Graceful Degradation', slug: 'patterns/graceful-degradation' },
             { label: 'Iterative Refinement', slug: 'patterns/iterative-refinement' },
             { label: 'Mechanical Scaffolding', slug: 'patterns/mechanical-scaffolding' },
             { label: 'Multi-Model Consensus', slug: 'patterns/multi-model-consensus' },

@@ -35,7 +35,6 @@ How to gain confidence in output.
 
 How to structure complex work.
 
-- [Graceful Degradation](/SHRINE/patterns/graceful-degradation/): Define fallback behavior when LLM calls fail
 - [Iterative Refinement](/SHRINE/patterns/iterative-refinement/): Improve output through successive passes
 - [Mechanical Scaffolding](/SHRINE/patterns/mechanical-scaffolding/): Build repeatable structure once, fill with context each time
 - [Pipeline Orchestration](/SHRINE/patterns/pipeline-orchestration/): Chain sequential stages
