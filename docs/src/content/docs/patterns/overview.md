@@ -35,10 +35,14 @@ How to gain confidence in output.
 
 How to structure complex work.
 
+- [Graceful Degradation](/SHRINE/patterns/graceful-degradation/): Define fallback behavior when LLM calls fail
+- [Human-in-the-Loop](/SHRINE/patterns/human-in-the-loop/): Insert human checkpoints where AI judgment is insufficient
 - [Iterative Refinement](/SHRINE/patterns/iterative-refinement/): Improve output through successive passes
+- [Mechanical Scaffolding](/SHRINE/patterns/mechanical-scaffolding/): Build repeatable structure once, fill with context each time
 - [Pipeline Orchestration](/SHRINE/patterns/pipeline-orchestration/): Chain sequential stages
 - [RAG](/SHRINE/patterns/rag/): Ground responses in retrieved context
 - [Subagent Fanout](/SHRINE/patterns/subagent-fanout/): Fan work out to parallel agents
+- [Task Routing](/SHRINE/patterns/task-routing/): Match each task to the right model for cost and capability
 
 ## Evolution Patterns
 
@@ -46,3 +50,4 @@ How systems improve through use.
 
 - [Discovery Propagation](/SHRINE/patterns/discovery-propagation/): Feed improvements back to the system
 - [Dogfooding](/SHRINE/patterns/dogfooding/): Validate by using your own output
+- [Prompt Regression Testing](/SHRINE/patterns/prompt-regression/): Detect when prompt changes break existing behavior
