@@ -68,3 +68,4 @@ Then route based on classification.
 
 - [Subagent Fanout](/SHRINE/patterns/subagent-fanout/): fanout tasks often route to cheaper models
 - [Pipeline Orchestration](/SHRINE/patterns/pipeline-orchestration/): different stages may use different models
+- [Step-Level Routing](/SHRINE/patterns/step-level-routing/): route each step inside a task, not just the task

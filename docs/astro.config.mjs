@@ -22,7 +22,23 @@ export default defineConfig({
       ],
       sidebar: [
         { label: 'Home', link: '/' },
-        { label: 'Principles', link: '/principles/' },
+        {
+          label: 'Principles',
+          collapsed: false,
+          // MAINTAINER: Order is deliberate, not alphabetical (Overview, North Star, then who decides,
+          // where humans judge, how we engage, how we shape code, how systems fail, how we trust output, how we evolve)
+          items: [
+            { label: 'Overview', slug: 'principles' },
+            { label: 'North Star: TTV', slug: 'principles/tokens-to-value' },
+            { label: 'Authority Cascade', slug: 'principles/authority-cascade' },
+            { label: 'Human in the Loop', slug: 'principles/human-in-the-loop' },
+            { label: 'Problem Before Prescription', slug: 'principles/problem-before-prescription' },
+            { label: 'Consistency as Leverage', slug: 'principles/consistency-as-leverage' },
+            { label: 'Fail Fast, Recover Smart', slug: 'principles/fail-fast-recover-smart' },
+            { label: 'Reproducibility', slug: 'principles/reproducibility' },
+            { label: 'Deliberate Currency', slug: 'principles/deliberate-currency' },
+          ],
+        },
         {
           label: 'Patterns',
           collapsed: false,
@@ -41,6 +57,7 @@ export default defineConfig({
             { label: 'Prompt Regression Testing', slug: 'patterns/prompt-regression' },
             { label: 'RAG', slug: 'patterns/rag' },
             { label: 'Self-Critique', slug: 'patterns/self-critique' },
+            { label: 'Step-Level Routing', slug: 'patterns/step-level-routing' },
             { label: 'Structured Output', slug: 'patterns/structured-output' },
             { label: 'Subagent Fanout', slug: 'patterns/subagent-fanout' },
             { label: 'Task Routing', slug: 'patterns/task-routing' },
@@ -59,6 +76,7 @@ export default defineConfig({
             { label: 'Memory & Context', slug: 'stack/memory' },
             { label: 'Model Selection', slug: 'stack/models' },
             { label: 'Observability & Logging', slug: 'stack/observability' },
+            { label: 'Repository Context', slug: 'stack/repository-context' },
             { label: 'Skills & Prompts', slug: 'stack/skills' },
             { label: 'Tool Integration', slug: 'stack/tool-integration' },
           ],
