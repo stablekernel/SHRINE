@@ -39,6 +39,7 @@ How to structure complex work.
 - [Mechanical Scaffolding](/SHRINE/patterns/mechanical-scaffolding/): Build repeatable structure once, fill with context each time
 - [Pipeline Orchestration](/SHRINE/patterns/pipeline-orchestration/): Chain sequential stages
 - [RAG](/SHRINE/patterns/rag/): Ground responses in retrieved context
+- [Step-Level Routing](/SHRINE/patterns/step-level-routing/): Route each step to a model tier and reasoning effort
 - [Subagent Fanout](/SHRINE/patterns/subagent-fanout/): Fan work out to parallel agents
 - [Task Routing](/SHRINE/patterns/task-routing/): Match each task to the right model for cost and capability
 

@@ -29,6 +29,10 @@ A majority of current keepers. Required to override a standing objection during 
 
 The final step of the proposal lifecycle: after two keeper endorsements and the objection window, the draft PR merges and the content becomes part of SHRINE. See [Governance](/SHRINE/reference/governance/).
 
+## Repository Context
+
+Indexed knowledge of a codebase (symbols, references, code graph) exposed to agents. Distinct from memory. See [Repository Context](/SHRINE/stack/repository-context/).
+
 ## Routing
 
 Selecting which model handles which task based on complexity, cost, and capability requirements.
@@ -45,10 +49,14 @@ Stable-Kernel Hosted Reasoning & Inference Network Environment. The org's open f
 
 Packaged, reusable instructions for accomplishing specific tasks efficiently.
 
+## Step-Level Routing
+
+Choosing model tier and reasoning effort for each step inside an agent trajectory. See [Step-Level Routing](/SHRINE/patterns/step-level-routing/).
+
 ## Subagent
 
 An agent spawned by a primary agent to handle a scoped task, often in parallel with others. Keeps the main context lean and the work isolated.
 
 ## TTV (Tokens to Value)
 
-How much model consumption it takes to produce a successful, useful outcome. The north star metric: maximum value per token, not minimum token usage.
+How much model consumption it takes to produce a successful, useful outcome. The north star metric: maximum value per token, not minimum token usage. See [TTV](/SHRINE/principles/tokens-to-value/).
