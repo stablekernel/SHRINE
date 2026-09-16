@@ -59,4 +59,4 @@ An agent spawned by a primary agent to handle a scoped task, often in parallel w
 
 ## TTV (Tokens to Value)
 
-How much model consumption it takes to produce a successful, useful outcome. The north star metric: maximum value per token, not minimum token usage. See [TTV](/SHRINE/principles/tokens-to-value/).
+How much a successful, useful outcome costs, tokens plus human attention (engineer minutes steering, reviewing, babysitting). The north star metric: maximum value per unit of cost, not minimum token usage. See [TTV](/SHRINE/principles/tokens-to-value/).

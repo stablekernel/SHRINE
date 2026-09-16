@@ -9,7 +9,7 @@ Principles are commitments that decide tradeoffs. They are tool-agnostic, and de
 
 ## North Star
 
-- [TTV: Tokens to Value](/SHRINE/principles/tokens-to-value/): maximize what every token buys, per successful outcome
+- [TTV: Tokens to Value](/SHRINE/principles/tokens-to-value/): maximize what every win costs, tokens plus human attention, per successful outcome
 
 ## Principles
 
