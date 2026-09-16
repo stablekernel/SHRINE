@@ -30,13 +30,6 @@ description: "Indexed codebase knowledge exposed to agents."
 
 *Document your org's evaluated tools here.*
 
-| Tool | Approach | Notes |
-|------|----------|-------|
-| [Serena](https://github.com/oraios/serena) | Symbolic MCP tools, LSP-backed | Semantic retrieval and editing |
-| [codebase-memory-mcp](https://github.com/DeusData/codebase-memory-mcp) | Code knowledge graph over MCP | Persistent index, many languages |
-| [Graft](https://github.com/trailhq/Graft) | Code knowledge graph, MCP + CLI | Local regenerable cache, not committed; rebuilds against the working tree each query |
-| [Aider repo map](https://aider.chat/docs/repomap.html) | Repo map | Built into Aider; graph-ranked to a token budget |
-
 ## Key Considerations
 
 - How does the index refresh after edits, and can the agent detect staleness?
