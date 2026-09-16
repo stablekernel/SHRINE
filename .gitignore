@@ -3,3 +3,4 @@ docs/dist/
 docs/.astro/
 .DS_Store
 .worktrees/
+node-compile-cache/
