@@ -7,64 +7,90 @@ description: Frequently asked questions about SHRINE participation and governanc
 
 ### Where should I start a discussion? Is Slack okay?
 
-Anywhere, including a conversation between you and your agent. Slack is fine for early, informal ideas. Once an idea feels adoptable, move it to a proposal. Generally, GitHub Discussions is encouraged to organize long-running thoughts so they do not get lost.
+- Anywhere, including a conversation between you and your agent
+- Slack is fine for early, informal ideas
+- Once an idea feels adoptable, move it to a proposal
+- Prefer GitHub Discussions for long-running threads, so they do not get lost
 
-### Do I need to use every tool in the stack?
+### Do I need to fill every stack slot?
 
-No. The stack documents what has proven effective, not what is mandatory. Start with whatever solves your immediate problem.
+- No
+- Each slot describes a capability that has proven useful, not a mandatory checklist
+- Fill the slots your immediate problem needs, using each slot's selection criteria
 
 ### What's the relationship between SHRINE and my team's practices?
 
-SHRINE is a floor, not a ceiling. The patterns here are a shared baseline; teams are free to extend, adapt, or add to them.
+- SHRINE is a floor, not a ceiling
+- The patterns here are a shared baseline
+- Teams are free to extend, adapt, or add to them
 
 ## Proposals & Adoption
 
 ### What's the difference between a discussion and a proposal?
 
-A discussion explores an idea; a proposal asks the community to adopt it. Discussions can lead to proposals, but they do not have to. Not everything needs to become doctrine.
+- A discussion explores an idea
+- A proposal asks the community to adopt it
+- Discussions can lead to proposals, but do not have to
+- Not everything needs to become doctrine
 
 ### How does something become an official pattern or principle?
 
-Open a proposal in the GitHub forum. If the community supports it and no blocking concerns surface during discussion, a keeper merges it. Obvious wins move fast; controversial items get more time.
+- Open a proposal in [GitHub Discussions](https://github.com/stablekernel/SHRINE/discussions/categories/proposals)
+- It follows the [governance lifecycle](/SHRINE/reference/governance/): refine, draft PR, two keeper endorsements, objection window, ratify
+- Obvious wins move fast; controversial items get more time
 
 ### What's the difference between a Principle, a Pattern, and Stack?
 
 - **Principle**: a commitment that decides tradeoffs; tool-agnostic; no "when not to use"
 - **Pattern**: a technique with context, and a legitimate "when to use / when not to use"
-- **Stack**: a replaceable concrete choice filling a named slot
+- **Stack**: an abstract capability slot: what the capability must do, how to select for it, and anti-patterns; not a product list
 
 Quick tests:
 
-- Names a product? Stack.
+- Describes a capability the work needs, whatever fills it? Stack.
 - Has a legitimate "when not to use"? Pattern.
 - Violating it needs a recorded exception? Principle.
 
+Patterns may name products as brief examples. Stack slot definitions and selection criteria stay product-agnostic.
+
 ### Can I propose changes to existing patterns?
 
-Yes. Open a PR with your changes and the rationale behind them. Patterns are living documents, not stone tablets.
+- Yes
+- Open a Discussion referencing the page, then a PR with the change and its rationale ([Amendments](/SHRINE/reference/governance/#amendments))
+- Patterns are living documents, not stone tablets
 
-### How do I suggest a new tool for the stack?
+### How do I propose a change to the stack?
 
-Use it first. If it proves valuable in practice, write up what you learned and propose it. Adoption is based on demonstrated value, not theoretical promise.
+- Propose a change to a slot's definition or selection criteria
+- Back it with demonstrated use: what you tried, what the capability needed, what you learned
+- Adoption rests on demonstrated value, not theoretical promise
 
 ## Governance
 
 ### What if I disagree with a decision?
 
-Start a new discussion challenging it, referencing the original. Decisions reflect current best judgment; better information changes them.
+- Start a new discussion challenging it, referencing the original
+- Decisions reflect current best judgment; better information changes them
 
 ### How do we deprecate a pattern or principle?
 
-Anyone can raise a pattern or principle for deprecation, and the community weighs in. A regular review cadence for existing principles, patterns, and tooling may be proposed in the future.
+- Anyone can raise a pattern or principle for deprecation through a Discussion
+- The community weighs in, and the governance lifecycle applies
+- A stale `last-reviewed` date is one signal to raise it
 
 ### How do we handle vendor lock-in concerns?
 
-Evaluated individually. Weigh each tool's value against its maintenance overhead, coupling, and exit costs.
+- Case by case
+- Weigh each tool's value against its maintenance overhead, coupling, and exit costs
 
 ### How do we balance innovation with stability?
 
-Fail fast on new concepts. Tread carefully around well-refined, proven ones.
+- Fail fast on new concepts
+- Tread carefully around well-refined, proven ones
 
 ### How do I become a keeper of the SHRINE?
 
-Participate. Make your presence felt and your ideas heard. The pool of keepers stays proportionate to the community: enough that no one bringing an idea to the table gets ignored, but not so many that guardianship loses its meaning. Be the embodiment; assume the role without being asked.
+- Participate: make your presence felt and your ideas heard
+- The keeper pool stays proportionate to the community
+- Enough keepers that no idea gets ignored; few enough that guardianship keeps its meaning
+- Act like a keeper before anyone asks you to
