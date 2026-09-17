@@ -7,33 +7,85 @@ description: "Using a second model or agent to challenge and verify output."
 
 ## The Pattern
 
-After generating output, pass it to a separate agent with explicit instructions to:
-- Find flaws, gaps, or unstated assumptions
-- Challenge claims that lack evidence
-- Identify edge cases the original missed
+- After generation, a separate agent reviews the output
+- Its job is to break the output, not to help it
+- It looks for flaws, gaps, unstated assumptions, missed edge cases, and claims without evidence
 
-The adversarial reviewer is not trying to be helpful to the original output. It's trying to break it.
+## Reviewer Inputs
+
+- **Give**: the output, plus the spec or acceptance criteria
+- **Withhold**: the generator's reasoning and chat history
+- Requirements let it judge correctness; withholding reasoning keeps it from inheriting the generator's framing
+
+## Why a Separate, Skeptical Reviewer
+
+- LLM evaluators can score their own outputs higher than equal-quality outputs from others ([Panickssery et al.](https://arxiv.org/abs/2404.13076))
+- LLM judges show self-enhancement, position, and verbosity biases ([Zheng et al.](https://arxiv.org/abs/2306.05685))
+- Agents asked to grade their own work tend to praise it, even when quality is mediocre ([Anthropic, harness design](https://www.anthropic.com/engineering/harness-design-long-running-apps))
+- Tuning a standalone evaluator to be skeptical was more tractable than making the generator self-critical (same source)
+
+## How to Run It
+
+- Agree what "done" means per chunk before any code is written
+- Grade against a rubric with a hard threshold per criterion
+- Any criterion below threshold fails the chunk, with specific feedback
+- Exercise the running system where possible, not only the diff
+- Source for all four: the generator/evaluator harness in [Anthropic, harness design](https://www.anthropic.com/engineering/harness-design-long-running-apps)
+
+## Cost
+
+- In that harness, on one app prompt, the full run took 6 hours and $200; a single agent took 20 minutes and $9 ([Anthropic, harness design](https://www.anthropic.com/engineering/harness-design-long-running-apps))
+- The author reported the quality gap was immediately apparent; one prompt, not a benchmark
+- Decide by task value: review where being wrong costs more than the review
 
 ## When to Use
 
-- High-stakes decisions where being wrong is expensive
-- Output that will be trusted without human review
-- Claims that sound plausible but haven't been verified
-- Any "are we sure?" moment
+- High-stakes output where a mistake is expensive
+- Output trusted without further human review
+- Plausible claims nobody has verified
+- Subjective quality that a rubric can make gradable
 
-## Implementation Notes
+## When Not to Use
 
-- The reviewer should NOT see the original prompt or reasoning, only the output
-- Explicitly instruct it to default to skepticism
-- A finding that survives adversarial review is stronger than one that was never challenged
+- Low-stakes output
+- Cheap deterministic checks already cover the risk ([Verification Loops](/SHRINE/patterns/verification-loops/))
+- Nobody will act on the findings
+
+## Worked Example
+
+Prompt to the reviewer:
+
+```
+You are reviewing a pull request. Default to skepticism.
+Inputs: the diff, and the ticket's acceptance criteria.
+For each finding give: severity (high/medium/low), file:line,
+the failure scenario (input -> wrong result), and a check
+that would prove it. Do not report style preferences.
+If you find nothing, say "no findings".
+```
+
+Output:
+
+```
+1. high  api/refund.py:42  refund > original charge is accepted
+   verify: POST /refund amount=150 on a 100 charge -> expect 400
+2. low   api/refund.py:77  log line omits refund id
+   verify: grep log after refund -> id missing
+```
+
+- Each finding is then verified: run the check
+- Finding 1 reproduces and blocks merge; finding 2 goes to the backlog
 
 ## Anti-patterns
 
-- Using the same model instance for both generation and review (context bleeds)
-- Instructing the reviewer to "check if this looks good" (too soft)
-- Ignoring findings because they're inconvenient
+- The same agent and context generating and reviewing
+- A soft brief: "check if this looks good"
+- The reviewer invents findings to look useful; require a verify step per finding
+- Findings never triaged, or ignored because they are inconvenient
 
-## Related Patterns
+## Related
 
-- [Multi-Model Consensus](/SHRINE/patterns/multi-model-consensus/): Multiple independent attempts, then compare
-- [Iterative Refinement](/SHRINE/patterns/iterative-refinement/): Improve based on feedback loops
+- [Self-Critique](/SHRINE/patterns/self-critique/): the cheaper, weaker in-context version
+- [Verification Loops](/SHRINE/patterns/verification-loops/): review findings feed the next repair
+- [Human in the Loop](/SHRINE/principles/human-in-the-loop/): who triages what the reviewer finds
+- [Checkpoint Gates](/SHRINE/patterns/checkpoint-gates/): place review at the gate

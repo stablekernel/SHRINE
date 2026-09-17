@@ -1,45 +1,80 @@
 ---
 title: "Subagent Fanout"
-description: "Decomposing work across parallel agents for speed and specialization."
+description: "Split independent work across subagents that read widely and return compact results."
 ---
 
-*One coordinator, many workers, each focused on a slice.*
+*One coordinator, many workers, each with a clean context and a narrow brief.*
 
 ## The Pattern
 
-Break a large task into independent subtasks, dispatch each to a separate agent, then synthesize results. The coordinator:
-- Defines the decomposition
-- Dispatches work in parallel
-- Collects and synthesizes results
-- Handles failures or gaps
+- A coordinator splits a task into independent slices
+- Each subagent gets one slice, its own context window, and a return contract
+- Subagents return summaries or structured results, not their raw reading
+- The coordinator checks coverage, merges, and decides what happens next
+
+## Why It Works
+
+- **Context isolation is the main win for coding**: subagents read many files in their own windows and report back summaries, keeping the main thread clean ([Claude Code best practices](https://code.claude.com/docs/en/best-practices))
+- **Compression**: subagents explore in parallel, then pass only the most important tokens to the lead agent ([Anthropic, multi-agent research system](https://www.anthropic.com/engineering/multi-agent-research-system))
+- **Fresh eyes**: a reviewer subagent sees the diff and the criteria, not the reasoning that produced the change ([Claude Code best practices](https://code.claude.com/docs/en/best-practices))
+
+## The Cost
+
+- Fanout multiplies tokens
+- Anthropic reports agents use about 4x the tokens of chat, and multi-agent systems about 15x ([source](https://www.anthropic.com/engineering/multi-agent-research-system))
+- The same post finds multi-agent systems pay off only when the task value covers that spend
+- Judge fanout by [Tokens to Value](/SHRINE/principles/tokens-to-value/): cost per verified outcome, including the human attention spent reconciling results
 
 ## When to Use
 
-- Tasks that naturally decompose (review each file, process each item)
-- Work where parallelism reduces wall-clock time
-- Problems benefiting from specialization (different agents for different domains)
-- Large context that won't fit in a single call
+- Parallel, independent strands: review each file, audit each service, research each question
+- Reading that would flood the main context
+- Post-implementation verification in a fresh context ([Adversarial Review](/SHRINE/patterns/adversarial-review/))
+- Wall-clock time matters and slices do not wait on each other
 
-## Implementation Notes
+## When Not to Use
 
-- Subtasks must be truly independent (no shared state mid-execution)
-- Define clear contracts: what each agent receives, what it returns
-- Plan for partial failure: some agents may fail while others succeed
-- The coordinator should verify coverage, not just collect outputs
+- **Dependent subtasks**: B needs A's output; use [Pipeline Orchestration](/SHRINE/patterns/pipeline-orchestration/)
+- **Tightly coupled coding**: Anthropic notes most coding tasks have fewer truly parallel parts than research ([source](https://www.anthropic.com/engineering/multi-agent-research-system))
+- **Shared implicit decisions**: subagents that cannot see each other make conflicting assumptions, and the merge inherits the conflict ([Cognition, Don't Build Multi-Agents](https://cognition.com/blog/dont-build-multi-agents))
+- **Briefing costs more than doing**: a two-file change is faster inline
+- **Shared mutable state**: agents editing the same branch or files
 
-## Coordination Overhead
+## Contracts
 
-Fanout adds orchestration complexity. Worth it when:
-- The work is embarrassingly parallel
-- Single-threaded execution would be too slow
-- Specialization improves quality (domain experts vs. generalists)
+- **One complete brief**: objective, scope boundaries, tools and sources, output format; vague briefs cause duplicated work and gaps ([Anthropic](https://www.anthropic.com/engineering/multi-agent-research-system))
+- **Return format**: schema the coordinator can merge without rereading ([Structured Output](/SHRINE/patterns/structured-output/))
+- **Evidence**: every finding cites a file path and line, so claims are checkable
+- **Coverage check**: coordinator compares returned slices against the dispatched list
 
-## Anti-patterns
+## Worked Example
 
-- Fanning out tasks that have dependencies (agent B needs agent A's output)
-- Coordinator doing too much synthesis (becomes a bottleneck)
-- No fallback when an agent fails
+Review 12 changed files for correctness.
 
-## Related Patterns
+1. Coordinator lists the 12 paths and splits them into 4 groups of 3
+2. Each subagent brief holds: the diff for its 3 files, the review criteria, and the return schema
+3. Return schema per finding:
+   ```json
+   {"file": "src/billing/invoice.ts", "line": 88,
+    "severity": "high", "claim": "Rounding drops cents on refunds",
+    "evidence": "Math.floor on negative totals"}
+   ```
+4. Each subagent also returns `files_reviewed: [...]`
+5. Coordinator checks the union of `files_reviewed` equals the 12 paths; one group missed a file, so it re-dispatches that file alone
+6. Coordinator dedups findings by file, line, and claim
+7. Coordinator opens only the cited lines for high-severity findings before reporting
 
-- [Pipeline Orchestration](/SHRINE/patterns/pipeline-orchestration/): Sequential stages instead of parallel
+## Pitfalls
+
+- **Trusting summaries over artifacts**: a subagent says "tests pass"; check the exit code or the file
+- **Agents sharing a branch**: parallel edits collide; give each writer its own worktree or keep writers to one
+- **Coordinator re-reads everything**: this cancels the context win; spot-check cited evidence instead
+- **No partial-failure plan**: one failed slice should re-run alone, not restart the fanout
+- **Fanout by habit**: spawning agents for work one thread would finish sooner
+
+## Related
+
+- [Pipeline Orchestration](/SHRINE/patterns/pipeline-orchestration/): sequential stages for dependent work
+- [Task Routing](/SHRINE/patterns/task-routing/): fanout workers often run on a smaller tier
+- [Step-Level Routing](/SHRINE/patterns/step-level-routing/): lighter models for search and read steps
+- [Agent Architecture](/SHRINE/stack/agent-architecture/): where coordinators and workers live
