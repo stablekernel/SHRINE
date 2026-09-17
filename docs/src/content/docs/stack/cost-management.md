@@ -53,8 +53,8 @@ description: "Track cost per accepted win: tokens plus human attention."
 ## Worked Example
 
 - **Documented case**: one prompt run solo and through a planner, generator, and evaluator harness ([Anthropic](https://www.anthropic.com/engineering/harness-design-long-running-apps))
-  - Solo: 20 minutes, $9; the core feature did not work
-  - Full harness: 6 hours, $200; the core feature worked
+  - Solo: 20 minutes; the core feature did not work
+  - Full harness: 6 hours; the core feature worked
   - The cheaper run was not the cheaper win; a broken result is all waste
 - **Illustrative comparison** (hypothetical numbers, same task):
   - Fast-tier loop: 3 attempts, 40k tokens, 25 human minutes to review and fix
