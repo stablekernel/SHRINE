@@ -1,6 +1,6 @@
 ---
 title: "Cost Management"
-description: "Track and budget cost per accepted win: tokens plus human attention."
+description: "Track cost per accepted win: tokens plus human attention."
 ---
 
 *The cost of a win is tokens plus the human minutes it took.*
@@ -21,13 +21,11 @@ description: "Track and budget cost per accepted win: tokens plus human attentio
 - Put tokens from failed or abandoned runs in a waste bucket, and drive it down
 - Report tokens per win and minutes per win side by side ([Observability](/SHRINE/stack/observability/))
 
-## Budgets
+## Limits
 
-- **Per-task cap**: token ceiling for one operation
-- **Per-session cap**: ceiling for one agent run or conversation
 - **Retry cap**: a fixed number of attempts before escalation
-- **Alert thresholds**: warn at a share of budget, before the cap
-- **Breach behavior**: stop, save state, and report; never retry silently past the cap ([Fail Fast, Recover Smart](/SHRINE/principles/fail-fast-recover-smart/))
+- **Time limit**: a wall-clock cap on one agent run ([Unattended Runs](/SHRINE/patterns/unattended-runs/))
+- **Breach behavior**: stop, save state, and report; never retry silently past a limit ([Fail Fast, Recover Smart](/SHRINE/principles/fail-fast-recover-smart/))
 - Exempt critical paths explicitly, with a named owner
 
 ## Cost Levers
@@ -75,4 +73,4 @@ description: "Track and budget cost per accepted win: tokens plus human attentio
 ## Related
 
 - [Evaluation & Benchmarking](/SHRINE/stack/evaluation/): pass rates that define a win
-- [Model Selection & Routing](/SHRINE/stack/models/): gateway budgets and tiers
+- [Model Selection & Routing](/SHRINE/stack/models/): gateway limits and tiers

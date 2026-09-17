@@ -21,7 +21,7 @@ description: "Agree a written spec and reviewed plan before an agent executes."
 - **Out of scope**: work the agent must not start
 - **Human checkpoints**: actions that stop for a decision ([Checkpoint Gates](/SHRINE/patterns/checkpoint-gates/))
 - **Abort criteria**: conditions that end the run early with a report
-- **Stop condition**: all criteria pass, or a time or budget cap is hit
+- **Stop condition**: all criteria pass, or a time limit is reached
 
 ## Plan Review Gate
 

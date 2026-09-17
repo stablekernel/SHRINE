@@ -47,7 +47,7 @@ description: "Choosing the right model for the right task, and the policy and ga
 ## Gateway Responsibilities
 
 - **Central policy**: one place to change defaults and fallbacks for every harness
-- **Budgets**: per-task and per-team caps enforced before the call ([Cost Management](/SHRINE/stack/cost-management/))
+- **Limits**: per-task and per-team caps enforced before the call ([Cost Management](/SHRINE/stack/cost-management/))
 - **Fallbacks**: automatic failover along the configured chain
 - **Logging**: model, version, and reasoning effort recorded on every call ([Observability](/SHRINE/stack/observability/))
 

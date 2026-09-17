@@ -34,7 +34,7 @@ description: "Using a second model or agent to challenge and verify output."
 
 ## Cost
 
-- In that harness, on one app prompt, the full run took 6 hours and $200; a single agent took 20 minutes and $9 ([Anthropic, harness design](https://www.anthropic.com/engineering/harness-design-long-running-apps))
+- In that harness, on one app prompt, the full run took 6 hours; a single agent took 20 minutes ([Anthropic, harness design](https://www.anthropic.com/engineering/harness-design-long-running-apps))
 - The author reported the quality gap was immediately apparent; one prompt, not a benchmark
 - Decide by task value: review where being wrong costs more than the review
 

@@ -87,4 +87,4 @@ Value per win, where a win costs tokens plus human attention (engineer minutes s
 
 ## Unattended Run
 
-An agent run that works for hours without a human watching each step, bounded by a budget cap, abort criteria and a stop condition. See [Unattended Runs](/SHRINE/patterns/unattended-runs/).
+An agent run that works for hours without a human watching each step, bounded by a time limit, abort criteria and a stop condition. See [Unattended Runs](/SHRINE/patterns/unattended-runs/).

@@ -16,7 +16,7 @@ description: "Launch an agent to work for hours without a human watching each st
 - **Spec**: problem, constraints, acceptance criteria ([Spec, Then Build](/SHRINE/patterns/spec-then-build/))
 - **Plan**: milestones and progress on a work board or plan file the agent updates
 - **Routing config**: which model handles which work ([Task Routing](/SHRINE/patterns/task-routing/))
-- **Budget cap**: tokens or spend, enforced outside the agent ([Cost Management](/SHRINE/stack/cost-management/))
+- **Time limit**: a wall-clock cap on the run, enforced outside the agent ([Cost Management](/SHRINE/stack/cost-management/))
 - **Abort criteria**: written, specific, countable
 - **Stop condition**: a time limit, or all acceptance criteria pass
 - **Gates**: irreversible actions blocked ([Checkpoint Gates](/SHRINE/patterns/checkpoint-gates/))
@@ -26,7 +26,6 @@ description: "Launch an agent to work for hours without a human watching each st
 - Same check fails N times after distinct fix attempts
 - The model refuses a step
 - The fix needs an edit outside the agreed scope
-- Budget cap reached
 - On abort, report: what failed, what was tried, the suggested next step
 - Never blind-retry bad output ([Fail Fast, Recover Smart](/SHRINE/principles/fail-fast-recover-smart/))
 - Prior art: Anthropic notes agents commonly include [stopping conditions such as a maximum number of iterations](https://www.anthropic.com/engineering/building-effective-agents)
@@ -55,7 +54,7 @@ description: "Launch an agent to work for hours without a human watching each st
 
 **Setup**
 
-- One ticket, 5-hour cap, $40 budget cap
+- One ticket, 5-hour time limit
 
 **Run**
 
@@ -98,4 +97,4 @@ description: "Launch an agent to work for hours without a human watching each st
 - [Checkpoint Gates](/SHRINE/patterns/checkpoint-gates/): gating irreversible actions
 - [Progress Breadcrumbs](/SHRINE/patterns/progress-breadcrumbs/): what the human reads
 - [Context Handoff](/SHRINE/patterns/context-handoff/): surviving context resets
-- [Cost Management](/SHRINE/stack/cost-management/): budget caps
+- [Cost Management](/SHRINE/stack/cost-management/): tracking cost per win

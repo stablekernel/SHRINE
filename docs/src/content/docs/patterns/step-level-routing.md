@@ -59,12 +59,12 @@ Fix a failing date-parsing bug. Tiers are generic labels ([Model Selection](/SHR
 ## Where the Router Lives
 
 - **Harness**: sees step type and tool calls directly ([Harness Selection](/SHRINE/stack/harness/))
-- **Gateway**: central policy, fallbacks, and budgets across harnesses ([Model Selection](/SHRINE/stack/models/))
+- **Gateway**: central policy, fallbacks, and limits across harnesses ([Model Selection](/SHRINE/stack/models/))
 
 ## Costs
 
 - **Cache loss**: cache hits need an identical prompt prefix, and changing thinking or effort settings invalidates cached messages ([Anthropic prompt caching](https://platform.claude.com/docs/en/build-with-claude/prompt-caching))
-- **Cold cache on model switch**: budget as if the new model starts without the cached prefix
+- **Cold cache on model switch**: assume the new model starts without the cached prefix
 - **Misrouting**: a cheap model fails and the retry costs more than routing saved
 - **Context transfer**: handoff between models resends or re-summarizes context
 

@@ -104,7 +104,7 @@ Verify: make test && make migrate-check
 
 ## Related
 
-- [Memory & Context Management](/SHRINE/stack/memory/): the budget this pattern protects
+- [Memory & Context Management](/SHRINE/stack/memory/): the context window this pattern protects
 - [Progress Breadcrumbs](/SHRINE/patterns/progress-breadcrumbs/): the durable trail the handoff can point to
 - [Spec Then Build](/SHRINE/patterns/spec-then-build/): the spec is the stable goal every handoff links
 - [Step-Level Routing](/SHRINE/patterns/step-level-routing/): switching models has a context transfer cost

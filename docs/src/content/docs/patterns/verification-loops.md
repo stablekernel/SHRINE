@@ -46,7 +46,7 @@ description: "Generate, run a check, and repair until it passes or a stop condit
 
 - Max iterations reached ([Anthropic, building effective agents](https://www.anthropic.com/engineering/building-effective-agents))
 - Same error twice in a row
-- Budget cap hit
+- Time limit hit
 - On stop: report what failed, what was tried, and the current state
 
 ## Implementation
@@ -59,7 +59,7 @@ for attempt in 1..MAX:
   result = run_checks(output)          # deterministic first
   log(attempt, result.summary)
   if result.passed: return output, result.evidence
-  if result.error == last_error or over_budget: break
+  if result.error == last_error or time_limit_exceeded: break
   feedback = result.error               # specific, untruncated
   last_error = result.error
 escalate(failures, attempts, state)

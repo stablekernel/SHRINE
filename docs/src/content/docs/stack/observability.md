@@ -32,7 +32,7 @@ description: "Tracing, debugging, and monitoring your AI stack."
 - Total cost
 - Human interventions and active minutes
 - Retries and their triggers
-- Stop reason (completed, budget hit, error, human stop)
+- Stop reason (completed, time limit hit, error, human stop)
 
 ### Aggregate
 - Success rates over time
