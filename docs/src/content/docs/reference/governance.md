@@ -5,34 +5,28 @@ description: "How principles, patterns, and practices are proposed, refined, and
 
 ## Keepers
 
-- Keepers guide what becomes official
-- They surface direction and hold space for discussion
+Keepers guide what becomes official. They surface direction and hold space for discussion.
 
 ## Anything Can Be Proposed
 
-- **Anything** that shapes how we work with AI is in scope
-- No idea is too small, too unconventional, or too half-formed
-- The categories below are common shapes, not boundaries:
+**Anything.** If it shapes how we work with AI, it's in scope: no idea is too small, too unconventional, or too half-formed. The categories below are common shapes, not boundaries:
 
-- **Principles**: commitments that decide tradeoffs
-- **Patterns**: reusable techniques, with when to use and when not to
-- **Stack**: a capability slot definition or a change to its selection criteria
-- **Governance changes**: amendments to this process
+- **Principles**: Behavioral standards the org commits to
+- **Patterns**: Reusable techniques for working with AI
+- **Stack choices**: Tool, model, or integration recommendations
+- **Governance changes**: Amendments to this process
 
-- Idea doesn't fit one of these? Propose it anyway
-- The Refine step helps raw ideas find their shape
+If your idea doesn't fit neatly into one of these, propose it anyway. The Refine step exists to help raw ideas find their shape.
 
 ## Before You Propose
 
-- Not a checklist you must pass
-- The community explores these together, and the proposal template prompts for them
-- Skim them, then propose anyway
+The questions below aren't a checklist you must pass; they're the questions the community will explore together, and the proposal template prompts you for them. Skim them, then propose anyway.
 
 - What's the cost of keeping this current as tools and practices change?
 - What's the impact of accepting it?
 - Is this already covered elsewhere?
 - Can I demonstrate this with a real example?
-- Does this scale across teams and projects?
+- Does this scale across teams and clients?
 
 ## Proposal Lifecycle
 
@@ -52,7 +46,7 @@ What goes wrong without it? Cite real examples if possible.
 What's the cost of keeping this up to date as tools and practices change?
 
 ## Scope
-Is this already covered elsewhere? Does it scale across teams and projects?
+Is this already covered elsewhere? Does it scale across teams and clients?
 
 ## Open Questions
 What needs refinement before this solidifies?
@@ -111,4 +105,4 @@ Every ratified page carries:
 - `proposal`: link to the original discussion
 - `last-reviewed`: date of most recent keeper review
 
-A stale `last-reviewed` date flags a page for keepers to re-examine.
+Keepers periodically sweep pages whose `last-reviewed` date has gone stale, re-examining whether the guidance still holds.
