@@ -7,7 +7,7 @@ description: "Efficient context usage and persistent memory."
 
 ## What This Covers
 
-Two related budgets: the context window within a session (what the model can see right now), and persistent memory across sessions (what it should not have to rediscover). Managing both is the difference between an agent that compounds knowledge and one that starts cold every time.
+Two related constraints: the context window within a session (what the model can see right now), and persistent memory across sessions (what it should not have to rediscover). Managing both is the difference between an agent that compounds knowledge and one that starts cold every time.
 
 Indexed knowledge of the code itself (symbols, references, code graph) is a separate slot: see [Repository Context](/SHRINE/stack/repository-context/).
 

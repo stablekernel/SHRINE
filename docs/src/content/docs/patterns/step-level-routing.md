@@ -37,14 +37,34 @@ description: "Route each step inside an agent trajectory to a model tier and rea
 - **Prior failure**: escalate after a failed check or retry
 - **Uncertainty**: escalate on low confidence or conflicting signals
 
+## Worked Example
+
+Fix a failing date-parsing bug. Tiers are generic labels ([Model Selection](/SHRINE/stack/models/)).
+
+| # | Step | Tier | Effort | Why |
+|---|------|------|--------|-----|
+| 1 | Search for the parser and its callers | fast | low | Pattern lookup |
+| 2 | Read the parser and failing test | fast | low | Summarize, no judgment |
+| 3 | Plan the fix | capable | high | Root cause needs reasoning |
+| 4 | Edit the parser | balanced | medium | Plan is concrete |
+| 5 | Run tests | none | none | Tool call only |
+| 6 | Edit after test failure (timezone case) | capable | high | Escalate: prior failure |
+| 7 | Run tests | none | none | Pass |
+| 8 | Review the diff against the plan | capable | medium | Judgment on the final change |
+
+- One escalation, at step 6, triggered by the failed check at step 5
+- Steps 1 and 2 hand the planner a summary, not raw files
+- Log tier and effort per row to audit misroutes later
+
 ## Where the Router Lives
 
 - **Harness**: sees step type and tool calls directly ([Harness Selection](/SHRINE/stack/harness/))
-- **Gateway**: central policy, fallbacks, and budgets across harnesses ([Model Selection](/SHRINE/stack/models/))
+- **Gateway**: central policy, fallbacks, and limits across harnesses ([Model Selection](/SHRINE/stack/models/))
 
 ## Costs
 
-- **Cache loss**: prompt cache is per model; switching can lose cache hits
+- **Cache loss**: cache hits need an identical prompt prefix, and changing thinking or effort settings invalidates cached messages ([Anthropic prompt caching](https://platform.claude.com/docs/en/build-with-claude/prompt-caching))
+- **Cold cache on model switch**: assume the new model starts without the cached prefix
 - **Misrouting**: a cheap model fails and the retry costs more than routing saved
 - **Context transfer**: handoff between models resends or re-summarizes context
 
@@ -53,18 +73,24 @@ description: "Route each step inside an agent trajectory to a model tier and rea
 - Measure against [TTV](/SHRINE/principles/tokens-to-value/): cost per successful outcome, not per call
 - Log the model and effort used for each step to find misroutes
 
-## Anti-patterns
+## Pitfalls
 
 - Optimizing per-call price while total cost per outcome rises
 - Switching models every step and paying for cold caches
+- Flipping top-level effort every step; Anthropic advises holding it constant within a cached conversation ([Anthropic effort docs](https://platform.claude.com/docs/en/build-with-claude/effort))
 - Routing on input length instead of step type
+- **Context loss on handoff**: the summary passed to the next model drops the constraint that mattered; see [Context Handoff](/SHRINE/patterns/context-handoff/)
 
 ## Prior Art
 
-- LLM routing: [RouteLLM](https://arxiv.org/abs/2406.18665) learns to route between a strong and a weak model
-- Model cascades: [FrugalGPT](https://arxiv.org/abs/2305.05176) escalates through models until an answer is good enough
+- **LLM routing**: [RouteLLM](https://arxiv.org/abs/2406.18665) learns to route between a strong and a weak model
+- **Model cascades**: [FrugalGPT](https://arxiv.org/abs/2305.05176) escalates through models until an answer is good enough
+- **Strong lead, lighter workers**: Anthropic's research system used a stronger lead model with lighter subagent models and beat the single strong agent on its internal eval ([source](https://www.anthropic.com/engineering/multi-agent-research-system))
+- **Effort as a dial**: Anthropic documents effort as a per-request setting, suggests low effort for simple tasks such as subagents, and recommends adjusting it by task complexity ([source](https://platform.claude.com/docs/en/build-with-claude/effort))
 
 ## Related Patterns
 
 - [Task Routing](/SHRINE/patterns/task-routing/): the coarser, per-task version
 - [Verification Loops](/SHRINE/patterns/verification-loops/): failed checks are an escalation signal
+- [Subagent Fanout](/SHRINE/patterns/subagent-fanout/): read-heavy workers are natural fast-tier steps
+- [Context Handoff](/SHRINE/patterns/context-handoff/): what survives a model switch

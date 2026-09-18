@@ -3,7 +3,7 @@ title: "Patterns"
 description: "Approaches humans apply when guiding agents or crafting skills."
 ---
 
-<!-- MAINTAINER: Categories are ordered by workflow (ask, verify, orchestrate, evolve); keep entries in alphabetical order within each category -->
+<!-- MAINTAINER: Categories are ordered by workflow (ask, verify, plan, orchestrate, evolve); keep entries in alphabetical order within each category -->
 
 Patterns are reusable techniques for getting better results from AI. They're not tools themselves, but ways of structuring prompts, workflows, and interactions.
 
@@ -30,6 +30,16 @@ How to gain confidence in output.
 - [Multi-Model Consensus](/SHRINE/patterns/multi-model-consensus/): Compare independent attempts
 - [Self-Critique](/SHRINE/patterns/self-critique/): Have the model evaluate its own output
 - [Verification Loops](/SHRINE/patterns/verification-loops/): Generate, verify, iterate
+
+## Planning Patterns
+
+How to set up long-running agent work.
+
+- [Checkpoint Gates](/SHRINE/patterns/checkpoint-gates/): Block irreversible actions until a human clears a one-step decision
+- [Context Handoff](/SHRINE/patterns/context-handoff/): Carry a run across compactions and sessions with a written handoff
+- [Progress Breadcrumbs](/SHRINE/patterns/progress-breadcrumbs/): Record progress on a shared work board, not in the chat
+- [Spec, Then Build](/SHRINE/patterns/spec-then-build/): Agree a written spec and reviewed plan before execution
+- [Unattended Runs](/SHRINE/patterns/unattended-runs/): Launch an agent for hours with a stop condition and abort criteria
 
 ## Orchestration Patterns
 

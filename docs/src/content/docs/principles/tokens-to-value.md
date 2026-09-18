@@ -1,25 +1,29 @@
 ---
 title: "North Star: TTV (Tokens to Value)"
-description: "Maximize what every win costs, tokens plus human attention, measured per successful outcome."
+description: "Maximize value per win, where a win costs tokens plus human attention."
 proposal: "https://github.com/stablekernel/SHRINE/discussions/2"
 last-reviewed: 2026-09-16
 ---
 
-*Cost per win, tokens and attention, not tokens per month.*
+*Value per win, not tokens per month.*
 
 ## The North Star
 
-- TTV is the cost, tokens plus human attention, it takes to produce one successful, useful outcome
+- TTV is the value delivered per successful, useful outcome (a win)
+- The cost of a win is tokens plus human attention
+- The goal is driving cost per win down without giving up value
 - It sits above the principles; every principle serves it
 - Get TTV right and cost takes care of itself
 
 ## Why
 
 - Optimizing raw token spend optimizes the exhaust pipe
-- The cost of a win is tokens plus human attention: engineer minutes spent steering, reviewing, babysitting. Attention is often the larger of the two
+- Human attention is part of the cost: engineer minutes spent steering, reviewing, babysitting
+- Our working judgment is that attention is often the larger of the two; measure it rather than assume it
 - Cheap-per-call systems bleed engineer hours in retries, babysitting, and rework
-- 20% more tokens with first-attempt success beats cheaper calls that fail twice
-- Spending somewhat more tokens while cutting an engineer's active involvement sharply is a better TTV. The freed time goes to other work
+- Illustration, not a finding: a run that costs more tokens but succeeds first time can beat a cheaper run that fails twice and needs a human to restart it
+- More tokens that sharply cut an engineer's active involvement lower the cost of a win
+- The freed engineer time goes to other work
 - A shared denominator settles arguments: does this lower the cost of a win?
 
 ## Four Levers
@@ -31,12 +35,31 @@ last-reviewed: 2026-09-16
 
 ## Measuring It
 
-- Define the "win" per workload class (merged PR, resolved ticket, passing eval run). There is no single universal definition, only per-context ones
+- Define the "win" per workload class (merged PR, resolved ticket, passing eval run)
+- No universal win definition exists; each workload class owns its own
 - Tag token usage with an outcome ID
 - Track human attention per win too: human minutes or interventions per outcome
 - Baseline two or three workflows before rolling out broadly
 - Track failed-run tokens in a waste bucket to drive down
 - See [Cost Management](/SHRINE/stack/cost-management/) and [Evaluation](/SHRINE/stack/evaluation/)
+
+## Worked Example
+
+Hypothetical numbers, to show the arithmetic only.
+
+- **Workflow**: dependency-bump PRs; win = PR merged without rework
+- **Before**: 10 runs, 6 wins
+  - Tokens: 1.2M total, of which 0.5M in failed runs (waste bucket)
+  - Tokens per win: 200K
+  - Human time: 90 minutes steering and restarting
+  - Human minutes per win: 15
+- **Change**: add a [Verification Loop](/SHRINE/patterns/verification-loops/) that runs the test suite before opening the PR
+- **After**: 10 runs, 9 wins
+  - Tokens: 1.5M total, of which 0.2M in failed runs
+  - Tokens per win: about 167K
+  - Human time: 27 minutes, mostly review
+  - Human minutes per win: 3
+- **Read**: total tokens rose, yet both halves of cost per win fell. That is a TTV improvement
 
 ## Open Questions
 
