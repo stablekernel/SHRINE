@@ -21,6 +21,9 @@ description: "Stop an agent before irreversible actions and hand the human a dec
 - A permission rule or pre-action hook blocks the call whatever the model decides
 - Example: Claude Code [`PreToolUse` hooks](https://code.claude.com/docs/en/hooks) run before a tool call and can deny it
 - The gate lives in the harness or [tool layer](/SHRINE/stack/tool-integration/), not in the prompt
+- If the gate itself errors, block: a crashed gate must not approve an irreversible action
+- Convenience hooks (formatting, argument rewrites) may let the call through on error; gates may not
+- Only the human can bypass a gate; a gate the agent can disable is not a gate
 
 ## Checkpoint List
 
