@@ -27,32 +27,37 @@ The questions below aren't a checklist you must pass; they're the questions the 
 - Is this already covered elsewhere?
 - Can I demonstrate this with a real example?
 - Does this scale across teams and clients?
+- Would I follow this myself?
+- Is this the right altitude: principle, pattern, or stack?
 
 ## Proposal Lifecycle
 
 ### 1. Propose
 
 - Open a Discussion in the "Proposals" category
-- Use this structure:
+- The proposal form asks for:
 
 ```
-## The Proposal
+Self-Assessment
+Checkboxes for the questions in Before You Propose.
+
+Proposal Type
+Principle, Pattern, Stack Choice, or Governance Change.
+
+The Proposal
 One sentence. What are you proposing?
 
-## Why This Matters
+Why This Matters
 What goes wrong without it? Cite real examples if possible.
 
-## Keeping It Current
-What's the cost of keeping this up to date as tools and practices change?
-
-## Scope
-Is this already covered elsewhere? Does it scale across teams and clients?
-
-## Open Questions
+Open Questions
 What needs refinement before this solidifies?
 
-## Pull Request
-Link to draft PR (added once refined)
+Prior Art
+Related patterns, external references, or internal docs.
+
+Documentation PR
+Link to the draft PR (added once refined).
 ```
 
 ### 2. Refine
@@ -65,7 +70,7 @@ Link to draft PR (added once refined)
 
 - Once refined, the proposer opens a draft PR with the documentation update
 - The PR adds or updates the relevant page in `docs/src/content/docs/`
-- Link the PR in the discussion under "Pull Request"
+- Link the PR in the discussion under "Documentation PR"
 - The PR remains in draft until ratification
 
 ### 4. Endorse
