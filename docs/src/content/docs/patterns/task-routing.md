@@ -11,6 +11,7 @@ description: "Match each task to the smallest model tier that reliably succeeds.
 - Default to the smallest tier that reliably succeeds on your evals
 - Escalate when the router is uncertain or a check fails
 - Route to tier names in code; map tiers to models in one config
+- Fit capability, not only size: judge each task type (implementation, reasoning, repo navigation, convention-following) on its own evals ([Model Selection](/SHRINE/stack/models/#selection-criteria))
 
 ## When to Use
 

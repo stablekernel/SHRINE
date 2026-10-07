@@ -24,6 +24,9 @@ description: "Define the win, build evals on real cases, and measure whether you
 - Quality score (how good was it?)
 - Time to completion
 - Human intervention rate
+- Acceptance rate: share of delegated outputs accepted as delivered, counted apart from those accepted after correction
+- Corrections per task: correction turns, each tagged with its cause ([Correction Diagnosis](/SHRINE/patterns/correction-diagnosis/#cause-chain))
+- Diff size per accepted output: lines and files changed; large diffs predict review cost
 
 ### Cost Metrics
 - Tokens per outcome
@@ -88,6 +91,17 @@ description: "Define the win, build evals on real cases, and measure whether you
 - Measure time and outcomes directly; self-reported speedup is unreliable
 - In one RCT, experienced open-source developers took 19% longer with AI tools, yet estimated a 20% speedup afterward ([METR](https://metr.org/blog/2025-07-10-early-2025-ai-experienced-os-dev-study/))
 - Limits: 16 developers on their own mature repositories, early-2025 tools; METR marks these results as out of date
+
+## Individual Baseline
+
+A bounded way for one engineer to see whether delegation pays off, instead of estimating it.
+
+- **Log per task**: mode (delegated, paired, by hand); minutes briefing; minutes reviewing and fixing; the three metrics above
+- **Compare** like tasks across modes, not across task types
+- **Time bound**: two weeks
+- **Stop early** when one cause tag owns most corrections; that is the answer
+- **Abort** if logging takes more than a few minutes per task; simplify the log, then restart
+- **Output**: the top cause tag is the next input to fix; share the log as evidence for the workload's win definition ([TTV](/SHRINE/principles/tokens-to-value/#open-questions))
 
 ## Worked Example
 

@@ -73,6 +73,10 @@ A written agreement before execution: problem, constraints, acceptance criteria 
 
 An abstract capability slot: what the capability must do, how to select for it, and its anti-patterns. Not a product list. See [FAQ](/SHRINE/faq/).
 
+## Standing Instructions
+
+A short per-repo instruction file the harness loads every session: commands, idioms, and conventions the agent cannot cheaply derive from the code. See [Memory & Context](/SHRINE/stack/memory/#standing-instructions).
+
 ## Step-Level Routing
 
 Choosing model tier and reasoning effort for each step inside an agent trajectory. See [Step-Level Routing](/SHRINE/patterns/step-level-routing/).

@@ -13,6 +13,7 @@ Patterns are reusable techniques for getting better results from AI. They're not
 - A single prompt isn't reliable enough
 - You need confidence beyond "it returned something"
 - You're building a skill or workflow others will reuse
+- You correct the same kind of output repeatedly ([Correction Diagnosis](/SHRINE/patterns/correction-diagnosis/))
 
 ## Prompting Patterns
 
@@ -28,15 +29,17 @@ How to gain confidence in output.
 
 - [Adversarial Review](/SHRINE/patterns/adversarial-review/): Challenge output with an external skeptic
 - [Multi-Model Consensus](/SHRINE/patterns/multi-model-consensus/): Compare independent attempts
+- [Reviewable Output](/SHRINE/patterns/reviewable-output/): Shape output so review is against intent, not from scratch
 - [Self-Critique](/SHRINE/patterns/self-critique/): Have the model evaluate its own output
 - [Verification Loops](/SHRINE/patterns/verification-loops/): Generate, verify, iterate
 
 ## Planning Patterns
 
-How to set up long-running agent work.
+How to set up agent work before it starts.
 
 - [Checkpoint Gates](/SHRINE/patterns/checkpoint-gates/): Block irreversible actions until a human clears a one-step decision
 - [Context Handoff](/SHRINE/patterns/context-handoff/): Carry a run across compactions and sessions with a written handoff
+- [Delegation Fit](/SHRINE/patterns/delegation-fit/): Decide per task whether to delegate, pair, or write by hand
 - [Progress Breadcrumbs](/SHRINE/patterns/progress-breadcrumbs/): Record progress on a shared work board, not in the chat
 - [Spec, Then Build](/SHRINE/patterns/spec-then-build/): Agree a written spec and reviewed plan before execution
 - [Unattended Runs](/SHRINE/patterns/unattended-runs/): Launch an agent for hours with a stop condition and abort criteria
@@ -57,6 +60,7 @@ How to structure complex work.
 
 How systems improve through use.
 
+- [Correction Diagnosis](/SHRINE/patterns/correction-diagnosis/): Trace each correction to the input that caused it
 - [Discovery Propagation](/SHRINE/patterns/discovery-propagation/): Feed improvements back to the system
 - [Dogfooding](/SHRINE/patterns/dogfooding/): Validate by using your own output
 - [Prompt Regression Testing](/SHRINE/patterns/prompt-regression/): Detect when prompt changes break existing behavior

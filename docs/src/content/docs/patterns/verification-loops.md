@@ -45,7 +45,7 @@ description: "Generate, run a check, and repair until it passes or a stop condit
 ## Stop Conditions
 
 - Max iterations reached ([Anthropic, building effective agents](https://www.anthropic.com/engineering/building-effective-agents))
-- Same error twice in a row
+- Same error twice in a row; treat it as a repeated miss and fix the input ([One-Off or Repeated](/SHRINE/principles/fail-fast-recover-smart/#one-off-or-repeated))
 - Time limit hit
 - On stop: report what failed, what was tried, and the current state
 

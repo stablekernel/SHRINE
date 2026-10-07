@@ -39,6 +39,7 @@ description: "When agents find better paths, propose improvements back to the sy
 |------|------|
 | Method or correction | Memory entry ([Memory](/SHRINE/stack/memory/)) |
 | Repeatable workflow | Skill ([Skills](/SHRINE/stack/skills/)) |
+| Standing convention, not yet enforceable | Standing instructions ([Memory](/SHRINE/stack/memory/#standing-instructions)) |
 | Enforceable convention | Rule, lint, or hook |
 | Repeatable structure | Scaffold ([Mechanical Scaffolding](/SHRINE/patterns/mechanical-scaffolding/)) |
 

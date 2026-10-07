@@ -2,7 +2,7 @@
 title: "Human in the Loop"
 description: "Define where human judgment is required, and make those checkpoints fast."
 proposal: "https://github.com/stablekernel/SHRINE/discussions/8"
-last-reviewed: 2026-09-16
+last-reviewed: 2026-10-07
 ---
 
 *Automation with oversight, not automation as abandonment.*
@@ -30,11 +30,13 @@ last-reviewed: 2026-09-16
 - Present a recommended action, not an open question
 - Make approve/reject a single step
 - Batch similar low-risk decisions
+- For code and documents, ask for output shaped for review ([Reviewable Output](/SHRINE/patterns/reviewable-output/))
 
 ## Implemented By
 
 - [Adversarial Review](/SHRINE/patterns/adversarial-review/): machine review before human review
 - [Verification Loops](/SHRINE/patterns/verification-loops/): only verified output reaches the checkpoint
+- [Reviewable Output](/SHRINE/patterns/reviewable-output/): small diffs, evidence, and staged checkpoints
 - [Agent Architecture](/SHRINE/stack/agent-architecture/): trust and validation boundaries
 
 ## Open Questions

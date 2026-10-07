@@ -2,7 +2,7 @@
 title: "Fail Fast, Recover Smart"
 description: "Design AI systems for failure, not just success."
 proposal: "https://github.com/stablekernel/SHRINE/discussions/7"
-last-reviewed: 2026-09-16
+last-reviewed: 2026-10-07
 ---
 
 *A confident wrong answer looks exactly like a right one.*
@@ -53,6 +53,19 @@ last-reviewed: 2026-09-16
 | Output fails a check | Feed errors back, regenerate | Yes | Loop cap, time limit |
 | Invariant violated mid-run | Abort the step | n/a | Immediate |
 | Refusal of a valid request | Rephrase or fall back | Yes, or skip | Loop cap |
+| Same miss on a second attempt | Exit the loop; fix the brief, context, or standing instructions | Yes, upstream | Two strikes |
+
+## One-Off or Repeated
+
+Before correcting, decide whether the miss is one bad generation or a repeated misunderstanding.
+
+- **One-off signals**: the miss does not track a repo convention; one repair with the specific failure fixes it ([Repair, Not Retry](/SHRINE/patterns/verification-loops/#repair-not-retry))
+- **Repeated signals**: the same point is missed twice; the miss matches a known convention; it comes back in a fresh session
+- **One-off response**: repair once, with the failure fed back
+- **Repeated response**: stop correcting; fix the input ([Correction Diagnosis](/SHRINE/patterns/correction-diagnosis/)); encode the fix where it loads next time ([Discovery Propagation](/SHRINE/patterns/discovery-propagation/#where-lessons-land))
+- Behavioral variance means one miss is expected and is not proof of a bad brief ([Reproducibility](/SHRINE/principles/reproducibility/#levels))
+- Exploration paths are exempt; variance is the point there
+- Anti-patterns: re-rolling a systematic miss; rewriting the brief after a single miss
 
 ## In Practice
 
@@ -74,6 +87,7 @@ An unattended run that generates a migration file and a test for it.
 
 - [Structured Output](/SHRINE/patterns/structured-output/): schemas make bad output detectable
 - [Verification Loops](/SHRINE/patterns/verification-loops/): bounded generate-verify-fix
+- [Correction Diagnosis](/SHRINE/patterns/correction-diagnosis/): trace a repeated miss to its input
 - [Unattended Runs](/SHRINE/patterns/unattended-runs/): time limits and stop conditions when no one is watching
 - [Cost Management](/SHRINE/stack/cost-management/): tracking cost per win
 - [Observability & Logging](/SHRINE/stack/observability/): make failures visible
