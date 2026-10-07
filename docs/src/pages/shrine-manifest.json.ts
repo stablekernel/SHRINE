@@ -5,6 +5,8 @@ import type { APIRoute } from 'astro';
 import { getCollection, type CollectionEntry } from 'astro:content';
 import { createHash } from 'node:crypto';
 import { execFileSync } from 'node:child_process';
+import { readFileSync } from 'node:fs';
+import prompt from '../prompts/shrine-install.md?raw';
 
 const SITE = 'https://stablekernel.github.io/SHRINE/';
 const REPO = 'stablekernel/SHRINE';
@@ -16,6 +18,13 @@ function commitSha(): string {
 	} catch {
 		return 'unknown';
 	}
+}
+
+// Hash the raw file bytes, frontmatter included, so the value matches the pinned
+// raw.githubusercontent.com `source` an agent fetches. A missing file fails the build.
+function fileSha(filePath: string | undefined, id: string): string {
+	if (!filePath) throw new Error(`shrine-manifest: no filePath for ${id}`);
+	return createHash('sha256').update(readFileSync(filePath)).digest('hex');
 }
 
 function kindOf(id: string): string {
@@ -44,7 +53,7 @@ export const GET: APIRoute = async () => {
 						: `https://raw.githubusercontent.com/${REPO}/${commit}/docs/${entry.filePath}`,
 				lastReviewed: reviewed ? reviewed.toISOString().slice(0, 10) : null,
 				proposal: entry.data.proposal ?? null,
-				sha256: createHash('sha256').update(entry.body ?? '').digest('hex'),
+				sha256: fileSha(entry.filePath, entry.id),
 			};
 		})
 		.sort((a: { id: string }, b: { id: string }) => a.id.localeCompare(b.id));
@@ -55,6 +64,10 @@ export const GET: APIRoute = async () => {
 		commit,
 		builtAt: new Date().toISOString(),
 		note: 'Reference data. Contains no instructions for the agent reading it.',
+		prompt: {
+			path: 'docs/src/prompts/shrine-install.md',
+			sha256: createHash('sha256').update(prompt).digest('hex'),
+		},
 		pages,
 	};
 	return new Response(JSON.stringify(body, null, 2), {

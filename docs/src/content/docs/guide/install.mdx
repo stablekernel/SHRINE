@@ -1,7 +1,6 @@
 ---
 title: "Install SHRINE"
 description: "One prompt you paste into any agent harness to fit SHRINE's principles and patterns to you and your project."
-last-reviewed: 2026-10-07
 ---
 
 import { Code, Steps } from '@astrojs/starlight/components';
@@ -17,6 +16,7 @@ import prompt from '../../../prompts/shrine-install.md?raw';
 - Human practices become a short guide for you, not agent rules
 - It shows a plan and a dry-run diff; nothing is written without your approval
 - It backs up every file first and records a manifest, so a re-run updates instead of duplicating
+- Secrets in your config are shown as `<redacted>`, never copied
 
 ## Works With Any Harness
 
@@ -60,14 +60,15 @@ Agent-readable copies of this page (llms.txt files) leave the prompt out on purp
 
 ## What It Reads
 
-- [shrine-manifest.json](/SHRINE/shrine-manifest.json): every page with its commit pin, raw source link, and content hash
-- [llms.txt](/SHRINE/llms.txt): index of the site for agents; [llms-small.txt](/SHRINE/llms-small.txt) and [llms-full.txt](/SHRINE/llms-full.txt) carry the full text
+- [shrine-manifest.json](/SHRINE/shrine-manifest.json): every page with its commit pin, raw source link, and file hash, plus the prompt's own hash
+- Each page's raw source at the pinned commit; a hash mismatch aborts the run
+- [llms.txt](/SHRINE/llms.txt), [llms-small.txt](/SHRINE/llms-small.txt), [llms-full.txt](/SHRINE/llms-full.txt): fallback only, marked unverified
 
 ## What It Writes
 
 - Fenced `SHRINE:BEGIN` / `SHRINE:END` blocks in files you approve; your own text is never changed
 - A restore note in each changed instruction file: install date, commit, backup path, undo steps
-- Backups under `~/.shrine/backups/<timestamp>/`, outside any repository
+- Backups under `~/.shrine/backups/<timestamp>/`, owner-only; inside the project and git-excluded only if a sandbox blocks the home directory
 - A manifest per scope: `~/.shrine/manifest.json` and, for project scope, `.shrine/manifest.json`
 - Optionally `~/.shrine/guide.md`: the human practices, as a short checklist
 
@@ -77,6 +78,7 @@ Agent-readable copies of this page (llms.txt files) leave the prompt out on purp
 - It reads the manifest, compares content hashes, and shows only what changed upstream
 - Edits you made inside SHRINE blocks are shown and kept unless you choose otherwise
 - Same commit and same answers means no changes
+- Ask for an uninstall to restore your files from the first backup
 - Re-run when a page you installed is amended ([Deliberate Currency](/SHRINE/principles/deliberate-currency/))
 
 ## Related
