@@ -49,7 +49,7 @@ In a codebase, the best example is code that already exists.
 - Point at a file or function to mirror instead of pasting examples ([Delegation Fit: Mirror](/SHRINE/patterns/delegation-fit/#brief-shape))
 - Pick an exemplar that follows current conventions, not legacy code
 - Name what to copy (error handling, test entry point) and what to change
-- One good exemplar in the repo beats three pasted snippets in the prompt
+- One good exemplar in the repo usually beats three pasted snippets in the prompt
 
 ## Worked Example
 

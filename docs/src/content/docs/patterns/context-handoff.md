@@ -111,3 +111,4 @@ Verify: make test && make migrate-check
 - [Progress Breadcrumbs](/SHRINE/patterns/progress-breadcrumbs/): the durable trail the handoff can point to
 - [Spec Then Build](/SHRINE/patterns/spec-then-build/): the spec is the stable goal every handoff links
 - [Step-Level Routing](/SHRINE/patterns/step-level-routing/): switching models has a context transfer cost
+- [Unattended Runs](/SHRINE/patterns/unattended-runs/): long runs that cross context resets

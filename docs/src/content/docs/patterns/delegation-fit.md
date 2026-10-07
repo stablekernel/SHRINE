@@ -102,7 +102,12 @@ Prior art: Claude Code [best practices](https://code.claude.com/docs/en/best-pra
 - **Done**: `make test` passes, including new `test_orders_csv_columns`
 - **Ask**: list assumptions before editing
 - Outcome: one question about date format, answered; one correction, a header casing
-- **Minutes** (illustrative): 5 brief + 12 review, against 40 by hand; the vague prompt took 35 in corrections
+- **Minutes** (illustrative)
+
+| Path | Minutes | Against 40 by hand |
+|---|---|---|
+| Vague prompt | 2 prompt + 53 review and correction = 55 | 15 worse |
+| Brief | 5 brief + 12 review = 17 | 23 better |
 
 ## Anti-patterns
 

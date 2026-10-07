@@ -101,3 +101,4 @@ status: ratified
 - [Skills](/SHRINE/stack/skills/): the home for repeatable workflows
 - [Memory](/SHRINE/stack/memory/): the home for methods and corrections
 - [Governance](/SHRINE/reference/governance/): how proposals get approved
+- [Mechanical Scaffolding](/SHRINE/patterns/mechanical-scaffolding/): improvements land in the shared scaffold

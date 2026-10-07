@@ -109,3 +109,6 @@ escalation: rounding happens in currency lib, not invoice code;
 - [Human in the Loop](/SHRINE/principles/human-in-the-loop/): where escalation lands
 - [Step-Level Routing](/SHRINE/patterns/step-level-routing/): a failed check can escalate the model tier
 - [Adversarial Review](/SHRINE/patterns/adversarial-review/): the check when no test exists
+- [Spec, Then Build](/SHRINE/patterns/spec-then-build/): a check per milestone
+- [Pipeline Orchestration](/SHRINE/patterns/pipeline-orchestration/): loops inside a stage gate
+- [Self-Critique](/SHRINE/patterns/self-critique/): review when no runnable check exists

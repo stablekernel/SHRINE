@@ -60,7 +60,7 @@ status: draft
 - One team gave each worktree an ephemeral observability stack the agent queries directly, making goals like "startup under 800ms" checkable ([OpenAI](https://openai.com/index/harness-engineering/))
 - Scope agent access to the telemetry of its own run and environment
 
-## Current Tools
+## Current Stack
 
 - The org's current observability picks live in the [Current Stack Roster](/SHRINE/reference/current-stack/#observability)
 

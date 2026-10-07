@@ -117,7 +117,7 @@ Every principle, pattern, and stack page shows its status under the title and in
 
 ## Metadata
 
-Every ratified page carries:
+Every ratified page carries the fields below. Section overview and index pages are exempt.
 
 - `proposal`: link to the original discussion
   - Pages ratified without a Discussion link the PR or commit that added them

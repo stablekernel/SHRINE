@@ -91,3 +91,5 @@ status: ratified
 - [Reviewable Output](/SHRINE/patterns/reviewable-output/): each staged review uses the decision card
 - [Delegation Fit](/SHRINE/patterns/delegation-fit/): human decisions made before the run starts
 - [Tool Integration](/SHRINE/stack/tool-integration/): where enforcement lives
+- [Pipeline Orchestration](/SHRINE/patterns/pipeline-orchestration/): gates at stage seams
+- [Progress Breadcrumbs](/SHRINE/patterns/progress-breadcrumbs/): checkpoint requests on the card

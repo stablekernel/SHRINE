@@ -75,3 +75,4 @@ status: draft
 
 - [Evaluation & Benchmarking](/SHRINE/stack/evaluation/): pass rates that define a win
 - [Model Selection & Routing](/SHRINE/stack/models/): gateway limits and tiers
+- [Unattended Runs](/SHRINE/patterns/unattended-runs/): time limits and abort criteria for long runs

@@ -131,7 +131,7 @@ def ticket_from_bug(bug_report):
 - Version your scaffolds like code
 - Measure token savings to prove ROI
 
-## Related Patterns
+## Related
 
 - [Structured Output](/SHRINE/patterns/structured-output/): the schema; scaffolding is the mechanism
 - [Pipeline Orchestration](/SHRINE/patterns/pipeline-orchestration/): scaffolds often form pipeline stages

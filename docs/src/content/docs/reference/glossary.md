@@ -49,13 +49,13 @@ Coordinating multiple models, agents, or pipeline stages so each handles the par
 
 Short, evidence-linked progress notes an agent writes to a shared work board. See [Progress Breadcrumbs](/SHRINE/patterns/progress-breadcrumbs/).
 
-## Quorum
-
-A majority of keepers. Required to override an objection during the objection window. See [Governance](/SHRINE/reference/governance/#5-objection-window).
-
 ## Ratification
 
-The final step of the proposal lifecycle: after two keeper endorsements and the objection window, the draft PR merges and the content becomes part of SHRINE. See [Governance](/SHRINE/reference/governance/).
+Content becomes part of SHRINE by one of three routes:
+
+- **Lifecycle**: two keeper endorsements, the objection window, then the draft PR merges ([Proposal Lifecycle](/SHRINE/reference/governance/#proposal-lifecycle))
+- **Expedited**: the CTO or VP of Engineering bypasses the objection window ([Expedited Ratification](/SHRINE/reference/governance/#expedited-ratification))
+- **Owner decision**: adopted without the full lifecycle; the page links the PR or commit that added it ([Page Status](/SHRINE/reference/governance/#page-status))
 
 ## Repository Context
 

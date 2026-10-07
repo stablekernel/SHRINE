@@ -76,8 +76,9 @@ status: draft
 - One broad credential shared by read and write tools
 - Outward-facing actions with no approval step
 
-## Related Patterns
+## Related
 
 - [Structured Output](/SHRINE/patterns/structured-output/): checkable tool arguments
 - [Verification Loops](/SHRINE/patterns/verification-loops/): check results before acting
 - [Unattended Runs](/SHRINE/patterns/unattended-runs/): tool limits when no human is watching
+- [Checkpoint Gates](/SHRINE/patterns/checkpoint-gates/): human approval before risky tool calls

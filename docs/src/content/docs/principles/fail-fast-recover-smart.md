@@ -96,6 +96,6 @@ An unattended run that generates a migration file and a test for it.
 ## Open Questions
 
 - Which failure classes are retriable vs terminal?
-- What default timeout and cost ceiling does an agent task get, and who can override?
+- What default timeout and abort criteria does an agent task get, and who can override?
 
 Proposal: [Discussion #7](https://github.com/stablekernel/SHRINE/discussions/7)

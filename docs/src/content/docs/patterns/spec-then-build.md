@@ -118,3 +118,4 @@ status: ratified
 - [Context Handoff](/SHRINE/patterns/context-handoff/): the plan file as handoff
 - [Delegation Fit](/SHRINE/patterns/delegation-fit/): the small-task brief this spec extends
 - [Reviewable Output](/SHRINE/patterns/reviewable-output/#staged-checkpoints): plan, interface, then implementation as staged reviews
+- [Pipeline Orchestration](/SHRINE/patterns/pipeline-orchestration/): spec and build as a two-stage pipeline

@@ -31,7 +31,7 @@ Generate initial output, then run additional passes that:
 ## Implementation Notes
 
 - Each pass should have a specific focus (clarity, accuracy, brevity)
-- Define stopping criteria: score threshold, max iterations, or no-change detection
+- Define stopping criteria: score threshold, max iterations, or a change threshold (stop when a pass changes less than it)
 - Later passes should see the evolution, not just the current state
 - Track what changed to detect loops or regressions
 
@@ -50,7 +50,7 @@ Generate initial output, then run additional passes that:
 - **Pass 1, accuracy**: check every endpoint named against the changelog; two renamed fields fixed
 - **Pass 2, completeness**: compare against the list of breaking changes; one missing section added
 - **Pass 3, brevity**: cut 30% with no loss of steps
-- **Stop**: a fourth pass changed only wording; no-change detected, so stop
+- **Stop**: the fourth pass changed only wording, below the change threshold, so stop
 
 ## Anti-patterns
 
@@ -59,6 +59,7 @@ Generate initial output, then run additional passes that:
 - Refining when the first draft was already good enough
 - Over-polishing low-stakes output
 
-## Related Patterns
+## Related
 
 - [Adversarial Review](/SHRINE/patterns/adversarial-review/): External challenge instead of self-improvement
+- [Self-Critique](/SHRINE/patterns/self-critique/): one critique pass before refining

@@ -113,7 +113,8 @@ What made it catchable:
 - No baseline (cannot tell if a change helped or hurt)
 - Running tests only manually
 
-## Related Patterns
+## Related
 
 - [Structured Output](/SHRINE/patterns/structured-output/): structured fields enable exact-match tests
 - [Verification Loops](/SHRINE/patterns/verification-loops/): verification checks can double as test assertions
+- [Model Selection & Routing](/SHRINE/stack/models/): model switches this suite gates

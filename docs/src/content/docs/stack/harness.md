@@ -32,9 +32,9 @@ The harness is your interface to the models: the CLI, IDE extension, or applicat
 - How are plugins/extensions managed?
 - What's the learning curve?
 
-## Current Options
+## Current Stack
 
-- Evaluated harnesses live in the [Current Stack Roster](/SHRINE/reference/current-stack/#harness)
+- Candidates under evaluation, not endorsements: [Current Stack Roster](/SHRINE/reference/current-stack/#harness)
 
 ## Evaluation Questions
 

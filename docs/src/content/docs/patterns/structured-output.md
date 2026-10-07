@@ -98,8 +98,10 @@ return failure  # surface to a human, do not pass bad data on
 - Treating a schema-valid response as a correct response
 - Forcing structure where prose would be clearer
 
-## Related Patterns
+## Related
 
 - [Mechanical Scaffolding](/SHRINE/patterns/mechanical-scaffolding/): code owns structure; the model fills fields
 - [Verification Loops](/SHRINE/patterns/verification-loops/): the repair loop above
 - [Prompt Regression Testing](/SHRINE/patterns/prompt-regression/): structured fields make exact-match tests possible
+- [Pipeline Orchestration](/SHRINE/patterns/pipeline-orchestration/): checkable stage outputs
+- [Tool Integration](/SHRINE/stack/tool-integration/): checkable tool arguments

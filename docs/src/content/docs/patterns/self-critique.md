@@ -78,7 +78,7 @@ Task: write a PR description from a diff.
 - Self-critique is weaker than external review
 - Vague criteria produce vague critique
 
-## Related Patterns
+## Related
 
 - [Verification Loops](/SHRINE/patterns/verification-loops/): external checks as the feedback signal
 - [Adversarial Review](/SHRINE/patterns/adversarial-review/): an external skeptic instead of self-review

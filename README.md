@@ -14,10 +14,10 @@ This is the org's shared home for you and your agents, a guiding light for anyon
 
 ## North Star: TTV (Tokens to Value)
 
-Maximize what every token buys us. Get this right and cost takes care of itself.
+Maximize value per win, where a win costs tokens plus human attention. Get this right and cost takes care of itself.
 
 - Cutting tokens caps capability along with spend
-- Maximizing value per token improves cost *and* quality
+- Maximizing value per win improves cost *and* quality
 - Every tool choice, workflow, and practice we discuss gets measured against TTV
 
 ## How This Works

@@ -20,7 +20,7 @@ hero:
       variant: minimal
 ---
 
-import { LinkCard, CardGrid } from '@astrojs/starlight/components';
+import { Card, LinkCard, CardGrid } from '@astrojs/starlight/components';
 
 ## The Context Window
 
@@ -36,9 +36,14 @@ Maximize value per win, where a win costs tokens plus human attention. Get this 
 
 <CardGrid stagger>
   <LinkCard
+    title="Correcting too much output?"
+    href="/SHRINE/faq/#i-spend-more-time-correcting-output-than-writing-it-where-do-i-start"
+    description="If fixing output takes longer than writing it, start with this reading order."
+  />
+  <LinkCard
     title="Principles"
     href="/SHRINE/principles/"
-    description="TTV, authority cascade, human in the loop, and more. Start here."
+    description="TTV, authority cascade, human in the loop, and more."
   />
   <LinkCard
     title="Patterns"
@@ -50,16 +55,12 @@ Maximize value per win, where a win costs tokens plus human attention. Get this 
     href="/SHRINE/stack/overview/"
     description="Capability slots (harness, models, skills, memory, agents) and the criteria for selecting each."
   />
-  <LinkCard
-    title="FAQ"
-    href="/SHRINE/faq/"
-    description="Common questions, answered. A good first stop for newcomers."
-  />
-  <LinkCard
-    title="Correcting too much output?"
-    href="/SHRINE/faq/#i-spend-more-time-correcting-output-than-writing-it-where-do-i-start"
-    description="If fixing output takes longer than writing it, start with this reading order."
-  />
+  <Card title="FAQ">
+    Common questions, answered. [Read the FAQ](/SHRINE/faq/), or jump to:
+
+    - [Is LLM coding worth it?](/SHRINE/faq/#is-llm-coding-worth-it)
+    - [How does my team adopt SHRINE?](/SHRINE/faq/#how-does-my-team-adopt-shrine)
+  </Card>
   <LinkCard
     title="Reference"
     href="/SHRINE/reference/glossary/"

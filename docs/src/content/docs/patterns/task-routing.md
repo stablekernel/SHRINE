@@ -109,9 +109,10 @@ Support ticket triage.
 - Product IDs scattered through code, so model changes need a code search
 - No fallback when the preferred model is unavailable
 
-## Related Patterns
+## Related
 
 - [Subagent Fanout](/SHRINE/patterns/subagent-fanout/): fanout tasks often route to cheaper tiers
 - [Pipeline Orchestration](/SHRINE/patterns/pipeline-orchestration/): stages may use different tiers
 - [Step-Level Routing](/SHRINE/patterns/step-level-routing/): route each step inside a task
 - [Delegation Fit](/SHRINE/patterns/delegation-fit/): decide whether to delegate before choosing a tier
+- [Model Selection & Routing](/SHRINE/stack/models/): tiers and gateway

@@ -92,3 +92,5 @@ Output:
 - [Verification Loops](/SHRINE/patterns/verification-loops/): review findings feed the next repair
 - [Human in the Loop](/SHRINE/principles/human-in-the-loop/): who triages what the reviewer finds
 - [Checkpoint Gates](/SHRINE/patterns/checkpoint-gates/): place review at the gate
+- [Multi-Model Consensus](/SHRINE/patterns/multi-model-consensus/): agreement across models instead of challenge
+- [Spec, Then Build](/SHRINE/patterns/spec-then-build/): review the plan before the build

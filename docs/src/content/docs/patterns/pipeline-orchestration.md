@@ -95,3 +95,5 @@ See [Spec Then Build](/SHRINE/patterns/spec-then-build/) for stages 1 and 2 in d
 - [Verification Loops](/SHRINE/patterns/verification-loops/): the retry loop inside a gate
 - [Spec Then Build](/SHRINE/patterns/spec-then-build/): a two-stage pipeline for code
 - [Checkpoint Gates](/SHRINE/patterns/checkpoint-gates/): human approval at a seam
+- [Mechanical Scaffolding](/SHRINE/patterns/mechanical-scaffolding/): deterministic scaffolds as stages
+- [Task Routing](/SHRINE/patterns/task-routing/): pick a tier per stage

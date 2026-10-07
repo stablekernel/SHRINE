@@ -56,6 +56,6 @@ This pattern multiplies inference cost by the number of models. Use it when:
 - Ignoring the dissenting model when two agree and one doesn't
 - Running consensus on tasks where models share the same blind spots
 
-## Related Patterns
+## Related
 
 - [Adversarial Review](/SHRINE/patterns/adversarial-review/): One model challenges another's output

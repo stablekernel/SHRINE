@@ -34,7 +34,7 @@ status: ratified
 
 ## Cause Chain
 
-Check top to bottom. Upstream causes make downstream fixes useless.
+Check top to bottom. An upstream cause usually makes downstream fixes useless.
 
 | Link | Symptom | Cause | Fix |
 |---|---|---|---|
@@ -84,7 +84,12 @@ Check top to bottom. Upstream causes make downstream fixes useless.
   - Two lines added to standing instructions: error wrapping, test entry point
   - Brief rewritten with a mirror: "Follow `GET /reports/{id}/pdf`"
 - **Rerun** in a fresh session: one correction, a missing content-type header; a new test now covers it
-- **Minutes** (illustrative): 6 brief + 10 review, against 45 by hand; the first attempt cost 30 in corrections
+- **Minutes** (illustrative)
+
+| Path | Minutes | Against 40 by hand |
+|---|---|---|
+| First attempt | 2 prompt + 53 review and correction = 55 | 15 worse |
+| Rerun after input fixes | 6 brief + 10 review = 16 | 24 better |
 
 ## Anti-patterns
 
@@ -101,3 +106,4 @@ Check top to bottom. Upstream causes make downstream fixes useless.
 - [Discovery Propagation](/SHRINE/patterns/discovery-propagation/): where captured fixes land
 - [Evaluation & Benchmarking](/SHRINE/stack/evaluation/): corrections per task as a metric
 - [Reviewable Output](/SHRINE/patterns/reviewable-output/): cheaper review when a correction is still needed
+- [Memory & Context Management](/SHRINE/stack/memory/): where captured fixes load next session

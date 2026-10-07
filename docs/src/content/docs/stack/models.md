@@ -75,11 +75,12 @@ status: draft
 - No fallback when the preferred model is unavailable
 - Calling a floating model alias the provider can update, then chasing a regression nobody logged
 
-## Related Patterns
+## Related
 
 - [Task Routing](/SHRINE/patterns/task-routing/): route per task
 - [Step-Level Routing](/SHRINE/patterns/step-level-routing/): route per step inside a trajectory
 - [Prompt Regression Testing](/SHRINE/patterns/prompt-regression/): prove a model switch is safe
+- [Cost Management](/SHRINE/stack/cost-management/): cost per accepted win
 
 ## Current Stack
 
