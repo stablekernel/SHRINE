@@ -90,7 +90,9 @@ description: "Define the win, build evals on real cases, and measure whether you
 
 - Measure time and outcomes directly; self-reported speedup is unreliable
 - In one RCT, experienced open-source developers took 19% longer with AI tools, yet estimated a 20% speedup afterward ([METR](https://metr.org/blog/2025-07-10-early-2025-ai-experienced-os-dev-study/))
-- Limits: 16 developers on their own mature repositories, early-2025 tools; METR marks these results as out of date
+- Limits: 16 developers on their own mature repositories, early-2025 tools; METR marks these results as out of date (kept here as history)
+- Follow-up (Feb 2026): METR judged its late-2025 rerun an unreliable signal, mainly because developers declined to work without AI; it believes speedup is likely higher now, but its data is only weak evidence of how much ([METR](https://metr.org/blog/2026-02-24-uplift-update/))
+- Takeaway: measure your own workflows; published numbers age fast
 
 ## Individual Baseline
 
@@ -102,6 +104,18 @@ A bounded way for one engineer to see whether delegation pays off, instead of es
 - **Stop early** when one cause tag owns most corrections; that is the answer
 - **Abort** if logging takes more than a few minutes per task; simplify the log, then restart
 - **Output**: the top cause tag is the next input to fix; share the log as evidence for the workload's win definition ([TTV](/SHRINE/principles/tokens-to-value/#open-questions))
+
+## Team Baseline
+
+The same protocol, run by a team on shared workflows.
+
+- **Pick workflows**: two or three recurring ones the team does weekly, such as bug fixes or endpoint additions
+- **Name an owner**: one person collects the logs and writes the report
+- **Log**: each engineer uses the [Individual Baseline](#individual-baseline) fields, plus workflow name
+- **Time bound**: two weeks
+- **Abort** if fewer than half the team is logging after the first week, or logging takes more than a few minutes per task; simplify, then restart
+- **Report fields**: per workflow and mode, median minutes briefing and reviewing; acceptance rate; corrections per task; top cause tag; one recommended input fix
+- **Output**: the report goes to the team's discussion as evidence; the top fix gets an owner
 
 ## Worked Example
 

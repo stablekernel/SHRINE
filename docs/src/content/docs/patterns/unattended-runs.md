@@ -80,7 +80,7 @@ description: "Launch an agent to work for hours without a human watching each st
 - **Longest unattended stretch**: time between required human touches
 - **Human touches per run**: checkpoints, aborts, corrections
 - **Tokens and attention per win**: see [Tokens to Value](/SHRINE/principles/tokens-to-value/)
-- Context: METR measures a [50% task-completion time horizon](https://arxiv.org/abs/2503.14499) that has doubled roughly every seven months since 2019; a longer horizon does not remove the need for stop rules
+- Context: METR measures a [50% task-completion time horizon](https://arxiv.org/abs/2503.14499) that doubled roughly every seven months from 2019 to 2025; its [Time Horizon 1.1](https://metr.org/blog/2026-1-29-time-horizon-1-1/) update (Jan 2026) estimates a faster post-2023 doubling, about 131 days. A longer horizon does not remove the need for stop rules
 
 ## Anti-patterns
 

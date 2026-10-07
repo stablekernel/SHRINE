@@ -42,7 +42,7 @@ description: "Carry a run across compactions and sessions with a written handoff
 - Context nearing its limit
 - Before switching model or agent
 - End of the working day
-- After more than two corrections on the same issue: start fresh with a better prompt ([Claude Code best practices](https://code.claude.com/docs/en/best-practices))
+- After two corrections on the same issue: start fresh with a better prompt ([Session Rule](/SHRINE/patterns/correction-diagnosis/#session-rule); [Claude Code best practices](https://code.claude.com/docs/en/best-practices))
 
 ## Get-Bearings Routine
 
