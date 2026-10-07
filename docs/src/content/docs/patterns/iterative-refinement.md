@@ -1,6 +1,9 @@
 ---
 title: "Iterative Refinement"
 description: "Improving output through successive passes."
+proposal: "https://github.com/stablekernel/SHRINE/commit/d5f06a07"
+last-reviewed: 2026-10-07
+status: ratified
 ---
 
 *First draft, then polish. Repeat until done.*

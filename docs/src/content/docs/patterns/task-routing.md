@@ -1,6 +1,9 @@
 ---
 title: "Task Routing"
 description: "Match each task to the smallest model tier that reliably succeeds."
+proposal: "https://github.com/stablekernel/SHRINE/commit/79e03ea6"
+last-reviewed: 2026-10-07
+status: ratified
 ---
 
 *Not every task needs your biggest model.*

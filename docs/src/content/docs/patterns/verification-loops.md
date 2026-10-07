@@ -1,6 +1,9 @@
 ---
 title: "Verification Loops"
 description: "Generate, run a check, and repair until it passes or a stop condition fires."
+proposal: "https://github.com/stablekernel/SHRINE/commit/d259f16b"
+last-reviewed: 2026-10-07
+status: ratified
 ---
 
 *Trust but verify. Then fix what fails.*

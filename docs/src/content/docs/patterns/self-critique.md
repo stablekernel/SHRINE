@@ -1,6 +1,9 @@
 ---
 title: "Self-Critique"
 description: "Have the model evaluate its own output against criteria."
+proposal: "https://github.com/stablekernel/SHRINE/commit/d259f16b"
+last-reviewed: 2026-10-07
+status: ratified
 ---
 
 *Built-in quality check.*

@@ -1,6 +1,9 @@
 ---
 title: "Multi-Model Consensus"
 description: "Running the same task across multiple models and comparing results."
+proposal: "https://github.com/stablekernel/SHRINE/commit/d5f06a07"
+last-reviewed: 2026-10-07
+status: ratified
 ---
 
 *If three independent attempts agree, the answer is more trustworthy.*

@@ -3,6 +3,7 @@ title: "Deliberate Currency"
 description: "Stay current by owner, cadence, and pre-agreed tripwires, not by drift."
 proposal: "https://github.com/stablekernel/SHRINE/discussions/3"
 last-reviewed: 2026-09-16
+status: ratified
 ---
 
 *Look again when a tripwire fires. Don't look when none has.*

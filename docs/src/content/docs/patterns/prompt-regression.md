@@ -1,6 +1,9 @@
 ---
 title: "Prompt Regression Testing"
 description: "Detect when prompt changes break existing behavior."
+proposal: "https://github.com/stablekernel/SHRINE/commit/79e03ea6"
+last-reviewed: 2026-10-07
+status: ratified
 ---
 
 *Prompts are code. Test them like code.*

@@ -1,11 +1,14 @@
 ---
 title: "Principles"
 description: "Behavioral standards the org commits to."
+status: ratified
 ---
 
 <!-- MAINTAINER: Order is deliberate (who decides, where humans judge, how we engage, how we shape code, how systems fail, how we trust output, how we evolve); keep it in sync with the sidebar -->
 
 Principles are commitments that decide tradeoffs. They are tool-agnostic, and departing from one needs a recorded exception.
+
+- Status: principles are **Ratified**; change one through a Discussion ([Page Status](/SHRINE/reference/governance/#page-status))
 
 ## North Star
 

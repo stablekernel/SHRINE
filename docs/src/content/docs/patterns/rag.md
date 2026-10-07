@@ -1,6 +1,9 @@
 ---
 title: "RAG (Retrieval-Augmented Generation)"
 description: "Ground responses in retrieved context."
+proposal: "https://github.com/stablekernel/SHRINE/commit/d259f16b"
+last-reviewed: 2026-10-07
+status: ratified
 ---
 
 *Don't rely on what the model memorized. Give it the source.*

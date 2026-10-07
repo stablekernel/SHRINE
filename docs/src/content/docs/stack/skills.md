@@ -1,6 +1,7 @@
 ---
 title: "Skills & Prompts"
 description: "Encoding efficient, repeatable patterns."
+status: draft
 ---
 
 *The second time you explain a workflow to a model, you should be writing it down instead.*

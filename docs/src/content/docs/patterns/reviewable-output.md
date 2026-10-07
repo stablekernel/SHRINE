@@ -1,6 +1,9 @@
 ---
 title: "Reviewable Output"
 description: "Shape delegated code and documents so a human can review them against intent, not from scratch."
+proposal: "https://github.com/stablekernel/SHRINE/pull/17"
+last-reviewed: 2026-10-07
+status: ratified
 ---
 
 *Review cost is set by the shape of the output, not only by its quality.*

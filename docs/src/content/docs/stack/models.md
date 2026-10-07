@@ -1,6 +1,7 @@
 ---
 title: "Model Selection & Routing"
 description: "Choosing the right model for the right task, and the policy and gateway that enforce it."
+status: draft
 ---
 
 *Pick models on your evals and cost per win, not on habit or headlines.*
@@ -82,4 +83,4 @@ description: "Choosing the right model for the right task, and the policy and ga
 
 ## Current Stack
 
-*Document your org's current model roster and routing rules here.*
+- Record the current model roster in the [Current Stack Roster](/SHRINE/reference/current-stack/#models)

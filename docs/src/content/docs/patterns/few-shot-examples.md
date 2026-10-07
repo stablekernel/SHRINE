@@ -1,6 +1,9 @@
 ---
 title: "Few-Shot Examples"
 description: "Guide output format and style with concrete examples."
+proposal: "https://github.com/stablekernel/SHRINE/commit/d259f16b"
+last-reviewed: 2026-10-07
+status: ratified
 ---
 
 *Show, don't just tell.*

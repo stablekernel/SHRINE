@@ -1,6 +1,9 @@
 ---
 title: "Progress Breadcrumbs"
 description: "Record an agent's progress on a shared work board, not in the chat."
+proposal: "https://github.com/stablekernel/SHRINE/pull/16"
+last-reviewed: 2026-10-07
+status: ratified
 ---
 
 *If it only happened in the chat, it did not happen.*

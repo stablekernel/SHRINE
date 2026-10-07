@@ -8,6 +8,7 @@ export const collections = {
 		extend: z.object({
 			proposal: z.string().url().optional(),
 			'last-reviewed': z.coerce.date().optional(),
+			status: z.enum(['ratified', 'draft']).optional(),
 		}),
 	}) }),
 };

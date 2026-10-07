@@ -1,6 +1,9 @@
 ---
 title: "Dogfooding"
 description: "Validate by using your own output."
+proposal: "https://github.com/stablekernel/SHRINE/commit/95a5e7f7"
+last-reviewed: 2026-10-07
+status: ratified
 ---
 
 *If you won't use it, why should anyone else?*

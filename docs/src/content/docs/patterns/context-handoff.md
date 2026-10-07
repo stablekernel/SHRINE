@@ -1,6 +1,9 @@
 ---
 title: "Context Handoff"
 description: "Carry a run across compactions and sessions with a written handoff, not a transcript."
+proposal: "https://github.com/stablekernel/SHRINE/pull/16"
+last-reviewed: 2026-10-07
+status: ratified
 ---
 
 *Every session starts cold. Leave the next one a clean desk.*

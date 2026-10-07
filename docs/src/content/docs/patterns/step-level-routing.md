@@ -1,6 +1,9 @@
 ---
 title: "Step-Level Routing"
 description: "Route each step inside an agent trajectory to a model tier and reasoning effort."
+proposal: "https://github.com/stablekernel/SHRINE/pull/13"
+last-reviewed: 2026-10-07
+status: ratified
 ---
 
 *Not every step of a task needs the model that planned it.*

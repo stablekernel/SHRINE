@@ -1,6 +1,9 @@
 ---
 title: "Unattended Runs"
 description: "Launch an agent to work for hours without a human watching each step."
+proposal: "https://github.com/stablekernel/SHRINE/pull/16"
+last-reviewed: 2026-10-07
+status: ratified
 ---
 
 *Decide when it stops before it starts.*

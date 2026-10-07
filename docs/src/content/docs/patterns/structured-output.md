@@ -1,6 +1,9 @@
 ---
 title: "Structured Output"
 description: "Force output into a defined schema."
+proposal: "https://github.com/stablekernel/SHRINE/commit/d259f16b"
+last-reviewed: 2026-10-07
+status: ratified
 ---
 
 *Get data, not prose.*

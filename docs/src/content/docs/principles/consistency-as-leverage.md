@@ -3,6 +3,7 @@ title: "Consistency as Leverage"
 description: "Pattern predictability reduces tokens more than prompt optimization."
 proposal: "https://github.com/stablekernel/SHRINE/discussions/6"
 last-reviewed: 2026-10-07
+status: ratified
 ---
 
 *The biggest efficiency lever is the codebase, not the prompt.*

@@ -1,6 +1,9 @@
 ---
 title: "Correction Diagnosis"
 description: "Trace each correction to the input that caused it, and fix that input instead of the output."
+proposal: "https://github.com/stablekernel/SHRINE/pull/17"
+last-reviewed: 2026-10-07
+status: ratified
 ---
 
 *A correction made twice is an input bug.*

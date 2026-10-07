@@ -3,6 +3,7 @@ title: "Reproducibility"
 description: "Choose the reproducibility level each part needs, and build the mechanisms to hit it."
 proposal: "https://github.com/stablekernel/SHRINE/discussions/9"
 last-reviewed: 2026-09-16
+status: ratified
 ---
 
 *Define "similar" per use case. Never assume it.*

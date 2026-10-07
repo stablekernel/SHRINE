@@ -1,6 +1,9 @@
 ---
 title: "Delegation Fit"
 description: "Decide per task whether to delegate, pair, or write by hand, and brief delegated work in one message."
+proposal: "https://github.com/stablekernel/SHRINE/pull/17"
+last-reviewed: 2026-10-07
+status: ratified
 ---
 
 *Some tasks cost more to review than to write.*

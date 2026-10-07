@@ -1,6 +1,9 @@
 ---
 title: "Pipeline Orchestration"
 description: "Chain stages with explicit contracts and a gate at every handoff."
+proposal: "https://github.com/stablekernel/SHRINE/commit/d5f06a07"
+last-reviewed: 2026-10-07
+status: ratified
 ---
 
 *Assembly line: each stage transforms, checks, and passes forward.*

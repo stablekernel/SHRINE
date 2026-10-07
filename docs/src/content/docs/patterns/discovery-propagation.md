@@ -1,6 +1,9 @@
 ---
 title: "Discovery Propagation"
 description: "When agents find better paths, propose improvements back to the system through review."
+proposal: "https://github.com/stablekernel/SHRINE/commit/95a5e7f7"
+last-reviewed: 2026-10-07
+status: ratified
 ---
 
 *The system should learn from what it discovers, with a human in the path.*

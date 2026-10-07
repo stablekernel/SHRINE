@@ -3,6 +3,7 @@ title: "Fail Fast, Recover Smart"
 description: "Design AI systems for failure, not just success."
 proposal: "https://github.com/stablekernel/SHRINE/discussions/7"
 last-reviewed: 2026-10-07
+status: ratified
 ---
 
 *A confident wrong answer looks exactly like a right one.*

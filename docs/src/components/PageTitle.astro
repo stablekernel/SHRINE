@@ -1,0 +1,29 @@
+---
+import Default from '@astrojs/starlight/components/PageTitle.astro';
+import { Badge } from '@astrojs/starlight/components';
+
+const { status } = Astro.locals.starlightRoute.entry.data;
+const label = status === 'ratified' ? 'Ratified' : status === 'draft' ? 'Draft' : undefined;
+const variant = status === 'ratified' ? 'success' : 'caution';
+const base = import.meta.env.BASE_URL.replace(/\/$/, '');
+---
+
+<Default />
+{
+	label && (
+		<p class="shrine-status">
+			<a href={`${base}/reference/governance/#page-status`} aria-label={`Status: ${label}. What this means`}>
+				<Badge text={label} variant={variant} size="medium" />
+			</a>
+		</p>
+	)
+}
+
+<style>
+	.shrine-status {
+		margin-top: 0.5rem;
+	}
+	.shrine-status a {
+		text-decoration: none;
+	}
+</style>

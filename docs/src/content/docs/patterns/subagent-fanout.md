@@ -1,6 +1,9 @@
 ---
 title: "Subagent Fanout"
 description: "Split independent work across subagents that read widely and return compact results."
+proposal: "https://github.com/stablekernel/SHRINE/commit/d5f06a07"
+last-reviewed: 2026-10-07
+status: ratified
 ---
 
 *One coordinator, many workers, each with a clean context and a narrow brief.*

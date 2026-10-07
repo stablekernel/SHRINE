@@ -1,6 +1,7 @@
 ---
 title: "Repository Context"
 description: "Indexed codebase knowledge exposed to agents."
+status: draft
 ---
 
 *Let the agent look up the codebase instead of rereading it.*
@@ -28,7 +29,7 @@ description: "Indexed codebase knowledge exposed to agents."
 
 ## Current Stack
 
-*Document your org's evaluated tools here.*
+- Record evaluated tools in the [Current Stack Roster](/SHRINE/reference/current-stack/#repository-context)
 
 ## Key Considerations
 

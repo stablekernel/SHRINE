@@ -1,6 +1,9 @@
 ---
 title: "Chain of Thought"
 description: "Get reasoning before conclusions: a reasoning setting on models that think, a prompt instruction on models that don't."
+proposal: "https://github.com/stablekernel/SHRINE/commit/d259f16b"
+last-reviewed: 2026-10-07
+status: ratified
 ---
 
 *Make the model reason before it answers.*

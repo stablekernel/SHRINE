@@ -1,6 +1,9 @@
 ---
 title: "Mechanical Scaffolding"
 description: "Build repeatable structure once, fill with context each time."
+proposal: "https://github.com/stablekernel/SHRINE/commit/79e03ea6"
+last-reviewed: 2026-10-07
+status: ratified
 ---
 
 *Pay for structure once, pay for content every time.*

@@ -3,6 +3,7 @@ title: "North Star: TTV (Tokens to Value)"
 description: "Maximize value per win, where a win costs tokens plus human attention."
 proposal: "https://github.com/stablekernel/SHRINE/discussions/2"
 last-reviewed: 2026-09-16
+status: ratified
 ---
 
 *Value per win, not tokens per month.*

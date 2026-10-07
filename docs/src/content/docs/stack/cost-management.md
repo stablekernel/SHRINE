@@ -1,6 +1,7 @@
 ---
 title: "Cost Management"
 description: "Track cost per accepted win: tokens plus human attention."
+status: draft
 ---
 
 *The cost of a win is tokens plus the human minutes it took.*

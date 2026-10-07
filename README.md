@@ -22,7 +22,7 @@ Maximize what every token buys us. Get this right and cost takes care of itself.
 
 ## How This Works
 
-- [**Documentation**](https://stablekernel.github.io/SHRINE/): Ratified principles, patterns, and stack guidance
+- [**Documentation**](https://stablekernel.github.io/SHRINE/): Ratified principles and patterns; draft stack guidance
 - [**Governance**](https://stablekernel.github.io/SHRINE/reference/governance/): The official process for proposing, refining, and ratifying content
 - [**Discussions**](https://github.com/stablekernel/SHRINE/discussions): The living forum where ideas are shaped before they solidify
 - **Disagreement is welcome.** Nobody sees the whole board alone

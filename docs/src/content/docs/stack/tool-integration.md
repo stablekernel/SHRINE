@@ -1,6 +1,7 @@
 ---
 title: "Tool Integration"
 description: "Function calling, tool protocols, and external APIs: design, context cost, and security."
+status: draft
 ---
 
 *Models are more useful when they can act, and more dangerous.*

@@ -1,6 +1,9 @@
 ---
 title: "Checkpoint Gates"
 description: "Stop an agent before irreversible actions and hand the human a decision that clears in one step."
+proposal: "https://github.com/stablekernel/SHRINE/pull/16"
+last-reviewed: 2026-10-07
+status: ratified
 ---
 
 *Gate the action, not the agent.*

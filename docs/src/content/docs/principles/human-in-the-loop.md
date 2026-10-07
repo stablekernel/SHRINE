@@ -3,6 +3,7 @@ title: "Human in the Loop"
 description: "Define where human judgment is required, and make those checkpoints fast."
 proposal: "https://github.com/stablekernel/SHRINE/discussions/8"
 last-reviewed: 2026-10-07
+status: ratified
 ---
 
 *Automation with oversight, not automation as abandonment.*

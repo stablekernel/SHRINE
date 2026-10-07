@@ -103,11 +103,24 @@ Link to the draft PR (added once refined).
 - To propose a change, open a new Discussion referencing the existing page
 - Same lifecycle applies
 
+## Page Status
+
+Every principle, pattern, and stack page shows its status under the title and in the sidebar.
+
+| Status | Meaning | Sections |
+|---|---|---|
+| Ratified | Adopted through this lifecycle or by owner decision; changes need a Discussion | Principles, Patterns |
+| Draft | Under refinement; use as guidance, expect changes without the full lifecycle | Stack, Current Stack Roster |
+
+- Set by the `status` frontmatter field: `ratified` or `draft`
+- Promoting a Draft page to Ratified follows the lifecycle above
+
 ## Metadata
 
 Every ratified page carries:
 
 - `proposal`: link to the original discussion
+  - Pages ratified without a Discussion link the PR or commit that added them
 - `last-reviewed`: date of most recent keeper review
 
 Keepers periodically sweep pages whose `last-reviewed` date has gone stale, re-examining whether the guidance still holds.

@@ -1,6 +1,7 @@
 ---
 title: "Agent Architecture & Orchestration"
 description: "How we decompose, delegate, validate, and recover."
+status: draft
 ---
 
 *One agent doing everything is a single point of failure with a full context window.*

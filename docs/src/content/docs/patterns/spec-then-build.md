@@ -1,6 +1,9 @@
 ---
 title: "Spec, Then Build"
 description: "Agree a written spec and reviewed plan before an agent executes."
+proposal: "https://github.com/stablekernel/SHRINE/pull/16"
+last-reviewed: 2026-10-07
+status: ratified
 ---
 
 *Every open question in the spec is a future interruption.*
