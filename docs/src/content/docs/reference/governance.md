@@ -119,7 +119,7 @@ Every principle, pattern, and stack page shows its status under the title and in
 | Draft | Under refinement; use as guidance, expect changes without the full lifecycle | Stack, Current Stack Roster |
 
 - Set by the `status` frontmatter field: `ratified` or `draft`
-- Promoting a Draft page to Ratified follows the lifecycle above
+- Promoting a Draft page to Ratified follows any route above
 
 ## Metadata
 

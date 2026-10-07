@@ -79,7 +79,7 @@ Check top to bottom. An upstream cause usually makes downstream fixes useless.
   2. Returned errors as plain strings; the repo wraps errors in `apperr.New`, and last week's endpoint got the same correction (repeated: matches a known convention, second time; Context: missing)
 - **Response**: stop correcting; the convention exists only in reviewers' heads
 - **Input fix**: one line proposed to the repo's standing instructions, "Wrap errors with `apperr.New`"; once merged, it loads every session
-- **Rerun** in a fresh session, same prompt: no corrections
+- **Rerun** in a fresh session, same prompt; until the proposal merges, the rerun's brief carries the same line: no corrections
 - **Minutes** (illustrative; 40 by hand):
 
 | Path | Minutes | Against 40 by hand |
