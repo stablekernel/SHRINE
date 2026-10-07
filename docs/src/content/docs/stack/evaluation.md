@@ -26,7 +26,7 @@ description: "Define the win, build evals on real cases, and measure whether you
 - Human intervention rate
 - Acceptance rate: share of delegated outputs accepted as delivered, counted apart from those accepted after correction
 - Corrections per task: correction turns, each tagged with its cause ([Correction Diagnosis](/SHRINE/patterns/correction-diagnosis/#cause-chain))
-- Diff size per accepted output: lines and files changed; large diffs predict review cost
+- Diff size per accepted output: lines and files changed; large diffs tend to raise review cost
 
 ### Cost Metrics
 - Tokens per outcome
@@ -96,7 +96,7 @@ description: "Define the win, build evals on real cases, and measure whether you
 
 A bounded way for one engineer to see whether delegation pays off, instead of estimating it.
 
-- **Log per task**: mode (delegated, paired, by hand); minutes briefing; minutes reviewing and fixing; the three metrics above
+- **Log per task**: mode (delegated, paired, by hand); minutes briefing; minutes reviewing and fixing; acceptance rate, corrections per task, diff size
 - **Compare** like tasks across modes, not across task types
 - **Time bound**: two weeks
 - **Stop early** when one cause tag owns most corrections; that is the answer

@@ -1,7 +1,6 @@
 ---
 title: "Delegation Fit"
 description: "Decide per task whether to delegate, pair, or write by hand, and brief delegated work in one message."
-last-reviewed: 2026-10-07
 ---
 
 *Some tasks cost more to review than to write.*
@@ -62,7 +61,7 @@ These signals are judgment calls and shift as models change. Reassess them on th
 
 ## Brief Shape
 
-Extends the problem prompt in [Problem Before Prescription](/SHRINE/principles/problem-before-prescription/#in-practice) for small delegated tasks.
+Extends the problem prompt in [Problem Before Prescription](/SHRINE/principles/problem-before-prescription/#in-practice) for small delegated tasks. It is a small-task subset of the [Spec Fields](/SHRINE/patterns/spec-then-build/#spec-fields) in Spec, Then Build.
 
 - **Goal**: the problem, not the fix
 - **Constraints**: what must not change
@@ -100,6 +99,7 @@ Prior art: Claude Code [best practices](https://code.claude.com/docs/en/best-pra
 - **Done**: `make test` passes, including new `test_orders_csv_columns`
 - **Ask**: list assumptions before editing
 - Outcome: one question about date format, answered; one correction, a header casing
+- **Minutes** (illustrative): 5 brief + 12 review, against 40 by hand; the vague prompt took 35 in corrections
 
 ## Anti-patterns
 

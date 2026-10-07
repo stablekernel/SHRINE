@@ -35,7 +35,7 @@ How to gain confidence in output.
 
 ## Planning Patterns
 
-How to set up agent work before it starts.
+How to set up and carry agent work
 
 - [Checkpoint Gates](/SHRINE/patterns/checkpoint-gates/): Block irreversible actions until a human clears a one-step decision
 - [Context Handoff](/SHRINE/patterns/context-handoff/): Carry a run across compactions and sessions with a written handoff

@@ -1,7 +1,6 @@
 ---
 title: "Reviewable Output"
 description: "Shape delegated code and documents so a human can review them against intent, not from scratch."
-last-reviewed: 2026-10-07
 ---
 
 *Review cost is set by the shape of the output, not only by its quality.*

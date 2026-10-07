@@ -17,7 +17,7 @@ description: "Track cost per accepted win: tokens plus human attention."
 
 - Tag every model call with an outcome ID (ticket, PR, eval run)
 - Log human interventions and active minutes per outcome
-- Mark each outcome accepted as delivered, accepted after correction, or rejected; only accepted outcomes are wins ([Evaluation](/SHRINE/stack/evaluation/#outcome-metrics))
+- Mark each outcome accepted as delivered, accepted after correction, or rejected; both accepted states count as wins and are reported apart ([Evaluation](/SHRINE/stack/evaluation/#outcome-metrics))
 - Put tokens from failed or abandoned runs in a waste bucket, and drive it down
 - Report tokens per win and minutes per win side by side ([Observability](/SHRINE/stack/observability/))
 

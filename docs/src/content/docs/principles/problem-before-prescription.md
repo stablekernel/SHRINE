@@ -2,7 +2,7 @@
 title: "Problem Before Prescription"
 description: "Present the problem and constraints, explore solutions, then commit."
 proposal: "https://github.com/stablekernel/SHRINE/discussions/14"
-last-reviewed: 2026-09-16
+last-reviewed: 2026-10-07
 ---
 
 *You hold the constraints. The model holds the solution space.*

@@ -1,7 +1,6 @@
 ---
 title: "Correction Diagnosis"
 description: "Trace each correction to the input that caused it, and fix that input instead of the output."
-last-reviewed: 2026-10-07
 ---
 
 *A correction made twice is an input bug.*
@@ -17,11 +16,10 @@ last-reviewed: 2026-10-07
 
 - You correct the same kind of output more than once
 - Correcting output takes longer than writing it would have
-- A session needs more than two corrections on one point
+- A session needs two corrections on one point
 
 ## When Not to Use
 
-- A single miss that one repair fixes; see [One-Off or Repeated](/SHRINE/principles/fail-fast-recover-smart/#one-off-or-repeated)
 - Exploration, where variance is the point ([Reproducibility](/SHRINE/principles/reproducibility/))
 - Throwaway output you will not reuse
 
@@ -37,16 +35,16 @@ Check top to bottom. Upstream causes make downstream fixes useless.
 
 | Link | Symptom | Cause | Fix |
 |---|---|---|---|
-| Task fit | Faster to have written it by hand | Wrong work delegated | [Delegation Fit](/SHRINE/patterns/delegation-fit/) |
-| Model fit | Shallow reasoning on a hard step | Tier too small for the step | [Task Routing](/SHRINE/patterns/task-routing/#model-tiers), [Step-Level Routing](/SHRINE/patterns/step-level-routing/) |
-| Context: missing | Ignored a repo convention | Convention not written down, or inconsistent | [Consistency as Leverage](/SHRINE/principles/consistency-as-leverage/), [Standing Instructions](/SHRINE/stack/memory/#standing-instructions) |
-| Context: wrong | Output got worse after material was added | Irrelevant or conflicting context | [Memory & Context](/SHRINE/stack/memory/#in-session-context) |
-| Framing | Solved the wrong problem | No problem statement or constraints | [Problem Before Prescription](/SHRINE/principles/problem-before-prescription/) |
-| Examples | Wrong format or style | No exemplar to mirror | [Few-Shot Examples](/SHRINE/patterns/few-shot-examples/) |
-| Scope | Diff too large to review | Task too large for one brief | [Agent Architecture](/SHRINE/stack/agent-architecture/#task-boundaries), [Delegation Fit](/SHRINE/patterns/delegation-fit/#sizing) |
-| Execution | Wandered mid-task | No plan review or milestone | [Spec, Then Build](/SHRINE/patterns/spec-then-build/#plan-review-gate) |
-| Verification | Plausible code that does not run | No runnable check | [Verification Loops](/SHRINE/patterns/verification-loops/) |
-| Feedback | Same fix made in two sessions | Correction never captured | [Discovery Propagation](/SHRINE/patterns/discovery-propagation/) |
+| Task fit | Faster to have written it by hand | Wrong work delegated | Delegate less or pair: [Delegation Fit](/SHRINE/patterns/delegation-fit/) |
+| Model fit | Shallow reasoning on a hard step | Tier too small for the step | Raise the tier: [Task Routing](/SHRINE/patterns/task-routing/#model-tiers), [Step-Level Routing](/SHRINE/patterns/step-level-routing/) |
+| Context: missing | Ignored a repo convention | Convention not written down, or inconsistent | Write it down: [Consistency as Leverage](/SHRINE/principles/consistency-as-leverage/), [Standing Instructions](/SHRINE/stack/memory/#standing-instructions) |
+| Context: wrong | Output got worse after material was added | Irrelevant or conflicting context | Prune context: [Memory & Context](/SHRINE/stack/memory/#in-session-context) |
+| Framing | Solved the wrong problem | No problem statement or constraints | State the problem: [Problem Before Prescription](/SHRINE/principles/problem-before-prescription/) |
+| Examples | Wrong format or style | No exemplar to mirror | Add an exemplar: [Few-Shot Examples](/SHRINE/patterns/few-shot-examples/) |
+| Scope | Diff too large to review | Task too large for one brief | Split the task: [Agent Architecture](/SHRINE/stack/agent-architecture/#task-boundaries), [Delegation Fit](/SHRINE/patterns/delegation-fit/#sizing) |
+| Execution | Wandered mid-task | No plan review or milestone | Add a plan review: [Spec, Then Build](/SHRINE/patterns/spec-then-build/#plan-review-gate) |
+| Verification | Plausible code that does not run | No runnable check | Add a runnable check: [Verification Loops](/SHRINE/patterns/verification-loops/) |
+| Feedback | Same fix made in two sessions | Correction never captured | Capture the fix: [Discovery Propagation](/SHRINE/patterns/discovery-propagation/) |
 
 ## Session Rule
 
@@ -75,13 +73,14 @@ Check top to bottom. Upstream causes make downstream fixes useless.
 - **Corrections**, each tagged:
   1. Returned errors as plain strings; the repo wraps errors in `apperr.New` (Context: missing)
   2. Same miss in the second handler it added (Context: missing, repeated)
-  3. Added a new PDF library; the repo already renders PDFs in `reports/render.go` (Examples)
+  3. Added a new PDF library; the repo already renders PDFs in `reports/render.go` (Context: missing)
   4. Test calls the handler directly; repo tests go through `testserver` (Context: missing)
-- **Diagnosis**: three of four tags are one link; the conventions exist only in reviewers' heads
+- **Diagnosis**: all four tags are Context: missing; the conventions exist only in reviewers' heads
 - **Input fixes**:
   - Two lines added to standing instructions: error wrapping, test entry point
   - Brief rewritten with a mirror: "Follow `GET /reports/{id}/pdf`"
 - **Rerun** in a fresh session: one correction, a missing content-type header; a new test now covers it
+- **Minutes** (illustrative): 6 brief + 10 review, against 45 by hand; the first attempt cost 30 in corrections
 
 ## Anti-patterns
 

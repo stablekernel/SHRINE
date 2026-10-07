@@ -21,6 +21,14 @@ A written record of goal, state, evidence, decisions and next step that lets a f
 
 The amount of text a model can process in a single call. Exceeding it causes truncation or failure.
 
+## Correction Diagnosis
+
+Tracing a repeated correction to the input that caused it, then fixing that input. See [Correction Diagnosis](/SHRINE/patterns/correction-diagnosis/).
+
+## Delegation Fit
+
+The per-task choice to delegate, pair, or write by hand, made before prompting. See [Delegation Fit](/SHRINE/patterns/delegation-fit/).
+
 ## Harness
 
 The interface to the models: the CLI, IDE extension, or application that orchestrates prompts, tools, and context. See [Harness Selection](/SHRINE/stack/harness/).
@@ -48,6 +56,10 @@ The final step of the proposal lifecycle: after two keeper endorsements and the 
 ## Repository Context
 
 Indexed knowledge of a codebase (symbols, references, code graph) exposed to agents. Distinct from memory. See [Repository Context](/SHRINE/stack/repository-context/).
+
+## Reviewable Output
+
+Agent output shaped to be cheap to review: small diffs, attached evidence, and a review note. See [Reviewable Output](/SHRINE/patterns/reviewable-output/).
 
 ## Routing
 

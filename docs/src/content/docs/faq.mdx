@@ -1,6 +1,6 @@
 ---
 title: FAQ
-description: Frequently asked questions about SHRINE participation and governance.
+description: Frequently asked questions about SHRINE participation, governance, and everyday agent work.
 ---
 
 ## Getting Started
@@ -21,8 +21,11 @@ description: Frequently asked questions about SHRINE participation and governanc
 ### I spend more time correcting output than writing it. Where do I start?
 
 - Treat each repeated correction as an input bug, not a model failure
-- Walk the cause chain in [Correction Diagnosis](/SHRINE/patterns/correction-diagnosis/), upstream first
-- Check [Delegation Fit](/SHRINE/patterns/delegation-fit/): some tasks cost more to review than to write
+- Read in this order:
+  1. [Delegation Fit](/SHRINE/patterns/delegation-fit/): before you prompt; some tasks cost more to review than to write
+  2. [Reviewable Output](/SHRINE/patterns/reviewable-output/): what to ask for
+  3. [Correction Diagnosis](/SHRINE/patterns/correction-diagnosis/): when it still misses; walk the cause chain, upstream first
+- Review still slow? Ask for Reviewable Output: small diffs, attached evidence, review note
 - Measure before deciding: [Individual Baseline](/SHRINE/stack/evaluation/#individual-baseline)
 
 ### What's the relationship between SHRINE and my team's practices?

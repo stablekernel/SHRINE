@@ -44,8 +44,8 @@ A short per-repo instruction file the harness loads at the start of every sessio
 - **Grow it from corrections**: add a line when the same miss happens twice, not from upfront guesses ([Discovery Propagation](/SHRINE/patterns/discovery-propagation/))
 - **Promote when enforceable**: once a lint or hook can check a line, move it there and delete the line
 - **Prune**: drop lines the current model follows without being told ([Deliberate Currency](/SHRINE/principles/deliberate-currency/))
-- **Scope by layer**: org, team, and repo files, narrowest layer that needs it ([Authority Cascade](/SHRINE/principles/authority-cascade/))
-- **No conflicts**: a stale or contradicting line is worse than a missing one; it gets followed
+- **Scope by layer** per [Authority Cascade](/SHRINE/principles/authority-cascade/): put each line at the narrowest layer that needs it
+- **No conflicts**: a stale or contradicting line is worse than a missing one; it tends to get followed
 
 ## Key Considerations
 
