@@ -10,6 +10,8 @@ status: ratified
 
 ## The Pattern
 
+There is no universal fix for correction-heavy output: the right approach depends on the task, model, codebase, available context, and how much ambiguity the agent must resolve alone, and the cause chain below is how to find which one applies.
+
 - The aim is a first result close to what you would have written; review is the backstop
 - When you correct output, find the input that produced the miss
 - Walk a fixed cause chain, upstream first, and stop at the first link that explains it

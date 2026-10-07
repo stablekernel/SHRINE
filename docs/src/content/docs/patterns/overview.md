@@ -1,14 +1,11 @@
 ---
 title: "Patterns"
 description: "Approaches humans apply when guiding agents or crafting skills."
-status: ratified
 ---
 
 <!-- MAINTAINER: Categories are ordered by workflow (ask, verify, plan, orchestrate, evolve); keep entries in alphabetical order within each category -->
 
 Patterns are reusable techniques for getting better results from AI. They're not tools themselves, but ways of structuring prompts, workflows, and interactions.
-
-- Status: patterns are **Ratified**; change one through a Discussion ([Page Status](/SHRINE/reference/governance/#page-status))
 
 ## When to Reach for a Pattern
 

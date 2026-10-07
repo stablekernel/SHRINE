@@ -27,7 +27,6 @@ export default defineConfig({
         { label: 'Home', link: '/' },
         {
           label: 'Principles',
-          badge: { text: 'Ratified', variant: 'success' },
           collapsed: false,
           // MAINTAINER: Order is deliberate, not alphabetical (Overview, North Star, then who decides,
           // where humans judge, how we engage, how we shape code, how systems fail, how we trust output, how we evolve)
@@ -45,7 +44,6 @@ export default defineConfig({
         },
         {
           label: 'Patterns',
-          badge: { text: 'Ratified', variant: 'success' },
           collapsed: false,
           // MAINTAINER: Keep entries in alphabetical order (Overview first, then A-Z)
           items: [
@@ -79,7 +77,6 @@ export default defineConfig({
         },
         {
           label: 'Stack',
-          badge: { text: 'Draft', variant: 'caution' },
           collapsed: true,
           // MAINTAINER: Keep entries in alphabetical order (Overview first, then A-Z)
           items: [
