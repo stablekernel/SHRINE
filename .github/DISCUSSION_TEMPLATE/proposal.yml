@@ -6,7 +6,7 @@ body:
     attributes:
       value: |
         Use this template to propose a new principle, pattern, stack choice, or governance change.
-        See [Governance](/SHRINE/reference/governance/) for the full lifecycle.
+        See [Governance](https://stablekernel.github.io/SHRINE/reference/governance/) for the full lifecycle.
 
   - type: checkboxes
     id: self-filter

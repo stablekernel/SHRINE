@@ -25,9 +25,9 @@ description: "Trace each correction to the input that caused it, and fix that in
 
 ## Step 0: One-Off or Repeated
 
-- One miss that a single repair fixes: repair it and move on
-- The same miss twice, or again in a fresh session: walk the chain
-- The decision rule lives in [Fail Fast, Recover Smart](/SHRINE/principles/fail-fast-recover-smart/#one-off-or-repeated)
+- Before walking the chain, classify the miss with the [One-Off or Repeated](/SHRINE/principles/fail-fast-recover-smart/#one-off-or-repeated) rule
+- One-off: repair once and move on
+- Repeated: walk the chain below
 
 ## Cause Chain
 
@@ -40,7 +40,7 @@ Check top to bottom. Upstream causes make downstream fixes useless.
 | Context: missing | Ignored a repo convention | Convention not written down, or inconsistent | Write it down: [Consistency as Leverage](/SHRINE/principles/consistency-as-leverage/), [Standing Instructions](/SHRINE/stack/memory/#standing-instructions) |
 | Context: wrong | Output got worse after material was added | Irrelevant or conflicting context | Prune context: [Memory & Context](/SHRINE/stack/memory/#in-session-context) |
 | Framing | Solved the wrong problem | No problem statement or constraints | State the problem: [Problem Before Prescription](/SHRINE/principles/problem-before-prescription/) |
-| Examples | Wrong format or style | No exemplar to mirror | Add an exemplar: [Few-Shot Examples](/SHRINE/patterns/few-shot-examples/) |
+| Examples | Wrong format or style | No exemplar to mirror | Add an exemplar: [Few-Shot Examples](/SHRINE/patterns/few-shot-examples/#code-exemplars), the Mirror field in [Delegation Fit](/SHRINE/patterns/delegation-fit/#brief-shape) |
 | Scope | Diff too large to review | Task too large for one brief | Split the task: [Agent Architecture](/SHRINE/stack/agent-architecture/#task-boundaries), [Delegation Fit](/SHRINE/patterns/delegation-fit/#sizing) |
 | Execution | Wandered mid-task | No plan review or milestone | Add a plan review: [Spec, Then Build](/SHRINE/patterns/spec-then-build/#plan-review-gate) |
 | Verification | Plausible code that does not run | No runnable check | Add a runnable check: [Verification Loops](/SHRINE/patterns/verification-loops/) |
@@ -57,6 +57,7 @@ Check top to bottom. Upstream causes make downstream fixes useless.
 
 - Route the fix to its destination ([Discovery Propagation](/SHRINE/patterns/discovery-propagation/#where-lessons-land))
 - A convention that is not yet lint-enforceable goes in the repo's [standing instructions](/SHRINE/stack/memory/#standing-instructions)
+- Personal standing instructions: edit directly; shared or team files: propose and pass review ([Discovery Propagation](/SHRINE/patterns/discovery-propagation/#guardrails))
 - Capture at correction time; later, the detail is gone ([Memory & Context](/SHRINE/stack/memory/#cross-session-memory))
 
 ## Measure

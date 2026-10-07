@@ -113,3 +113,5 @@ description: "Agree a written spec and reviewed plan before an agent executes."
 - [Adversarial Review](/SHRINE/patterns/adversarial-review/): machine review of the plan
 - [Unattended Runs](/SHRINE/patterns/unattended-runs/): what a good spec enables
 - [Context Handoff](/SHRINE/patterns/context-handoff/): the plan file as handoff
+- [Delegation Fit](/SHRINE/patterns/delegation-fit/): the small-task brief this spec extends
+- [Reviewable Output](/SHRINE/patterns/reviewable-output/#staged-checkpoints): plan, interface, then implementation as staged reviews

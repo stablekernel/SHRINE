@@ -5,6 +5,10 @@ description: "Key terms and definitions."
 
 <!-- MAINTAINER: Keep entries in alphabetical order (ignore a leading "The") -->
 
+## Brief
+
+A one-message task description for delegated work: goal, constraints, non-goals, a mirror to follow, a done command, and an ask for assumptions. See [Delegation Fit](/SHRINE/patterns/delegation-fit/#brief-shape).
+
 ## Checkpoint Gate
 
 A mechanical block before an irreversible or outward-facing action that parks a one-step decision for a human. See [Checkpoint Gates](/SHRINE/patterns/checkpoint-gates/).
@@ -47,7 +51,7 @@ Short, evidence-linked progress notes an agent writes to a shared work board. Se
 
 ## Quorum
 
-A majority of current keepers. Required to override a standing objection during ratification.
+A majority of keepers. Required to override an objection during the objection window. See [Governance](/SHRINE/reference/governance/#5-objection-window).
 
 ## Ratification
 

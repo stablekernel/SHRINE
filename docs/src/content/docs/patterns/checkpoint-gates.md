@@ -85,4 +85,6 @@ description: "Stop an agent before irreversible actions and hand the human a dec
 - [Tokens to Value](/SHRINE/principles/tokens-to-value/): human attention is a cost
 - [Unattended Runs](/SHRINE/patterns/unattended-runs/): where gates matter most
 - [Adversarial Review](/SHRINE/patterns/adversarial-review/): machine review before the card
+- [Reviewable Output](/SHRINE/patterns/reviewable-output/): each staged review uses the decision card
+- [Delegation Fit](/SHRINE/patterns/delegation-fit/): human decisions made before the run starts
 - [Tool Integration](/SHRINE/stack/tool-integration/): where enforcement lives

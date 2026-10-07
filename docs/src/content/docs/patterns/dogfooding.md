@@ -16,6 +16,12 @@ Before shipping a skill, prompt, workflow, or tool to others, use it yourself on
 - Tools before recommending to clients
 - Patterns before encoding in governance
 
+## When Not to Use
+
+- One-off scripts no one else will run
+- You are not a realistic user; find one who is and watch them use it
+- Changes a deterministic test fully covers
+
 ## What Dogfooding Reveals
 
 - Friction you didn't anticipate
@@ -36,6 +42,15 @@ Before shipping a skill, prompt, workflow, or tool to others, use it yourself on
 Not "does it work?" but "would I choose to use this?"
 
 If you find yourself avoiding your own tool, that's signal.
+
+## Worked Example
+
+- **Illustrative case** (hypothetical)
+- **Thing**: a "write PR description" skill before sharing it with the team
+- **Use**: the author runs it on their next five real PRs
+- **Friction found**: it ignores the repo's PR template; it asks for a ticket ID even when there is none
+- **Fix**: read the template first; make the ticket ID optional
+- **Ship**: shared after two more PRs with no edits needed
 
 ## Anti-patterns
 

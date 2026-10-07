@@ -15,11 +15,27 @@ Patterns are reusable techniques for getting better results from AI. They're not
 - You're building a skill or workflow others will reuse
 - You correct the same kind of output repeatedly ([Correction Diagnosis](/SHRINE/patterns/correction-diagnosis/))
 
+## If You See X, Read Y
+
+| Symptom | Read |
+|---|---|
+| Fixing output takes longer than writing it | [Delegation Fit](/SHRINE/patterns/delegation-fit/) |
+| Same correction, again and again | [Correction Diagnosis](/SHRINE/patterns/correction-diagnosis/) |
+| Wrong format or style | [Few-Shot Examples](/SHRINE/patterns/few-shot-examples/), [Structured Output](/SHRINE/patterns/structured-output/) |
+| Plausible code that does not run | [Verification Loops](/SHRINE/patterns/verification-loops/) |
+| Diffs too large to review | [Reviewable Output](/SHRINE/patterns/reviewable-output/) |
+| Solved the wrong problem | [Spec, Then Build](/SHRINE/patterns/spec-then-build/) |
+| Long run drifts or loses the thread | [Context Handoff](/SHRINE/patterns/context-handoff/), [Progress Breadcrumbs](/SHRINE/patterns/progress-breadcrumbs/) |
+| Agent took an irreversible action unasked | [Checkpoint Gates](/SHRINE/patterns/checkpoint-gates/) |
+| Shallow answers on hard steps | [Chain of Thought](/SHRINE/patterns/chain-of-thought/), [Step-Level Routing](/SHRINE/patterns/step-level-routing/) |
+| Confident answers about your own data that are wrong | [RAG](/SHRINE/patterns/rag/) |
+| A prompt change broke something that worked | [Prompt Regression Testing](/SHRINE/patterns/prompt-regression/) |
+
 ## Prompting Patterns
 
 How to structure what you ask.
 
-- [Chain of Thought](/SHRINE/patterns/chain-of-thought/): Force explicit reasoning steps
+- [Chain of Thought](/SHRINE/patterns/chain-of-thought/): Get reasoning before conclusions
 - [Few-Shot Examples](/SHRINE/patterns/few-shot-examples/): Guide format with examples
 - [Structured Output](/SHRINE/patterns/structured-output/): Constrain output to a schema
 

@@ -19,6 +19,12 @@ Generate initial output, then run additional passes that:
 - When feedback loops are cheap relative to the value of improvement
 - Output that will be seen by humans and quality matters
 
+## When Not to Use
+
+- A runnable check exists; use [Verification Loops](/SHRINE/patterns/verification-loops/) instead
+- The first draft already meets the bar
+- No stopping criterion can be stated
+
 ## Implementation Notes
 
 - Each pass should have a specific focus (clarity, accuracy, brevity)
@@ -33,6 +39,15 @@ Generate initial output, then run additional passes that:
 - **Brevity**: Can this be shorter without losing meaning?
 - **Completeness**: Is anything missing?
 - **Tone**: Does this match the intended voice?
+
+## Worked Example
+
+- **Illustrative case** (hypothetical)
+- **Output**: a migration guide for an API version change
+- **Pass 1, accuracy**: check every endpoint named against the changelog; two renamed fields fixed
+- **Pass 2, completeness**: compare against the list of breaking changes; one missing section added
+- **Pass 3, brevity**: cut 30% with no loss of steps
+- **Stop**: a fourth pass changed only wording; no-change detected, so stop
 
 ## Anti-patterns
 
