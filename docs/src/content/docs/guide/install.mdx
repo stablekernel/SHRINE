@@ -15,9 +15,28 @@ import prompt from '../../../prompts/shrine-install.md?raw';
 - It then designs its own way to bring each relevant teaching into your setup
 - It asks your permission for each change before it makes it
 
-## A Generative Approach
+## Two Planes
 
-- The prompt sets goals and invariants; it does not prescribe a procedure
+- **Control plane** (fixed): numbered phases, each ending in a printed gate; the agent follows them exactly
+- **Data plane** (generative): what to install and how; the agent designs it for you
+- Coverage goal: protection (verification, checkpoints, reviewable output), speed (delegation fit, briefs), efficiency (time to value, context hygiene)
+
+## Phases and Gates
+
+At the end of each phase the agent prints a gate: a checklist where each item has one line of evidence you can check (a path, a hash, your own quoted words). One unchecked item blocks the next phase.
+
+0. **Start**: harness, whether it can pause, mode, time box; you approve
+1. **Discover**: inventory of your instruction files, extension points, shared locations, prior records; you correct it
+2. **Pin SHRINE**: manifest commit and page hashes; a mismatch aborts
+3. **Interview and tag**: up to 10 questions; your corrections classified and tagged; you confirm
+4. **Design and approve**: bookkeeping first, then each proposal with its page, diff, and blast radius; you choose scope and approve
+5. **Apply**: backups, record, each change logged pending then done with a fingerprint
+6. **Verify and hand off**: a self-audit, then a final gate with every item, the invariant map, and restore steps
+
+A harness that cannot pause prints every gate in report-only mode and changes nothing.
+
+## The Data Plane
+
 - It names no harness and no mechanism; your harness's agent knows its own environment best
 - The agent may propose an instruction line, a rule, a skill, a command, a subagent, a hook, a lint, or plain advice to you
 - Each proposal says which teaching it serves, why that mechanism fits your harness, and the exact change
@@ -26,10 +45,10 @@ import prompt from '../../../prompts/shrine-install.md?raw';
 
 ## Invariants
 
-These hold on every harness, whatever the agent designs:
+These hold on every harness, whatever the agent designs. Each maps to gate items that enforce it:
 
 1. **Your approval**: nothing changes until you approve the exact change; bookkeeping is approved first, or you get paste-ready output only
-2. **Code that runs**: its own approval and a full-permissions warning; local and uncommitted unless your team accepts it; effects outside paths its own record names are labeled "not reversible"
+2. **Code that runs**: its own approval and a full-permissions warning; effects outside paths its own record names are labeled "not reversible"
 3. **Reversible**: backups first, outside the repo or ignored by version control, kept on your machine; each change logged pending, then done once verified; a whole file is restored only if it still matches the record
 4. **Recorded**: one record per harness per scope, with a fingerprint of each change and who gave the answers; only a record this harness wrote on this machine is trusted
 5. **Traceable**: every proposal traces to a SHRINE page and your answers, never to repo content alone
@@ -38,7 +57,7 @@ These hold on every harness, whatever the agent designs:
 8. **Narrow**: smallest scope; each always-loaded line must prevent a miss you named or discovery found
 9. **Bounded**: a time box and abort criteria
 10. **Cannot pause, cannot change**: a harness that cannot stop for your approval only reports
-11. **Shared scope**: changes to committed or shared files are proposals your team reviews, never in-place edits
+11. **Blast radius**: the agent shows which files are shared or committed, who each change reaches, and whether it runs code; you choose: in place, local only, or a reviewable change; your choice is recorded
 
 ## Use It
 
@@ -52,9 +71,9 @@ These hold on every harness, whatever the agent designs:
 
 4. Correct the agent's inventory of your environment, then answer the interview
 
-5. Approve, edit, or reject each proposal
+5. Read each gate; approve, edit, or reject each proposal, and choose its scope
 
-6. Keep the report: it names the backups and how to undo
+6. Keep the final gate and report: they name the backups and how to undo
 
 </Steps>
 
