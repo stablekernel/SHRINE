@@ -55,7 +55,7 @@ Content becomes part of SHRINE by one of three routes:
 
 - **Lifecycle**: two keeper endorsements, the objection window, then the draft PR merges ([Proposal Lifecycle](/SHRINE/reference/governance/#proposal-lifecycle))
 - **Expedited**: the lifecycle without the objection window, which the CTO or VP of Engineering waives ([Expedited Ratification](/SHRINE/reference/governance/#expedited-ratification))
-- **Keeper decision**: the keepers ratify directly; the page links the record ([Keeper Decision](/SHRINE/reference/governance/#keeper-decision))
+- **Keeper decision**: a majority of keepers ratify or amend directly, and can waive the Discussion; the page links the record ([Keeper Decision](/SHRINE/reference/governance/#keeper-decision))
 
 ## Repository Context
 

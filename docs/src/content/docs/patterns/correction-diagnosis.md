@@ -74,27 +74,23 @@ Check top to bottom. An upstream cause usually makes downstream fixes useless.
 - **Illustrative case** (composite session, not a transcript)
 - **Task**: add a `GET /invoices/{id}/pdf` endpoint to a service with about 40 existing endpoints
 - **Prompt**: "Add an endpoint that returns the invoice as a PDF"
-- **Corrections**, each tagged:
-  1. Added a new PDF library; the repo already renders PDFs in `reports/render.go` (Context: missing)
-  2. Test calls the handler directly; repo tests go through `testserver` (Context: missing)
-  3. Returned errors as plain strings; the repo wraps errors in `apperr.New` (Context: missing)
-  4. Same miss in the second handler (Context: missing, repeated); session reset per [Session Rule](#session-rule)
-- **Diagnosis**: all four tags are Context: missing; the conventions exist only in reviewers' heads
-- **Input fixes**:
-  - Repeated miss: one line added to standing instructions, error wrapping
-  - One-off misses: brief rewritten with a mirror, "Follow `GET /reports/{id}/pdf` and its `testserver` tests"
-- **Rerun** in a fresh session: one correction, a missing content-type header; a new test now covers it
-- **Minutes** (illustrative): every row covers the whole endpoint, handler plus tests; by hand is the same work typed directly
+- **Corrections**, each classified by [Step 0](#step-0-one-off-or-repeated):
+  1. PDF footer shows the wrong page count; no repo convention involved (one-off: repaired once with the failing test output)
+  2. Returned errors as plain strings; the repo wraps errors in `apperr.New`, and last week's endpoint got the same correction (repeated: matches a known convention, second time; Context: missing)
+- **Response**: stop correcting; the convention exists only in reviewers' heads
+- **Input fix**: one line proposed to the repo's standing instructions, "Wrap errors with `apperr.New`"; once merged, it loads every session
+- **Rerun** in a fresh session, same prompt: no corrections
+- **Minutes** (illustrative; 40 by hand):
 
 | Path | Minutes | Against 40 by hand |
 |---|---|---|
-| First attempt | 2 prompt + 53 review and correction = 55 | 15 worse |
-| Input fixes | 2 writing the standing instruction | n/a |
-| Rerun after input fixes | 6 brief + 10 review = 16 | 24 better |
-| **Total on this task** | 55 + 2 + 16 = 73 | 33 worse |
+| First attempt, stopped at the repeated miss | 2 prompt + 43 review and correction = 45 | 5 worse |
+| Input fix | 2 writing the line | n/a |
+| Rerun | 2 prompt + 12 review = 14 | 26 better |
+| **Total on this task** | 45 + 2 + 14 = 61 | 21 worse |
 
 - **Verdict**: delegating lost on this task
-- **Payoff**: the next similar endpoint starts from the fixed inputs, so it costs about the rerun's 16 minutes
+- **Payoff**: the standing instruction loads next session, so the next similar endpoint costs about the rerun's 14 minutes
 
 ## Anti-patterns
 

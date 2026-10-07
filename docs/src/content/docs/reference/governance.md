@@ -99,14 +99,15 @@ Link to the draft PR (added once refined).
 
 ## Keeper Decision
 
-- The keepers can ratify a page directly
+- A majority of keepers can ratify a page, or amend a ratified page, directly
+- They can waive the Discussion step
 - The PR or Discussion records the decision; the page's `proposal` field links it
 
 ## Amendments
 
 - Ratified content remains open for adjustment
 - To propose a change, open a new Discussion referencing the existing page
-- Same lifecycle applies
+- Any route above applies
 
 ## Page Status
 
@@ -114,7 +115,7 @@ Every principle, pattern, and stack page shows its status under the title and in
 
 | Status | Meaning | Sections |
 |---|---|---|
-| Ratified | Adopted by any route above; changes need a Discussion | Principles, Patterns |
+| Ratified | Adopted by any route above; changed per Amendments | Principles, Patterns |
 | Draft | Under refinement; use as guidance, expect changes without the full lifecycle | Stack, Current Stack Roster |
 
 - Set by the `status` frontmatter field: `ratified` or `draft`

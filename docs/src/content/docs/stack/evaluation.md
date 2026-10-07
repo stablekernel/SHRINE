@@ -102,7 +102,7 @@ A bounded way for one engineer to see whether delegation pays off, instead of es
 - **Log per task**: task type; mode (delegated, paired, by hand); total minutes, for every mode including by hand; for delegated and paired, minutes briefing and minutes reviewing and fixing; acceptance rate, corrections per task, post-merge fixes, diff size
 - **Mix**: at least 3 by-hand tasks per task type, alternating with delegated ones
 - **Compare** like tasks across modes, not across task types
-- **Verdict**: per task type, lower median total minutes wins; delegated wins only if acceptance rate and post-merge fixes are no worse than by hand
+- **Verdict**: per task type, lower median total minutes wins; delegated wins only if post-merge fixes are no worse than by hand
 - **Time bound**: two weeks
 - **Stop early** on cause tags when one owns most corrections; keep logging minutes to the time bound
 - **Abort** if logging takes more than a few minutes per task; simplify the log, then restart
@@ -118,7 +118,7 @@ The same protocol, run by a team on shared workflows.
 - **Mix**: at least 3 by-hand tasks per workflow, alternating with delegated ones
 - **Time bound**: two weeks
 - **Abort** if fewer than half the team is logging after the first week, or logging takes more than a few minutes per task; simplify, then restart
-- **Report fields**: per workflow and mode, median total minutes, and median minutes briefing and reviewing; acceptance rate; corrections per task; post-merge fixes; top cause tag; one recommended input fix
+- **Report fields**: per workflow and mode, median total minutes, and median minutes briefing and reviewing; acceptance rate (delegated); corrections per task; post-merge fixes; top cause tag; one recommended input fix
 - **Verdict**: per workflow, by the [Individual Baseline](#individual-baseline) rule
 - **Output**: the report goes to the team's discussion as evidence; the top fix gets an owner
 
