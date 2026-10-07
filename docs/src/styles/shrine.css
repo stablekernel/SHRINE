@@ -109,7 +109,16 @@ header.header starlight-search {
   transform: translateX(-50%);
 }
 
-header.header site-search button,
-header.header starlight-search button {
-  width: 20rem;
+/* Target only the trigger: the modal's clear/cancel buttons also live in site-search. */
+header.header site-search button[data-open-modal],
+header.header starlight-search button[data-open-modal] {
+  width: auto;
+}
+
+/* Full label only shows at Starlight's 50rem breakpoint; keep the icon-only trigger small below it. */
+@media (min-width: 50rem) {
+  header.header site-search button[data-open-modal],
+  header.header starlight-search button[data-open-modal] {
+    width: 20rem;
+  }
 }
