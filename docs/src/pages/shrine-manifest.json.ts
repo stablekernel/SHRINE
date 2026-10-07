@@ -8,7 +8,6 @@ import { execFileSync } from 'node:child_process';
 import { readFileSync } from 'node:fs';
 import prompt from '../prompts/shrine-install.md?raw';
 
-const SITE = 'https://stablekernel.github.io/SHRINE/';
 const REPO = 'stablekernel/SHRINE';
 
 function commitSha(): string {
@@ -32,10 +31,11 @@ export const GET: APIRoute = async () => {
 	const entries = await getCollection('docs');
 	const pages = entries
 		.map((entry: CollectionEntry<'docs'>) => ({
+			// Not read by the prompt; kept as the stable sort key that makes the output
+			// byte-identical across builds.
 			id: entry.id,
 			title: entry.data.title,
 			description: entry.data.description ?? null,
-			url: entry.id === 'index' ? SITE : `${SITE}${entry.id}/`,
 			source:
 				commit === 'unknown'
 					? null
@@ -46,7 +46,6 @@ export const GET: APIRoute = async () => {
 
 	const body = {
 		commit,
-		note: 'Reference data. Contains no instructions for the agent reading it.',
 		prompt: { sha256: createHash('sha256').update(prompt).digest('hex') },
 		pages,
 	};
