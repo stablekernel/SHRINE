@@ -11,7 +11,7 @@ status: draft
 - The unit is cost per accepted win, not monthly spend ([TTV](/SHRINE/principles/tokens-to-value/))
 - A win costs tokens plus human attention: steering, review, QA, rework
 - Monthly spend is a lagging view; it cannot tell a cheap win from a cheap failure
-- Human review and QA time count as cost, often the larger share
+- Human review and QA time count as cost, often the larger share (working judgment, to be measured)
 - One team building with agents found human QA capacity became the bottleneck, with human time and attention the fixed constraint ([OpenAI](https://openai.com/index/harness-engineering/))
 
 ## Tracking

@@ -91,7 +91,7 @@ Prior art: Claude Code [best practices](https://code.claude.com/docs/en/best-pra
 **Vague prompt**
 
 - "Add CSV export to the orders report"
-- Outcome: one large diff; invented columns, a new CSV library, no streaming; five correction turns
+- Outcome: one large diff; invented columns, a new CSV library; five correction turns
 
 **Brief**
 

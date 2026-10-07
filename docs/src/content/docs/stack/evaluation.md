@@ -99,11 +99,12 @@ status: draft
 
 A bounded way for one engineer to see whether delegation pays off, instead of estimating it.
 
-- **Log per task**: task type; mode (delegated, paired, by hand); total minutes, for every mode including by hand; for delegated and paired, minutes briefing and minutes reviewing and fixing; acceptance rate, corrections per task, diff size
+- **Log per task**: task type; mode (delegated, paired, by hand); total minutes, for every mode including by hand; for delegated and paired, minutes briefing and minutes reviewing and fixing; acceptance rate, corrections per task, post-merge fixes, diff size
+- **Mix**: at least 3 by-hand tasks per task type, alternating with delegated ones
 - **Compare** like tasks across modes, not across task types
-- **Verdict**: per task type, delegated median total minutes vs by-hand median total minutes; lower wins; too few by-hand tasks means no verdict yet
+- **Verdict**: per task type, lower median total minutes wins; delegated wins only if acceptance rate and post-merge fixes are no worse than by hand
 - **Time bound**: two weeks
-- **Stop early** when one cause tag owns most corrections; that is the input to fix
+- **Stop early** on cause tags when one owns most corrections; keep logging minutes to the time bound
 - **Abort** if logging takes more than a few minutes per task; simplify the log, then restart
 - **Output**: the verdict per task type; the top cause tag is the next input to fix; share the log as evidence for the workload's win definition ([TTV](/SHRINE/principles/tokens-to-value/#open-questions))
 
@@ -114,10 +115,11 @@ The same protocol, run by a team on shared workflows.
 - **Pick workflows**: two or three recurring ones the team does weekly, such as bug fixes or endpoint additions
 - **Name an owner**: one person collects the logs and writes the report
 - **Log**: each engineer uses the [Individual Baseline](#individual-baseline) fields, plus workflow name
+- **Mix**: at least 3 by-hand tasks per workflow, alternating with delegated ones
 - **Time bound**: two weeks
 - **Abort** if fewer than half the team is logging after the first week, or logging takes more than a few minutes per task; simplify, then restart
-- **Report fields**: per workflow and mode, median total minutes, and median minutes briefing and reviewing; acceptance rate; corrections per task; top cause tag; one recommended input fix
-- **Verdict**: per workflow, delegated median total vs by-hand median total; state which mode won, or that the data is too thin to say
+- **Report fields**: per workflow and mode, median total minutes, and median minutes briefing and reviewing; acceptance rate; corrections per task; post-merge fixes; top cause tag; one recommended input fix
+- **Verdict**: per workflow, by the [Individual Baseline](#individual-baseline) rule
 - **Output**: the report goes to the team's discussion as evidence; the top fix gets an owner
 
 ## Worked Example

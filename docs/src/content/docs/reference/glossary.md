@@ -54,8 +54,8 @@ Short, evidence-linked progress notes an agent writes to a shared work board. Se
 Content becomes part of SHRINE by one of three routes:
 
 - **Lifecycle**: two keeper endorsements, the objection window, then the draft PR merges ([Proposal Lifecycle](/SHRINE/reference/governance/#proposal-lifecycle))
-- **Expedited**: the CTO or VP of Engineering bypasses the objection window ([Expedited Ratification](/SHRINE/reference/governance/#expedited-ratification))
-- **Owner decision**: adopted without the full lifecycle; the page links the PR or commit that added it ([Page Status](/SHRINE/reference/governance/#page-status))
+- **Expedited**: the lifecycle without the objection window, which the CTO or VP of Engineering waives ([Expedited Ratification](/SHRINE/reference/governance/#expedited-ratification))
+- **Keeper decision**: the keepers ratify directly; the page links the record ([Keeper Decision](/SHRINE/reference/governance/#keeper-decision))
 
 ## Repository Context
 

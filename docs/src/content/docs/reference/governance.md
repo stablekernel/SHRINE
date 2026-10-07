@@ -95,7 +95,12 @@ Link to the draft PR (added once refined).
 ## Expedited Ratification
 
 - The CTO or VP of Engineering can bypass the objection window
-- The other steps still apply: a discussion, a documentation PR, and the closing "Accepted" label
+- Every other step still applies, including the two keeper endorsements
+
+## Keeper Decision
+
+- The keepers can ratify a page directly
+- The PR or Discussion records the decision; the page's `proposal` field links it
 
 ## Amendments
 
@@ -109,7 +114,7 @@ Every principle, pattern, and stack page shows its status under the title and in
 
 | Status | Meaning | Sections |
 |---|---|---|
-| Ratified | Adopted through this lifecycle or by owner decision; changes need a Discussion | Principles, Patterns |
+| Ratified | Adopted by any route above; changes need a Discussion | Principles, Patterns |
 | Draft | Under refinement; use as guidance, expect changes without the full lifecycle | Stack, Current Stack Roster |
 
 - Set by the `status` frontmatter field: `ratified` or `draft`
@@ -120,7 +125,7 @@ Every principle, pattern, and stack page shows its status under the title and in
 Every ratified page carries the fields below. Section overview and index pages are exempt.
 
 - `proposal`: link to the original discussion
-  - Pages ratified without a Discussion link the PR or commit that added them
+  - Keeper decisions link the PR or Discussion that records them
 - `last-reviewed`: date of most recent keeper review
 
 Keepers periodically sweep pages whose `last-reviewed` date has gone stale, re-examining whether the guidance still holds.
