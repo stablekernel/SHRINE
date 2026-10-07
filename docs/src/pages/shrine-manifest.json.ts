@@ -30,10 +30,11 @@ export const GET: APIRoute = async () => {
 	const commit = commitSha();
 	const entries = await getCollection('docs');
 	const pages = entries
+		// The entry id is the stable sort key that makes the output byte-identical across
+		// builds. The prompt does not read it, so it is dropped from the output.
+		.slice()
+		.sort((a: CollectionEntry<'docs'>, b: CollectionEntry<'docs'>) => a.id.localeCompare(b.id))
 		.map((entry: CollectionEntry<'docs'>) => ({
-			// Not read by the prompt; kept as the stable sort key that makes the output
-			// byte-identical across builds.
-			id: entry.id,
 			title: entry.data.title,
 			description: entry.data.description ?? null,
 			source:
@@ -41,8 +42,7 @@ export const GET: APIRoute = async () => {
 					? null
 					: `https://raw.githubusercontent.com/${REPO}/${commit}/docs/${entry.filePath}`,
 			sha256: fileSha(entry.filePath, entry.id),
-		}))
-		.sort((a: { id: string }, b: { id: string }) => a.id.localeCompare(b.id));
+		}));
 
 	const body = {
 		commit,

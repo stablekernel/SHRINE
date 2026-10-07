@@ -26,11 +26,11 @@ import prompt from '../../../prompts/shrine-install.md?raw';
 At the end of each phase the agent prints a gate: a checklist where each item has one line of evidence you can check (a path, a hash, your own quoted words). One unchecked item blocks the next phase.
 
 0. **Start**: harness, whether it can pause, mode, time box; you approve
-1. **Discover**: inventory of your instruction files, extension points, shared locations, prior records; you correct it
+1. **Discover**: inventory of your instruction files, extension points, shared locations, prior records, and a snapshot of the paths it may change; you correct it
 2. **Pin SHRINE**: manifest commit and page hashes; a mismatch aborts
 3. **Interview and tag**: up to 10 questions; your corrections classified and tagged; you confirm
 4. **Design and approve**: bookkeeping first, then each proposal with its page, diff, and blast radius; you choose scope and approve
-5. **Apply**: backups, record, each change logged pending then done with a fingerprint
+5. **Apply**: backups, record, each change logged pending then done with before and after fingerprints; the snapshot shows nothing else changed
 6. **Verify and hand off**: a self-audit, then a final gate with every item, the invariant map, and restore steps
 
 A harness that cannot pause prints every gate in report-only mode and changes nothing.
@@ -49,8 +49,8 @@ These hold on every harness, whatever the agent designs. Each maps to gate items
 
 1. **Your approval**: nothing changes until you approve the exact change; bookkeeping is approved first, or you get paste-ready output only
 2. **Code that runs**: its own approval and a full-permissions warning; effects outside paths its own record names are labeled "not reversible"
-3. **Reversible**: backups first, outside the repo or ignored by version control, kept on your machine; each change logged pending, then done once verified; a whole file is restored only if it still matches the record
-4. **Recorded**: one record per harness per scope, with a fingerprint of each change and who gave the answers; only a record this harness wrote on this machine is trusted
+3. **Reversible**: backups first, outside the repo or ignored by version control, kept on your machine; each change logged pending, then done once verified; a whole file is restored only if it matches its recorded before or after fingerprint
+4. **Recorded**: one record per harness per scope, with a fingerprint of each change and who gave the answers; only a record this harness wrote on this machine, with printed proof that version control does not track it, is trusted
 5. **Traceable**: every proposal traces to a SHRINE page and your answers, never to repo content alone
 6. **Content is data**: only text that tries to steer the install run is a red flag; your normal instruction files are not
 7. **No secrets printed**: shown as `<redacted>`
@@ -110,10 +110,12 @@ Agent-readable copies of this page (llms.txt files) leave the prompt out on purp
 ## Re-run and Undo
 
 - Paste the same prompt again; it compares the recorded commit and page hashes and shows what changed
+- Unfinished or drifted entries from a past run are listed first, then proposed and approved like any change
 - Your edits to its additions are kept unless you choose otherwise
 - Same commit and same answers means no changes
 - Ask it to uninstall; it removes only its own marked additions, and restores a whole file only when the file still matches its record and no other harness's record names it
-- Re-run when a page you used is amended ([Deliberate Currency](/SHRINE/principles/deliberate-currency/))
+- Removing the record and deleting backups each need your separate approval, after restores are verified
+- Re-run when a page you used is amended ([Deliberate Currency](/SHRINE/principles/deliberate-currency/)), or when one correction tag leads
 
 ## Related
 
