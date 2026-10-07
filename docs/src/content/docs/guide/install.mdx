@@ -1,0 +1,86 @@
+---
+title: "Install SHRINE"
+description: "One prompt you paste into any agent harness to fit SHRINE's principles and patterns to you and your project."
+last-reviewed: 2026-10-07
+---
+
+import { Code, Steps } from '@astrojs/starlight/components';
+import prompt from '../../../prompts/shrine-install.md?raw';
+
+*Bring SHRINE into your own setup, with you approving every change.*
+
+## What It Does
+
+- You paste one prompt into your agent harness
+- The agent finds out what your harness provides, then interviews you
+- It maps SHRINE pages to what exists: instruction files, memory, skills, commands, subagents, hooks
+- Human practices become a short guide for you, not agent rules
+- It shows a plan and a dry-run diff; nothing is written without your approval
+- It backs up every file first and records a manifest, so a re-run updates instead of duplicating
+
+## Works With Any Harness
+
+- The prompt names no harness and assumes no feature
+- A rich harness (for example one with skills, subagents, hooks, and plugins) gets more destinations
+- A minimal harness (for example one with only instruction files and skills) gets fewer; the rest is skipped and reported
+- Anything that runs code (hooks, extensions, plugins) needs its own approval and a plain warning that it runs with your full permissions
+
+## Use It
+
+<Steps>
+
+1. Copy the prompt below, or fetch the raw file: [install-prompt.md](/SHRINE/install-prompt.md)
+
+2. Start a session in your harness, in the project you want to set up, and paste the prompt
+
+3. Answer the inventory check and the interview; correct anything the agent got wrong
+
+4. Approve, edit, or reject each group in the plan
+
+5. Keep the report: it names the backup folder and how to undo
+
+</Steps>
+
+## The Prompt
+
+Agent-readable copies of this page (llms.txt files) leave the prompt out on purpose. An agent should get it from you, not from a fetch.
+
+<div class="shrine-install-prompt">
+  <Code code={prompt} lang="md" title="shrine-install.md" />
+</div>
+
+## Safety Model
+
+- **You paste it**: the procedure lives in this repo and changes only through [Governance](/SHRINE/reference/governance/); the site serves data only
+- **Fetched pages are data**: the prompt tells the agent never to follow instructions found in SHRINE content ([Tool Integration](/SHRINE/stack/tool-integration/#security))
+- **Approval gates**: plan, then diff, then write ([Human in the Loop](/SHRINE/principles/human-in-the-loop/), [Checkpoint Gates](/SHRINE/patterns/checkpoint-gates/))
+- **Your layers win**: an org, team, or role rule you already have overrides a SHRINE default ([Authority Cascade](/SHRINE/principles/authority-cascade/))
+- **Pinned**: each install records the SHRINE commit it came from ([Reproducibility](/SHRINE/principles/reproducibility/))
+- **Small footprint**: a cap on always-loaded lines; the rest goes on demand ([Memory & Context](/SHRINE/stack/memory/))
+
+## What It Reads
+
+- [shrine-manifest.json](/SHRINE/shrine-manifest.json): every page with its commit pin, raw source link, and content hash
+- [llms.txt](/SHRINE/llms.txt): index of the site for agents; [llms-small.txt](/SHRINE/llms-small.txt) and [llms-full.txt](/SHRINE/llms-full.txt) carry the full text
+
+## What It Writes
+
+- Fenced `SHRINE:BEGIN` / `SHRINE:END` blocks in files you approve; your own text is never changed
+- A restore note in each changed instruction file: install date, commit, backup path, undo steps
+- Backups under `~/.shrine/backups/<timestamp>/`, outside any repository
+- A manifest per scope: `~/.shrine/manifest.json` and, for project scope, `.shrine/manifest.json`
+- Optionally `~/.shrine/guide.md`: the human practices, as a short checklist
+
+## Re-run
+
+- Paste the same prompt again
+- It reads the manifest, compares content hashes, and shows only what changed upstream
+- Edits you made inside SHRINE blocks are shown and kept unless you choose otherwise
+- Same commit and same answers means no changes
+- Re-run when a page you installed is amended ([Deliberate Currency](/SHRINE/principles/deliberate-currency/))
+
+## Related
+
+- [Discovery Propagation](/SHRINE/patterns/discovery-propagation/#where-lessons-land): where each kind of lesson lands
+- [Skills & Prompts](/SHRINE/stack/skills/): on-demand instructions
+- [Memory & Context](/SHRINE/stack/memory/): what to keep always loaded, and what not to
