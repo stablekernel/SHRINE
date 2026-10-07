@@ -111,7 +111,7 @@ Link to the draft PR (added once refined).
 
 ## Page Status
 
-Every principle, pattern, and stack page shows its status under the title and in the sidebar.
+Every principle, pattern, and stack page shows its status under the title. Section overview pages, index pages, and the sidebar show no status.
 
 | Status | Meaning | Sections |
 |---|---|---|

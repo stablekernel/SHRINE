@@ -2,10 +2,6 @@
 title: "Current Stack Roster"
 description: "Products the org runs in each stack slot. Candidates under evaluation, not endorsements."
 status: draft
-sidebar:
-  badge:
-    text: Draft
-    variant: caution
 ---
 
 *Slot pages say what to select for. This page says what we picked.*

@@ -1,16 +1,9 @@
 ---
 title: "Stack"
 description: "Capability slots: what each must do, how to select for it, and its anti-patterns."
-status: draft
 ---
 
 Stack pages describe capability slots, not products. Each slot says what the capability must do, how to select for it, and what to avoid.
-
-## Status
-
-- Stack pages are **Draft**: under active refinement, not yet ratified ([Page Status](/SHRINE/reference/governance/#page-status))
-- Use them as guidance; expect changes without the full proposal lifecycle
-- Product picks live in the [Current Stack Roster](/SHRINE/reference/current-stack/), also Draft
 
 ## Slots
 
