@@ -100,3 +100,4 @@ Fix a failing date-parsing bug. Tiers are generic labels ([Model Selection](/SHR
 - [Subagent Fanout](/SHRINE/patterns/subagent-fanout/): read-heavy workers are natural fast-tier steps
 - [Context Handoff](/SHRINE/patterns/context-handoff/): what survives a model switch
 - [Model Selection & Routing](/SHRINE/stack/models/): tiers and gateway
+- [Chain of Thought](/SHRINE/patterns/chain-of-thought/): reasoning effort per step

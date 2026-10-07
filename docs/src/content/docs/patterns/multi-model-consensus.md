@@ -59,3 +59,4 @@ This pattern multiplies inference cost by the number of models. Use it when:
 ## Related
 
 - [Adversarial Review](/SHRINE/patterns/adversarial-review/): One model challenges another's output
+- [Agent Architecture & Orchestration](/SHRINE/stack/agent-architecture/): where the consensus topology fits

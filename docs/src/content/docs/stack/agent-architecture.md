@@ -47,3 +47,11 @@ How multi-agent work gets structured: decomposing a goal into agent-sized tasks,
 - Trusting subagent reports without inspecting outputs
 - Parallel agents sharing a branch or file and merging by hope
 - Orchestrator doing the work itself, burning the coordination context
+
+## Related
+
+- [Subagent Fanout](/SHRINE/patterns/subagent-fanout/): the fanout topology
+- [Pipeline Orchestration](/SHRINE/patterns/pipeline-orchestration/): the pipeline topology
+- [Adversarial Review](/SHRINE/patterns/adversarial-review/): the adversarial topology
+- [Multi-Model Consensus](/SHRINE/patterns/multi-model-consensus/): the consensus topology
+- [Verification Loops](/SHRINE/patterns/verification-loops/): validation at every handoff

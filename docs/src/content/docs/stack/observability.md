@@ -79,3 +79,9 @@ status: draft
 - Ignoring the logs you have
 - Logging tokens with no outcome ID (cost you cannot tie to a win)
 - Traces nobody reads
+
+## Related
+
+- [Progress Breadcrumbs](/SHRINE/patterns/progress-breadcrumbs/): the human-readable trail beside traces
+- [Cost Management](/SHRINE/stack/cost-management/): tokens and attention per win
+- [Evaluation & Benchmarking](/SHRINE/stack/evaluation/): transcripts show whether a failure is real

@@ -97,3 +97,4 @@ See [Spec Then Build](/SHRINE/patterns/spec-then-build/) for stages 1 and 2 in d
 - [Checkpoint Gates](/SHRINE/patterns/checkpoint-gates/): human approval at a seam
 - [Mechanical Scaffolding](/SHRINE/patterns/mechanical-scaffolding/): deterministic scaffolds as stages
 - [Task Routing](/SHRINE/patterns/task-routing/): pick a tier per stage
+- [Agent Architecture & Orchestration](/SHRINE/stack/agent-architecture/): where the pipeline topology fits

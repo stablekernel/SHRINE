@@ -71,3 +71,9 @@ In a codebase, the best example is code that already exists.
 - Too many examples (diminishing returns, context waste)
 - Examples that contradict each other
 - Examples that are too similar (model over-fits to specifics)
+
+## Related
+
+- [Structured Output](/SHRINE/patterns/structured-output/): use a schema when the format is fully specified
+- [Delegation Fit](/SHRINE/patterns/delegation-fit/): point at a mirror instead of pasting examples
+- [Skills & Prompts](/SHRINE/stack/skills/): examples packaged for reuse

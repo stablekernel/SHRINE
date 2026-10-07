@@ -49,3 +49,10 @@ The harness is your interface to the models: the CLI, IDE extension, or applicat
 - Switching harnesses without migrating skills/patterns
 - Over-customizing to the point of lock-in
 - Under-investing in harness proficiency
+
+## Related
+
+- [Tool Integration](/SHRINE/stack/tool-integration/): what the harness can invoke
+- [Memory & Context Management](/SHRINE/stack/memory/): how the harness carries context
+- [Model Selection & Routing](/SHRINE/stack/models/): which models the harness can route to
+- [Skills & Prompts](/SHRINE/stack/skills/): how the harness is extended

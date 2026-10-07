@@ -99,12 +99,13 @@ status: draft
 
 A bounded way for one engineer to see whether delegation pays off, instead of estimating it.
 
-- **Log per task**: mode (delegated, paired, by hand); minutes briefing; minutes reviewing and fixing; acceptance rate, corrections per task, diff size
+- **Log per task**: task type; mode (delegated, paired, by hand); total minutes, for every mode including by hand; for delegated and paired, minutes briefing and minutes reviewing and fixing; acceptance rate, corrections per task, diff size
 - **Compare** like tasks across modes, not across task types
+- **Verdict**: per task type, delegated median total minutes vs by-hand median total minutes; lower wins; too few by-hand tasks means no verdict yet
 - **Time bound**: two weeks
-- **Stop early** when one cause tag owns most corrections; that is the answer
+- **Stop early** when one cause tag owns most corrections; that is the input to fix
 - **Abort** if logging takes more than a few minutes per task; simplify the log, then restart
-- **Output**: the top cause tag is the next input to fix; share the log as evidence for the workload's win definition ([TTV](/SHRINE/principles/tokens-to-value/#open-questions))
+- **Output**: the verdict per task type; the top cause tag is the next input to fix; share the log as evidence for the workload's win definition ([TTV](/SHRINE/principles/tokens-to-value/#open-questions))
 
 ## Team Baseline
 
@@ -115,7 +116,8 @@ The same protocol, run by a team on shared workflows.
 - **Log**: each engineer uses the [Individual Baseline](#individual-baseline) fields, plus workflow name
 - **Time bound**: two weeks
 - **Abort** if fewer than half the team is logging after the first week, or logging takes more than a few minutes per task; simplify, then restart
-- **Report fields**: per workflow and mode, median minutes briefing and reviewing; acceptance rate; corrections per task; top cause tag; one recommended input fix
+- **Report fields**: per workflow and mode, median total minutes, and median minutes briefing and reviewing; acceptance rate; corrections per task; top cause tag; one recommended input fix
+- **Verdict**: per workflow, delegated median total vs by-hand median total; state which mode won, or that the data is too thin to say
 - **Output**: the report goes to the team's discussion as evidence; the top fix gets an owner
 
 ## Worked Example
@@ -136,3 +138,12 @@ The same protocol, run by a team on shared workflows.
 - Evaluating once (things drift)
 - Over-fitting to evals (gaming the metric)
 - Trusting a score without reading transcripts
+
+## Related
+
+- [Correction Diagnosis](/SHRINE/patterns/correction-diagnosis/): cause tags the baseline counts
+- [Cost Management](/SHRINE/stack/cost-management/): cost per accepted win
+- [Prompt Regression Testing](/SHRINE/patterns/prompt-regression/): the regression suite for prompts and models
+- [Structured Output](/SHRINE/patterns/structured-output/): checkable fields make grading exact
+- [Observability & Logging](/SHRINE/stack/observability/): transcripts to read beside scores
+- [RAG](/SHRINE/patterns/rag/): score retrieval separately from generation

@@ -48,7 +48,7 @@ status: draft
 ## Gateway Responsibilities
 
 - **Central policy**: one place to change defaults and fallbacks for every harness
-- **Limits**: per-task and per-team caps enforced before the call ([Cost Management](/SHRINE/stack/cost-management/))
+- **Limits**: retry caps and time limits enforced at the gateway ([Cost Management](/SHRINE/stack/cost-management/))
 - **Fallbacks**: automatic failover along the configured chain
 - **Logging**: model, version, and reasoning effort recorded on every call ([Observability](/SHRINE/stack/observability/))
 
@@ -81,6 +81,8 @@ status: draft
 - [Step-Level Routing](/SHRINE/patterns/step-level-routing/): route per step inside a trajectory
 - [Prompt Regression Testing](/SHRINE/patterns/prompt-regression/): prove a model switch is safe
 - [Cost Management](/SHRINE/stack/cost-management/): cost per accepted win
+- [Chain of Thought](/SHRINE/patterns/chain-of-thought/): when to raise reasoning effort
+- [Harness Selection](/SHRINE/stack/harness/): where model choice is exposed
 
 ## Current Stack
 

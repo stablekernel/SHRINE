@@ -118,3 +118,5 @@ What made it catchable:
 - [Structured Output](/SHRINE/patterns/structured-output/): structured fields enable exact-match tests
 - [Verification Loops](/SHRINE/patterns/verification-loops/): verification checks can double as test assertions
 - [Model Selection & Routing](/SHRINE/stack/models/): model switches this suite gates
+- [Skills & Prompts](/SHRINE/stack/skills/): skills tested like code
+- [Evaluation & Benchmarking](/SHRINE/stack/evaluation/): the wider eval suite

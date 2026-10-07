@@ -94,3 +94,5 @@ Output:
 - [Checkpoint Gates](/SHRINE/patterns/checkpoint-gates/): place review at the gate
 - [Multi-Model Consensus](/SHRINE/patterns/multi-model-consensus/): agreement across models instead of challenge
 - [Spec, Then Build](/SHRINE/patterns/spec-then-build/): review the plan before the build
+- [Agent Architecture & Orchestration](/SHRINE/stack/agent-architecture/): where the adversarial topology fits
+- [Iterative Refinement](/SHRINE/patterns/iterative-refinement/): self-improvement instead of external challenge

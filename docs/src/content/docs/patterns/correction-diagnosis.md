@@ -84,12 +84,17 @@ Check top to bottom. An upstream cause usually makes downstream fixes useless.
   - Two lines added to standing instructions: error wrapping, test entry point
   - Brief rewritten with a mirror: "Follow `GET /reports/{id}/pdf`"
 - **Rerun** in a fresh session: one correction, a missing content-type header; a new test now covers it
-- **Minutes** (illustrative)
+- **Minutes** (illustrative): every row covers the whole endpoint, handler plus tests; by hand is the same work typed directly
 
 | Path | Minutes | Against 40 by hand |
 |---|---|---|
 | First attempt | 2 prompt + 53 review and correction = 55 | 15 worse |
+| Input fixes | 4 writing the standing instructions | n/a |
 | Rerun after input fixes | 6 brief + 10 review = 16 | 24 better |
+| **Total on this task** | 55 + 4 + 16 = 75 | 35 worse |
+
+- **Verdict**: delegating lost on this task
+- **Payoff**: the next similar endpoint starts from the fixed inputs, so it costs about the rerun's 16 minutes
 
 ## Anti-patterns
 

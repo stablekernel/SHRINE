@@ -102,12 +102,12 @@ Prior art: Claude Code [best practices](https://code.claude.com/docs/en/best-pra
 - **Done**: `make test` passes, including new `test_orders_csv_columns`
 - **Ask**: list assumptions before editing
 - Outcome: one question about date format, answered; one correction, a header casing
-- **Minutes** (illustrative)
+- **Minutes** (illustrative): both rows delegate the same slice, the CSV route, column mapping, and its test; by hand is that same slice typed directly
 
-| Path | Minutes | Against 40 by hand |
+| Path | Minutes | Against 30 by hand |
 |---|---|---|
-| Vague prompt | 2 prompt + 53 review and correction = 55 | 15 worse |
-| Brief | 5 brief + 12 review = 17 | 23 better |
+| Vague prompt | 1 prompt + 44 review and correction = 45 | 15 worse |
+| Brief | 7 brief + 9 review = 16 | 14 better |
 
 ## Anti-patterns
 
@@ -124,3 +124,4 @@ Prior art: Claude Code [best practices](https://code.claude.com/docs/en/best-pra
 - [Problem Before Prescription](/SHRINE/principles/problem-before-prescription/): the brief starts from the problem
 - [Checkpoint Gates](/SHRINE/patterns/checkpoint-gates/): human decisions during a run, not before it
 - [TTV](/SHRINE/principles/tokens-to-value/): human review minutes count in the cost of a win
+- [Few-Shot Examples](/SHRINE/patterns/few-shot-examples/): code exemplars as the mirror

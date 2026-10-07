@@ -15,19 +15,19 @@ body:
       description: Confirm you've considered these before proposing.
       options:
         - label: I've considered the maintainability of this proposal
-          required: true
+          required: false
         - label: I've considered the impact of accepting it
-          required: true
+          required: false
         - label: This isn't already covered elsewhere
-          required: true
+          required: false
         - label: I can demonstrate this with a real example
-          required: true
+          required: false
         - label: I would follow this myself
-          required: true
+          required: false
         - label: This scales across teams and clients
-          required: true
+          required: false
         - label: This is the right altitude (principle vs pattern vs stack)
-          required: true
+          required: false
 
   - type: dropdown
     id: type

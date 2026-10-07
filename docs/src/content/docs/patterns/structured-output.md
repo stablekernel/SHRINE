@@ -105,3 +105,5 @@ return failure  # surface to a human, do not pass bad data on
 - [Prompt Regression Testing](/SHRINE/patterns/prompt-regression/): structured fields make exact-match tests possible
 - [Pipeline Orchestration](/SHRINE/patterns/pipeline-orchestration/): checkable stage outputs
 - [Tool Integration](/SHRINE/stack/tool-integration/): checkable tool arguments
+- [Few-Shot Examples](/SHRINE/patterns/few-shot-examples/): examples when no schema fits
+- [Evaluation & Benchmarking](/SHRINE/stack/evaluation/): structured fields make grading exact

@@ -112,3 +112,8 @@ escalation: rounding happens in currency lib, not invoice code;
 - [Spec, Then Build](/SHRINE/patterns/spec-then-build/): a check per milestone
 - [Pipeline Orchestration](/SHRINE/patterns/pipeline-orchestration/): loops inside a stage gate
 - [Self-Critique](/SHRINE/patterns/self-critique/): review when no runnable check exists
+- [Agent Architecture & Orchestration](/SHRINE/stack/agent-architecture/): validation at the seams
+- [Prompt Regression Testing](/SHRINE/patterns/prompt-regression/): checks reused as test assertions
+- [Mechanical Scaffolding](/SHRINE/patterns/mechanical-scaffolding/): validation of scaffold fills
+- [Tool Integration](/SHRINE/stack/tool-integration/): check tool results before acting
+- [Problem Before Prescription](/SHRINE/principles/problem-before-prescription/): acceptance checks come from the chosen option

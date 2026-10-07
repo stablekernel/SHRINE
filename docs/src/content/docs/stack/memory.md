@@ -71,3 +71,5 @@ A short per-repo instruction file the harness loads at the start of every sessio
 - [Consistency as Leverage](/SHRINE/principles/consistency-as-leverage/): inconsistent conventions cost context and corrections
 - [Correction Diagnosis](/SHRINE/patterns/correction-diagnosis/): context is two links in the cause chain
 - [Context Handoff](/SHRINE/patterns/context-handoff/): carry state across context resets
+- [Repository Context](/SHRINE/stack/repository-context/): code structure lives in the index, not here
+- [Harness Selection](/SHRINE/stack/harness/): how the harness manages context

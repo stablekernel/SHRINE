@@ -61,3 +61,8 @@ If you find yourself avoiding your own tool, that's signal.
 - Shipping before personal validation
 - Dogfooding once, then never again (things drift)
 - Exempting yourself from your own standards
+
+## Related
+
+- [Skills & Prompts](/SHRINE/stack/skills/): use a skill on real work before sharing it
+- [Discovery Propagation](/SHRINE/patterns/discovery-propagation/): friction you find becomes a shared fix

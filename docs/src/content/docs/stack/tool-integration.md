@@ -82,3 +82,5 @@ status: draft
 - [Verification Loops](/SHRINE/patterns/verification-loops/): check results before acting
 - [Unattended Runs](/SHRINE/patterns/unattended-runs/): tool limits when no human is watching
 - [Checkpoint Gates](/SHRINE/patterns/checkpoint-gates/): human approval before risky tool calls
+- [Harness Selection](/SHRINE/stack/harness/): the harness grants tool access
+- [Repository Context](/SHRINE/stack/repository-context/): code index tools

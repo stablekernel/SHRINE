@@ -57,3 +57,9 @@ Before generating, retrieve relevant documents/data and include them in context.
 ## Cost Considerations
 
 Every retrieved chunk uses context tokens. Balance coverage against cost.
+
+## Related
+
+- [Memory & Context Management](/SHRINE/stack/memory/): where retrieved context competes for the window
+- [Repository Context](/SHRINE/stack/repository-context/): retrieval over code through an index
+- [Evaluation & Benchmarking](/SHRINE/stack/evaluation/): test retrieval and generation separately

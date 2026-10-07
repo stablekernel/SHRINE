@@ -59,3 +59,9 @@ Models are more accurate when they work through intermediate steps. Writing out 
 - Prompting a reasoning model to "think step by step" instead of raising effort
 - Not reading the reasoning (defeats the purpose)
 - Accepting conclusions that don't follow from the stated reasoning
+
+## Related
+
+- [Model Selection & Routing](/SHRINE/stack/models/): reasoning-effort settings per model
+- [Step-Level Routing](/SHRINE/patterns/step-level-routing/): raise effort only for hard steps
+- [Problem Before Prescription](/SHRINE/principles/problem-before-prescription/): reason about the problem before the fix

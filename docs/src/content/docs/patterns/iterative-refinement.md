@@ -63,3 +63,4 @@ Generate initial output, then run additional passes that:
 
 - [Adversarial Review](/SHRINE/patterns/adversarial-review/): External challenge instead of self-improvement
 - [Self-Critique](/SHRINE/patterns/self-critique/): one critique pass before refining
+- [Problem Before Prescription](/SHRINE/principles/problem-before-prescription/): commit to an option before refining

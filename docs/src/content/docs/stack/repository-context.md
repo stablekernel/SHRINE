@@ -42,3 +42,9 @@ status: draft
 - Storing session decisions in the code index, or code structure in memory
 - Dumping the full repo map into every prompt regardless of task
 - Trusting an index that has not been refreshed since the last large change
+
+## Related
+
+- [Memory & Context Management](/SHRINE/stack/memory/): what the code cannot tell you
+- [RAG](/SHRINE/patterns/rag/): retrieval in general, beyond code
+- [Tool Integration](/SHRINE/stack/tool-integration/): the index is exposed as tools
