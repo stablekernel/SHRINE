@@ -1,6 +1,9 @@
 ---
 title: "Pipeline Orchestration"
 description: "Chain stages with explicit contracts and a gate at every handoff."
+proposal: "https://github.com/stablekernel/SHRINE/commit/d5f06a07"
+last-reviewed: 2026-10-07
+status: ratified
 ---
 
 *Assembly line: each stage transforms, checks, and passes forward.*
@@ -92,3 +95,6 @@ See [Spec Then Build](/SHRINE/patterns/spec-then-build/) for stages 1 and 2 in d
 - [Verification Loops](/SHRINE/patterns/verification-loops/): the retry loop inside a gate
 - [Spec Then Build](/SHRINE/patterns/spec-then-build/): a two-stage pipeline for code
 - [Checkpoint Gates](/SHRINE/patterns/checkpoint-gates/): human approval at a seam
+- [Mechanical Scaffolding](/SHRINE/patterns/mechanical-scaffolding/): deterministic scaffolds as stages
+- [Task Routing](/SHRINE/patterns/task-routing/): pick a tier per stage
+- [Agent Architecture & Orchestration](/SHRINE/stack/agent-architecture/): where the pipeline topology fits

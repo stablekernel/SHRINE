@@ -1,49 +1,28 @@
-# Starlight Starter Kit: Basics
+# SHRINE Docs Site
 
-[![Built with Starlight](https://astro.badg.es/v2/built-with-starlight/tiny.svg)](https://starlight.astro.build)
+Source for the published site at https://stablekernel.github.io/SHRINE/.
 
-```
-npm create astro@latest -- --template starlight
-```
+## Run Locally
 
-> 🧑‍🚀 **Seasoned astronaut?** Delete this file. Have fun!
+Requires Node 22 (matches CI).
 
-## 🚀 Project Structure
-
-Inside of your Astro + Starlight project, you'll see the following folders and files:
-
-```
-.
-├── public/
-├── src/
-│   ├── assets/
-│   ├── content/
-│   │   └── docs/
-│   └── content.config.ts
-├── astro.config.mjs
-├── package.json
-└── tsconfig.json
+```sh
+cd docs
+npm ci
+npm run dev      # http://localhost:4321/SHRINE/
+npm run build    # output in docs/dist/
 ```
 
-Starlight looks for `.md` or `.mdx` files in the `src/content/docs/` directory. Each file is exposed as a route based on its file name.
+## Layout
 
-Images can be added to `src/assets/` and embedded in Markdown with a relative link.
+- Pages: `src/content/docs/` (`principles/`, `patterns/`, `stack/`, `reference/`)
+- Sidebar: `astro.config.mjs`; add principle, pattern, and stack pages there (`reference/` autogenerates)
+- Internal links: absolute with the base, such as `/SHRINE/patterns/overview/`
 
-Static assets, like favicons, can be placed in the `public/` directory.
+## Contributing
 
-## 🧞 Commands
-
-All commands are run from the root of the project, from a terminal:
-
-| Command                   | Action                                           |
-| :------------------------ | :----------------------------------------------- |
-| `npm install`             | Installs dependencies                            |
-| `npm run dev`             | Starts local dev server at `localhost:4321`      |
-| `npm run build`           | Build your production site to `./dist/`          |
-| `npm run preview`         | Preview your build locally, before deploying     |
-| `npm run astro ...`       | Run CLI commands like `astro add`, `astro check` |
-| `npm run astro -- --help` | Get help using the Astro CLI                     |
-
-## 👀 Want to learn more?
-
-Check out [Starlight’s docs](https://starlight.astro.build/), read [the Astro documentation](https://docs.astro.build), or jump into the [Astro Discord server](https://astro.build/chat).
+- New principles, patterns, or stack changes start as a Discussion; see [Governance](https://stablekernel.github.io/SHRINE/reference/governance/)
+- Content changes land by pull request
+- Write terse bullets; no em dashes
+- Stack slot definitions and selection criteria stay product-agnostic ([FAQ](https://stablekernel.github.io/SHRINE/faq/))
+- `npm run build` must pass before you open a PR

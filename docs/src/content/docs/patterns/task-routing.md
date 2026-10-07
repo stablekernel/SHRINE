@@ -1,6 +1,9 @@
 ---
 title: "Task Routing"
 description: "Match each task to the smallest model tier that reliably succeeds."
+proposal: "https://github.com/stablekernel/SHRINE/commit/79e03ea6"
+last-reviewed: 2026-10-07
+status: ratified
 ---
 
 *Not every task needs your biggest model.*
@@ -11,6 +14,7 @@ description: "Match each task to the smallest model tier that reliably succeeds.
 - Default to the smallest tier that reliably succeeds on your evals
 - Escalate when the router is uncertain or a check fails
 - Route to tier names in code; map tiers to models in one config
+- Fit capability, not only size: judge each task type on its own evals ([Model Selection](/SHRINE/stack/models/#selection-criteria))
 
 ## When to Use
 
@@ -105,8 +109,10 @@ Support ticket triage.
 - Product IDs scattered through code, so model changes need a code search
 - No fallback when the preferred model is unavailable
 
-## Related Patterns
+## Related
 
 - [Subagent Fanout](/SHRINE/patterns/subagent-fanout/): fanout tasks often route to cheaper tiers
 - [Pipeline Orchestration](/SHRINE/patterns/pipeline-orchestration/): stages may use different tiers
 - [Step-Level Routing](/SHRINE/patterns/step-level-routing/): route each step inside a task
+- [Delegation Fit](/SHRINE/patterns/delegation-fit/): decide whether to delegate before choosing a tier
+- [Model Selection & Routing](/SHRINE/stack/models/): tiers and gateway

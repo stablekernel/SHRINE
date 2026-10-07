@@ -1,6 +1,9 @@
 ---
 title: "Spec, Then Build"
 description: "Agree a written spec and reviewed plan before an agent executes."
+proposal: "https://github.com/stablekernel/SHRINE/pull/16"
+last-reviewed: 2026-10-07
+status: ratified
 ---
 
 *Every open question in the spec is a future interruption.*
@@ -113,3 +116,6 @@ description: "Agree a written spec and reviewed plan before an agent executes."
 - [Adversarial Review](/SHRINE/patterns/adversarial-review/): machine review of the plan
 - [Unattended Runs](/SHRINE/patterns/unattended-runs/): what a good spec enables
 - [Context Handoff](/SHRINE/patterns/context-handoff/): the plan file as handoff
+- [Delegation Fit](/SHRINE/patterns/delegation-fit/): the small-task brief this spec extends
+- [Reviewable Output](/SHRINE/patterns/reviewable-output/#staged-checkpoints): plan, interface, then implementation as staged reviews
+- [Pipeline Orchestration](/SHRINE/patterns/pipeline-orchestration/): spec and build as a two-stage pipeline

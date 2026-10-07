@@ -1,6 +1,7 @@
 ---
 title: "Evaluation & Benchmarking"
 description: "Define the win, build evals on real cases, and measure whether your stack works."
+status: draft
 ---
 
 *If you can't measure it, you can't improve it.*
@@ -24,6 +25,9 @@ description: "Define the win, build evals on real cases, and measure whether you
 - Quality score (how good was it?)
 - Time to completion
 - Human intervention rate
+- Acceptance rate: share of delegated outputs accepted as delivered, counted apart from those accepted after correction
+- Corrections per task: correction turns, each tagged with its cause ([Correction Diagnosis](/SHRINE/patterns/correction-diagnosis/#cause-chain))
+- Diff size per accepted output: lines and files changed; large diffs tend to raise review cost
 
 ### Cost Metrics
 - Tokens per outcome
@@ -87,7 +91,36 @@ description: "Define the win, build evals on real cases, and measure whether you
 
 - Measure time and outcomes directly; self-reported speedup is unreliable
 - In one RCT, experienced open-source developers took 19% longer with AI tools, yet estimated a 20% speedup afterward ([METR](https://metr.org/blog/2025-07-10-early-2025-ai-experienced-os-dev-study/))
-- Limits: 16 developers on their own mature repositories, early-2025 tools; METR marks these results as out of date
+- Limits: 16 developers on their own mature repositories, early-2025 tools; METR marks these results as out of date (kept here as history)
+- Follow-up (Feb 2026): METR judged its late-2025 rerun an unreliable signal, mainly because developers declined to work without AI; it believes speedup is likely higher now, but its data is only weak evidence of how much ([METR](https://metr.org/blog/2026-02-24-uplift-update/))
+- Takeaway: measure your own workflows; published numbers age fast
+
+## Individual Baseline
+
+A bounded way for one engineer to see whether delegation pays off, instead of estimating it.
+
+- **Log per task**: task type; mode (delegated, paired, by hand); total minutes, for every mode including by hand; for delegated and paired, minutes briefing and minutes reviewing and fixing; acceptance rate, corrections per task, post-merge fixes, diff size
+- **Mix**: at least 3 by-hand tasks per task type, alternating with delegated ones
+- **Compare** like tasks across modes, not across task types
+- **Verdict**: per task type, lower median total minutes wins; delegated wins only if post-merge fixes are no worse than by hand
+- **Time bound**: two weeks
+- **Stop early** on cause tags when one owns most corrections; keep logging minutes to the time bound
+- **Abort** if logging takes more than a few minutes per task; simplify the log, then restart
+- **Output**: the verdict per task type; the top cause tag is the next input to fix; share the log as evidence for the workload's win definition ([TTV](/SHRINE/principles/tokens-to-value/#open-questions))
+
+## Team Baseline
+
+The same protocol, run by a team on shared workflows.
+
+- **Pick workflows**: two or three recurring ones the team does weekly, such as bug fixes or endpoint additions
+- **Name an owner**: one person collects the logs and writes the report
+- **Log**: each engineer uses the [Individual Baseline](#individual-baseline) fields, plus workflow name
+- **Mix**: at least 3 by-hand tasks per workflow, alternating with delegated ones
+- **Time bound**: two weeks
+- **Abort** if fewer than half the team is logging after the first week, or logging takes more than a few minutes per task; simplify, then restart
+- **Report fields**: per workflow and mode, median total minutes, and median minutes briefing and reviewing; acceptance rate (delegated); corrections per task; post-merge fixes; top cause tag; one recommended input fix
+- **Verdict**: per workflow, by the [Individual Baseline](#individual-baseline) rule
+- **Output**: the report goes to the team's discussion as evidence; the top fix gets an owner
 
 ## Worked Example
 
@@ -107,3 +140,12 @@ description: "Define the win, build evals on real cases, and measure whether you
 - Evaluating once (things drift)
 - Over-fitting to evals (gaming the metric)
 - Trusting a score without reading transcripts
+
+## Related
+
+- [Correction Diagnosis](/SHRINE/patterns/correction-diagnosis/): cause tags the baseline counts
+- [Cost Management](/SHRINE/stack/cost-management/): cost per accepted win
+- [Prompt Regression Testing](/SHRINE/patterns/prompt-regression/): the regression suite for prompts and models
+- [Structured Output](/SHRINE/patterns/structured-output/): checkable fields make grading exact
+- [Observability & Logging](/SHRINE/stack/observability/): transcripts to read beside scores
+- [RAG](/SHRINE/patterns/rag/): score retrieval separately from generation

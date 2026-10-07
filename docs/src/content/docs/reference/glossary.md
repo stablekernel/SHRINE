@@ -5,6 +5,10 @@ description: "Key terms and definitions."
 
 <!-- MAINTAINER: Keep entries in alphabetical order (ignore a leading "The") -->
 
+## Brief
+
+A one-message task description for delegated work: goal, constraints, non-goals, a mirror to follow, a done command, and an ask for assumptions. See [Delegation Fit](/SHRINE/patterns/delegation-fit/#brief-shape).
+
 ## Checkpoint Gate
 
 A mechanical block before an irreversible or outward-facing action that parks a one-step decision for a human. See [Checkpoint Gates](/SHRINE/patterns/checkpoint-gates/).
@@ -20,6 +24,14 @@ A written record of goal, state, evidence, decisions and next step that lets a f
 ## Context Window
 
 The amount of text a model can process in a single call. Exceeding it causes truncation or failure.
+
+## Correction Diagnosis
+
+Tracing a repeated correction to the input that caused it, then fixing that input. See [Correction Diagnosis](/SHRINE/patterns/correction-diagnosis/).
+
+## Delegation Fit
+
+The per-task choice to delegate, pair, or write by hand, made before prompting. See [Delegation Fit](/SHRINE/patterns/delegation-fit/).
 
 ## Harness
 
@@ -37,17 +49,21 @@ Coordinating multiple models, agents, or pipeline stages so each handles the par
 
 Short, evidence-linked progress notes an agent writes to a shared work board. See [Progress Breadcrumbs](/SHRINE/patterns/progress-breadcrumbs/).
 
-## Quorum
-
-A majority of current keepers. Required to override a standing objection during ratification.
-
 ## Ratification
 
-The final step of the proposal lifecycle: after two keeper endorsements and the objection window, the draft PR merges and the content becomes part of SHRINE. See [Governance](/SHRINE/reference/governance/).
+Content becomes part of SHRINE by one of three routes:
+
+- **Lifecycle**: two keeper endorsements, the objection window, then the draft PR merges ([Proposal Lifecycle](/SHRINE/reference/governance/#proposal-lifecycle))
+- **Expedited**: the lifecycle without the objection window, which the CTO or VP of Engineering waives ([Expedited Ratification](/SHRINE/reference/governance/#expedited-ratification))
+- **Keeper decision**: a majority of keepers ratify or amend directly, and can waive the Discussion; the page links the record ([Keeper Decision](/SHRINE/reference/governance/#keeper-decision))
 
 ## Repository Context
 
 Indexed knowledge of a codebase (symbols, references, code graph) exposed to agents. Distinct from memory. See [Repository Context](/SHRINE/stack/repository-context/).
+
+## Reviewable Output
+
+Agent output shaped to be cheap to review: small diffs, attached evidence, and a review note. See [Reviewable Output](/SHRINE/patterns/reviewable-output/).
 
 ## Routing
 
@@ -72,6 +88,10 @@ A written agreement before execution: problem, constraints, acceptance criteria 
 ## Stack
 
 An abstract capability slot: what the capability must do, how to select for it, and its anti-patterns. Not a product list. See [FAQ](/SHRINE/faq/).
+
+## Standing Instructions
+
+A short per-repo instruction file the harness loads every session: commands, idioms, and conventions the agent cannot cheaply derive from the code. See [Memory & Context](/SHRINE/stack/memory/#standing-instructions).
 
 ## Step-Level Routing
 

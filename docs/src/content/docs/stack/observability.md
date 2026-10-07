@@ -1,6 +1,7 @@
 ---
 title: "Observability & Logging"
 description: "Tracing, debugging, and monitoring your AI stack."
+status: draft
 ---
 
 *You can't fix what you can't see.*
@@ -59,15 +60,9 @@ description: "Tracing, debugging, and monitoring your AI stack."
 - One team gave each worktree an ephemeral observability stack the agent queries directly, making goals like "startup under 800ms" checkable ([OpenAI](https://openai.com/index/harness-engineering/))
 - Scope agent access to the telemetry of its own run and environment
 
-## Tools
+## Current Stack
 
-*Document your org's observability stack here.*
-
-| Tool | Purpose |
-|------|---------|
-| Langfuse | Tracing, prompt management |
-| Datadog | Metrics, APM |
-| Custom logging | Domain-specific needs |
+- The org's current observability picks live in the [Current Stack Roster](/SHRINE/reference/current-stack/#observability)
 
 ## Privacy Considerations
 
@@ -84,3 +79,9 @@ description: "Tracing, debugging, and monitoring your AI stack."
 - Ignoring the logs you have
 - Logging tokens with no outcome ID (cost you cannot tie to a win)
 - Traces nobody reads
+
+## Related
+
+- [Progress Breadcrumbs](/SHRINE/patterns/progress-breadcrumbs/): the human-readable trail beside traces
+- [Cost Management](/SHRINE/stack/cost-management/): tokens and attention per win
+- [Evaluation & Benchmarking](/SHRINE/stack/evaluation/): transcripts show whether a failure is real

@@ -1,6 +1,6 @@
 ---
 title: FAQ
-description: Frequently asked questions about SHRINE participation and governance.
+description: Frequently asked questions about SHRINE participation, governance, and everyday agent work.
 ---
 
 ## Getting Started
@@ -17,6 +17,29 @@ description: Frequently asked questions about SHRINE participation and governanc
 - No
 - Each slot describes a capability that has proven useful, not a mandatory checklist
 - Fill the slots your immediate problem needs, using each slot's selection criteria
+
+### I spend more time correcting output than writing it. Where do I start?
+
+- Treat each repeated correction as an input bug, not a model failure
+- Read in this order:
+  1. [Delegation Fit](/SHRINE/patterns/delegation-fit/): before you prompt; some tasks cost more to review than to write
+  2. [Reviewable Output](/SHRINE/patterns/reviewable-output/): what to ask for
+  3. [Correction Diagnosis](/SHRINE/patterns/correction-diagnosis/): when it still misses; walk the cause chain, upstream first
+- Measure before deciding: [Individual Baseline](/SHRINE/stack/evaluation/#individual-baseline) (draft guidance)
+
+### Is LLM coding worth it?
+
+- Sometimes; measure it on your own work rather than trusting anyone's headline number
+- History: METR measured a 19% slowdown in 2025, then called its late-2025 rerun data unreliable ([details](/SHRINE/stack/evaluation/#measure-dont-ask))
+- Survey (May 2026): 349 technical workers reported a median 1.4 to 2x change in the value of their work from AI; self-reported, not measured ([METR](https://metr.org/blog/2026-05-11-ai-usage-survey/))
+- Some work costs more to delegate than to write: see the "Against delegating" list in [Delegation Fit](/SHRINE/patterns/delegation-fit/#fit-signals)
+- Find out for your own tasks: [Individual Baseline](/SHRINE/stack/evaluation/#individual-baseline) (draft guidance)
+
+### How does my team adopt SHRINE?
+
+- Measure first: run the [Team Baseline](/SHRINE/stack/evaluation/#team-baseline) on two or three recurring workflows (draft guidance)
+- Apply the top input fix the baseline surfaces; fill a [Stack](/SHRINE/stack/overview/) slot only if that fix lives in one
+- Feed what you learn back through [Governance](/SHRINE/reference/governance/): a Discussion, then a proposal
 
 ### What's the relationship between SHRINE and my team's practices?
 
@@ -35,9 +58,10 @@ description: Frequently asked questions about SHRINE participation and governanc
 
 ### How does something become an official pattern or principle?
 
-- Open a proposal in [GitHub Discussions](https://github.com/stablekernel/SHRINE/discussions/categories/proposals)
-- It follows the [governance lifecycle](/SHRINE/reference/governance/): refine, draft PR, two keeper endorsements, objection window, ratify
-- Obvious wins move fast; controversial items get more time
+- One of three routes; the first two start with a proposal in [GitHub Discussions](https://github.com/stablekernel/SHRINE/discussions/categories/proposals):
+  - [Lifecycle](/SHRINE/reference/governance/#proposal-lifecycle): two keeper endorsements, then a thirty-day objection window
+  - [Expedited](/SHRINE/reference/governance/#expedited-ratification): the same, without the objection window
+  - [Keeper decision](/SHRINE/reference/governance/#keeper-decision): a majority of keepers ratify or amend directly, and can waive the Discussion
 
 ### What's the difference between a Principle, a Pattern, and Stack?
 
@@ -51,7 +75,7 @@ Quick tests:
 - Has a legitimate "when not to use"? Pattern.
 - Violating it needs a recorded exception? Principle.
 
-Patterns may name products as brief examples. Stack slot definitions and selection criteria stay product-agnostic.
+Patterns may name products as brief examples. Stack pages name no products, but may name open standards such as MCP and OpenTelemetry. Current product picks live in the [Current Stack Roster](/SHRINE/reference/current-stack/).
 
 ### Can I propose changes to existing patterns?
 
@@ -64,6 +88,7 @@ Patterns may name products as brief examples. Stack slot definitions and selecti
 - Propose a change to a slot's definition or selection criteria
 - Back it with demonstrated use: what you tried, what the capability needed, what you learned
 - Adoption rests on demonstrated value, not theoretical promise
+- To add, change, or drop a product row in the [Current Stack Roster](/SHRINE/reference/current-stack/), open a Discussion with the same evidence and a source link for the row
 
 ## Governance
 

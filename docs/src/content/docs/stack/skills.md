@@ -1,6 +1,7 @@
 ---
 title: "Skills & Prompts"
 description: "Encoding efficient, repeatable patterns."
+status: draft
 ---
 
 *The second time you explain a workflow to a model, you should be writing it down instead.*
@@ -42,3 +43,11 @@ Turning one-off prompting wins into reusable assets: skills (packaged workflows 
 - Prompt archaeology: nobody knows why a clause is there, so nobody removes it
 - Untested skills trusted because they worked once
 - A skill library that grows but never shrinks
+
+## Related
+
+- [Discovery Propagation](/SHRINE/patterns/discovery-propagation/): how a lesson becomes a skill
+- [Few-Shot Examples](/SHRINE/patterns/few-shot-examples/): examples a skill can carry
+- [Prompt Regression Testing](/SHRINE/patterns/prompt-regression/): test a skill like code
+- [Dogfooding](/SHRINE/patterns/dogfooding/): use it before you share it
+- [Harness Selection](/SHRINE/stack/harness/): where skills run

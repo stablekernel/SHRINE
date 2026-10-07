@@ -1,6 +1,9 @@
 ---
 title: "RAG (Retrieval-Augmented Generation)"
 description: "Ground responses in retrieved context."
+proposal: "https://github.com/stablekernel/SHRINE/commit/d259f16b"
+last-reviewed: 2026-10-07
+status: ratified
 ---
 
 *Don't rely on what the model memorized. Give it the source.*
@@ -16,6 +19,12 @@ Before generating, retrieve relevant documents/data and include them in context.
 - Verifiable claims (source can be cited)
 - Domain-specific knowledge not in training
 
+## When Not to Use
+
+- The answer is in the model's general knowledge and does not change
+- The whole source fits in context; include it directly
+- Retrieval quality is untested; fix retrieval first
+
 ## Components
 
 1. **Retrieval**: Find relevant chunks (vector search, keyword, hybrid)
@@ -30,6 +39,14 @@ Before generating, retrieve relevant documents/data and include them in context.
 - Include source metadata so the model can cite
 - Test retrieval quality separately from generation quality
 
+## Worked Example
+
+- **Illustrative case** (hypothetical)
+- **Task**: answer "what is our retry policy for payment webhooks?"
+- **Without retrieval**: a generic answer (exponential backoff, 5 tries) that does not match the service
+- **With retrieval**: search the runbooks and the webhook config; pass the top 3 chunks with file paths
+- **Result**: the answer cites `config/webhooks.yaml` (8 tries, 1 hour cap); a reviewer checks the citation in seconds
+
 ## Anti-patterns
 
 - Retrieving too much (floods context, buries signal)
@@ -40,3 +57,9 @@ Before generating, retrieve relevant documents/data and include them in context.
 ## Cost Considerations
 
 Every retrieved chunk uses context tokens. Balance coverage against cost.
+
+## Related
+
+- [Memory & Context Management](/SHRINE/stack/memory/): where retrieved context competes for the window
+- [Repository Context](/SHRINE/stack/repository-context/): retrieval over code through an index
+- [Evaluation & Benchmarking](/SHRINE/stack/evaluation/): test retrieval and generation separately

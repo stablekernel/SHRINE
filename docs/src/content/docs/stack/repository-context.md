@@ -1,6 +1,7 @@
 ---
 title: "Repository Context"
 description: "Indexed codebase knowledge exposed to agents."
+status: draft
 ---
 
 *Let the agent look up the codebase instead of rereading it.*
@@ -28,7 +29,7 @@ description: "Indexed codebase knowledge exposed to agents."
 
 ## Current Stack
 
-*Document your org's evaluated tools here.*
+- Record evaluated tools in the [Current Stack Roster](/SHRINE/reference/current-stack/#repository-context)
 
 ## Key Considerations
 
@@ -41,3 +42,9 @@ description: "Indexed codebase knowledge exposed to agents."
 - Storing session decisions in the code index, or code structure in memory
 - Dumping the full repo map into every prompt regardless of task
 - Trusting an index that has not been refreshed since the last large change
+
+## Related
+
+- [Memory & Context Management](/SHRINE/stack/memory/): what the code cannot tell you
+- [RAG](/SHRINE/patterns/rag/): retrieval in general, beyond code
+- [Tool Integration](/SHRINE/stack/tool-integration/): the index is exposed as tools

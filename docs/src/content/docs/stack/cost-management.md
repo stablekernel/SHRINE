@@ -1,6 +1,7 @@
 ---
 title: "Cost Management"
 description: "Track cost per accepted win: tokens plus human attention."
+status: draft
 ---
 
 *The cost of a win is tokens plus the human minutes it took.*
@@ -10,14 +11,14 @@ description: "Track cost per accepted win: tokens plus human attention."
 - The unit is cost per accepted win, not monthly spend ([TTV](/SHRINE/principles/tokens-to-value/))
 - A win costs tokens plus human attention: steering, review, QA, rework
 - Monthly spend is a lagging view; it cannot tell a cheap win from a cheap failure
-- Human review and QA time count as cost, often the larger share
+- Human review and QA time count as cost, often the larger share (working judgment, to be measured)
 - One team building with agents found human QA capacity became the bottleneck, with human time and attention the fixed constraint ([OpenAI](https://openai.com/index/harness-engineering/))
 
 ## Tracking
 
 - Tag every model call with an outcome ID (ticket, PR, eval run)
 - Log human interventions and active minutes per outcome
-- Mark each outcome accepted or not; only accepted outcomes are wins
+- Mark each outcome accepted as delivered, accepted after correction, or rejected; both accepted states count as wins and are reported apart ([Evaluation](/SHRINE/stack/evaluation/#outcome-metrics))
 - Put tokens from failed or abandoned runs in a waste bucket, and drive it down
 - Report tokens per win and minutes per win side by side ([Observability](/SHRINE/stack/observability/))
 
@@ -74,3 +75,5 @@ description: "Track cost per accepted win: tokens plus human attention."
 
 - [Evaluation & Benchmarking](/SHRINE/stack/evaluation/): pass rates that define a win
 - [Model Selection & Routing](/SHRINE/stack/models/): gateway limits and tiers
+- [Unattended Runs](/SHRINE/patterns/unattended-runs/): time limits and abort criteria for long runs
+- [Observability & Logging](/SHRINE/stack/observability/): where token and attention data comes from

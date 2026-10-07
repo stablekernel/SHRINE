@@ -1,6 +1,9 @@
 ---
 title: "Discovery Propagation"
 description: "When agents find better paths, propose improvements back to the system through review."
+proposal: "https://github.com/stablekernel/SHRINE/commit/95a5e7f7"
+last-reviewed: 2026-10-07
+status: ratified
 ---
 
 *The system should learn from what it discovers, with a human in the path.*
@@ -39,6 +42,7 @@ description: "When agents find better paths, propose improvements back to the sy
 |------|------|
 | Method or correction | Memory entry ([Memory](/SHRINE/stack/memory/)) |
 | Repeatable workflow | Skill ([Skills](/SHRINE/stack/skills/)) |
+| Standing convention, not yet enforceable | Standing instructions ([Memory](/SHRINE/stack/memory/#standing-instructions)) |
 | Enforceable convention | Rule, lint, or hook |
 | Repeatable structure | Scaffold ([Mechanical Scaffolding](/SHRINE/patterns/mechanical-scaffolding/)) |
 
@@ -60,14 +64,15 @@ description: "When agents find better paths, propose improvements back to the sy
 3. On the second hit, the agent writes a proposal:
    - Observation: two runs hit the same import-order failure
    - Evidence: both run logs, the lint output
-   - Proposal: add an import-order step to the team's "prepare commit" skill
-4. A reviewer approves, trims the step to one command, and scopes it to the team layer
-5. The skill change is merged with a note linking the two runs
-6. The next run loads the updated skill and passes lint first try
+   - Proposal: the convention is enforceable, so run the linter's import-order autofix in the repo's pre-commit hook (the "Enforceable convention" row above)
+4. A reviewer approves and scopes it to the repo layer
+5. The hook change is merged with a note linking the two runs
+6. The next run's commit is fixed by the hook; no agent or human repeats the fix
 
 ## Guardrails
 
 - Propose, never silently adopt; humans approve changes
+- Personal layer (your own standing instructions): you are the reviewer, so edit directly; shared or team files go through review
 - Scope appropriately; not every insight is org-wide
 - Filter for repeats; avoid churn
 - Track provenance: which runs, which evidence, who approved
@@ -90,8 +95,11 @@ description: "When agents find better paths, propose improvements back to the sy
 
 ## Related
 
+- [Correction Diagnosis](/SHRINE/patterns/correction-diagnosis/): finds the input fix that lands here
 - [Deliberate Currency](/SHRINE/principles/deliberate-currency/): when to re-examine what was adopted
 - [Authority Cascade](/SHRINE/principles/authority-cascade/): which layer a lesson belongs to
 - [Skills](/SHRINE/stack/skills/): the home for repeatable workflows
 - [Memory](/SHRINE/stack/memory/): the home for methods and corrections
 - [Governance](/SHRINE/reference/governance/): how proposals get approved
+- [Mechanical Scaffolding](/SHRINE/patterns/mechanical-scaffolding/): improvements land in the shared scaffold
+- [Dogfooding](/SHRINE/patterns/dogfooding/): friction found in use feeds a fix

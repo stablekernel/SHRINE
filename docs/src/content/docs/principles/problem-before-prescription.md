@@ -2,7 +2,8 @@
 title: "Problem Before Prescription"
 description: "Present the problem and constraints, explore solutions, then commit."
 proposal: "https://github.com/stablekernel/SHRINE/discussions/14"
-last-reviewed: 2026-09-16
+last-reviewed: 2026-10-07
+status: ratified
 ---
 
 *You hold the constraints. The model holds the solution space.*
@@ -77,5 +78,6 @@ last-reviewed: 2026-09-16
 - [Chain of Thought](/SHRINE/patterns/chain-of-thought/): make the reasoning visible
 - [Iterative Refinement](/SHRINE/patterns/iterative-refinement/): refine after committing
 - [Human in the Loop](/SHRINE/principles/human-in-the-loop/): the human picks the option
+- [Delegation Fit](/SHRINE/patterns/delegation-fit/): a brief shape for small delegated tasks
 
 Proposal: [Discussion #14](https://github.com/stablekernel/SHRINE/discussions/14)

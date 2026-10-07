@@ -14,15 +14,15 @@ This is the org's shared home for you and your agents, a guiding light for anyon
 
 ## North Star: TTV (Tokens to Value)
 
-Maximize what every token buys us. Get this right and cost takes care of itself.
+Maximize value per win, where a win costs tokens plus human attention. Get this right and cost takes care of itself.
 
 - Cutting tokens caps capability along with spend
-- Maximizing value per token improves cost *and* quality
+- Maximizing value per win improves cost *and* quality
 - Every tool choice, workflow, and practice we discuss gets measured against TTV
 
 ## How This Works
 
-- [**Documentation**](https://stablekernel.github.io/SHRINE/): Ratified principles, patterns, and stack guidance
+- [**Documentation**](https://stablekernel.github.io/SHRINE/): Ratified principles and patterns; draft stack guidance
 - [**Governance**](https://stablekernel.github.io/SHRINE/reference/governance/): The official process for proposing, refining, and ratifying content
 - [**Discussions**](https://github.com/stablekernel/SHRINE/discussions): The living forum where ideas are shaped before they solidify
 - **Disagreement is welcome.** Nobody sees the whole board alone

@@ -1,6 +1,7 @@
 ---
 title: "Harness Selection"
 description: "Choosing and configuring your AI development environment."
+status: draft
 ---
 
 *The harness is where the work happens. Choose deliberately.*
@@ -31,16 +32,9 @@ The harness is your interface to the models: the CLI, IDE extension, or applicat
 - How are plugins/extensions managed?
 - What's the learning curve?
 
-## Current Options
+## Current Stack
 
-*Document your org's evaluated harnesses here.*
-
-| Harness | Strengths | Limitations |
-|---------|-----------|-------------|
-| Claude Code | Deep tool integration, skills system | Anthropic models only |
-| Cursor | IDE-native, fast iteration | Limited orchestration |
-| Aider | Git-aware, lightweight | Fewer bells and whistles |
-| Custom | Full control | Build and maintain yourself |
+- Candidates under evaluation, not endorsements: [Current Stack Roster](/SHRINE/reference/current-stack/#harness)
 
 ## Evaluation Questions
 
@@ -55,3 +49,10 @@ The harness is your interface to the models: the CLI, IDE extension, or applicat
 - Switching harnesses without migrating skills/patterns
 - Over-customizing to the point of lock-in
 - Under-investing in harness proficiency
+
+## Related
+
+- [Tool Integration](/SHRINE/stack/tool-integration/): what the harness can invoke
+- [Memory & Context Management](/SHRINE/stack/memory/): how the harness carries context
+- [Model Selection & Routing](/SHRINE/stack/models/): which models the harness can route to
+- [Skills & Prompts](/SHRINE/stack/skills/): how the harness is extended

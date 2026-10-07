@@ -1,6 +1,9 @@
 ---
 title: "Context Handoff"
 description: "Carry a run across compactions and sessions with a written handoff, not a transcript."
+proposal: "https://github.com/stablekernel/SHRINE/pull/16"
+last-reviewed: 2026-10-07
+status: ratified
 ---
 
 *Every session starts cold. Leave the next one a clean desk.*
@@ -42,7 +45,7 @@ description: "Carry a run across compactions and sessions with a written handoff
 - Context nearing its limit
 - Before switching model or agent
 - End of the working day
-- After more than two corrections on the same issue: start fresh with a better prompt ([Claude Code best practices](https://code.claude.com/docs/en/best-practices))
+- After two corrections on the same issue: start fresh with a better prompt ([Session Rule](/SHRINE/patterns/correction-diagnosis/#session-rule); [Claude Code best practices](https://code.claude.com/docs/en/best-practices))
 
 ## Get-Bearings Routine
 
@@ -108,3 +111,4 @@ Verify: make test && make migrate-check
 - [Progress Breadcrumbs](/SHRINE/patterns/progress-breadcrumbs/): the durable trail the handoff can point to
 - [Spec Then Build](/SHRINE/patterns/spec-then-build/): the spec is the stable goal every handoff links
 - [Step-Level Routing](/SHRINE/patterns/step-level-routing/): switching models has a context transfer cost
+- [Unattended Runs](/SHRINE/patterns/unattended-runs/): long runs that cross context resets

@@ -1,6 +1,9 @@
 ---
 title: "Prompt Regression Testing"
 description: "Detect when prompt changes break existing behavior."
+proposal: "https://github.com/stablekernel/SHRINE/commit/79e03ea6"
+last-reviewed: 2026-10-07
+status: ratified
 ---
 
 *Prompts are code. Test them like code.*
@@ -110,7 +113,10 @@ What made it catchable:
 - No baseline (cannot tell if a change helped or hurt)
 - Running tests only manually
 
-## Related Patterns
+## Related
 
 - [Structured Output](/SHRINE/patterns/structured-output/): structured fields enable exact-match tests
 - [Verification Loops](/SHRINE/patterns/verification-loops/): verification checks can double as test assertions
+- [Model Selection & Routing](/SHRINE/stack/models/): model switches this suite gates
+- [Skills & Prompts](/SHRINE/stack/skills/): skills tested like code
+- [Evaluation & Benchmarking](/SHRINE/stack/evaluation/): the wider eval suite

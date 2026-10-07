@@ -3,6 +3,7 @@ title: "Authority Cascade"
 description: "Decisions follow a fixed precedence: Org > Client > Team > Role > Individual."
 proposal: "https://github.com/stablekernel/SHRINE/discussions/5"
 last-reviewed: 2026-09-16
+status: ratified
 ---
 
 *Solved problems stay solved.*

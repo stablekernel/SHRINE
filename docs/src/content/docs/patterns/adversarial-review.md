@@ -1,6 +1,9 @@
 ---
 title: "Adversarial Review"
 description: "Using a second model or agent to challenge and verify output."
+proposal: "https://github.com/stablekernel/SHRINE/commit/d5f06a07"
+last-reviewed: 2026-10-07
+status: ratified
 ---
 
 *A reviewer whose job is to find holes, not to approve.*
@@ -89,3 +92,7 @@ Output:
 - [Verification Loops](/SHRINE/patterns/verification-loops/): review findings feed the next repair
 - [Human in the Loop](/SHRINE/principles/human-in-the-loop/): who triages what the reviewer finds
 - [Checkpoint Gates](/SHRINE/patterns/checkpoint-gates/): place review at the gate
+- [Multi-Model Consensus](/SHRINE/patterns/multi-model-consensus/): agreement across models instead of challenge
+- [Spec, Then Build](/SHRINE/patterns/spec-then-build/): review the plan before the build
+- [Agent Architecture & Orchestration](/SHRINE/stack/agent-architecture/): where the adversarial topology fits
+- [Iterative Refinement](/SHRINE/patterns/iterative-refinement/): self-improvement instead of external challenge

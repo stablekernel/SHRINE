@@ -17,6 +17,9 @@ export default defineConfig({
         replacesTitle: true,
       },
       customCss: ['./src/styles/shrine.css'],
+      components: {
+        PageTitle: './src/components/PageTitle.astro',
+      },
       social: [
         { icon: 'github', label: 'GitHub', href: 'https://github.com/stablekernel/SHRINE' },
       ],
@@ -24,6 +27,7 @@ export default defineConfig({
         { label: 'Home', link: '/' },
         {
           label: 'Principles',
+          badge: { text: 'Ratified', variant: 'success' },
           collapsed: false,
           // MAINTAINER: Order is deliberate, not alphabetical (Overview, North Star, then who decides,
           // where humans judge, how we engage, how we shape code, how systems fail, how we trust output, how we evolve)
@@ -41,6 +45,7 @@ export default defineConfig({
         },
         {
           label: 'Patterns',
+          badge: { text: 'Ratified', variant: 'success' },
           collapsed: false,
           // MAINTAINER: Keep entries in alphabetical order (Overview first, then A-Z)
           items: [
@@ -49,6 +54,8 @@ export default defineConfig({
             { label: 'Chain of Thought', slug: 'patterns/chain-of-thought' },
             { label: 'Checkpoint Gates', slug: 'patterns/checkpoint-gates' },
             { label: 'Context Handoff', slug: 'patterns/context-handoff' },
+            { label: 'Correction Diagnosis', slug: 'patterns/correction-diagnosis' },
+            { label: 'Delegation Fit', slug: 'patterns/delegation-fit' },
             { label: 'Discovery Propagation', slug: 'patterns/discovery-propagation' },
             { label: 'Dogfooding', slug: 'patterns/dogfooding' },
             { label: 'Few-Shot Examples', slug: 'patterns/few-shot-examples' },
@@ -59,6 +66,7 @@ export default defineConfig({
             { label: 'Progress Breadcrumbs', slug: 'patterns/progress-breadcrumbs' },
             { label: 'Prompt Regression Testing', slug: 'patterns/prompt-regression' },
             { label: 'RAG', slug: 'patterns/rag' },
+            { label: 'Reviewable Output', slug: 'patterns/reviewable-output' },
             { label: 'Self-Critique', slug: 'patterns/self-critique' },
             { label: 'Spec, Then Build', slug: 'patterns/spec-then-build' },
             { label: 'Step-Level Routing', slug: 'patterns/step-level-routing' },
@@ -71,9 +79,11 @@ export default defineConfig({
         },
         {
           label: 'Stack',
+          badge: { text: 'Draft', variant: 'caution' },
           collapsed: true,
-          // MAINTAINER: Keep entries in alphabetical order (A-Z)
+          // MAINTAINER: Keep entries in alphabetical order (Overview first, then A-Z)
           items: [
+            { label: 'Overview', slug: 'stack/overview' },
             { label: 'Agent Architecture', slug: 'stack/agent-architecture' },
             { label: 'Cost Management', slug: 'stack/cost-management' },
             { label: 'Evaluation & Benchmarking', slug: 'stack/evaluation' },

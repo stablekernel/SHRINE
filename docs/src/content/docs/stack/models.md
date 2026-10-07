@@ -1,6 +1,7 @@
 ---
 title: "Model Selection & Routing"
 description: "Choosing the right model for the right task, and the policy and gateway that enforce it."
+status: draft
 ---
 
 *Pick models on your evals and cost per win, not on habit or headlines.*
@@ -47,7 +48,7 @@ description: "Choosing the right model for the right task, and the policy and ga
 ## Gateway Responsibilities
 
 - **Central policy**: one place to change defaults and fallbacks for every harness
-- **Limits**: per-task and per-team caps enforced before the call ([Cost Management](/SHRINE/stack/cost-management/))
+- **Limits**: retry caps and time limits enforced at the gateway ([Cost Management](/SHRINE/stack/cost-management/))
 - **Fallbacks**: automatic failover along the configured chain
 - **Logging**: model, version, and reasoning effort recorded on every call ([Observability](/SHRINE/stack/observability/))
 
@@ -74,12 +75,15 @@ description: "Choosing the right model for the right task, and the policy and ga
 - No fallback when the preferred model is unavailable
 - Calling a floating model alias the provider can update, then chasing a regression nobody logged
 
-## Related Patterns
+## Related
 
 - [Task Routing](/SHRINE/patterns/task-routing/): route per task
 - [Step-Level Routing](/SHRINE/patterns/step-level-routing/): route per step inside a trajectory
 - [Prompt Regression Testing](/SHRINE/patterns/prompt-regression/): prove a model switch is safe
+- [Cost Management](/SHRINE/stack/cost-management/): cost per accepted win
+- [Chain of Thought](/SHRINE/patterns/chain-of-thought/): when to raise reasoning effort
+- [Harness Selection](/SHRINE/stack/harness/): where model choice is exposed
 
 ## Current Stack
 
-*Document your org's current model roster and routing rules here.*
+- Record the current model roster in the [Current Stack Roster](/SHRINE/reference/current-stack/#models)

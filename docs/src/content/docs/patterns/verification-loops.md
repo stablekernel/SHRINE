@@ -1,6 +1,9 @@
 ---
 title: "Verification Loops"
 description: "Generate, run a check, and repair until it passes or a stop condition fires."
+proposal: "https://github.com/stablekernel/SHRINE/commit/d259f16b"
+last-reviewed: 2026-10-07
+status: ratified
 ---
 
 *Trust but verify. Then fix what fails.*
@@ -45,7 +48,7 @@ description: "Generate, run a check, and repair until it passes or a stop condit
 ## Stop Conditions
 
 - Max iterations reached ([Anthropic, building effective agents](https://www.anthropic.com/engineering/building-effective-agents))
-- Same error twice in a row
+- Same error twice in a row; treat it as a repeated miss and fix the input ([One-Off or Repeated](/SHRINE/principles/fail-fast-recover-smart/#one-off-or-repeated))
 - Time limit hit
 - On stop: report what failed, what was tried, and the current state
 
@@ -106,3 +109,11 @@ escalation: rounding happens in currency lib, not invoice code;
 - [Human in the Loop](/SHRINE/principles/human-in-the-loop/): where escalation lands
 - [Step-Level Routing](/SHRINE/patterns/step-level-routing/): a failed check can escalate the model tier
 - [Adversarial Review](/SHRINE/patterns/adversarial-review/): the check when no test exists
+- [Spec, Then Build](/SHRINE/patterns/spec-then-build/): a check per milestone
+- [Pipeline Orchestration](/SHRINE/patterns/pipeline-orchestration/): loops inside a stage gate
+- [Self-Critique](/SHRINE/patterns/self-critique/): review when no runnable check exists
+- [Agent Architecture & Orchestration](/SHRINE/stack/agent-architecture/): validation at the seams
+- [Prompt Regression Testing](/SHRINE/patterns/prompt-regression/): checks reused as test assertions
+- [Mechanical Scaffolding](/SHRINE/patterns/mechanical-scaffolding/): validation of scaffold fills
+- [Tool Integration](/SHRINE/stack/tool-integration/): check tool results before acting
+- [Problem Before Prescription](/SHRINE/principles/problem-before-prescription/): acceptance checks come from the chosen option

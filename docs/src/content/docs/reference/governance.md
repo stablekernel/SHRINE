@@ -27,32 +27,37 @@ The questions below aren't a checklist you must pass; they're the questions the 
 - Is this already covered elsewhere?
 - Can I demonstrate this with a real example?
 - Does this scale across teams and clients?
+- Would I follow this myself?
+- Is this the right altitude: principle, pattern, or stack?
 
 ## Proposal Lifecycle
 
 ### 1. Propose
 
 - Open a Discussion in the "Proposals" category
-- Use this structure:
+- The proposal form asks for:
 
 ```
-## The Proposal
+Self-Assessment
+Checkboxes for the questions in Before You Propose.
+
+Proposal Type
+Principle, Pattern, Stack Choice, or Governance Change.
+
+The Proposal
 One sentence. What are you proposing?
 
-## Why This Matters
+Why This Matters
 What goes wrong without it? Cite real examples if possible.
 
-## Keeping It Current
-What's the cost of keeping this up to date as tools and practices change?
-
-## Scope
-Is this already covered elsewhere? Does it scale across teams and clients?
-
-## Open Questions
+Open Questions
 What needs refinement before this solidifies?
 
-## Pull Request
-Link to draft PR (added once refined)
+Prior Art
+Related patterns, external references, or internal docs.
+
+Documentation PR
+Link to the draft PR (added once refined).
 ```
 
 ### 2. Refine
@@ -65,7 +70,7 @@ Link to draft PR (added once refined)
 
 - Once refined, the proposer opens a draft PR with the documentation update
 - The PR adds or updates the relevant page in `docs/src/content/docs/`
-- Link the PR in the discussion under "Pull Request"
+- Link the PR in the discussion under "Documentation PR"
 - The PR remains in draft until ratification
 
 ### 4. Endorse
@@ -90,19 +95,38 @@ Link to draft PR (added once refined)
 ## Expedited Ratification
 
 - The CTO or VP of Engineering can bypass the objection window
-- The other steps still apply: a discussion, a documentation PR, and the closing "Accepted" label
+- Every other step still applies, including the two keeper endorsements
+
+## Keeper Decision
+
+- A majority of keepers can ratify a page, or amend a ratified page, directly
+- They can waive the Discussion step
+- The PR or Discussion records the decision; the page's `proposal` field links it
 
 ## Amendments
 
 - Ratified content remains open for adjustment
 - To propose a change, open a new Discussion referencing the existing page
-- Same lifecycle applies
+- Any route above applies
+
+## Page Status
+
+Every principle, pattern, and stack page shows its status under the title and in the sidebar.
+
+| Status | Meaning | Sections |
+|---|---|---|
+| Ratified | Adopted by any route above; changed per Amendments | Principles, Patterns |
+| Draft | Under refinement; use as guidance, expect changes without the full lifecycle | Stack, Current Stack Roster |
+
+- Set by the `status` frontmatter field: `ratified` or `draft`
+- Promoting a Draft page to Ratified follows any route above
 
 ## Metadata
 
-Every ratified page carries:
+Every ratified page carries the fields below. Section overview and index pages are exempt.
 
 - `proposal`: link to the original discussion
+  - Keeper decisions link the PR or Discussion that records them
 - `last-reviewed`: date of most recent keeper review
 
 Keepers periodically sweep pages whose `last-reviewed` date has gone stale, re-examining whether the guidance still holds.

@@ -1,6 +1,9 @@
 ---
 title: "Checkpoint Gates"
 description: "Stop an agent before irreversible actions and hand the human a decision that clears in one step."
+proposal: "https://github.com/stablekernel/SHRINE/pull/16"
+last-reviewed: 2026-10-07
+status: ratified
 ---
 
 *Gate the action, not the agent.*
@@ -85,4 +88,8 @@ description: "Stop an agent before irreversible actions and hand the human a dec
 - [Tokens to Value](/SHRINE/principles/tokens-to-value/): human attention is a cost
 - [Unattended Runs](/SHRINE/patterns/unattended-runs/): where gates matter most
 - [Adversarial Review](/SHRINE/patterns/adversarial-review/): machine review before the card
+- [Reviewable Output](/SHRINE/patterns/reviewable-output/): each staged review uses the decision card
+- [Delegation Fit](/SHRINE/patterns/delegation-fit/): human decisions made before the run starts
 - [Tool Integration](/SHRINE/stack/tool-integration/): where enforcement lives
+- [Pipeline Orchestration](/SHRINE/patterns/pipeline-orchestration/): gates at stage seams
+- [Progress Breadcrumbs](/SHRINE/patterns/progress-breadcrumbs/): checkpoint requests on the card

@@ -1,6 +1,7 @@
 ---
 title: "Tool Integration"
 description: "Function calling, tool protocols, and external APIs: design, context cost, and security."
+status: draft
 ---
 
 *Models are more useful when they can act, and more dangerous.*
@@ -75,8 +76,11 @@ description: "Function calling, tool protocols, and external APIs: design, conte
 - One broad credential shared by read and write tools
 - Outward-facing actions with no approval step
 
-## Related Patterns
+## Related
 
 - [Structured Output](/SHRINE/patterns/structured-output/): checkable tool arguments
 - [Verification Loops](/SHRINE/patterns/verification-loops/): check results before acting
 - [Unattended Runs](/SHRINE/patterns/unattended-runs/): tool limits when no human is watching
+- [Checkpoint Gates](/SHRINE/patterns/checkpoint-gates/): human approval before risky tool calls
+- [Harness Selection](/SHRINE/stack/harness/): the harness grants tool access
+- [Repository Context](/SHRINE/stack/repository-context/): code index tools

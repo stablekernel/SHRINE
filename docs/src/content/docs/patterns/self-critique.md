@@ -1,6 +1,9 @@
 ---
 title: "Self-Critique"
 description: "Have the model evaluate its own output against criteria."
+proposal: "https://github.com/stablekernel/SHRINE/commit/d259f16b"
+last-reviewed: 2026-10-07
+status: ratified
 ---
 
 *Built-in quality check.*
@@ -75,7 +78,7 @@ Task: write a PR description from a diff.
 - Self-critique is weaker than external review
 - Vague criteria produce vague critique
 
-## Related Patterns
+## Related
 
 - [Verification Loops](/SHRINE/patterns/verification-loops/): external checks as the feedback signal
 - [Adversarial Review](/SHRINE/patterns/adversarial-review/): an external skeptic instead of self-review
