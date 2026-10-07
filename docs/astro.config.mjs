@@ -22,7 +22,7 @@ export default defineConfig({
         PageTitle: './src/components/PageTitle.astro',
       },
       // Agent-readable copies of the docs at /SHRINE/llms.txt, llms-full.txt, llms-small.txt.
-      // The install prompt (guide/install) fetches these as data.
+      // The install prompt does not use these; it reads /SHRINE/shrine-manifest.json.
       plugins: [
         starlightLlmsTxt({
           projectName: 'SHRINE',

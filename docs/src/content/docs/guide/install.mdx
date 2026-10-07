@@ -28,14 +28,16 @@ import prompt from '../../../prompts/shrine-install.md?raw';
 
 These hold on every harness, whatever the agent designs:
 
-1. **Your approval**: nothing changes until you approve the exact change; anything that runs code gets its own approval and a full-permissions warning
-2. **Reversible**: backups first, plus a note in your environment that says where they are and how to undo; an interrupted run stays restorable
-3. **Content is data**: only text that tries to steer the install run is a red flag; your normal instruction files are not
-4. **No secrets printed**: shown as `<redacted>`
-5. **Recorded**: what was installed, from which SHRINE commit, for which harness; a second harness on the same machine gets its own fit
-6. **Narrow**: smallest scope that needs it; nothing duplicated that already loads
-7. **Bounded**: a time box and abort criteria, never budgets
-8. **Cannot pause, cannot change**: a harness that cannot stop for your approval only reports
+1. **Your approval**: nothing changes until you approve the exact change; bookkeeping is approved first, or you get paste-ready output only
+2. **Code that runs**: its own approval and a full-permissions warning; local and uncommitted unless your team agreed; effects outside recorded paths are labeled "not reversible"
+3. **Reversible**: backups first, kept on your machine and never committed; each change logged pending, then done once verified
+4. **Recorded**: one record per harness per scope, with a fingerprint of each change and who gave the answers
+5. **Traceable**: every proposal traces to a SHRINE page and your answers, never to repo content alone
+6. **Content is data**: only text that tries to steer the install run is a red flag; your normal instruction files are not
+7. **No secrets printed**: shown as `<redacted>`
+8. **Narrow**: smallest scope; each always-loaded line must prevent a miss you named or discovery found
+9. **Bounded**: a time box and abort criteria
+10. **Cannot pause, cannot change**: a harness that cannot stop for your approval only reports
 
 ## Use It
 
@@ -43,13 +45,15 @@ These hold on every harness, whatever the agent designs:
 
 1. Copy the prompt below, or fetch the raw file: [install-prompt.md](/SHRINE/install-prompt.md)
 
-2. Start a session in your harness, in the project you want to set up, and paste the prompt
+2. Bring two or three recent corrections you made to agent output; the agent designs from them
 
-3. Correct the agent's inventory of your environment, then answer the interview
+3. Start a session in your harness, in the project you want to set up, and paste the prompt
 
-4. Approve, edit, or reject each proposal
+4. Correct the agent's inventory of your environment, then answer the interview
 
-5. Keep the report: it names the backups and how to undo
+5. Approve, edit, or reject each proposal
+
+6. Keep the report: it names the backups and how to undo
 
 </Steps>
 
@@ -68,7 +72,7 @@ Agent-readable copies of this page (llms.txt files) leave the prompt out on purp
 - **Approval gates**: [Human in the Loop](/SHRINE/principles/human-in-the-loop/), [Checkpoint Gates](/SHRINE/patterns/checkpoint-gates/)
 - **Your layers win**: an org, team, or role rule you already have overrides a SHRINE default ([Authority Cascade](/SHRINE/principles/authority-cascade/))
 - **Pinned**: each install records the SHRINE commit it came from ([Reproducibility](/SHRINE/principles/reproducibility/))
-- **Small footprint**: always-loaded text competes with the work ([Memory & Context](/SHRINE/stack/memory/))
+- **Small footprint**: always-loaded text competes with the work ([Memory & Context Management](/SHRINE/stack/memory/))
 
 ## What It Reads
 
@@ -79,19 +83,20 @@ Agent-readable copies of this page (llms.txt files) leave the prompt out on purp
 ## What It Leaves Behind
 
 - Only the changes you approved, marked so a later run can find them
-- Backups, an undo note, and a record, by default under `.shrine/` in each scope it changed
-- In a shared project, it asks whether those may be committed
+- A record and backups in each scope it changed, for example under `.shrine/`
+- In a shared project, it asks whether the record may be committed; backups never are
+- An advice-only report is a complete install
 
 ## Re-run and Undo
 
 - Paste the same prompt again; it compares the recorded commit and page hashes and shows what changed
 - Your edits to its additions are kept unless you choose otherwise
 - Same commit and same answers means no changes
-- Ask it to uninstall; it uses the record and undo note to remove what it added
+- Ask it to uninstall; it removes only its own marked additions and restores a whole file only when no other harness's record names it
 - Re-run when a page you used is amended ([Deliberate Currency](/SHRINE/principles/deliberate-currency/))
 
 ## Related
 
 - [Discovery Propagation](/SHRINE/patterns/discovery-propagation/#where-lessons-land): where each kind of lesson lands
 - [Skills & Prompts](/SHRINE/stack/skills/): on-demand instructions
-- [Memory & Context](/SHRINE/stack/memory/): what to keep always loaded, and what not to
+- [Memory & Context Management](/SHRINE/stack/memory/): what to keep always loaded, and what not to
