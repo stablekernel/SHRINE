@@ -109,7 +109,8 @@ header.header starlight-search {
   transform: translateX(-50%);
 }
 
-header.header site-search button,
-header.header starlight-search button {
+/* Target only the trigger: the modal's clear/cancel buttons also live in site-search. */
+header.header site-search button[data-open-modal],
+header.header starlight-search button[data-open-modal] {
   width: 20rem;
 }
