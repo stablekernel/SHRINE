@@ -1,0 +1,46 @@
+name: CDK Deploy
+
+on:
+  push:
+    branches: [main]
+    paths:
+      - '.aws/cdk/harness-interview/**'
+      - 'harness-interview/server/**'
+  workflow_dispatch:
+
+permissions:
+  contents: read
+  id-token: write
+
+env:
+  AWS_REGION: ${{ vars.AWS_REGION }}
+
+jobs:
+  deploy:
+    runs-on: ubuntu-latest
+    steps:
+      - name: Checkout
+        uses: actions/checkout@v4
+
+      - name: Setup Node
+        uses: actions/setup-node@v4
+        with:
+          node-version: 22
+
+      - name: Configure AWS credentials
+        uses: aws-actions/configure-aws-credentials@v4
+        with:
+          role-to-assume: ${{ vars.AWS_ROLE_ARN }}
+          aws-region: ${{ vars.AWS_REGION }}
+
+      - name: Install CDK dependencies
+        working-directory: .aws/cdk/harness-interview
+        run: npm ci
+
+      - name: Install server dependencies
+        working-directory: harness-interview/server
+        run: npm ci
+
+      - name: CDK deploy
+        working-directory: .aws/cdk/harness-interview
+        run: npx cdk deploy --require-approval never
