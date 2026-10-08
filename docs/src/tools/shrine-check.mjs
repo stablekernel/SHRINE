@@ -7,8 +7,9 @@
 // to a new file in that folder, which must lie outside every scope root and every git work tree,
 // and never over an existing file. It reads the plan, the files the plan names, and the manifest.
 // It runs only read-only git commands (status, rev-parse, symbolic-ref, for-each-ref, and
-// apply --check), with optional locks off, so even git writes nothing. Its only network call is
-// fetching the manifest URL it is given. Zero dependencies; Node 18 or later.
+// apply --check), with optional locks off, so even git writes nothing. Git is optional: a project
+// folder outside git is watched by hashing its files. Its only network call is fetching the
+// manifest URL it is given. Zero dependencies; Node 18 or later.
 //
 // Usage:
 //   node shrine-check.mjs --render <kind> --plan <path | -> [--manifest <src>] [--gate <0-3>] [--out <dir>]
@@ -29,7 +30,7 @@ import { homedir } from 'node:os';
 import { dirname, isAbsolute, join, relative, resolve, sep } from 'node:path';
 import { fileURLToPath } from 'node:url';
 
-const VERSION = 8;
+const VERSION = 9;
 const COVERAGE = ['applied', 'advised', 'not relevant'];
 const RUNS = ['inspect', 'refresh'];
 const MODES = ['interactive', 'report-only'];
@@ -87,19 +88,19 @@ const GATES = [
 		['2.8', 'Who answered'], ['2.9', 'Answers'], ['2.10', 'Corrections'],
 		['2.11', 'User confirmed the classes and tags', 'user'], ['2.12', 'Scope'] ] },
 	{ n: 3, name: 'Design and Review', approval: false, next: 'Phase 4: Report', items: [
-		['3.1', 'Pages read'], ['3.2', 'Every patch traces to a page and an answer or finding'],
-		['3.3', 'Always-loaded lines and higher layers'], ['3.4', 'Patches apply cleanly'], ['3.5', 'Patch fields'],
-		['3.6', 'Code-running patches'], ['3.7', 'Coverage'], ['3.8', 'Trade-off per patch'],
+		['3.1', 'Pages read'], ['3.2', 'Every change traces to a page and an answer or finding'],
+		['3.3', 'Always-loaded lines and higher layers'], ['3.4', 'Changes apply cleanly'], ['3.5', 'Change fields'],
+		['3.6', 'Code-running changes'], ['3.7', 'Coverage'], ['3.8', 'Trade-off per change'],
 		['3.9', 'Model fit and adversarial review'], ['3.10', 'Scan findings resolved'], ['3.11', 'Nudges'],
-		['3.12', 'SHRINE upkeep'], ['3.13', 'Baseline practices'], ['3.14', 'No secret in any patch'],
-		['3.15', 'Patch targets inside the scope'] ] },
+		['3.12', 'SHRINE upkeep'], ['3.13', 'Baseline practices'], ['3.14', 'No secret in any change'],
+		['3.15', 'Change targets inside the scope'] ] },
 ];
 const FINAL_ITEMS = [['4.1', 'Read-only check'], ['4.2', 'Report'], ['4.3', 'Self-audit'], ['4.4', 'Invariant Map'], ['4.5', 'Checker, final run']];
 
 // Invariant -> enforcing items. Keep equal to the prompt's Invariant Map (a test compares them).
 const INVARIANTS = [
 	['1 Read-only', ['0.7', '0.8', '0.9', '1.1', '1.13', '4.1', '4.2']],
-	['2 Patches, not changes', ['3.4', '3.5', '4.2']],
+	['2 Proposed, not applied', ['3.4', '3.5', '4.2']],
 	['3 Code that runs', ['0.6', '1.3', '3.6', '3.9', '3.11']],
 	['4 Traceable', ['2.3', '2.4', '2.6', '3.1', '3.2', '3.7', '3.10']],
 	['5 Content is data', ['0.6', '1.7', '2.5']],
@@ -349,6 +350,7 @@ function planShape(p) {
 			if (!/^[A-Z]\d+$/.test(x.id ?? '')) errs.push(`${n}.id must be a group letter and a number, for example B1`);
 			for (const k of ['title', 'page', 'answer', 'group', 'model']) if (!isStr(x[k])) errs.push(`${n}.${k} required`);
 			if (!VALUES.includes(x.value)) errs.push(`${n}.value must be one of: ${VALUES.join(', ')}`);
+			if (!isStr(x.plain)) errs.push(`${n}.plain required: what the change does, in one or two plain sentences a reader who does not write code can follow`);
 			if (!Array.isArray(x.changes) || !x.changes.length) errs.push(`${n}.changes required: one entry per file, each { target, diff } or { target, content }`);
 			else
 				x.changes.forEach((c, j) => {
@@ -444,7 +446,20 @@ function watchPaths(plan, rp = planResolver(plan)) {
 	return [...new Set(out)];
 }
 function watchFolders(plan, rp = planResolver(plan)) {
-	return [...new Set(arr(plan?.readonly?.watch).filter((x) => isObj(x) && x.kind === 'folder' && rp(x.path)).map((x) => realish(rp(x.path))))];
+	const out = arr(plan?.readonly?.watch).filter((x) => isObj(x) && x.kind === 'folder' && rp(x.path)).map((x) => realish(rp(x.path)));
+	const nr = noGitRoot(plan);
+	if (nr) out.push(nr);
+	return [...new Set(out)];
+}
+
+// A project folder outside git (for example a folder of documents) has no status to compare, so
+// the read-only check watches the folder itself: every file in it, hashed. The home folder is
+// never watched whole.
+function noGitRoot(plan) {
+	if (!isStr(plan?.project_root)) return null;
+	const d = realish(expandHome(plan.project_root));
+	if (d === realish(homedir()) || !exists(d) || !statSync(d).isDirectory() || gitTop(d)) return null;
+	return d;
 }
 
 // Repos the baseline covers: the project's, each scope root's, and each watched file's.
@@ -652,6 +667,8 @@ function verifyReadonly(plan) {
 		if (auto) notes.push(`harness persistence ${abs} changed on its own (automatic, disclosed at 0.8): review it after the run`);
 		else problems.push(`harness persistence ${abs} changed (${was} -> ${is}): the agent must not use harness memory or notes during the run`);
 	}
+	const nr = noGitRoot(plan);
+	if (nr && !m.repos.size) notes.push(`no git repo: the project folder ${nr} and every watched file were compared by hash`);
 	return { problems, notes, summary: `${m.repos.size} repos, ${m.f.size + m.w.size} files, and ${m.persist.size} persistence paths compared with ${count} baseline${count === 1 ? '' : 's'}` };
 }
 
@@ -704,7 +721,7 @@ function parseDiff(text) {
 		hunks.push(hk);
 	}
 	if (heads.filter((x) => x.startsWith('+++ ')).length > 1) return { error: 'one file per change: split this diff into one change per file' };
-	if (heads.some((x) => /^\+\+\+ \/dev\/null/.test(x))) return { error: 'a patch deletes no file: propose the deletion as advice instead' };
+	if (heads.some((x) => /^\+\+\+ \/dev\/null/.test(x))) return { error: 'a change deletes no file: propose the deletion as advice instead' };
 	if (!hunks.length) return { error: 'no hunk found' };
 	return { hunks };
 }
@@ -986,8 +1003,8 @@ function coverageProblems(plan, m) {
 		else if (!isStr(p.reason)) problems.push(`"${t}" has no reason`);
 		else if (p.status === 'applied') {
 			const list = arr(p.proposals);
-			if (!list.length) problems.push(`"${t}" applied names no patch`);
-			for (const id of list) if (!ids.has(id)) problems.push(`"${t}" applied names unknown patch ${id}`);
+			if (!list.length) problems.push(`"${t}" applied names no change`);
+			for (const id of list) if (!ids.has(id)) problems.push(`"${t}" applied names unknown change ${id}`);
 		}
 	}
 	for (const t of got.keys()) if (!want.includes(t)) problems.push(`"${t}" is not a ratified principle in the manifest`);
@@ -995,7 +1012,7 @@ function coverageProblems(plan, m) {
 }
 
 // S1, the refresh entry, carries the --render s1 steps verbatim; S2, the staleness check, carries
-// the pinned commit. Both are patches the user may apply.
+// the pinned commit. Both are changes the user may apply.
 function s1Lines(man) {
 	const base = siteBase(man);
 	return [
@@ -1029,17 +1046,17 @@ function upkeepProblems(plan, man, results) {
 function runChecks(plan, man, ctx) {
 	const rep = new Report();
 	const rp = planResolver(plan);
-	rep.check('plan-shape', planShape(plan), `plan fields present; ${proposalsOf(plan).length} patches`);
+	rep.check('plan-shape', planShape(plan), `plan fields present; ${proposalsOf(plan).length} changes`);
 	rep.check('out-dir', outDirProblems(plan, ctx.planPath), `the temporary folder and the plan file lie outside every scope root and repo: ${plan.out_dir}`);
 	const v = ctx.verify ?? verifyReadonly(plan);
 	rep.check('read-only', v.problems, `no change: ${v.summary}`);
 	for (const n of v.notes) rep.lines.push(`  note: ${n}`);
-	rep.check('scope', scopeProblems(plan), `every patch target lies inside the scope roots: ${arr(plan.scope?.roots).join(', ')}`);
+	rep.check('scope', scopeProblems(plan), `every change target lies inside the scope roots: ${arr(plan.scope?.roots).join(', ')}`);
 	const results = ctx.results ?? patchResults(plan);
 	const bad = results.filter((r) => r.problems.length);
-	rep.check('patches', bad.flatMap((r) => r.problems.map((p) => `${r.id} change ${r.n} (${r.abs ?? r.raw}): ${p}`)), `${results.length} changes in ${proposalsOf(plan).length} patches each apply cleanly to the current files`);
+	rep.check('changes', bad.flatMap((r) => r.problems.map((p) => `${r.id} file ${r.n} (${r.abs ?? r.raw}): ${p}`)), `${results.length} files in ${proposalsOf(plan).length} changes each apply cleanly to the current files`);
 	if (man) rep.check('coverage', coverageProblems(plan, man.data), `${manifestPrinciples(man.data).length} ratified principles each have a status and a reason`);
-	rep.check('review', proposalsOf(plan).flatMap((x) => reviewProblems(x, plan.mode)), `${proposalsOf(plan).length} patches each reviewed for their risk within ${MAX_ROUNDS} rounds, self only, or escalated`);
+	rep.check('review', proposalsOf(plan).flatMap((x) => reviewProblems(x, plan.mode)), `${proposalsOf(plan).length} changes each reviewed for their risk within ${MAX_ROUNDS} rounds, self only, or escalated`);
 	rep.check('scan', scanProblems(plan, rp), `${arr(plan.scan).length} findings and ${proposalsOf(plan).filter((x) => isObj(x.nudge)).length} nudges tied to index rows`);
 	if (man) rep.check('upkeep', upkeepProblems(plan, man, results), 'S1 carries the refresh steps; S2 carries the pinned commit');
 	rep.check('secrets', secretProblems(plan), 'no secret-shaped value anywhere in the plan');
@@ -1237,7 +1254,7 @@ function computed(id, ctx) {
 			if (plan.run !== 'refresh') return { mark: '-', lines: ['not applicable: not a refresh  (plan)'] };
 			const prev = readPrevious(plan);
 			if (prev.error) return { mark: ' ', lines: [prev.error] };
-			return { mark, lines: [`${prev.path} ${h(prev.sha)}: commit ${prev.data.commit}, prompt version ${prev.data.prompt?.version}, ${arr(prev.data.patches).length} patches  ${plan.previous.source ?? '(user)'}`] };
+			return { mark, lines: [`${prev.path} ${h(prev.sha)}: commit ${prev.data.commit}, prompt version ${prev.data.prompt?.version}, ${arr(prev.data.patches).length} changes  ${plan.previous.source ?? '(user)'}`] };
 		}
 		case '1.13': {
 			const { m, count } = mergedBaseline(plan);
@@ -1297,31 +1314,31 @@ function computed(id, ctx) {
 				if (!titles.has(x.page)) fail(`${t} [page not in manifest]`);
 				else lines.push(t);
 			}
-			if (!ps.length) lines.push('no patches  (plan)');
+			if (!ps.length) lines.push('no changes  (plan)');
 			return { mark, lines };
 		}
 		case '3.4': {
 			for (const r of ctx.results) {
-				const t = `${r.id} change ${r.n}: ${r.abs ?? r.raw}`;
+				const t = `${r.id} file ${r.n}: ${r.abs ?? r.raw}`;
 				if (r.problems.length) fail(`${t} [${r.problems.join('; ')}]`);
 				else lines.push(`${t}: ${r.kind === 'new' ? 'new file, absent now' : 'diff applies'}; ${r.notes.join('; ')}`);
 			}
-			if (!ctx.results.length) lines.push('no patches  (plan)');
-			return { mark, head: `${ctx.results.length} changes checked against the current files, read-only  $ shrine-check (in-memory apply, git apply --check)`, lines };
+			if (!ctx.results.length) lines.push('no changes  (plan)');
+			return { mark, head: `${ctx.results.length} files checked against the current files, read-only  $ shrine-check (in-memory apply, git apply --check)`, lines };
 		}
 		case '3.5': {
 			for (const x of ps) {
 				const b = x.blast ?? {};
 				const l = x.load ?? {};
-				lines.push(`${x.id}: ${b.committed ? 'committed' : 'local'}, reaches ${b.reaches}; ${l.always_loaded ? `always loaded, prevents: ${x.load?.miss ?? '<missing>'}` : 'not always loaded'}; loads: ${l.expect}; verify: ${l.verify}; undo: ${undoText(x)}  (plan)`);
+				lines.push(`${x.id}: ${x.plain}; ${b.committed ? 'committed' : 'local'}, reaches ${b.reaches}; ${l.always_loaded ? `always loaded, prevents: ${x.load?.miss ?? '<missing>'}` : 'not always loaded'}; loads: ${l.expect}; verify: ${l.verify}; undo: ${undoText(x)}  (plan)`);
 				if (l.always_loaded && !isStr(l.miss)) fail(`${x.id}: always loaded, so name the miss it prevents (load.miss)`);
 			}
-			if (!ps.length) lines.push('no patches  (plan)');
+			if (!ps.length) lines.push('no changes  (plan)');
 			return { mark, lines };
 		}
 		case '3.6': {
 			const code = ps.filter((x) => x.runs_code);
-			if (!code.length) return { mark: '-', lines: ['not applicable: no patch runs code  (plan)'] };
+			if (!code.length) return { mark: '-', lines: ['not applicable: no change runs code  (plan)'] };
 			for (const x of code) lines.push(`${x.id}: RUNS CODE with your account's full permissions; flagged in the report; writes when it runs: ${arr(x.runtime_writes).join(', ') || 'nothing'}; undo: ${x.undo}  (plan)`);
 			return { mark, lines };
 		}
@@ -1336,7 +1353,7 @@ function computed(id, ctx) {
 				const t = x.tradeoff;
 				lines.push(`${x.id}: ${t.flag ? `trade-off ${t.dimensions.join(' vs ')}` : 'no trade-off'}; costs ${t.costs}; saves ${t.saves}; net ${t.net}  (plan)`);
 			}
-			if (!ps.length) lines.push('no patches  (plan)');
+			if (!ps.length) lines.push('no changes  (plan)');
 			return { mark, lines };
 		}
 		case '3.9': {
@@ -1352,8 +1369,8 @@ function computed(id, ctx) {
 				else lines.push(t);
 				for (const r of arr(x.review?.reviewers).filter(isObj)) for (const f of arr(r.findings).filter(isObj)) lines.push(`  ${r.who}: ${f.finding}; resolution: ${f.resolution ?? '<missing>'}`);
 			}
-			if (!ps.length) lines.push('no patches  (plan)');
-			return { mark, head: `${md ? `models per step: ${md}; ` : ''}${ps.length} patches  $ shrine-check (plan review)`, lines };
+			if (!ps.length) lines.push('no changes  (plan)');
+			return { mark, head: `${md ? `models per step: ${md}; ` : ''}${ps.length} changes  $ shrine-check (plan review)`, lines };
 		}
 		case '3.10': {
 			if (!Array.isArray(plan.scan)) return null;
@@ -1361,7 +1378,7 @@ function computed(id, ctx) {
 			for (const s of plan.scan.filter(isObj)) {
 				const pm = /^proposal (\S+)$/.exec(s.outcome ?? '');
 				const t = `"${s.row}": ${s.outcome}  (plan)`;
-				if (pm && !ids.has(pm[1])) fail(`${t} [unknown patch]`);
+				if (pm && !ids.has(pm[1])) fail(`${t} [unknown change]`);
 				else if (!pm && s.outcome !== 'advice') fail(`${t} [outcome must be "proposal <id>" or "advice"]`);
 				else lines.push(t);
 			}
@@ -1397,9 +1414,9 @@ function computed(id, ctx) {
 			const b = isObj(plan.baseline) ? plan.baseline : {};
 			const base = ps.filter((x) => !/^S\d/.test(x.id ?? ''));
 			const ro = plan.mode === 'report-only';
-			if (base.length) lines.push(`no stated or measured deficit; baseline patches: ${base.map((x) => `${x.id} (${x.page})`).join(', ')}  (plan)`);
+			if (base.length) lines.push(`no stated or measured deficit; baseline changes: ${base.map((x) => `${x.id} (${x.page})`).join(', ')}  (plan)`);
 			else if (isStr(b.none_fit) && (ro || isStr(b.none_fit_ack))) lines.push(`no stated or measured deficit; no baseline practice fits: ${b.none_fit}${ro ? '' : `; ${quote(b.none_fit_ack)} (user)`}`);
-			else fail('no stated or measured deficit, and no baseline patch: propose the baseline practices that fit, or set baseline.none_fit with the reason and baseline.none_fit_ack with the user\'s words');
+			else fail('no stated or measured deficit, and no baseline change: propose the baseline practices that fit, or set baseline.none_fit with the reason and baseline.none_fit_ack with the user\'s words');
 			if (ro) lines.push('Individual Baseline offer: in the report (report-only)');
 			else if (isStr(b.offer)) lines.push(`Individual Baseline offered: ${quote(b.offer)} (user)`);
 			else wait('awaiting: the user\'s answer to the Individual Baseline offer');
@@ -1408,7 +1425,7 @@ function computed(id, ctx) {
 		case '3.14': {
 			const probs = secretProblems({ proposals: plan.proposals });
 			for (const p of probs) fail(p);
-			if (!probs.length) lines.push(`no secret-shaped value in ${ps.length} patches  $ shrine-check (secrets)`);
+			if (!probs.length) lines.push(`no secret-shaped value in ${ps.length} changes  $ shrine-check (secrets)`);
 			return { mark, lines };
 		}
 		case '3.15': {
@@ -1562,24 +1579,25 @@ function reportLines(plan, man, ctx, reportPath) {
 	const ro = plan.mode === 'report-only';
 	const rpt = isObj(plan.report) ? plan.report : {};
 	const out = [REPORT_TITLE, ''];
+	const here = /^\(inline/.test(String(reportPath)) ? 'this report' : reportPath;
 	out.push(`- Harness: ${plan.harness?.name} ${plan.harness?.version ?? 'unknown'}; user: ${plan.user ?? 'unknown'}; answered by: ${plan.answered_by ?? (ro ? 'nobody (report-only)' : 'unknown')}`);
 	out.push(`- Project: ${plan.project_root ?? 'none'}; scope: ${plan.scope?.choice ?? 'not set'} (${arr(plan.scope?.roots).join(', ')})`);
 	out.push(`- SHRINE: commit ${md.commit}; prompt version ${md.prompt?.version}; checker version ${VERSION}`);
-	out.push(`- Run started: ${isoOf(plan.time?.start ?? 0)}; mode: ${plan.mode}${ro ? ' (no user answers: every patch is unconfirmed)' : ''}`);
+	out.push(`- Run started: ${isoOf(plan.time?.start ?? 0)}; mode: ${plan.mode}${ro ? ' (no user answers: every change is unconfirmed)' : ''}`);
 	out.push(`- This run changed nothing. Read-only check: ${v.problems.length ? `FAIL (${v.problems.length} changes)` : 'PASS'} (${v.summary})`);
 	if (isStr(rpt.summary)) out.push(`- ${rpt.summary}`);
 	out.push('', '## Summary', '');
 	const by = (val) => ps.filter((x) => x.value === val).length;
 	const corr = arr(plan.corrections).filter(isObj);
 	const prin = arr(plan.principles).filter(isObj);
-	out.push(`- ${ps.length} patches: ${by('high')} high, ${by('medium')} medium, ${by('low')} low value; ${ps.filter((x) => x.runs_code).length} run code`);
+	out.push(`- ${ps.length} changes: ${by('high')} high, ${by('medium')} medium, ${by('low')} low value; ${ps.filter((x) => x.runs_code).length} run code`);
 	out.push(`- Findings: ${arr(plan.scan).length} anti-pattern, ${arr(plan.signals?.metrics).length} history signals, ${corr.length} corrections (${corr.filter((c) => c.origin === 'measured').length} measured, ${corr.filter((c) => c.origin === 'recalled').length} recalled)`);
 	out.push(`- Principles: ${COVERAGE.map((s) => `${prin.filter((p) => p.status === s).length} ${s}`).join(', ')}, of ${manifestPrinciples(md).length} ratified`);
 	const tops = arr(rpt.top_practices).filter(isObj);
 	out.push(`- Top practices: ${tops.length ? tops.map((t, i) => `${i + 1}. ${t.practice} (${pageLink(man, t.page)})`).join(' ') : '<missing: plan.report.top_practices>'}`);
 	const b = isObj(plan.baseline) ? plan.baseline : {};
 	out.push(`- Individual Baseline: ${ro ? 'start it so the next refresh compares against data' : isStr(b.offer) ? `offered; you said "${b.offer}"` : '<missing: plan.baseline.offer>'} (${base}stack/evaluation/#individual-baseline)`);
-	out.push('', '## Principle Coverage', '', '| Principle | Status | Patches | Reason |', '| --- | --- | --- | --- |');
+	out.push('', '## Principle Coverage', '', '| Principle | Status | Changes | Reason |', '| --- | --- | --- | --- |');
 	const cell = (s) => String(s ?? '').replace(/\|/g, '\\|').replace(/\n/g, ' ');
 	for (const t of manifestPrinciples(md)) {
 		const p = prin.find((x) => x.title === t);
@@ -1605,7 +1623,7 @@ function reportLines(plan, man, ctx, reportPath) {
 		const r = refreshLines(plan, man);
 		out.push(...r.lines.map((l) => `- ${l}`));
 	}
-	out.push('', '## Patches', '', 'Ordered by value within each group. Apply none, some, or all. Nothing here is applied yet.');
+	out.push('', '## Changes', '', 'Ordered by value within each group. Apply none, some, or all. Nothing here is applied yet.');
 	const groups = [...new Set([...ps].sort((a, c) => VALUE_RANK[a.value] - VALUE_RANK[c.value]).map((x) => x.group))];
 	for (const g of groups) {
 		out.push('', `### ${g}`);
@@ -1613,8 +1631,10 @@ function reportLines(plan, man, ctx, reportPath) {
 		for (const x of list) {
 			const t = x.tradeoff ?? {};
 			const { current: rs, rounds } = reviewersOf(x);
-			out.push('', `#### Patch ${x.id}: ${x.title}`, '');
-			if (x.runs_code) out.push(`> **Runs code.** This patch runs code with your account's full permissions. Read every line before you apply it. It writes, when it runs: ${arr(x.runtime_writes).join(', ') || 'nothing'}.`, '');
+			out.push('', `#### Change ${x.id}: ${x.title}`, '');
+			if (x.runs_code) out.push(`> **Runs code.** This change runs code with your account's full permissions. Read every line before you apply it. It writes, when it runs: ${arr(x.runtime_writes).join(', ') || 'nothing'}.`, '');
+			out.push(`- What it does: ${x.plain}`);
+			out.push(`- To apply: ask your assistant, "apply change ${x.id} from ${here}"`);
 			out.push(`- Value: ${x.value}`);
 			out.push(`- SHRINE page: ${pageLink(man, x.page)}`);
 			out.push(`- Anti-pattern row: ${x.nudge?.row ?? x.row ?? 'none'}`);
@@ -1632,23 +1652,24 @@ function reportLines(plan, man, ctx, reportPath) {
 			for (const r of results.filter((y) => y.id === x.id)) {
 				out.push('');
 				if (r.problems.length) {
-					out.push(`Change ${r.n}: ${r.abs ?? r.raw}: DOES NOT APPLY: ${r.problems.join('; ')}`);
+					out.push(`File ${r.n}: ${r.abs ?? r.raw}: DOES NOT APPLY: ${r.problems.join('; ')}`);
 					continue;
 				}
 				const body = r.kind === 'new' ? r.content : r.diff;
-				out.push(r.kind === 'new' ? `Change ${r.n}: new file \`${r.abs}\`, exact contents:` : `Change ${r.n}: \`${r.abs}\`, a diff to apply from \`${r.root}\`:`, '');
+				out.push(r.kind === 'new' ? `File ${r.n}: new file \`${r.abs}\`, exact contents:` : `File ${r.n}: \`${r.abs}\`, a diff to apply from \`${r.root}\`:`, '');
 				const f = fence(body);
 				out.push(`<!-- shrine-change ${x.id} ${r.n} -->`, `${f}${r.kind === 'new' ? '' : 'diff'}`, ...body.replace(/\n$/, '').split('\n'), f);
 			}
 		}
 	}
 	out.push('', '## How to Apply', '');
-	out.push('- Read each patch first. Apply none, some, or all, in a normal session, under your harness\'s own permission prompts.');
-	out.push(`- Ask your assistant: "apply patch B1 from ${reportPath}", with the patch id you chose.`);
-	out.push('- By hand, a diff: save its block as `B1.diff`, then from the folder the patch names, run `git apply --check B1.diff`, then `git apply B1.diff`.');
+	out.push('- Read each change first. Apply none, some, or all, later, in a normal session, under your AI tool\'s own permission prompts.');
+	out.push(`- The simple way: ask your assistant, "apply change B1 from ${here}", with the change id you chose.`);
 	out.push('- By hand, a new file: create it with the exact contents shown.');
-	out.push('- A patch marked "Runs code" runs with your account\'s full permissions: read it before you apply it.');
-	out.push('- After applying, do each patch\'s verify step. To undo, follow its undo line; for a diff, `git apply -R B1.diff`.');
+	out.push('- By hand, a diff: open the file and make the edit it shows. Lines that start with `+` are added, lines that start with `-` are removed, and the other lines show where.');
+	out.push('- With git: save the diff block as `B1.diff`, then from the folder the change names, run `git apply --check B1.diff`, then `git apply B1.diff`.');
+	out.push('- A change marked "Runs code" runs with your account\'s full permissions: read it before you apply it.');
+	out.push('- After applying, do each change\'s verify step. To undo, follow its undo line, or ask your assistant to undo the change; with git, `git apply -R B1.diff`.');
 	out.push('', '## How to Refresh', '');
 	const s1 = ps.find((x) => x.id === 'S1');
 	if (s1) out.push(`- If you applied S1: run "${s1.invocation}". It re-inspects and compares with this report.`);
@@ -1719,7 +1740,7 @@ function refreshLines(plan, man) {
 	out.push(`${changed.length} pages changed since the previous report${changed.length ? `: ${changed.map((p) => `"${p.title}"${live.has(p.title) ? '' : ' (removed)'}`).join(', ')}` : ''}`);
 	if (d.commit !== md.commit) out.push(`compare: https://github.com/stablekernel/SHRINE/compare/${d.commit}...${md.commit}`);
 	for (const x of arr(d.patches).filter(isObj))
-		for (const c of arr(x.changes).filter(isObj)) out.push(`patch ${x.id} change ${c.n} (${c.target}): ${patchStatus(c, prev.blocks.get(`${x.id} ${c.n}`))}`);
+		for (const c of arr(x.changes).filter(isObj)) out.push(`change ${x.id} file ${c.n} (${c.target}): ${patchStatus(c, prev.blocks.get(`${x.id} ${c.n}`))}`);
 	return { ok: true, lines: out };
 }
 
@@ -1891,7 +1912,7 @@ async function render(opts) {
 			const { current, stale, design, rounds } = reviewersOf(x);
 			return `${x.id} design sha256:${design}; risk ${riskOf(x)}; ${current.length} of at least ${MIN_REVIEWERS[riskOf(x)]} reviewers of this design; round ${rounds} of at most ${MAX_ROUNDS}${stale ? `; ${stale} reviewed an earlier design` : ''}${isStr(x.review?.self_only) ? '; self only' : ''}`;
 		});
-		emit('review', lines, opts, plan, [`REVIEW: ${lines.length} patches; ${proposalsOf(plan).filter((x) => reviewProblems(x, plan.mode).length).length} need review or escalation`]);
+		emit('review', lines, opts, plan, [`REVIEW: ${lines.length} changes; ${proposalsOf(plan).filter((x) => reviewProblems(x, plan.mode).length).length} need review or escalation`]);
 		return 0;
 	}
 	if (opts.render === 'coverage') {
@@ -1901,7 +1922,7 @@ async function render(opts) {
 		return p.length ? 1 : 0;
 	}
 	if (opts.render === 's1') {
-		emit('s1', s1Lines(man), opts, plan, ['S1: put these lines verbatim in the S1 patch; the checker confirms the patch holds every line']);
+		emit('s1', s1Lines(man), opts, plan, ['S1: put these lines verbatim in the S1 change; the checker confirms the change holds every line']);
 		return 0;
 	}
 	if (opts.render === 'pin') {
@@ -1936,7 +1957,7 @@ async function render(opts) {
 			const p = reportProblems(text);
 			console.log([
 				`--- shrine-check ${VERSION} short report (paste verbatim; the full report is in the file) ---`,
-				`REPORT: ${p.length ? `${p.length} lines not filled` : 'complete'}; ${proposalsOf(plan).length} patches; read-only check ${ctx.verify.problems.length ? 'FAIL' : 'PASS'}`,
+				`REPORT: ${p.length ? `${p.length} lines not filled` : 'complete'}; ${proposalsOf(plan).length} changes; read-only check ${ctx.verify.problems.length ? 'FAIL' : 'PASS'}`,
 				...p,
 				`report file: ${pick.path}`,
 				'Offer to show it. Record its file and sha256 in plan.report_file.',

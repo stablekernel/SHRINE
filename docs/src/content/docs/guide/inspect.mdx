@@ -1,30 +1,34 @@
 ---
-title: "Inspect Your Setup"
-description: "A check-up for your AI coding assistant: one prompt that looks at your setup and how you work, then hands you ready-to-apply patches with the SHRINE practice behind each. It changes nothing itself."
+title: "Inspect Your AI Environment"
+description: "SHRINE Inspect reviews your AI environment and how you use it, then reports changes worth making, each tied to the SHRINE practice behind it. It changes nothing itself."
 ---
 
 import { Code, Steps } from '@astrojs/starlight/components';
 import prompt from '../../../prompts/shrine-inspect.md?raw';
 
-*A check-up for your AI coding assistant: it looks at how your assistant is set up and how you work, then hands you a list of suggested changes, each with ready-to-apply patches and the SHRINE practice behind it. It changes nothing itself.*
+*SHRINE Inspect reviews your AI environment and how you use it, then reports changes worth making, each tied to the SHRINE practice behind it. It changes nothing itself.*
+
+- Your AI environment: the AI tools, assistants, and agents you work with, and how they are set up; SHRINE calls each such tool a harness
+- Any kind of work: code, writing, analysis, research, operations, or a mix
+- No code repo needed: it works in a project folder, a folder of documents, or an app's settings alone
 
 ## What It Does
 
-- You paste one prompt into your agent harness
-- The agent inspects your environment, checks it against SHRINE's [anti-patterns index](/SHRINE/reference/anti-patterns/), and, with your consent, measures signals from your local session history
+- You paste one prompt into the AI tool you use
+- The AI reviews your environment, checks it against SHRINE's [anti-patterns index](/SHRINE/reference/anti-patterns/), and, with your consent, measures signals from your local session history
 - It interviews you and reads the SHRINE pages that fit your answers
-- It designs its own way to bring each relevant teaching into your setup, and writes each one as a patch
-- It hands you one report: findings, principle coverage, and the patches, ordered by value
-- You apply the patches you want later, in a normal session, under your harness's own permission prompts
-- It assumes nothing is wrong: with no complaints, you get patches for the baseline practices that fit, and an offer to start your [Individual Baseline](/SHRINE/stack/evaluation/#individual-baseline)
+- It designs its own way to bring each relevant teaching into your setup, and writes each one as a proposed change
+- It hands you one report: findings, principle coverage, and the changes, ordered by value
+- You apply the changes you want later, in a normal session, under your AI tool's own permission prompts
+- It assumes nothing is wrong: with no complaints, you get changes for the baseline practices that fit, and an offer to start your [Individual Baseline](/SHRINE/stack/evaluation/#individual-baseline)
 
 ## What It Never Does
 
 - Write to your project or your user settings: no file, setting, commit, branch, stash, or install
 - Use your harness's memory or notes during the run; any automatic persistence is disclosed up front
-- Apply a patch, even when you ask; you apply it afterwards, in a normal session
+- Apply a change, even when you ask; you apply it afterwards, in a normal session
 
-Its only writes go to a temporary folder outside every repo: its plan, its checklists, and the report. The checker proves it: it compares every repo's status and every inspected file with a baseline taken at the start, and the run cannot finish while anything differs.
+Its only writes go to a temporary folder outside your work: its plan, its checklists, and the report. The checker proves it: it compares every inspected file, every git repo's status, and a project folder outside git with a baseline taken at the start, and the run cannot finish while anything differs.
 
 ## Two Planes
 
@@ -37,12 +41,12 @@ Its only writes go to a temporary folder outside every repo: its plan, its check
 | --- | --- | --- |
 | 0 Start | Harness, time box, temporary folder, checker hash, persistence, and the read-only baseline | Time box, run type, and whether to run the checker |
 | 1 Discover | Instruction files and what loads, extension points, shared versus local, anti-pattern scan, session signals | Correct the inventory, then "approve gate 1" |
-| 2 Pin and Interview | SHRINE pinned to one commit, pages hash-checked, up to ten questions, corrections classified | Confirm the classes and tags, then "approve gate 2" |
-| 3 Design and Review | Patches designed, checked to apply, and reviewed by independent reviewers | None; you decide when you read the report |
+| 2 Pin and Interview | SHRINE pinned to one commit, pages hash-checked, up to ten questions in the terms of your kind of work, corrections classified | Confirm the classes and tags, then "approve gate 2" |
+| 3 Design and Review | Changes designed, checked to apply, and reviewed by independent reviewers | None; you decide when you read the report |
 | 4 Report | The read-only check, the report, and the Final Gate | Read the report |
 
-- Review is capped at two rounds per patch; past that, the agent asks you to keep, drop, or edit it
-- A harness that cannot pause for your reply runs in report-only mode: no interview, and every patch is labeled unconfirmed
+- Review is capped at two rounds per change; past that, the agent asks you to keep, drop, or edit it
+- A harness that cannot pause for your reply runs in report-only mode: no interview, and every change is labeled unconfirmed
 
 ## The Report
 
@@ -51,17 +55,19 @@ One markdown file in the temporary folder. The agent shows its path and offers t
 - **Summary**: counts, top practices, and the Individual Baseline offer
 - **Principle coverage**: the North Star and each ratified principle, applied, advised, or not relevant, with a reason
 - **Findings**: the anti-pattern scan, session signals, and your interview answers and corrections
-- **Patches**, grouped and ordered by value, each with:
+- **Changes**, grouped and ordered by value, each with:
+  - what it does, in plain words
+  - how to apply it: ask your assistant to apply change B1
   - its SHRINE page and anti-pattern row
   - its trade-off
   - its blast radius: committed or shared, who it reaches, and whether it runs code
   - when it loads, and how to verify it after applying
   - how to undo it; for a diff, reverse it
-  - a unified diff, or the exact contents of a new file
-- **How to apply**: ask your assistant to apply a patch, or `git apply` a diff yourself
+  - the exact edit: a diff of an existing file, or the contents of a new file
+- **How to apply**: ask your assistant to apply a change, make the edit by hand, or, if you use git, `git apply` a diff
 - **How to refresh**: run the refresh entry, or paste the prompt again and give it this report
 
-A patch that runs code (a hook, a nudge, an extension) carries a prominent warning: it runs with your account's full permissions. Read it before you apply it.
+A change that runs code (a hook, a nudge, an extension, a script) carries a prominent warning: it runs with your account's full permissions. Read it before you apply it.
 
 ## Use It
 
@@ -69,15 +75,15 @@ A patch that runs code (a hook, a nudge, an extension) carries a prominent warni
 
 1. Copy the prompt below, or fetch the raw file: [inspect-prompt.md](/SHRINE/inspect-prompt.md)
 
-2. Bring two or three recent corrections you made to agent output, and say whether each has happened before; with none, you still get the baseline practices that fit
+2. Bring two or three recent corrections you made to AI output (for example a bug you fixed in its code, or a claim you cut from its draft), and say whether each has happened before; with none, you still get the baseline practices that fit
 
-3. Start a session in your harness, in the project you want inspected, and paste the prompt
+3. Start a session in your AI tool, in the project or folder you want inspected (or anywhere, if you have none), and paste the prompt
 
 4. Correct the agent's inventory, then answer the interview
 
 5. Read the report; keep it, because a refresh compares against it
 
-6. Later, in a normal session, apply the patches you want
+6. Later, in a normal session, apply the changes you want
 
 </Steps>
 
@@ -93,7 +99,7 @@ Agent-readable copies of this page (llms.txt files) leave the prompt out on purp
 
 - Most defects in earlier write-capable versions came from the write side: backups, undo, records, snapshots, scope, and uninstall
 - A prompt cannot make a model obey a checker's exit status; a run that writes nothing has nothing to undo
-- Your harness already asks before each write; applying a patch in a normal session keeps that prompt in front of you
+- Your AI tool already asks before each write; applying a change in a normal session keeps that prompt in front of you
 
 ## What It Reads
 
@@ -106,35 +112,35 @@ Agent-readable copies of this page (llms.txt files) leave the prompt out on purp
 
 - A small Node script SHRINE ships; the agent asks once before running it, because it runs code
 - Its only write is a new render file in the temporary folder; it refuses a folder inside your home folder, your project, your scopes, or any repo, and never overwrites a file
-- It runs only read-only git commands, with optional locks off and your repo's fsmonitor hook and clean filters turned off: `status`, `rev-parse`, `symbolic-ref`, `for-each-ref`, `config` reads, and `apply --check`
-- The read-only check: each repo's status (ignored entries included), HEAD, branches, tags, and stash, a hash of every file the status lists, the git folder's config, hooks, and info, every inspected instruction and config file, and your harness's persistence path, before and after; any change fails the run
-- Each diff is checked to apply cleanly to your current files, in memory and by `git apply --check`, without writing
-- It also checks: every ratified principle covered with a reason, enough reviewers for each patch's risk within two rounds, each scan finding tied to an index row, the refresh and staleness patches, no secret-shaped value, and no shortened hash
+- Git is optional; where there is a repo, it runs only read-only git commands, with optional locks off and your repo's fsmonitor hook and clean filters turned off: `status`, `rev-parse`, `symbolic-ref`, `for-each-ref`, `config` reads, and `apply --check`
+- The read-only check, before and after: every inspected instruction and settings file, your AI tool's persistence path, and either each repo's status (ignored entries included), HEAD, branches, tags, stash, and git folder, or, outside git, a hash of every file in the project folder; any difference fails the run
+- Each diff is checked to apply cleanly to your current files, in memory and, where git is available, by `git apply --check`, without writing
+- It also checks: every change has a plain-language description, every ratified principle covered with a reason, enough reviewers for each change's risk within two rounds, each scan finding tied to an index row, the refresh and staleness patches, no secret-shaped value, and no shortened hash
 - It renders every gate, the Final Gate, and the report from the agent's plan file; time used comes from a recorded start, never an estimate
 - Without Node, or if you decline, the agent runs the same checks by hand and marks them "checked manually"
 
 ## Refresh and Staleness
 
-Every report carries two upkeep patches. You choose whether to apply them.
+Every report carries two upkeep changes. You choose whether to apply them.
 
 - **SHRINE refresh** (S1): an entry you trigger by name, for example a command, a skill, an instruction line, or anything else your harness offers; it fetches the current prompt, checks its hash, and, with your yes, runs it as a refresh against your last report
-- **Staleness check** (S2): compares the commit pinned in the patch with the live manifest; when SHRINE moves, it tells you in one line; it changes nothing, and its cost is stated
-- A refresh shows whether SHRINE moved, which pages changed, and whether each earlier patch is applied, not applied, or changed since
+- **Staleness check** (S2): compares the commit pinned in the change with the live manifest; when SHRINE moves, it tells you in one line; it changes nothing, and its cost is stated
+- A refresh shows whether SHRINE moved, which pages changed, and whether each earlier change is applied, not applied, or changed since
 - Without S1, paste the prompt again, choose refresh, and give it your last report's path
 - Refresh is experimental: it has not yet had a full real-world test. Report problems as GitHub issues.
 
 ## Cloud Agents
 
-A cloud agent, such as a coding agent that runs on pull requests, cannot pause for your reply, so it runs in report-only mode.
+A cloud agent, such as one that runs on pull requests or on a schedule, cannot pause for your reply, so it runs in report-only mode.
 
 - If it can write a temporary folder outside its checkout, it uses one, as on your machine
 - If it cannot, it passes its plan to the checker on standard input and writes nothing at all
 - Either way, the report goes where you asked for it, for example the pull request description or a comment
-- Its patches are unconfirmed: it had no interview answers
+- Its changes are unconfirmed: it had no interview answers
 
 ## Related
 
 - [Discovery Propagation](/SHRINE/patterns/discovery-propagation/#where-lessons-land): where each kind of lesson lands
 - [Skills & Prompts](/SHRINE/stack/skills/): on-demand instructions
 - [Memory & Context Management](/SHRINE/stack/memory/): what to keep always loaded, and what not to
-- [Reviewable Output](/SHRINE/patterns/reviewable-output/): why a patch beats a change made for you
+- [Reviewable Output](/SHRINE/patterns/reviewable-output/): why a proposed change beats one made for you

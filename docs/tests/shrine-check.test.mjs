@@ -5,7 +5,7 @@ import { test } from 'node:test';
 import assert from 'node:assert/strict';
 import { spawnSync } from 'node:child_process';
 import { createHash } from 'node:crypto';
-import { cpSync, existsSync, mkdtempSync, mkdirSync, readFileSync, readdirSync, realpathSync, writeFileSync } from 'node:fs';
+import { cpSync, existsSync, mkdtempSync, mkdirSync, readFileSync, readdirSync, realpathSync, rmSync, writeFileSync } from 'node:fs';
 import { tmpdir } from 'node:os';
 import { dirname, join } from 'node:path';
 import { fileURLToPath, pathToFileURL } from 'node:url';
@@ -120,7 +120,7 @@ function fixture() {
 	writeFileSync(join(out, 'shrine-check.mjs'), CHECKER_SRC);
 	const manifest = {
 		commit: COMMIT,
-		prompt: { version: 16, sha256: sha(PROMPT), url: 'https://stablekernel.github.io/SHRINE/inspect-prompt.md', source: null },
+		prompt: { version: 17, sha256: sha(PROMPT), url: 'https://stablekernel.github.io/SHRINE/inspect-prompt.md', source: null },
 		checker: { url: 'https://stablekernel.github.io/SHRINE/shrine-check.mjs', source: null, sha256: sha(CHECKER_SRC) },
 		pages,
 	};
@@ -175,7 +175,7 @@ function planFor(fx, planPages) {
 		proposals: [],
 	};
 	const b1 = {
-		id: 'B1', group: 'Verification', value: 'high', title: 'Run tests before done', page: 'Verification Loops', row: 'Done is claimed without running tests',
+		id: 'B1', group: 'Verification', value: 'high', title: 'Run tests before done', plain: 'Adds one line to the project rules: run the tests before saying a task is done.', page: 'Verification Loops', row: 'Done is claimed without running tests',
 		answer: 'repeated correction: done without tests (recalled)', principles: ['Fail Fast, Recover Smart'], model: 'strongest',
 		changes: [{ target: 'CLAUDE.md', diff: B1_DIFF }], runs_code: false,
 		blast: { committed: true, reaches: 'everyone who uses this repo' },
@@ -186,7 +186,7 @@ function planFor(fx, planPages) {
 	fx.plan = plan;
 	const s1 = {
 		id: 'S1', group: 'SHRINE upkeep', value: 'medium', title: 'SHRINE refresh entry', page: 'Deliberate Currency', answer: 'every report carries upkeep', model: 'strongest',
-		mechanism: 'command', invocation: '/shrine-refresh',
+		mechanism: 'command', invocation: '/shrine-refresh', plain: 'Adds a command you type to check SHRINE for updates and compare with this report.',
 		changes: [{ target: '.claude/commands/shrine-refresh.md', content: s1Text(fx) }], runs_code: false,
 		blast: { committed: false, reaches: 'only you' },
 		load: { always_loaded: false, expect: 'when you type /shrine-refresh', verify: 'type /shrine-refresh and see the steps' },
@@ -194,7 +194,7 @@ function planFor(fx, planPages) {
 	};
 	plan.proposals.push(reviewed(s1, 1));
 	const s2 = {
-		id: 'S2', group: 'SHRINE upkeep', value: 'low', title: 'Staleness check', page: 'Deliberate Currency', answer: 'every report carries upkeep', model: 'strongest',
+		id: 'S2', group: 'SHRINE upkeep', value: 'low', title: 'Staleness check', plain: 'Adds a check that tells you in one line, at session start, when SHRINE has changed.', page: 'Deliberate Currency', answer: 'every report carries upkeep', model: 'strongest',
 		changes: [{ target: '.claude/hooks/shrine-stale.sh', content: `#!/bin/sh\n# SHRINE staleness check: pinned commit ${COMMIT}\n# When SHRINE moved, run /shrine-refresh\n` }],
 		runs_code: true, runtime_writes: [], undo: 'delete the hook file and its settings entry',
 		blast: { committed: false, reaches: 'only you, at session start' },
@@ -245,7 +245,7 @@ test('a complete plan passes every check', () => {
 	const fx = ready();
 	const r = check(fx);
 	assert.equal(r.code, 0, r.out);
-	for (const name of ['plan-shape', 'out-dir', 'read-only', 'scope', 'patches', 'coverage', 'review', 'scan', 'upkeep', 'secrets', 'plan-hashes']) assert.match(r.out, new RegExp(`^PASS ${name}:`, 'm'), name);
+	for (const name of ['plan-shape', 'out-dir', 'read-only', 'scope', 'changes', 'coverage', 'review', 'scan', 'upkeep', 'secrets', 'plan-hashes']) assert.match(r.out, new RegExp(`^PASS ${name}:`, 'm'), name);
 	assert.match(r.out, /RESULT: PASS/);
 });
 
@@ -286,8 +286,8 @@ test('the checker\'s invariant map equals the prompt\'s Invariant Map', () => {
 	assert.deepEqual(map, rows);
 });
 
-test('prompt version is 16, and the prompt has no em dash', () => {
-	assert.match(PROMPT, /^Prompt version: 16$/m);
+test('prompt version is 17, and the prompt has no em dash', () => {
+	assert.match(PROMPT, /^Prompt version: 17$/m);
 	assert.ok(!PROMPT.includes(EM_DASH));
 });
 
@@ -441,7 +441,7 @@ test('--plan - reads the plan from standard input, for a harness that cannot wri
 	const r = run(['--check', '--plan', '-', '--manifest', fx.manifestPath], JSON.stringify(fx.plan));
 	assert.equal(r.code, 0, r.out);
 	const rep = run(['--render', 'report', '--plan', '-', '--manifest', fx.manifestPath], JSON.stringify(fx.plan));
-	assert.match(rep.out, /^--- shrine-check 8 report \(paste verbatim\) ---$/m);
+	assert.match(rep.out, /^--- shrine-check 9 report \(paste verbatim\) ---$/m);
 	assert.match(rep.out, /^--- end report sha256:[0-9a-f]{64} ---$/m);
 });
 
@@ -460,28 +460,28 @@ test('the checker source writes only render files and runs only read-only git co
 
 // ---------- patches ----------
 
-test('patches: a diff that applies passes; stale context fails', () => {
+test('changes: a diff that applies passes; stale context fails', () => {
 	const fx = ready();
 	assert.match(item(gate(fx, 3).out, '3.4'), /^\[x\] 3\.4 /);
 	fx.plan.proposals[0].changes[0].diff = B1_DIFF.replace(' Use npm.', ' Use yarn.');
 	reviewed(fx.plan.proposals[0], 2);
 	save(fx);
 	const r = check(fx);
-	assert.match(r.out, /FAIL patches[\s\S]*B1 change 1 .*hunk 1 .* does not match the current file/);
+	assert.match(r.out, /FAIL changes[\s\S]*B1 file 1 .*hunk 1 .* does not match the current file/);
 	assert.match(item(gate(fx, 3).out, '3.4'), /^\[ \] 3\.4 /);
 });
 
-test('patches: a hunk at another line applies, and the report carries its true line numbers', () => {
+test('changes: a hunk at another line applies, and the report carries its true line numbers', () => {
 	const fx = ready();
 	fx.plan.proposals[0].changes[0].diff = B1_DIFF.replace('@@ -1,3 +1,5 @@', '@@ -7,3 +7,5 @@');
 	reviewed(fx.plan.proposals[0], 2);
 	save(fx);
-	assert.match(check(fx).out, /PASS patches/);
+	assert.match(check(fx).out, /PASS changes/);
 	const rep = reportFile(fx);
 	assert.match(readFileSync(rep.file, 'utf8'), /^@@ -1,3 \+1,5 @@$/m);
 });
 
-test('patches: header counts, two files in one diff, and <redacted> context fail with the rule named', () => {
+test('changes: header counts, two files in one diff, and <redacted> context fail with the rule named', () => {
 	for (const [diff, want] of [
 		[B1_DIFF.replace('@@ -1,3 +1,5 @@', '@@ -1,3 +1,9 @@'), /its header says -3 \+9 lines, its body has -3 \+5/],
 		[`${B1_DIFF}--- a/app.js\n+++ b/app.js\n@@ -1 +1 @@\n-console.log(1)\n+console.log(2)\n`, /one file per change/],
@@ -495,7 +495,7 @@ test('patches: header counts, two files in one diff, and <redacted> context fail
 	}
 });
 
-test('patches: new contents for an existing file fail; a diff of a missing file fails; no newline at end of file round-trips', () => {
+test('changes: new contents for an existing file fail; a diff of a missing file fails; no newline at end of file round-trips', () => {
 	let fx = ready();
 	fx.plan.proposals[0].changes = [{ target: 'CLAUDE.md', content: 'x\n' }];
 	reviewed(fx.plan.proposals[0], 2);
@@ -514,10 +514,10 @@ test('patches: new contents for an existing file fail; a diff of a missing file 
 	reviewed(fx.plan.proposals[0], 2);
 	save(fx);
 	const r = check(fx);
-	assert.match(r.out, /PASS patches/, r.out);
+	assert.match(r.out, /PASS changes/, r.out);
 });
 
-test('patches: every target lies inside the chosen scope roots', () => {
+test('changes: every target lies inside the chosen scope roots', () => {
 	const fx = ready();
 	fx.plan.proposals[0].changes = [{ target: join(fx.base, 'elsewhere.md'), content: 'x\n' }];
 	reviewed(fx.plan.proposals[0], 2);
@@ -542,7 +542,7 @@ test('review: minimum reviewers by risk, and an undo check for code', () => {
 	assert.match(check(fx).out, /PASS review/);
 });
 
-test('review cap: at most 2 rounds per patch; past the cap the user decides', () => {
+test('review cap: at most 2 rounds per change; past the cap the user decides', () => {
 	const fx = ready();
 	const b1 = fx.plan.proposals[0];
 	const round = (tag) => ({ who: `r-${tag}`, how: 'subagent', design_sha256: sha(tag), findings: [{ finding: 'f', resolution: 'changed' }] });
@@ -597,12 +597,12 @@ test('coverage: a missing ratified principle or a missing reason fails', () => {
 	assert.match(c.out, /Deliberate Currency: MISSING/);
 });
 
-test('no deficit: baseline patches or an acknowledged "none fit", plus the Individual Baseline offer', () => {
+test('no deficit: baseline changes or an acknowledged "none fit", plus the Individual Baseline offer', () => {
 	const fx = ready();
 	fx.plan.corrections = [];
 	fx.plan.scan = [];
 	save(fx);
-	assert.match(item(gate(fx, 3).out, '3.13'), /^\[x\] 3\.13 .*baseline patches: B1 \(Verification Loops\)/);
+	assert.match(item(gate(fx, 3).out, '3.13'), /^\[x\] 3\.13 .*baseline changes: B1 \(Verification Loops\)/);
 	delete fx.plan.baseline.offer;
 	save(fx);
 	assert.match(gate(fx, 3).out, /awaiting: the user's answer to the Individual Baseline offer/);
@@ -610,7 +610,7 @@ test('no deficit: baseline patches or an acknowledged "none fit", plus the Indiv
 	fx.plan.proposals = fx.plan.proposals.filter((x) => x.id !== 'B1');
 	fx.plan.principles = fx.plan.principles.map((p) => (p.status === 'applied' && p.proposals.includes('B1') ? { ...p, status: 'advised', proposals: [] } : p));
 	save(fx);
-	assert.match(item(gate(fx, 3).out, '3.13'), /^\[ \] 3\.13 .*no baseline patch/);
+	assert.match(item(gate(fx, 3).out, '3.13'), /^\[ \] 3\.13 .*no baseline change/);
 	fx.plan.baseline.none_fit = 'the setup already covers every baseline practice';
 	fx.plan.baseline.none_fit_ack = 'agreed';
 	save(fx);
@@ -717,23 +717,25 @@ test('file delivery: the next gate blocks until the previous gate\'s render is r
 
 // ---------- the report ----------
 
-test('report: one markdown file outside the repo with every section, patches grouped and ordered by value', () => {
+test('report: one markdown file outside the repo with every section, changes grouped and ordered by value', () => {
 	const fx = ready();
 	const rep = reportFile(fx);
 	assert.equal(rep.r.code, 0, rep.r.out);
-	assert.match(rep.r.out, /^REPORT: complete; 3 patches; read-only check PASS$/m);
+	assert.match(rep.r.out, /^REPORT: complete; 3 changes; read-only check PASS$/m);
 	assert.ok(rep.file.startsWith(fx.out));
 	const text = readFileSync(rep.file, 'utf8');
 	const heads = [...text.matchAll(/^## (.+)$/gm)].map((m) => m[1]);
-	assert.deepEqual(heads, ['Summary', 'Principle Coverage', 'Findings', 'Patches', 'How to Apply', 'How to Refresh', 'Report Data']);
+	assert.deepEqual(heads, ['Summary', 'Principle Coverage', 'Findings', 'Changes', 'How to Apply', 'How to Refresh', 'Report Data']);
 	assert.match(text, /This run changed nothing\. Read-only check: PASS/);
 	assert.match(text, /^\| \[Deliberate Currency\]\(https:\/\/stablekernel\.github\.io\/SHRINE\/principles\/deliberate-currency\/\) \| applied \| S1, S2 \|/m);
-	assert.ok(text.indexOf('#### Patch S1') < text.indexOf('#### Patch S2'), 'medium before low');
+	assert.ok(text.indexOf('#### Change S1') < text.indexOf('#### Change S2'), 'medium before low');
 	assert.ok(text.indexOf('### Verification') < text.indexOf('### SHRINE upkeep'), 'the group with a high-value patch first');
-	assert.match(text, /> \*\*Runs code\.\*\* This patch runs code with your account's full permissions/);
+	assert.match(text, /> \*\*Runs code\.\*\* This change runs code with your account's full permissions/);
 	for (const f of ['SHRINE page: \\[Verification Loops\\]', 'Anti-pattern row: Done is claimed', 'Trade-off:', 'Blast radius: committed or shared; reaches everyone', 'Loads: always loaded; prevents', 'Verify after applying:', 'Undo: reverse the diff'])
 		assert.match(text, new RegExp(f));
-	assert.ok(text.includes(`apply patch B1 from ${rep.file}`));
+	assert.ok(text.includes(`apply change B1 from ${rep.file}`));
+	assert.match(text, /^- What it does: Adds one line to the project rules/m);
+	assert.match(text, /^- By hand, a diff: open the file and make the edit it shows/m);
 	assert.match(text, /^```diff$/m);
 	const data = JSON.parse(/```json\n([\s\S]*?)\n```/.exec(text)[1]);
 	assert.equal(data.commit, COMMIT);
@@ -764,7 +766,7 @@ test('report: a plan edit after the report blocks 4.2 until it is rendered again
 	assert.match(r.out, /report line not filled: - Top practices: <missing/);
 });
 
-test('report-only: user items render [-], patches are unconfirmed, and the offer goes in the report', () => {
+test('report-only: user items render [-], changes are unconfirmed, and the offer goes in the report', () => {
 	const fx = ready();
 	fx.plan.mode = 'report-only';
 	delete fx.plan.evidence['0.4'];
@@ -777,13 +779,13 @@ test('report-only: user items render [-], patches are unconfirmed, and the offer
 	assert.match(gate(fx, 1).out, /^Approved: report-only$/m);
 	assert.match(item(gate(fx, 2).out, '2.12'), /^\[x\] 2\.12 .*report-only: cloud task/);
 	const rep = run(['--render', 'report', '--plan', fx.planPath, '--manifest', fx.manifestPath]);
-	assert.match(rep.out, /mode: report-only \(no user answers: every patch is unconfirmed\)/);
+	assert.match(rep.out, /mode: report-only \(no user answers: every change is unconfirmed\)/);
 	assert.match(rep.out, /Individual Baseline: start it so the next refresh compares/);
 });
 
 // ---------- refresh ----------
 
-test('refresh: compares with the previous report: SHRINE moved, pages changed, and which patches are applied', () => {
+test('refresh: compares with the previous report: SHRINE moved, pages changed, and which changes are applied', () => {
 	const fx = ready();
 	const prev = reportFile(fx).file;
 	writeFileSync(join(fx.proj, 'CLAUDE.md'), `${CLAUDE_MD}\nRun \`npm test\` before you say a task is done.\n`);
@@ -799,8 +801,8 @@ test('refresh: compares with the previous report: SHRINE moved, pages changed, a
 	assert.equal(r.code, 0, r.out + r.err);
 	assert.match(r.out, /previous commit c0ffee\S+, live f{40}: SHRINE moved/);
 	assert.match(r.out, /1 pages changed since the previous report: "Verification Loops"/);
-	assert.match(r.out, /patch B1 change 1 \(.*CLAUDE\.md\): applied/);
-	assert.match(r.out, /patch S1 change 1 \(.*shrine-refresh\.md\): not applied/);
+	assert.match(r.out, /change B1 file 1 \(.*CLAUDE\.md\): applied/);
+	assert.match(r.out, /change S1 file 1 \(.*shrine-refresh\.md\): not applied/);
 	assert.match(item(gate(fx2, 1).out, '1.11'), /^\[x\] 1\.11 Previous report: /);
 	fx2.plan.previous.path = join(fx2.out, 'nope.md');
 	save(fx2);
@@ -879,7 +881,7 @@ test('git commands run no repo code: a clean filter and an fsmonitor hook stay o
 	assert.ok(!existsSync(marker), 'a clean filter or fsmonitor hook ran');
 });
 
-test('patches: a diff of a CRLF file keeps its carriage returns', () => {
+test('changes: a diff of a CRLF file keeps its carriage returns', () => {
 	const fx = fixture();
 	writeFileSync(join(fx.proj, 'win.txt'), 'a\r\nb\r\n');
 	git(fx.proj, 'add', 'win.txt');
@@ -888,7 +890,7 @@ test('patches: a diff of a CRLF file keeps its carriage returns', () => {
 	fx.plan.proposals[0].changes = [{ target: 'win.txt', diff: '--- a/win.txt\n+++ b/win.txt\n@@ -1,2 +1,3 @@\n a\r\n b\r\n+c\r\n' }];
 	reviewed(fx.plan.proposals[0], 2);
 	save(fx);
-	assert.match(check(fx).out, /PASS patches/);
+	assert.match(check(fx).out, /PASS changes/);
 });
 
 // ---------- input ----------
@@ -919,4 +921,54 @@ test('usage errors and a malformed plan exit 2', () => {
 	assert.equal(r.code, 2);
 	assert.match(r.err, /plan\.schema must be 2/);
 	assert.ok(readdirSync(fx.out).length > 0);
+});
+
+// ---------- no git: a folder of documents, or an app's settings ----------
+
+// A fixture whose project folder is not a git repo.
+function noGit() {
+	const fx = fixture();
+	rmSync(join(fx.proj, '.git'), { recursive: true, force: true });
+	baseline(fx);
+	return fx;
+}
+
+test('no git: the read-only check hashes the project folder and every watched file, and passes when nothing changed', () => {
+	const fx = noGit();
+	const r = run(['--verify-readonly', '--plan', fx.planPath]);
+	assert.equal(r.code, 0, r.out);
+	assert.match(r.out, /PASS \(0 repos, \d+ files/);
+	assert.match(r.out, /note: no git repo: the project folder .* compared by hash/);
+	assert.equal(check(fx).code, 0, check(fx).out);
+});
+
+test('no git: a new, changed, or deleted file in the project folder fails the read-only check', () => {
+	for (const [act, want] of [
+		[(fx) => writeFileSync(join(fx.proj, 'notes.md'), 'x\n'), /new file in a watched folder: .*notes\.md/],
+		[(fx) => writeFileSync(join(fx.proj, 'app.js'), 'console.log(2)\n'), /changed: watched file .*app\.js/],
+		[(fx) => rmSync(join(fx.proj, 'CLAUDE.md')), /changed: watched file .*CLAUDE\.md .*-> absent/],
+	]) {
+		const fx = noGit();
+		act(fx);
+		const r = run(['--verify-readonly', '--plan', fx.planPath]);
+		assert.equal(r.code, 1, r.out);
+		assert.match(r.out, want);
+	}
+});
+
+test('no git: diffs are still checked to apply, and the report explains how to apply without git', () => {
+	const fx = noGit();
+	assert.match(check(fx).out, /^PASS changes:/m);
+	const text = readFileSync(reportFile(fx).file, 'utf8');
+	assert.match(text, /^- To apply: ask your assistant, "apply change B1 from /m);
+	assert.match(text, /Lines that start with `\+` are added/);
+});
+
+test('every change needs a plain-language description', () => {
+	const fx = ready();
+	delete fx.plan.proposals[0].plain;
+	save(fx);
+	const r = check(fx);
+	assert.equal(r.code, 1);
+	assert.match(r.out, /B1\.plain required: what the change does/);
 });
