@@ -120,7 +120,7 @@ function fixture() {
 	writeFileSync(join(out, 'shrine-check.mjs'), CHECKER_SRC);
 	const manifest = {
 		commit: COMMIT,
-		prompt: { version: 17, sha256: sha(PROMPT), url: 'https://stablekernel.github.io/SHRINE/inspect-prompt.md', source: null },
+		prompt: { version: 18, sha256: sha(PROMPT), url: 'https://stablekernel.github.io/SHRINE/inspect-prompt.md', source: null },
 		checker: { url: 'https://stablekernel.github.io/SHRINE/shrine-check.mjs', source: null, sha256: sha(CHECKER_SRC) },
 		pages,
 	};
@@ -185,8 +185,8 @@ function planFor(fx, planPages) {
 	plan.proposals.push(reviewed(b1, 2));
 	fx.plan = plan;
 	const s1 = {
-		id: 'S1', group: 'SHRINE upkeep', value: 'medium', title: 'SHRINE refresh entry', page: 'Deliberate Currency', answer: 'every report carries upkeep', model: 'strongest',
-		mechanism: 'command', invocation: '/shrine-refresh', plain: 'Adds a command you type to check SHRINE for updates and compare with this report.',
+		id: 'S1', group: 'SHRINE upkeep', value: 'medium', title: 'SHRINE refresh entry', page: 'Deliberate Currency', answer: 'every inspection report carries upkeep', model: 'strongest',
+		mechanism: 'command', invocation: '/shrine-refresh', plain: 'Adds a command you type to check SHRINE for updates and compare with this inspection report.',
 		changes: [{ target: '.claude/commands/shrine-refresh.md', content: s1Text(fx) }], runs_code: false,
 		blast: { committed: false, reaches: 'only you' },
 		load: { always_loaded: false, expect: 'when you type /shrine-refresh', verify: 'type /shrine-refresh and see the steps' },
@@ -194,7 +194,7 @@ function planFor(fx, planPages) {
 	};
 	plan.proposals.push(reviewed(s1, 1));
 	const s2 = {
-		id: 'S2', group: 'SHRINE upkeep', value: 'low', title: 'Staleness check', plain: 'Adds a check that tells you in one line, at session start, when SHRINE has changed.', page: 'Deliberate Currency', answer: 'every report carries upkeep', model: 'strongest',
+		id: 'S2', group: 'SHRINE upkeep', value: 'low', title: 'Staleness check', plain: 'Adds a check that tells you in one line, at session start, when SHRINE has changed.', page: 'Deliberate Currency', answer: 'every inspection report carries upkeep', model: 'strongest',
 		changes: [{ target: '.claude/hooks/shrine-stale.sh', content: `#!/bin/sh\n# SHRINE staleness check: pinned commit ${COMMIT}\n# When SHRINE moved, run /shrine-refresh\n` }],
 		runs_code: true, runtime_writes: [], undo: 'delete the hook file and its settings entry',
 		blast: { committed: false, reaches: 'only you, at session start' },
@@ -286,8 +286,8 @@ test('the checker\'s invariant map equals the prompt\'s Invariant Map', () => {
 	assert.deepEqual(map, rows);
 });
 
-test('prompt version is 17, and the prompt has no em dash', () => {
-	assert.match(PROMPT, /^Prompt version: 17$/m);
+test('prompt version is 18, and the prompt has no em dash', () => {
+	assert.match(PROMPT, /^Prompt version: 18$/m);
 	assert.ok(!PROMPT.includes(EM_DASH));
 });
 
@@ -471,7 +471,7 @@ test('changes: a diff that applies passes; stale context fails', () => {
 	assert.match(item(gate(fx, 3).out, '3.4'), /^\[ \] 3\.4 /);
 });
 
-test('changes: a hunk at another line applies, and the report carries its true line numbers', () => {
+test('changes: a hunk at another line applies, and the inspection report carries its true line numbers', () => {
 	const fx = ready();
 	fx.plan.proposals[0].changes[0].diff = B1_DIFF.replace('@@ -1,3 +1,5 @@', '@@ -7,3 +7,5 @@');
 	reviewed(fx.plan.proposals[0], 2);
@@ -564,12 +564,12 @@ test('review cap: at most 2 rounds per change; past the cap the user decides', (
 	assert.match(item(gate(fx, 3).out, '3.9'), /^\[ \] 3\.9 /);
 });
 
-test('review cap in report-only mode: escalation goes to the report with its reason', () => {
+test('review cap in report-only mode: escalation goes to the inspection report with its reason', () => {
 	const fx = ready();
 	fx.plan.mode = 'report-only';
 	const b1 = fx.plan.proposals[0];
 	b1.review.reviewers = [1, 2].map((i) => ({ who: `r${i}`, how: 'subagent', design_sha256: sha(String(i)), findings: [] }));
-	b1.review.escalated = { why: 'two rounds disagreed; the user decides when reading the report', design_sha256: design(b1) };
+	b1.review.escalated = { why: 'two rounds disagreed; the user decides when reading the inspection report', design_sha256: design(b1) };
 	save(fx);
 	assert.match(check(fx).out, /PASS review/);
 	const rep = run(['--render', 'report', '--plan', fx.planPath, '--manifest', fx.manifestPath]);
@@ -715,7 +715,7 @@ test('file delivery: the next gate blocks until the previous gate\'s render is r
 	assert.match(gate(fx, 2).out, /is a render of gate 0, not gate 1/);
 });
 
-// ---------- the report ----------
+// ---------- the inspection report ----------
 
 test('report: one markdown file outside the repo with every section, changes grouped and ordered by value', () => {
 	const fx = ready();
@@ -742,7 +742,7 @@ test('report: one markdown file outside the repo with every section, changes gro
 	assert.deepEqual(data.patches.map((p) => p.id), ['B1', 'S1', 'S2']);
 });
 
-test('report: each diff in the report applies with git apply --check from the folder it names', () => {
+test('report: each diff in the inspection report applies with git apply --check from the folder it names', () => {
 	const fx = ready();
 	const text = readFileSync(reportFile(fx).file, 'utf8');
 	const m = /`(\/[^`]+)`, a diff to apply from `([^`]+)`:\n\n<!-- shrine-change B1 1 -->\n(`{3,})diff\n([\s\S]*?)\n\3\n/.exec(text);
@@ -751,14 +751,14 @@ test('report: each diff in the report applies with git apply --check from the fo
 	assert.equal(r.status, 0, r.stderr);
 });
 
-test('report: a plan edit after the report blocks 4.2 until it is rendered again; unfilled lines block', () => {
+test('report: a plan edit after the inspection report blocks 4.2 until it is rendered again; unfilled lines block', () => {
 	const fx = ready();
 	const rep = reportFile(fx);
 	fx.plan.report_file = { file: rep.file, sha256: rep.sha256 };
 	fx.plan.answers.review = 'something new';
 	save(fx);
 	const f = run(['--render', 'final', '--plan', fx.planPath, '--manifest', fx.manifestPath]);
-	assert.match(f.out, /no longer matches the plan or the files: render the report again/);
+	assert.match(f.out, /no longer matches the plan or the files: render the inspection report again/);
 	fx.plan.report = {};
 	save(fx);
 	const r = run(['--render', 'report', '--plan', fx.planPath, '--manifest', fx.manifestPath, '--out', fx.out]);
@@ -766,7 +766,7 @@ test('report: a plan edit after the report blocks 4.2 until it is rendered again
 	assert.match(r.out, /report line not filled: - Top practices: <missing/);
 });
 
-test('report-only: user items render [-], changes are unconfirmed, and the offer goes in the report', () => {
+test('report-only: user items render [-], changes are unconfirmed, and the offer goes in the inspection report', () => {
 	const fx = ready();
 	fx.plan.mode = 'report-only';
 	delete fx.plan.evidence['0.4'];
@@ -785,7 +785,7 @@ test('report-only: user items render [-], changes are unconfirmed, and the offer
 
 // ---------- refresh ----------
 
-test('refresh: compares with the previous report: SHRINE moved, pages changed, and which changes are applied', () => {
+test('refresh: compares with the previous inspection report: SHRINE moved, pages changed, and which changes are applied', () => {
 	const fx = ready();
 	const prev = reportFile(fx).file;
 	writeFileSync(join(fx.proj, 'CLAUDE.md'), `${CLAUDE_MD}\nRun \`npm test\` before you say a task is done.\n`);
@@ -800,7 +800,7 @@ test('refresh: compares with the previous report: SHRINE moved, pages changed, a
 	const r = run(['--render', 'refresh', '--plan', fx2.planPath, '--manifest', fx2.manifestPath]);
 	assert.equal(r.code, 0, r.out + r.err);
 	assert.match(r.out, /previous commit c0ffee\S+, live f{40}: SHRINE moved/);
-	assert.match(r.out, /1 pages changed since the previous report: "Verification Loops"/);
+	assert.match(r.out, /1 pages changed since the previous inspection report: "Verification Loops"/);
 	assert.match(r.out, /change B1 file 1 \(.*CLAUDE\.md\): applied/);
 	assert.match(r.out, /change S1 file 1 \(.*shrine-refresh\.md\): not applied/);
 	assert.match(item(gate(fx2, 1).out, '1.11'), /^\[x\] 1\.11 Previous report: /);
@@ -956,7 +956,7 @@ test('no git: a new, changed, or deleted file in the project folder fails the re
 	}
 });
 
-test('no git: diffs are still checked to apply, and the report explains how to apply without git', () => {
+test('no git: diffs are still checked to apply, and the inspection report explains how to apply without git', () => {
 	const fx = noGit();
 	assert.match(check(fx).out, /^PASS changes:/m);
 	const text = readFileSync(reportFile(fx).file, 'utf8');
