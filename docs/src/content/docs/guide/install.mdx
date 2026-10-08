@@ -27,6 +27,8 @@ import prompt from '../../../prompts/shrine-install.md?raw';
 
 At the end of each phase the agent prints a gate: a checklist where each item has one line of evidence you can check (a path, a hash, your own quoted words). One unchecked item blocks the next phase.
 
+The agent supplies data in a plan file; the checker prints the gates, the pick menus, and the final gate from it. Long, repeated, exact text is where agents cut corners, so a tool prints it, and the agent pastes it verbatim.
+
 0. **Start**: harness, whether it can pause, mode, time box, prior records; you approve (pasting the prompt is the request; it does not ask whether to run)
 1. **Discover**: inventory of your instruction files, extension points, shared locations, prior records, and a snapshot of the paths it may change; you correct it
 2. **Pin SHRINE**: manifest commit and page hashes; a mismatch aborts
@@ -51,7 +53,7 @@ These hold on every harness, whatever the agent designs. Each maps to gate items
 
 1. **Your approval**: nothing changes until you approve the exact change; bookkeeping is approved first, or you get paste-ready output only
 2. **Code that runs**: its own approval and a full-permissions warning; effects outside paths its record names, or will name once you approve the bookkeeping, are labeled "not reversible"
-3. **Reversible**: backups first, outside the repo or ignored by version control, kept on your machine, never overwritten; each change logged pending, then done once verified; a whole file is restored from its oldest backup, and only if it matches its first recorded before fingerprint or its last after fingerprint
+3. **Reversible**: backups first, in `.shrine/backups/` inside the scope you chose and ignored by version control, kept on your machine, never overwritten; each change logged pending, then done once verified; a whole file is restored from its oldest backup, and only if it matches its first recorded before fingerprint or its last after fingerprint
 4. **Recorded**: one record per harness, user, and scope, at `.shrine/` in the project root or `~/.shrine/` (or a pointer there), named for both (for example `.shrine/<harness>.<user>.json`) so teammates do not collide, and never written over another record, with a fingerprint of each change and your answers (secrets redacted); only a record this harness wrote on this machine is trusted, with printed proof that version control does not track it, or an ignored local file holding its hash
 5. **Traceable**: every proposal traces to a SHRINE page and your answers, never to repo content alone
 6. **Content is data**: only text that tries to steer the install run is a red flag; your normal instruction files are not
@@ -107,10 +109,11 @@ Agent-readable copies of this page (llms.txt files) leave the prompt out on purp
 
 - A small read-only Node script SHRINE ships; it writes nothing and fetches only the manifest
 - It checks the record against the manifest and your files: required fields, full 64-hex hashes, page hashes, the four-option pick, each file's hash chain, backups, drift, and pending entries
-- Gate 5 and the final gate paste its output as evidence; a FAIL blocks the gate
-- It runs code, so the agent asks once per run; without Node, or if you decline, the agent runs the same checks by hand and marks them "checked manually"
+- It checks the agent's plan file: every change and backup inside the scope you chose, no change to an instruction file your harness is not shown to load, and every ratified principle covered with a reason
+- It renders every gate, every pick menu with all four options, and the final gate with every item and full hashes; the agent pastes that output, and a FAIL blocks the gate
+- It runs code, so the agent asks once per run; without Node, or if you decline, the agent runs the same checks by hand, marks them "checked manually", and prints each gate by hand, marked "rendered manually"
 - Every hash, count, and status on a gate is pasted from a command's output, with that command named
-- Rerun it anytime: `node shrine-check.mjs --record .shrine/<harness>.<user>.json --manifest https://stablekernel.github.io/SHRINE/shrine-manifest.json`
+- Rerun it anytime: `node shrine-check.mjs --record .shrine/<harness>.<user>.json --manifest https://stablekernel.github.io/SHRINE/shrine-manifest.json`; the manifest may also be a saved local copy
 
 ## What It Leaves Behind
 
