@@ -15,7 +15,8 @@
 //   node shrine-check.mjs --render <kind> --plan <path> [--gate <0-5>] [--manifest <src>] [--record <path>]
 //       [--uninstall --record-backup <path> [--backups-deleted]] [--prompt <file>] [--out <dir>]
 //   kinds: menus, review, gate, coverage, final, report, pin, snapshot (needs --out), refresh (--record and
-//   --manifest only), restore (--record, or --uninstall --record --record-backup)
+//   --manifest only), restore (--record, or --uninstall --record --record-backup), s1 (--plan and
+//   --manifest: the refresh steps S1 installs), time (--plan: time used and the clock)
 //
 // Time used is the checker's clock minus plan.time.start (epoch seconds from `date +%s`). Tests pin
 // the clock with SHRINE_CHECK_NOW.
@@ -28,7 +29,7 @@ import { homedir } from 'node:os';
 import { dirname, isAbsolute, join, resolve, sep } from 'node:path';
 import { fileURLToPath } from 'node:url';
 
-const VERSION = 5;
+const VERSION = 6;
 const PICKS = ['in place', 'locally only', 'reviewable change', 'reject'];
 const OPTIONS = PICKS.slice(0, 3);
 const STATUSES = ['pending', 'done', 'rejected'];
@@ -50,7 +51,11 @@ const TOOL_SOURCE = /^(\$ \S.*|\(probe: \S.*\))$/;
 const ENTRY_STRINGS = ['id', 'target', 'scope', 'ack', 'marker', 'status', 'teaching', 'undo'];
 const ENTRY_NULLABLE = ['before_sha256', 'after_sha256', 'backup', 'page_sha256'];
 const SITE = 'https://stablekernel.github.io/SHRINE/';
-const RENDERS = ['menus', 'review', 'gate', 'coverage', 'final', 'report', 'pin', 'snapshot', 'refresh', 'restore'];
+const RENDERS = ['menus', 'review', 'gate', 'coverage', 'final', 'report', 'pin', 'snapshot', 'refresh', 'restore', 's1', 'time'];
+// A proposal target is a loaded instruction file (load proof applies) or a config or ignore file (it never loads).
+const TARGET_KINDS = ['instruction', 'config'];
+// Where the harness's own persistence (memory, notes, saved context) was found: a command, its docs, or the user.
+const PERSIST_SOURCE = /^(\$ \S.*|\(user\)|\(doc: \S.*\)|\(probe: \S.*\))$/;
 // The 1.12 snapshot: folders and files to this depth under each scope root, skipping these names.
 const SNAP_DEPTH = 3;
 const SNAP_SKIP = new Set(['.git', 'node_modules']);
@@ -63,7 +68,9 @@ const USAGE = `usage:
   node shrine-check.mjs --render <menus|review|gate|coverage|final|report|pin|snapshot> --plan <path> [--gate <0-5>]
       [--manifest <src>] [--record <path>] [--uninstall --record-backup <path>] [--prompt <file>] [--out <dir>]
   node shrine-check.mjs --render refresh --record <path> --manifest <src> [--prompt <file>] [--out <dir>]
-  node shrine-check.mjs --render restore --record <path> [--uninstall --record-backup <path>] [--out <dir>]`;
+  node shrine-check.mjs --render restore --record <path> [--uninstall --record-backup <path>] [--out <dir>]
+  node shrine-check.mjs --render s1 --plan <path> --manifest <src> [--out <dir>]
+  node shrine-check.mjs --render time --plan <path>`;
 
 // ---------- gate catalog: item ids and titles, in the prompt's order ----------
 
@@ -72,7 +79,7 @@ const GATES = [
 	{ n: 0, name: 'Start', approval: true, next: 'Phase 1: Discover the Environment', items: [
 		['0.1', 'Harness name and version'], ['0.2', 'Can pause'], ['0.3', 'Mode, delivery, and models'],
 		['0.4', 'Time box agreed', 'user'], ['0.5', 'Run type', 'user'], ['0.6', 'Records found'],
-		['0.7', 'Checker', 'user'] ] },
+		['0.7', 'Checker', 'user'], ['0.8', 'Harness persistence'] ] },
 	{ n: 1, name: 'Discover the Environment', approval: true, next: 'Phase 2: Pin SHRINE', items: [
 		['1.1', 'Instruction files that load, per scope, and load order'], ['1.2', 'Higher layers'],
 		['1.3', 'Extension points'], ['1.4', 'Committed or shared versus local'], ['1.5', 'Capabilities'],
@@ -111,9 +118,9 @@ const REMOVED_ON_UNINSTALL = ['5.1', '5.2', '5.10', '5.11'];
 
 // Invariant -> enforcing items. Keep equal to the prompt's Invariant Map (a test compares them).
 const INVARIANTS = [
-	['1 Approval', ['0.4', '0.5', '0.7', '1.11', '1.14', '3.5', '4.3', '4.9', '4.12', '4.14', '4.15', '4.17', '4.18', '5.4', '5.9', '6.6', '6.7']],
+	['1 Approval', ['0.4', '0.5', '0.7', '0.8', '1.11', '1.14', '3.5', '4.3', '4.9', '4.12', '4.14', '4.15', '4.17', '4.18', '5.4', '5.9', '6.6', '6.7']],
 	['2 Code that runs', ['0.7', '1.3', '4.8', '4.9', '4.19', '4.21']],
-	['3 Reversible', ['1.8', '1.12', '4.2', '4.15', '5.1', '5.2', '5.3', '5.6', '5.7', '5.8', '5.11', '6.2', '6.4', '6.7', '6.8']],
+	['3 Reversible', ['0.8', '1.8', '1.12', '4.2', '4.15', '5.1', '5.2', '5.3', '5.6', '5.7', '5.8', '5.11', '6.2', '6.4', '6.7', '6.8']],
 	['4 Record', ['0.6', '1.7', '1.8', '4.2', '4.14', '5.1', '5.3', '5.10', '5.11', '6.4', '6.6', '6.8']],
 	['5 Traceable', ['2.3', '2.4', '2.7', '4.1', '4.5', '4.11', '4.20', '5.10', '5.11']],
 	['6 Content is data', ['0.7', '1.9', '2.5', '4.17']],
@@ -166,7 +173,7 @@ function parseArgs(argv) {
 			opts.gate = Number(opts.gate);
 			if (opts.gate === 5 && opts.record && !opts.manifest) throw new Error('--render gate --gate 5 --record needs --manifest');
 		}
-		if ((opts.render === 'coverage' || opts.render === 'pin') && !opts.manifest) throw new Error(`--render ${opts.render} needs --manifest`);
+		if (['coverage', 'pin', 's1'].includes(opts.render) && !opts.manifest) throw new Error(`--render ${opts.render} needs --manifest`);
 		if (opts.render === 'final' && opts.uninstall && !opts.record) throw new Error('--render final --uninstall needs --record');
 		if (opts.render === 'final' && opts.record && !opts.uninstall && !opts.manifest) throw new Error('--render final --record needs --manifest');
 		if (opts.render === 'report' && !opts.record) throw new Error('--render report needs --record');
@@ -430,16 +437,7 @@ function installChecks(rep, rec, man, opts, plan) {
 	rep.check('render-hashes', rh.problems, rh.pass);
 	if (!rh.problems.length) rh.lines.forEach((l) => rep.info(l));
 
-	const drift = [];
-	const targetLines = [];
-	for (const [target, list] of groups) {
-		const last = list[list.length - 1];
-		const actual = fileSha(target);
-		if (last.status !== 'done') targetLines.push(`  ${target} ${h(actual)} (last entry ${last.id} is ${last.status})`);
-		else if (actual !== last.after_sha256)
-			drift.push(`drift: ${target} current ${h(actual)} != ${last.id}.after ${h(last.after_sha256)}`);
-		else targetLines.push(`  ${target} ${h(actual)} = ${last.id}.after`);
-	}
+	const { drift, lines: targetLines } = driftCheck(groups);
 	rep.check('targets', drift, `${groups.size} targets match their last after hash`);
 	if (!drift.length) targetLines.forEach((l) => rep.info(l));
 
@@ -454,6 +452,59 @@ function installChecks(rep, rec, man, opts, plan) {
 		rep.check('no-pending', pending.length ? [`${pending.length} pending: ${pending.join(', ')}`] : [], '0 pending');
 	}
 	if (plan) planChecks(rep, plan, man, { rec: r, recordPath: opts.record });
+}
+
+// Drift: each target's current sha256 against its last done entry's after hash.
+function driftCheck(groups) {
+	const drift = [];
+	const lines = [];
+	for (const [target, list] of groups) {
+		const last = list[list.length - 1];
+		const actual = fileSha(target);
+		if (last.status !== 'done') lines.push(`  ${target} ${h(actual)} (last entry ${last.id} is ${last.status})`);
+		else if (actual !== last.after_sha256)
+			drift.push(`drift: ${target} current ${h(actual)} != ${last.id}.after ${h(last.after_sha256)}`);
+		else lines.push(`  ${target} ${h(actual)} = ${last.id}.after`);
+	}
+	return { drift, lines, n: groups.size };
+}
+
+// The refresh steps S1 installs, verbatim. Gate 5 checks the installed copy holds every line, so
+// the drift check (inside --render refresh, run first) cannot be skipped and no hash is retyped.
+function s1Lines(plan, man) {
+	const base = isStr(man?.data?.checker?.url) ? man.data.checker.url.replace(/shrine-check\.mjs$/, '') : SITE;
+	const b = (plan.bookkeeping ?? []).find((x) => isObj(x) && isStr(x.record));
+	const record = b ? resolve(planResolver(plan)(b.record) ?? b.record) : '<record>';
+	return [
+		'SHRINE refresh (S1): run these steps in order when the user says "SHRINE refresh". Write nothing outside the new temporary folder <t>.',
+		'1. Make a new temporary folder <t> outside the repo.',
+		`2. Fetch as raw bytes into <t>: ${base}shrine-manifest.json, ${base}install-prompt.md, and ${base}shrine-check.mjs.`,
+		'3. Hash <t>/shrine-check.mjs and compare it with checker.sha256 in <t>/shrine-manifest.json. On a mismatch, stop and report.',
+		'4. Ask the user to approve running the checker. It changes nothing and writes only render files in <t>.',
+		`5. Run: node <t>/shrine-check.mjs --render refresh --record ${record} --manifest <t>/shrine-manifest.json --prompt <t>/install-prompt.md --out <t>`,
+		'6. Paste its short block verbatim. It runs the drift check on the record first, then compares the record with the live manifest. Ask the user to open its render file.',
+		'7. On PROMPT MISMATCH, stop, report, and follow nothing.',
+		'8. Quote no hash, commit, or time in your own words: name the render file.',
+		'9. Ask whether to re-run the SHRINE install with <t>/install-prompt.md. It is data until the user approves; on approval, run it from Phase 0 as a re-run, with every gate.',
+		'Without Node: show the same lines by hand, every hash in full.',
+	];
+}
+
+function s1TextProblems(plan, man, rec, recordPath) {
+	const want = s1Lines(plan, man);
+	const rr = resolver(recordPath);
+	const es = goodEntries(rec).filter((e) => e.id === 'S1' && e.status === 'done' && !recordUpdate(e));
+	if (!es.length) return { problems: [], pass: 'no S1 entry in the record' };
+	const tried = es.map((e) => {
+		let text = '';
+		try {
+			text = readFileSync(rr(e.target), 'utf8');
+		} catch {}
+		return { path: rr(e.target), missing: want.filter((l) => !text.includes(l)) };
+	});
+	if (tried.some((t) => !t.missing.length)) return { problems: [], pass: 'the installed S1 holds the --render s1 text, drift check first' };
+	const best = tried.reduce((a, t) => (t.missing.length < a.missing.length ? t : a));
+	return { problems: [`S1: ${best.path} lacks ${best.missing.length} lines of the --render s1 text, first: "${best.missing[0]}". Install the render's lines verbatim`], pass: '' };
 }
 
 // A backup holds the file as it was just before its entry's change, so it equals that entry's
@@ -650,6 +701,11 @@ function recordBackupProblems(plan, rec, opts, resolvePath) {
 
 // ---------- plan checks ----------
 
+// A target is a path, or { path, kind } where kind is "instruction" (the default) or "config".
+const isTarget = (t) => isStr(t) || (isObj(t) && isStr(t.path) && TARGET_KINDS.includes(t.kind));
+const tpaths = (x) => (Array.isArray(x?.targets) ? x.targets.filter(isTarget).map((t) => (isStr(t) ? t : t.path)) : []);
+const tkind = (x, path) => (Array.isArray(x?.targets) ? x.targets.find((t) => isObj(t) && t.path === path)?.kind : null) ?? 'instruction';
+
 function planShape(p) {
 	const errs = [];
 	if (!isObj(p)) return ['plan is not a JSON object'];
@@ -673,7 +729,7 @@ function planShape(p) {
 			if (!isObj(x)) return errs.push(`proposals[${i}] is not an object`);
 			const n = isStr(x.id) ? x.id : `proposals[${i}]`;
 			for (const k of ['id', 'title', 'page', 'answer']) if (!isStr(x[k])) errs.push(`${n}.${k} required`);
-			if (!Array.isArray(x.targets) || !x.targets.every(isStr)) errs.push(`${n}.targets (array of paths) required`);
+			if (!Array.isArray(x.targets) || !x.targets.every(isTarget)) errs.push(`${n}.targets required: each a path, or { path, kind } with kind ${TARGET_KINDS.join(' or ')}`);
 			if (!isObj(x.options)) errs.push(`${n}.options required`);
 			else
 				for (const o of OPTIONS) {
@@ -686,6 +742,7 @@ function planShape(p) {
 			if (x.runs_code === true && !(Array.isArray(x.runtime_writes) && x.runtime_writes.every(isStr)))
 				errs.push(`${n}.runtime_writes (array of paths) required: it runs code, so declare every path it may write at runtime ([] when it writes nothing)`);
 			if (p.run !== 'uninstall') {
+				if (!isStr(x.diff)) errs.push(`${n}.diff required: the full diff the user approves (secrets redacted)`);
 				if (x.id === 'S1' && (!isStr(x.mechanism) || !isStr(x.invocation)))
 					errs.push('S1.mechanism and S1.invocation required: the exact words or command that triggers the refresh');
 				const t = x.tradeoff;
@@ -727,6 +784,8 @@ function planShape(p) {
 		if (!isObj(c) || !isStr(c.text) || !ORIGINS.includes(c.origin)) errs.push(`correction needs text and origin (${ORIGINS.join(', ')})`);
 	if (p.signals != null && !isObj(p.signals)) errs.push('plan.signals must be an object');
 	if (p.report != null && !isObj(p.report)) errs.push('plan.report must be an object');
+	if (p.persist != null && !(isObj(p.persist) && Array.isArray(p.persist.features) && p.persist.features.every((f) => isObj(f) && isStr(f.feature) && isStr(f.path) && typeof f.automatic === 'boolean')))
+		errs.push('plan.persist needs source and features: each with feature, path, and automatic (true or false)');
 	return errs;
 }
 
@@ -844,7 +903,7 @@ function scopeProblems(plan, rec, recordPath) {
 	};
 	const rp = planResolver(plan);
 	for (const x of Array.isArray(plan.proposals) ? plan.proposals.filter(isObj) : []) {
-		for (const t of Array.isArray(x.targets) ? x.targets.filter(isStr) : []) test(`${x.id} target`, rp(t), t);
+		for (const t of tpaths(x)) test(`${x.id} target`, rp(t), t);
 		for (const w of Array.isArray(x.runtime_writes) ? x.runtime_writes.filter(isStr) : []) test(`${x.id} runtime write`, rp(w), w);
 	}
 	for (const b of Array.isArray(plan.bookkeeping) ? plan.bookkeeping.filter(isObj) : []) {
@@ -911,18 +970,37 @@ function snapshotLines(plan) {
 		out.push(exists(r) ? `root ${r}` : `root ${r} absent`);
 		walk(r, 1);
 	}
+	// Folders the harness persists to on its own (memory, notes, saved context): a write there is a write.
+	for (const { path: r } of persistRoots(plan)) {
+		out.push(exists(r) ? `persist ${r}` : `persist ${r} absent`);
+		// A persistence file (for example a memory file) is snapshotted as itself.
+		if (fileSha(r) != null) out.push(statSync(r).size > SNAP_HASH_MAX ? `f ${r} size ${statSync(r).size}` : `f ${r} sha256:${fileSha(r)}`);
+		else walk(r, 1);
+	}
 	return out;
+}
+
+// Harness persistence from plan.persist. A store named by a URL is remote: no snapshot can walk it.
+const isRemote = (p) => /^[a-z][a-z0-9+.-]*:\/\//i.test(p);
+const persistFeatures = (plan) => (isObj(plan?.persist) && Array.isArray(plan.persist.features) ? plan.persist.features.filter((f) => isObj(f) && isStr(f.path) && isStr(f.feature)) : []);
+
+// Harness persistence folders on this machine, resolved, with the feature that writes each.
+function persistRoots(plan) {
+	const rp = planResolver(plan);
+	return persistFeatures(plan).filter((f) => !isRemote(f.path)).map((f) => ({ ...f, path: rp(f.path) })).filter((f) => f.path).map((f) => ({ ...f, path: realish(f.path) }));
 }
 
 function parseSnapshot(lines) {
 	const map = new Map();
 	let roots = 0;
+	let persist = 0;
 	for (const l of lines) {
 		if (/^root /.test(l)) roots++;
+		if (/^persist /.test(l)) persist++;
 		const m = /^([dfl]) (.+?)(?: (sha256:[0-9a-f]{64}|size \d+))?$/.exec(l);
 		if (m) map.set(m[2], { kind: m[1], hash: m[3] ?? null });
 	}
-	return { map, roots };
+	return { map, roots, persist };
 }
 
 function readSnapshot(plan, rp) {
@@ -971,6 +1049,10 @@ function snapshotDiff(plan, rp, recData, recordPath) {
 		if (isStr(b.backups)) add(trees, rp(b.backups), 'bookkeeping');
 	}
 	for (const a of (plan.snapshot?.accepted ?? []).filter((x) => isObj(x) && isStr(x.path) && isStr(x.quote))) add(exact, rp(a.path), `accepted by the user: "${a.quote}"`);
+	// Harness persistence counts only when an approved proposal uses that feature (approved_by).
+	const ok = new Set(proposalsOf(plan).filter((x) => liveProposal(x) && ['approved', 'edited and approved'].includes(x.decision)).map((x) => x.id));
+	for (const f of persistRoots(plan).filter((x) => isStr(x.approved_by) && ok.has(x.approved_by))) add(trees, f.path, `harness persistence (${f.feature}), approved in ${f.approved_by}`);
+	const persisted = (p) => persistRoots(plan).find((f) => under(p, [f.path]));
 	const why = (p) => exact.get(p) ?? [...trees.entries()].find(([t]) => under(p, [t]))?.[1];
 	const diffs = [];
 	const name = (k) => (k === 'd' ? 'folder' : k === 'l' ? 'link' : 'file');
@@ -984,8 +1066,12 @@ function snapshotDiff(plan, rp, recData, recordPath) {
 	let bad = 0;
 	for (const [p, what] of diffs) {
 		const w = why(p);
+		const pf = w ? null : persisted(p);
 		if (w) lines.push(`${what} ${p}: ${w}`);
-		else {
+		else if (pf) {
+			bad++;
+			lines.push(`${what} ${p}: harness persistence (${pf.feature}), written during the run [list it for the user: keep it (plan.snapshot.accepted, with their words) or remove it]`);
+		} else {
 			bad++;
 			lines.push(`${what} ${p}: not a record target, backup, runtime path, or folder an entry declares [show it to the user; add it to the entry's dirs or runtime_paths, or to plan.snapshot.accepted with their words]`);
 		}
@@ -1011,12 +1097,13 @@ function loadMap(plan) {
 const liveProposal = (x) => x.decision !== 'rejected' && x.pick !== 'reject';
 
 // Pre-write hints for the menus: a target this harness is not yet shown to load.
-function loadHints(plan, x) {
+// preWrite: only load entries with no post-write proof, as they stood when the menus were shown.
+function loadHints(plan, x, preWrite = false) {
 	if (plan.run === 'uninstall') return [];
 	const rp = planResolver(plan);
-	const map = loadMap(plan);
+	const map = loadMap(preWrite ? { ...plan, load: (plan.load ?? []).filter((l) => !isObj(l) || l.fresh == null) } : plan);
 	const hints = [];
-	for (const t of Array.isArray(x.targets) ? x.targets.filter(isStr) : []) {
+	for (const t of tpaths(x).filter((p) => tkind(x, p) === 'instruction')) {
 		const abs = rp(t);
 		const s = abs ? map.get(realish(abs)) : undefined;
 		if (s && s.pre !== 'yes') hints.push(`load hint: ${t} is "${s.pre}" before the write; Phase 6 proves it loads in a fresh session, or you accept it as not loading`);
@@ -1033,7 +1120,8 @@ function freshLoadLines(plan) {
 	let mark = 'x';
 	const seen = new Set();
 	for (const x of proposalsOf(plan).filter(liveProposal).filter((p) => p.always_loaded)) {
-		for (const t of (x.targets ?? []).filter(isStr)) {
+		// Load proof applies to loaded instruction targets only; a config or ignore file never loads.
+		for (const t of tpaths(x).filter((p) => tkind(x, p) === 'instruction')) {
 			const abs = rp(t);
 			const key = abs ? realish(abs) : t;
 			if (seen.has(key)) continue;
@@ -1102,6 +1190,10 @@ function planChecks(rep, plan, man, ctx) {
 		if (ctx.rec) {
 			const code = ps.filter((x) => x.runs_code === true);
 			rep.check('runtime', runtimeProblems(plan, ctx.rec, ctx.recordPath), `${code.length} code-running proposals each declare their runtime writes, and the record lists them`);
+			if (man) {
+				const st = s1TextProblems(plan, man, ctx.rec, ctx.recordPath);
+				rep.check('s1-text', st.problems, st.pass);
+			}
 		}
 		rep.check('scan', scanProblems(plan, planResolver(plan)), `${(plan.scan ?? []).length} anti-pattern findings and ${ps.filter((x) => isObj(x.nudge)).length} nudges each tied to an index row`);
 	}
@@ -1130,7 +1222,7 @@ const unpinned = (plan) => {
 };
 
 // The menus as designed now, without any "changed since" lines.
-function menuCore(plan) {
+function menuCore(plan, preWrite = false) {
 	const rp = planResolver(plan);
 	const out = [`plan design sha256:${designSha(plan)}`];
 	if (plan.mode === 'full') out.push(`bookkeeping approved first (4.3): ${quote(plan.approvals?.['4.3'])} (user)`);
@@ -1146,9 +1238,10 @@ function menuCore(plan) {
 			out.push(`  risk: ${riskOf(x)}; designed by: ${x.model}; reviewed by: ${by}`);
 			if (x.id === 'S1' && isStr(x.invocation)) out.push(`  mechanism: ${x.mechanism}; invoked as "${x.invocation}"`);
 			if (isObj(x.nudge)) out.push(`  nudge for "${x.nudge.row}": when ${x.nudge.trigger}; ${x.nudge.advisory ? 'advisory' : 'blocking'}; at most ${x.nudge.rate_limit}; turn off: ${x.nudge.disable}`);
-			for (const hint of loadHints(plan, x)) out.push(`  ${hint}`);
+			for (const hint of loadHints(plan, x, preWrite)) out.push(`  ${hint}`);
 		}
-		out.push(`  targets: ${(x.targets ?? []).join(', ') || 'none'}`);
+		out.push(`  targets: ${tpaths(x).map((t) => (tkind(x, t) === 'config' ? `${t} (config)` : t)).join(', ') || 'none'}`);
+		if (isStr(x.diff)) out.push(`  diff: ${x.diff.split('\n').length} lines, sha256:${sha(x.diff)}`);
 		OPTIONS.forEach((o, i) => {
 			const v = x.options?.[o] ?? {};
 			const label = `[${i + 1}] ${o}`.padEnd(24);
@@ -1293,6 +1386,37 @@ function computed(id, ctx) {
 		lines.push(t);
 	};
 	switch (id) {
+		case '0.8': {
+			// The harness's own persistence is a write: found at Phase 0, unused unless approved,
+			// disclosed when automatic, and walked with the scope roots by 1.12, 5.8, and the Final Gate.
+			const ps = plan.persist;
+			if (!isObj(ps)) return { mark: ' ', lines: ['plan.persist missing: at Phase 0, find whether this harness persists anything on its own (memory, notes, learned facts, saved context) and where, from its docs or config'] };
+			const src = PERSIST_SOURCE.test(ps.source ?? '') ? ps.source : null;
+			if (!src) fail('plan.persist.source needed: $ <command>, (doc: <url>), (probe: ...), or (user)');
+			const all = persistFeatures(plan);
+			const local = new Map(persistRoots(plan).map((f) => [f.feature, f.path]));
+			for (const f of all) {
+				const where = isRemote(f.path) ? f.path : local.get(f.feature) ?? f.path;
+				const what = isRemote(f.path)
+					? `not on this machine, so no snapshot walks it; ${f.automatic ? 'disclosed at Gate 0; ' : 'the agent does not use it during the run; '}review it there after the run`
+					: f.automatic ? 'writes on its own; disclosed at Gate 0; 5.8 and the Final Gate list new content for you to keep or remove' : 'the agent does not use it during the run';
+				lines.push(`${f.feature} at ${where}: ${what}${isStr(f.approved_by) ? `; used only as approved in ${f.approved_by}` : ''}`);
+			}
+			const remote = all.filter((f) => isRemote(f.path)).length;
+			return { mark, head: all.length ? `${all.length} features, ${remote ? `${all.length - remote} in the snapshot, ${remote} remote` : 'each in the snapshot'}  ${src ?? ''}`.trimEnd() : `none: this harness persists nothing on its own  ${src ?? ''}`.trimEnd(), lines };
+		}
+		case '6.6': {
+			// Each approval is its own question: 6.6's words cannot also be an acceptance of something else.
+			const q = plan.approvals?.['6.6'];
+			if (plan.run !== 'uninstall' || !isStr(q)) return null;
+			const rpp = planResolver(plan);
+			const uses = [
+				...(plan.load ?? []).filter((l) => isObj(l) && l.fresh?.accepted === q).map((l) => `load: ${l.path}`),
+				...(plan.snapshot?.accepted ?? []).filter((a) => isObj(a) && a.quote === q).map((a) => `snapshot: ${rpp(a.path) ?? a.path}`),
+			];
+			if (uses.length) return { mark: ' ', lines: [`"${q}" is also recorded as an acceptance (${uses.join('; ')}): ask 6.6 as its own question, and record each acceptance from its own answer`] };
+			return { mark: 'x', lines: [`"${q}" (user), asked on its own`] };
+		}
 		case '1.1': {
 			const load = (plan.load ?? []).filter(isObj);
 			if (!load.length) return null;
@@ -1394,7 +1518,7 @@ function computed(id, ctx) {
 			if (!r.ok) return { mark: ' ', lines: [r.why] };
 			const vals = [...r.map.values()];
 			const d = vals.filter((v) => v.kind === 'd').length;
-			return { mark, head: `${d} folders and ${vals.length - d} files under ${r.roots} scope roots; ignored: ${(sn.ignore ?? []).join(', ') || 'none'}  $ shrine-check --render snapshot`, lines: [`${r.path} ${h(r.sha)}`] };
+			return { mark, head: `${d} folders and ${vals.length - d} files under ${r.roots} scope roots${r.persist ? ` and ${r.persist} harness persistence folders` : ''}; ignored: ${(sn.ignore ?? []).join(', ') || 'none'}  $ shrine-check --render snapshot`, lines: [`${r.path} ${h(r.sha)}`] };
 		}
 		case '4.2': {
 			const sp = scopeProblems(plan);
@@ -1418,7 +1542,12 @@ function computed(id, ctx) {
 		case '4.9': {
 			// Inline delivery stores the menus end-line hash. File delivery stores the menus render
 			// file and its sha256; that file, less its "changed since" lines, must equal the menus now.
+			// After the write (the Final Gate), load proof saved in Phase 6 does not reopen the picks:
+			// load hint lines are left out of the comparison.
+			const post = !!ctx.final;
+			const strip = (ls) => (post ? ls.filter((l) => !/^ {2}load hint: /.test(l)) : ls);
 			let want = menuSha(plan);
+			if (post && plan.delivery === 'inline' && plan.menus_sha256 !== want && plan.menus_sha256 === sha(menuCore(plan, true).join('\n'))) want = plan.menus_sha256;
 			let fileOk = true;
 			let fileWhy = '';
 			if (plan.delivery !== 'inline') {
@@ -1432,7 +1561,7 @@ function computed(id, ctx) {
 				})() : null;
 				want = text == null ? null : sha(text);
 				if (text == null) [fileOk, fileWhy] = [false, `plan.menus_file must name the menus render file shown (its sha256 is menus_sha256), so a re-render can show what changed`];
-				else if (renderBody(text).filter((l) => !isDiffLine(l)).join('\n') !== menuCore(plan).join('\n')) [fileOk, fileWhy] = [false, `the plan changed after the menus were rendered: ${mf} no longer matches the plan`];
+				else if (strip(renderBody(text).filter((l) => !isDiffLine(l))).join('\n') !== strip(menuCore(plan)).join('\n')) [fileOk, fileWhy] = [false, `the plan changed after the menus were rendered: ${mf} no longer matches the plan`];
 			}
 			let head;
 			const how = `Run --render menus${plan.delivery === 'inline' ? ', paste it, and copy its end-line hash' : ' --out <dir>, have the user open the file, and copy its render sha256 and file'} into menus_sha256${plan.delivery === 'inline' ? '' : ' and menus_file'}`;
@@ -1726,6 +1855,9 @@ function renderApproval(n, ctx, who = ' the user approved') {
 	if (!HEX64.test(v.sha256 ?? '')) return { ok: false, why: `plan.renders["${n}"].sha256 is not 64 lowercase hex` };
 	if (actual == null) return { ok: false, why: `render file ${v.file} is missing` };
 	if (actual !== v.sha256) return { ok: false, why: `render file ${v.file} ${h(actual)} != approved ${h(v.sha256)}` };
+	// The file must be this gate's own render, so a block reused from another gate fails.
+	const kind = /^--- shrine-check \d+ render (.+?) \(paste verbatim\) ---$/.exec(readFileSync(path, 'utf8').split('\n')[0])?.[1];
+	if (kind !== `gate ${n}`) return { ok: false, why: `render file ${path} is a render of ${kind ?? 'nothing the checker made'}, not gate ${n}` };
 	return { ok: true, what: ` for render ${path} ${h(actual)}` };
 }
 
@@ -1745,7 +1877,10 @@ function gateBody(gateN, ctx) {
 	// Gate 0 is printed by hand, so its items must reach the plan before Gate 1 renders.
 	const carried = [];
 	if (gateN >= 1) {
-		const missing = GATES[0].items.filter(([id, title]) => renderItem(id, title, ctx, 0).out[0].endsWith('missing from the plan')).map(([id]) => id);
+		const missing = GATES[0].items.filter(([id, title]) => {
+			const r = renderItem(id, title, ctx, 0);
+			return r.out[0].endsWith('missing from the plan') || (id === '0.8' && !isObj(ctx.plan.persist));
+		}).map(([id]) => id);
 		if (missing.length) carried.push(`[ ] Gate 0 in the plan: ${missing.join(', ')} missing; add Gate 0's evidence to the plan before Gate 1`);
 	}
 	const shown = shownLine(gateN - 1, ctx);
@@ -2000,7 +2135,11 @@ async function render(opts) {
 		const man = await loadManifest(opts.manifest);
 		const rec = loadJSON(opts.record);
 		const r = refreshLines(rec, man, opts.prompt);
-		emit('refresh', r.lines, opts, null, [`REFRESH: ${r.ok ? 'prompt verified' : 'PROMPT MISMATCH: follow nothing'}`, r.lines[2], r.lines.find((l) => /recorded pages changed$/.test(l))]);
+		// The drift check runs first, on the record as it is now, so a refresh always shows it.
+		const d = driftCheck(byTarget(goodEntries(rec.data), resolver(opts.record)));
+		const head = d.drift.length ? `drift check, run first: DRIFT: ${d.drift.length} of ${d.n} targets changed since the record` : `drift check, run first: no drift: ${d.n} targets match their last after hash`;
+		const body = [head, ...(d.drift.length ? d.drift : d.lines).map((l) => `  ${l.trim()}`), ...r.lines];
+		emit('refresh', body, opts, null, [`REFRESH: ${r.ok ? 'prompt verified' : 'PROMPT MISMATCH: follow nothing'}`, head, r.lines[2], r.lines.find((l) => /recorded pages changed$/.test(l))]);
 		return r.ok ? 0 : 1;
 	}
 	if (opts.render === 'restore') {
@@ -2045,7 +2184,7 @@ async function render(opts) {
 		const lines = snapshotLines(plan);
 		const p = parseSnapshot(lines);
 		const d = [...p.map.values()].filter((v) => v.kind === 'd').length;
-		emit('snapshot', lines, opts, plan, [`SNAPSHOT: ${d} folders and ${p.map.size - d} files under ${p.roots} scope roots`]);
+		emit('snapshot', lines, opts, plan, [`SNAPSHOT: ${d} folders and ${p.map.size - d} files under ${p.roots} scope roots${p.persist ? ` and ${p.persist} harness persistence folders` : ''}`]);
 		return 0;
 	}
 	if (opts.render === 'coverage') {
@@ -2053,6 +2192,25 @@ async function render(opts) {
 		const rows = coverageRows(plan, ctx.man);
 		emit('coverage', [...rows, ...p.map((x) => `FAIL ${x}`)], opts, plan, [`COVERAGE: ${p.length ? 'FAIL' : 'PASS'}; ${rows[0]}`]);
 		return p.length ? 1 : 0;
+	}
+	if (opts.render === 's1') {
+		const lines = s1Lines(plan, ctx.man);
+		emit('s1', lines, opts, plan, ['S1: install these lines verbatim in the S1 mechanism; Gate 5 checks the installed copy holds them']);
+		return 0;
+	}
+	if (opts.render === 'time') {
+		// Every time in prose comes from here: the checker's clock and time.start, never shell arithmetic.
+		const t = plan.time;
+		const now = nowSec();
+		const used = Math.floor((now - t.start) / 60);
+		const iso = (x) => new Date(x * 1000).toISOString().replace(/\.\d{3}Z$/, 'Z');
+		const lines = [
+			`time used: ${used} of ${t.agreed} min; ${used > t.agreed ? `${used - t.agreed} min over: Gate rule 4 applies` : `${t.agreed - used} min left`}`,
+			`started ${iso(t.start)}; now ${iso(now)} (UTC, checker clock)`,
+			`source: checker clock minus time.start from ${t.start_source}`,
+		];
+		emit('time', lines, opts, plan, [lines[0]]);
+		return 0;
 	}
 	if (opts.render === 'pin') {
 		const lines = pinLines(plan, ctx.man);

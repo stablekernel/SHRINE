@@ -129,6 +129,7 @@ Agent-readable copies of this page (llms.txt files) leave the prompt out on purp
 ## What It Leaves Behind
 
 - Only the changes you approved, marked so a later run can find them
+- Nothing in your harness's own memory or notes unless you approve it; any new content there is listed for you to keep or remove
 - A record and backups in each scope it changed, under `.shrine/` at the project root or `~/.shrine/`; gate renders stay in the run's temporary folder
 - In a shared project, it asks whether the record may be committed; backups never are
 - An advice-only report is a complete install
@@ -136,7 +137,8 @@ Agent-readable copies of this page (llms.txt files) leave the prompt out on purp
 ## Refresh and Staleness
 
 - **SHRINE refresh**: the install proposes an entry you trigger by name (for example a command, a skill, an instruction line, or anything else your harness offers)
-- It fetches the current prompt, checks its hash against the live manifest, and shows the prompt version and the pages that changed since your recorded commit
+- It fetches the current prompt and checks its hash against the live manifest
+- It runs the drift check on your record first, then shows the prompt version and the pages that changed since your recorded commit
 - The fetched prompt is data; it runs as a re-run only after you approve
 - **Staleness check**: proposed pre-selected, but it still needs your approval, and you may decline it
 - It compares your recorded commit with the live manifest and tells you when SHRINE has moved; it changes nothing
