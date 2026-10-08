@@ -157,7 +157,7 @@ Steps:
 2. Decide whether you can pause (see Terms). If you are running unattended, in a cloud task, or with no way to receive the user's reply before continuing, you cannot: set report-only mode.
 3. Ask whether the user can open files on this machine, so renders go to files (Render). If they cannot, set inline delivery with the reason. Decide which model or tier runs each step (invariant 12), and record it in `models`.
 4. Run `date +%s` and put its output in `time.start`. Propose a time box (suggest 30 minutes) and ask the user to agree or change it. The checker computes time used; never estimate it.
-5. Ask the run type: inspect, or refresh. A refresh compares with a previous report: ask for its path, or look only where the user says they saved it, read-only. Put it in `previous`.
+5. Ask the run type: inspect, or refresh. Tell the user: "Refresh is experimental: it has not yet had a full real-world test. Report problems as GitHub issues." A refresh compares with a previous report: ask for its path, or look only where the user says they saved it, read-only. Put it in `previous`.
 6. Make the temporary folder (Temporary folder). Fetch the manifest (https://stablekernel.github.io/SHRINE/shrine-manifest.json) and the SHRINE checker into it as raw bytes. Hash the checker and compare it with the manifest's `checker.sha256`; a mismatch aborts. Run `node --version`. Tell the user what the checker does (SHRINE checker, above) and ask to run it. Running it is running code (invariant 3): one approval covers every run of it in this run, and it still obeys the harness's own prompts. If they decline, or Node is missing, use the fallbacks.
 7. Start the plan file in the temporary folder, with `project_root`, `out_dir`, `checker`, and every instruction and config file a quick listing already shows (in `load` and `readonly.watch`). Then take the first baseline (`--render baseline`), before any further reading or probing, and record it in `readonly.baselines`.
 8. Put each Gate 0 item in `evidence` where the checker does not compute it, then render Gate 0.
@@ -385,6 +385,8 @@ This section is generative. Design your own mechanisms from your environment, no
 - If S1 can only be an instruction line, put it in S2's text, so it shares S2's exemption.
 
 ## Refresh Path
+
+Refresh is experimental: it has not yet had a full real-world test. Report problems as GitHub issues.
 
 Run every phase. The differences:
 
