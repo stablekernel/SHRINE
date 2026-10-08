@@ -48,7 +48,7 @@ export default defineConfig({
         {
           label: 'Guide',
           collapsed: false,
-          items: [{ label: 'Inspect Your Setup', slug: 'guide/inspect' }],
+          items: [{ label: 'Inspect Your AI Environment', slug: 'guide/inspect' }],
         },
         {
           label: 'Principles',

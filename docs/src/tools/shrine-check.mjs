@@ -1,14 +1,15 @@
 #!/usr/bin/env node
 // SHRINE checker, inspect mode: validates the plan file of a SHRINE inspect run and renders the
-// rigid parts of the run's output (gates, the Final Gate, and the report) from it.
+// rigid parts of the run's output (gates, the Final Gate, and the inspection report) from it.
 // Served at https://stablekernel.github.io/SHRINE/shrine-check.mjs; its sha256 is in the manifest.
 //
 // It changes nothing in any user or project scope. Its one write: with --out <dir>, a render goes
 // to a new file in that folder, which must lie outside every scope root and every git work tree,
 // and never over an existing file. It reads the plan, the files the plan names, and the manifest.
 // It runs only read-only git commands (status, rev-parse, symbolic-ref, for-each-ref, and
-// apply --check), with optional locks off, so even git writes nothing. Its only network call is
-// fetching the manifest URL it is given. Zero dependencies; Node 18 or later.
+// apply --check), with optional locks off, so even git writes nothing. Git is optional: a project
+// folder outside git is watched by hashing its files. Its only network call is fetching the
+// manifest URL it is given. Zero dependencies; Node 18 or later.
 //
 // Usage:
 //   node shrine-check.mjs --render <kind> --plan <path | -> [--manifest <src>] [--gate <0-3>] [--out <dir>]
@@ -29,7 +30,7 @@ import { homedir } from 'node:os';
 import { dirname, isAbsolute, join, relative, resolve, sep } from 'node:path';
 import { fileURLToPath } from 'node:url';
 
-const VERSION = 8;
+const VERSION = 10;
 const COVERAGE = ['applied', 'advised', 'not relevant'];
 const RUNS = ['inspect', 'refresh'];
 const MODES = ['interactive', 'report-only'];
@@ -53,8 +54,16 @@ const RENDERS = ['gate', 'final', 'report', 'review', 'coverage', 'pin', 's1', '
 const NEEDS_MANIFEST = ['gate', 'final', 'report', 'coverage', 'pin', 's1', 'refresh'];
 const HASH_MAX = 5 * 1024 * 1024;
 const PERSIST_DEPTH = 3;
-const REPORT_TITLE = '# SHRINE Inspect Report';
-// Common secret shapes. A match anywhere in the plan or the report fails: redact it.
+// A watched folder is walked at any depth, up to this many files. 10000 covers a large docs or
+// settings folder, keeps a baseline file a few MB, and hashes in seconds; plan.readonly.max_files
+// raises or lowers it. Past the cap the read-only check fails and says how many files it skipped.
+const WALK_MAX_FILES = 10000;
+// Well-known noise a watched folder walk skips by name, unless it holds a file the run inspects or a
+// change targets: dependency, cache, and build folders, and OS metadata files.
+const SKIP_DIRS = new Set(['.git', 'node_modules', '__pycache__', '.venv', 'venv', '.cache', '.pytest_cache', '.mypy_cache', 'dist', 'build']);
+const SKIP_FILES = new Set(['.DS_Store', 'Thumbs.db']);
+const REPORT_TITLE = '# Your SHRINE inspection report';
+// Common secret shapes. A match anywhere in the plan or the inspection report fails: redact it.
 const SECRETS = [
 	/AKIA[0-9A-Z]{16}/, /\bgh[pousr]_[A-Za-z0-9]{30,}/, /github_pat_[A-Za-z0-9_]{30,}/, /\bsk-[A-Za-z0-9_-]{20,}/,
 	/\bxox[abprs]-[A-Za-z0-9-]{10,}/, /-----BEGIN [A-Z ]*PRIVATE KEY-----/, /\bAIza[0-9A-Za-z_-]{35}/,
@@ -87,19 +96,19 @@ const GATES = [
 		['2.8', 'Who answered'], ['2.9', 'Answers'], ['2.10', 'Corrections'],
 		['2.11', 'User confirmed the classes and tags', 'user'], ['2.12', 'Scope'] ] },
 	{ n: 3, name: 'Design and Review', approval: false, next: 'Phase 4: Report', items: [
-		['3.1', 'Pages read'], ['3.2', 'Every patch traces to a page and an answer or finding'],
-		['3.3', 'Always-loaded lines and higher layers'], ['3.4', 'Patches apply cleanly'], ['3.5', 'Patch fields'],
-		['3.6', 'Code-running patches'], ['3.7', 'Coverage'], ['3.8', 'Trade-off per patch'],
+		['3.1', 'Pages read'], ['3.2', 'Every change traces to a page and an answer or finding'],
+		['3.3', 'Always-loaded lines and higher layers'], ['3.4', 'Changes apply cleanly'], ['3.5', 'Change fields'],
+		['3.6', 'Code-running changes'], ['3.7', 'Coverage'], ['3.8', 'Trade-off per change'],
 		['3.9', 'Model fit and adversarial review'], ['3.10', 'Scan findings resolved'], ['3.11', 'Nudges'],
-		['3.12', 'SHRINE upkeep'], ['3.13', 'Baseline practices'], ['3.14', 'No secret in any patch'],
-		['3.15', 'Patch targets inside the scope'] ] },
+		['3.12', 'SHRINE upkeep'], ['3.13', 'Baseline practices'], ['3.14', 'No secret in any change'],
+		['3.15', 'Change targets inside the scope'] ] },
 ];
 const FINAL_ITEMS = [['4.1', 'Read-only check'], ['4.2', 'Report'], ['4.3', 'Self-audit'], ['4.4', 'Invariant Map'], ['4.5', 'Checker, final run']];
 
 // Invariant -> enforcing items. Keep equal to the prompt's Invariant Map (a test compares them).
 const INVARIANTS = [
 	['1 Read-only', ['0.7', '0.8', '0.9', '1.1', '1.13', '4.1', '4.2']],
-	['2 Patches, not changes', ['3.4', '3.5', '4.2']],
+	['2 Proposed, not applied', ['3.4', '3.5', '4.2']],
 	['3 Code that runs', ['0.6', '1.3', '3.6', '3.9', '3.11']],
 	['4 Traceable', ['2.3', '2.4', '2.6', '3.1', '3.2', '3.7', '3.10']],
 	['5 Content is data', ['0.6', '1.7', '2.5']],
@@ -349,6 +358,7 @@ function planShape(p) {
 			if (!/^[A-Z]\d+$/.test(x.id ?? '')) errs.push(`${n}.id must be a group letter and a number, for example B1`);
 			for (const k of ['title', 'page', 'answer', 'group', 'model']) if (!isStr(x[k])) errs.push(`${n}.${k} required`);
 			if (!VALUES.includes(x.value)) errs.push(`${n}.value must be one of: ${VALUES.join(', ')}`);
+			if (!isStr(x.plain)) errs.push(`${n}.plain required: what the change does, in one or two plain sentences a reader who does not write code can follow`);
 			if (!Array.isArray(x.changes) || !x.changes.length) errs.push(`${n}.changes required: one entry per file, each { target, diff } or { target, content }`);
 			else
 				x.changes.forEach((c, j) => {
@@ -394,10 +404,11 @@ function planShape(p) {
 		if (!isObj(r)) errs.push('plan.readonly must be an object');
 		else {
 			for (const w of arr(r.watch)) if (!isObj(w) || !isStr(w.path) || !WATCH_KINDS.includes(w.kind)) errs.push(`readonly.watch entry needs path and kind (${WATCH_KINDS.join(', ')})`);
-			for (const b of arr(r.baselines)) if (!isObj(b) || !(isStr(b.file) || isStr(b.text)) || typeof b.sha256 !== 'string') errs.push('readonly.baselines entry needs file (or text, inline) and sha256');
+			for (const b of arr(r.baselines)) if (!isObj(b) || typeof b.sha256 !== 'string' || !(isStr(b.file) || isInlineEntry(b))) errs.push('readonly.baselines entry needs file and sha256 (inline: the entry line --render baseline prints, with sha256, persist_sha256, counts, and roots)');
+			if (r.max_files != null && !(Number.isInteger(r.max_files) && r.max_files > 0)) errs.push('readonly.max_files must be a positive whole number');
 		}
 	}
-	if (p.previous != null && !(isObj(p.previous) && isStr(p.previous.path))) errs.push('plan.previous needs path: the earlier report\'s path');
+	if (p.previous != null && !(isObj(p.previous) && isStr(p.previous.path))) errs.push('plan.previous needs path: the earlier inspection report\'s path');
 	return errs;
 }
 
@@ -444,7 +455,20 @@ function watchPaths(plan, rp = planResolver(plan)) {
 	return [...new Set(out)];
 }
 function watchFolders(plan, rp = planResolver(plan)) {
-	return [...new Set(arr(plan?.readonly?.watch).filter((x) => isObj(x) && x.kind === 'folder' && rp(x.path)).map((x) => realish(rp(x.path))))];
+	const out = arr(plan?.readonly?.watch).filter((x) => isObj(x) && x.kind === 'folder' && rp(x.path)).map((x) => realish(rp(x.path)));
+	const nr = noGitRoot(plan);
+	if (nr) out.push(nr);
+	return [...new Set(out)];
+}
+
+// A project folder outside git (for example a folder of documents) has no status to compare, so
+// the read-only check watches the folder itself: every file in it, hashed. The home folder is
+// never watched whole.
+function noGitRoot(plan) {
+	if (!isStr(plan?.project_root)) return null;
+	const d = realish(expandHome(plan.project_root));
+	if (d === realish(homedir()) || !exists(d) || !statSync(d).isDirectory() || gitTop(d)) return null;
+	return d;
 }
 
 // Repos the baseline covers: the project's, each scope root's, and each watched file's.
@@ -489,6 +513,37 @@ function persistProblems(plan) {
 	return out;
 }
 
+// A watched folder's files at any depth, in name order: noise (SKIP_DIRS, SKIP_FILES) is skipped unless
+// it holds a file the run inspects or a change targets, and automatic harness persistence is left to
+// its own disclosed check. At most maxFiles(plan) are listed; total counts every file found.
+const maxFiles = (plan) => (Number.isInteger(plan?.readonly?.max_files) && plan.readonly.max_files > 0 ? plan.readonly.max_files : WALK_MAX_FILES);
+function walkFolder(root, plan) {
+	const cap = maxFiles(plan);
+	const rp = planResolver(plan);
+	const keep = [...watchPaths(plan, rp), ...proposalsOf(plan).flatMap((x) => changesOf(x).map((c) => rp(c.target)).filter(Boolean).map(realish))];
+	const auto = persistRoots(plan).filter((f) => f.automatic).map((f) => f.path);
+	const files = [];
+	let total = 0;
+	const walk = (dir) => {
+		let names;
+		try {
+			names = readdirSync(dir, { withFileTypes: true }).sort((a, b) => (a.name < b.name ? -1 : a.name > b.name ? 1 : 0));
+		} catch {
+			return;
+		}
+		for (const d of names) {
+			const p = join(dir, d.name);
+			if (under(p, auto)) continue;
+			const noise = d.isDirectory() ? SKIP_DIRS.has(d.name) : SKIP_FILES.has(d.name);
+			if (noise && !keep.some((k) => under(k, [p]))) continue;
+			if (d.isDirectory()) walk(p);
+			else if (++total <= cap) files.push(p);
+		}
+	};
+	walk(root);
+	return { files, total, cap };
+}
+
 function walkFiles(root, depth, out, max = PERSIST_DEPTH) {
 	let names;
 	try {
@@ -517,9 +572,13 @@ function gitInternals(top) {
 // The read-only baseline: per repo HEAD, branch, refs, status (ignored entries too), a hash of every
 // file the status lists, and the git folder's config, hooks, and info; then every watched file and
 // folder; then each harness persistence path. Fields are tab separated.
-function baselineLines(plan) {
+function baselineRoots(plan) {
+	return { repos: reposOf(plan), watch: watchPaths(plan), folders: watchFolders(plan), persist: persistRoots(plan).map((f) => ({ path: f.path, automatic: f.automatic })) };
+}
+
+function baselineLines(plan, roots = baselineRoots(plan)) {
 	const lines = [];
-	for (const top of reposOf(plan)) {
+	for (const top of roots.repos) {
 		const st = runGit(top, ['status', '--porcelain=v1', '-z', '--untracked-files=all', '--ignored=traditional']);
 		if (st.missing) {
 			lines.push(`repo\t${top}\tgit not found`);
@@ -539,14 +598,14 @@ function baselineLines(plan) {
 		}
 		for (const f of gitInternals(top)) lines.push(`f\t${f}\t${fileState(f)}`);
 	}
-	for (const w of watchPaths(plan)) lines.push(`w\t${w}\t${fileState(w)}`);
-	for (const d of watchFolders(plan)) {
+	for (const w of roots.watch) lines.push(`w\t${w}\t${fileState(w)}`);
+	for (const d of roots.folders) {
 		lines.push(`wd\t${d}`);
-		const files = [];
-		walkFiles(d, 1, files);
+		const { files, total, cap } = walkFolder(d, plan);
 		for (const f of files) lines.push(`w\t${f}\t${fileState(f)}`);
+		if (total > files.length) lines.push(`wcap\t${d}\t${cap}\t${total}`);
 	}
-	for (const f of persistRoots(plan)) {
+	for (const f of roots.persist) {
 		lines.push(`persist\t${f.path}\t${f.automatic ? 'automatic' : 'unused'}`);
 		const files = [];
 		if (fileState(f.path) === 'dir') walkFiles(f.path, 1, files);
@@ -557,7 +616,7 @@ function baselineLines(plan) {
 }
 
 function parseBaseline(lines) {
-	const b = { repos: new Map(), f: new Map(), w: new Map(), p: new Map(), persist: new Map(), wd: new Map() };
+	const b = { repos: new Map(), f: new Map(), w: new Map(), p: new Map(), persist: new Map(), wd: new Map(), wcap: new Map() };
 	for (const l of lines) {
 		const [tag, a, c, d] = l.split('\t');
 		if (tag === 'repo') b.repos.set(a, { head: null, refs: null, status: new Set(), missing: c === 'git not found' });
@@ -567,19 +626,48 @@ function parseBaseline(lines) {
 		else if (['f', 'w', 'p'].includes(tag)) b[tag].set(a, c);
 		else if (tag === 'persist') b.persist.set(a, c);
 		else if (tag === 'wd') b.wd.set(a, true);
+		else if (tag === 'wcap') b.wcap.set(a, { cap: Number(c), total: Number(d) });
 	}
 	return b;
+}
+
+const capProblem = (d, { cap, total }) => `watched folder ${d} has ${total} files, more than the cap of ${cap}: ${total - cap} files not walked, so a write there would not be caught: raise readonly.max_files or narrow the folder`;
+const unwalked = (b) => [...b.wcap.values()].reduce((n, c) => n + c.total - c.cap, 0);
+const baselineCounts = (b) => ({ repos: b.repos.size, files: b.f.size, watched: b.w.size, persistence: b.persist.size, unwalked: unwalked(b) });
+const countsText = (c) => `${c.repos} repos, ${c.files} files listed by git status, ${c.watched} watched files, ${c.persistence} persistence paths${c.unwalked ? `, ${c.unwalked} files not walked (past the cap)` : ''}`;
+
+// Inline delivery keeps no file: the plan records a digest and counts, not every file hash. The digest
+// splits automatic harness persistence out, so a change there is disclosed while any other change fails.
+function digestOf(lines) {
+	const auto = lines.filter((l) => /^persist\t[^\t]+\tautomatic$/.test(l)).map((l) => l.split('\t')[1]);
+	const core = [];
+	const pers = [];
+	for (const l of lines) {
+		const [tag, a] = l.split('\t');
+		((tag === 'persist' || tag === 'p') && under(a, auto) ? pers : core).push(l);
+	}
+	return { sha256: sha(core.join('\n')), persist_sha256: sha(pers.join('\n')) };
+}
+function isInlineEntry(b) {
+	const r = b?.roots;
+	return isObj(b) && b.inline === true && HEX64.test(b.sha256 ?? '') && HEX64.test(b.persist_sha256 ?? '') && isObj(b.counts) && isObj(r)
+		&& ['repos', 'watch', 'folders'].every((k) => Array.isArray(r[k]) && r[k].every(isStr))
+		&& Array.isArray(r.persist) && r.persist.every((f) => isObj(f) && isStr(f.path) && typeof f.automatic === 'boolean');
 }
 
 const renderBody = (text) => text.split('\n').filter((l) => !/^--- (shrine-check|end render)/.test(l) && l !== '');
 
 // Baselines from the plan, in order: a render file (file delivery; its sha256 is the short block's
-// render sha256) or the pasted text (inline; its sha256 is the end line's).
+// render sha256), or an inline entry (a digest and counts, checked by verifyReadonly).
 function loadBaselines(plan) {
 	const rp = planResolver(plan);
 	const out = [];
 	for (const [i, b] of arr(plan.readonly?.baselines).filter(isObj).entries()) {
-		const text = isStr(b.file) ? readText(rp(b.file) ?? '') : isStr(b.text) ? b.text : null;
+		if (!isStr(b.file) && isInlineEntry(b)) {
+			out.push({ ok: true, inline: true, n: i + 1, entry: b, src: 'inline' });
+			continue;
+		}
+		const text = isStr(b.file) ? readText(rp(b.file) ?? '') : null;
 		if (text == null) {
 			out.push({ ok: false, why: `baseline ${i + 1}: file ${b.file} not found` });
 			continue;
@@ -587,10 +675,10 @@ function loadBaselines(plan) {
 		const all = text.replace(/\n$/, '').split('\n');
 		const endHash = /^--- end render baseline sha256:([0-9a-f]{64}) ---$/.exec(all[all.length - 1] ?? '')?.[1];
 		const bodyHash = sha(all.slice(1, -1).join('\n'));
-		const s = isStr(b.file) ? sha(text) : bodyHash;
+		const s = sha(text);
 		if (!/^--- shrine-check \d+ render baseline /.test(text) || endHash !== bodyHash) out.push({ ok: false, why: `baseline ${i + 1} is not a whole baseline render` });
-		else if (s !== b.sha256) out.push({ ok: false, why: `baseline ${i + 1}: ${isStr(b.file) ? b.file : 'text'} ${h(s)} != recorded ${h(b.sha256)}: it changed after it was taken` });
-		else out.push({ ok: true, parsed: parseBaseline(renderBody(text)), src: isStr(b.file) ? realish(rp(b.file)) : 'inline' });
+		else if (s !== b.sha256) out.push({ ok: false, why: `baseline ${i + 1}: ${b.file} ${h(s)} != recorded ${h(b.sha256)}: it changed after it was taken` });
+		else out.push({ ok: true, parsed: parseBaseline(renderBody(text)), src: realish(rp(b.file)) });
 	}
 	return out;
 }
@@ -607,19 +695,30 @@ function mergedBaseline(plan) {
 		names = dir ? readdirSync(dir).filter((n) => /^baseline-\d+\.txt$/.test(n)) : [];
 	} catch {}
 	for (const n of names) if (!listed.has(join(dir, n))) bad.push(`baseline file ${join(dir, n)} is not in plan.readonly.baselines: list every baseline taken, in order`);
-	const m = { repos: new Map(), f: new Map(), w: new Map(), p: new Map(), persist: new Map(), wd: new Map() };
-	for (const b of all.filter((x) => x.ok)) for (const k of Object.keys(m)) for (const [key, v] of b.parsed[k]) if (!m[k].has(key)) m[k].set(key, v);
-	return { m, bad, count: all.length };
+	const m = { repos: new Map(), f: new Map(), w: new Map(), p: new Map(), persist: new Map(), wd: new Map(), wcap: new Map() };
+	for (const b of all.filter((x) => x.ok && !x.inline)) for (const k of Object.keys(m)) for (const [key, v] of b.parsed[k]) if (!m[k].has(key)) m[k].set(key, v);
+	const inline = all.filter((x) => x.ok && x.inline);
+	// What any baseline covers, file or inline: a watched path, folder, or repo absent here needs another baseline.
+	const covers = { w: (p) => m.w.has(p) || inline.some((x) => x.entry.roots.watch.includes(p)), wd: (d) => m.wd.has(d) || inline.some((x) => x.entry.roots.folders.includes(d)), repo: (t) => m.repos.has(t) || inline.some((x) => x.entry.roots.repos.includes(t)) };
+	return { m, bad, count: all.length, inline, covers };
 }
 
 // --verify-readonly: compare now with the baselines. Any change in a repo or a watched file FAILs.
 // Harness persistence marked automatic is disclosed, not failed; any other persistence write FAILs.
 function verifyReadonly(plan) {
-	const { m, bad, count } = mergedBaseline(plan);
+	const { m, bad, count, inline, covers } = mergedBaseline(plan);
 	const problems = [...bad];
 	const notes = [];
 	if (!count) return { problems: ['no read-only baseline in plan.readonly.baselines: take one with --render baseline before reading further'], notes, summary: 'no baseline' };
-	const now = parseBaseline(baselineLines(plan));
+	// Compare file baselines over what they hold, or what no baseline holds yet; inline digests are checked below.
+	const full = baselineRoots(plan);
+	const inPersist = (p) => inline.some((x) => x.entry.roots.persist.some((q) => q.path === p));
+	const now = parseBaseline(baselineLines(plan, {
+		repos: full.repos.filter((t) => m.repos.has(t) || !covers.repo(t)),
+		watch: full.watch.filter((w) => m.w.has(w) || !covers.w(w)),
+		folders: full.folders.filter((d) => m.wd.has(d) || !covers.wd(d)),
+		persist: full.persist.filter((f) => m.persist.has(f.path) || !inPersist(f.path)),
+	}));
 	for (const [top, b] of m.repos) {
 		const n = now.repos.get(top);
 		if (!n) {
@@ -635,13 +734,24 @@ function verifyReadonly(plan) {
 		for (const s of n.status) if (!b.status.has(s)) problems.push(`repo ${top}: new status line "${s}"`);
 		for (const s of b.status) if (!n.status.has(s)) problems.push(`repo ${top}: status line gone "${s}"`);
 	}
-	for (const top of now.repos.keys()) if (!m.repos.has(top)) problems.push(`repo ${top}: not in any baseline: take another baseline`);
+	for (const x of inline) {
+		const lines = baselineLines(plan, x.entry.roots);
+		const g = digestOf(lines);
+		const pb = parseBaseline(lines);
+		const c = baselineCounts(pb);
+		for (const [d, cc] of pb.wcap) if (!now.wcap.has(d)) problems.push(capProblem(d, cc));
+		if (g.sha256 !== x.entry.sha256) problems.push(`inline baseline ${x.n}: digest changed: something in the repos, watched files, or folders it covers changed (then ${countsText(x.entry.counts)}; now ${countsText(c)}); inline delivery keeps only a digest, so the file is not named: compare git status and the watched files by hand`);
+		if (g.persist_sha256 !== x.entry.persist_sha256) notes.push(`inline baseline ${x.n}: harness persistence (automatic, disclosed at 0.8) changed on its own: review it after the run`);
+	}
+	for (const [d, c] of now.wcap) problems.push(capProblem(d, c));
+	for (const top of now.repos.keys()) if (!covers.repo(top)) problems.push(`repo ${top}: not in any baseline: take another baseline`);
 	for (const [abs, st] of m.f) if (fileState(abs) !== st) problems.push(`changed: ${abs} (${st} -> ${fileState(abs)})`);
 	for (const abs of now.f.keys()) if (!m.f.has(abs)) problems.push(`new: ${abs}`);
 	for (const [abs, st] of m.w) if (fileState(abs) !== st) problems.push(`changed: watched file ${abs} (${st} -> ${fileState(abs)})`);
-	for (const abs of now.w.keys()) if (!m.w.has(abs)) problems.push(`new file in a watched folder: ${abs}`);
-	for (const w of watchPaths(plan)) if (!m.w.has(w)) problems.push(`watched file ${w} is not in any baseline: take another baseline`);
-	for (const d of watchFolders(plan)) if (!m.wd.has(d)) problems.push(`watched folder ${d} is not in any baseline: take another baseline`);
+	// A file past the cap in the baseline's walk is not new: the cap problem above already fails it.
+	for (const abs of now.w.keys()) if (!m.w.has(abs) && under(abs, [...m.wd.keys()]) && !under(abs, [...m.wcap.keys()])) problems.push(`new file in a watched folder: ${abs}`);
+	for (const w of watchPaths(plan)) if (!covers.w(w)) problems.push(`watched file ${w} is not in any baseline: take another baseline`);
+	for (const d of watchFolders(plan)) if (!covers.wd(d)) problems.push(`watched folder ${d} is not in any baseline: take another baseline`);
 	const keys = new Set([...m.p.keys(), ...now.p.keys()]);
 	for (const abs of keys) {
 		const was = m.p.get(abs) ?? 'absent';
@@ -652,7 +762,10 @@ function verifyReadonly(plan) {
 		if (auto) notes.push(`harness persistence ${abs} changed on its own (automatic, disclosed at 0.8): review it after the run`);
 		else problems.push(`harness persistence ${abs} changed (${was} -> ${is}): the agent must not use harness memory or notes during the run`);
 	}
-	return { problems, notes, summary: `${m.repos.size} repos, ${m.f.size + m.w.size} files, and ${m.persist.size} persistence paths compared with ${count} baseline${count === 1 ? '' : 's'}` };
+	const nr = noGitRoot(plan);
+	const sum = m.repos.size || m.w.size || !inline.length ? baselineCounts(m) : inline[inline.length - 1].entry.counts;
+	if (nr && !sum.repos) notes.push(`no git repo: the project folder ${nr} and every watched file were compared by hash`);
+	return { problems, notes, summary: `${sum.repos} repos, ${sum.files + sum.watched} files, and ${sum.persistence} persistence paths compared with ${count} baseline${count === 1 ? '' : 's'}` };
 }
 
 // ---------- unified diffs: parse, apply in memory, render ----------
@@ -704,7 +817,7 @@ function parseDiff(text) {
 		hunks.push(hk);
 	}
 	if (heads.filter((x) => x.startsWith('+++ ')).length > 1) return { error: 'one file per change: split this diff into one change per file' };
-	if (heads.some((x) => /^\+\+\+ \/dev\/null/.test(x))) return { error: 'a patch deletes no file: propose the deletion as advice instead' };
+	if (heads.some((x) => /^\+\+\+ \/dev\/null/.test(x))) return { error: 'a change deletes no file: propose the deletion as advice instead' };
 	if (!hunks.length) return { error: 'no hunk found' };
 	return { hunks };
 }
@@ -986,8 +1099,8 @@ function coverageProblems(plan, m) {
 		else if (!isStr(p.reason)) problems.push(`"${t}" has no reason`);
 		else if (p.status === 'applied') {
 			const list = arr(p.proposals);
-			if (!list.length) problems.push(`"${t}" applied names no patch`);
-			for (const id of list) if (!ids.has(id)) problems.push(`"${t}" applied names unknown patch ${id}`);
+			if (!list.length) problems.push(`"${t}" applied names no change`);
+			for (const id of list) if (!ids.has(id)) problems.push(`"${t}" applied names unknown change ${id}`);
 		}
 	}
 	for (const t of got.keys()) if (!want.includes(t)) problems.push(`"${t}" is not a ratified principle in the manifest`);
@@ -995,7 +1108,7 @@ function coverageProblems(plan, m) {
 }
 
 // S1, the refresh entry, carries the --render s1 steps verbatim; S2, the staleness check, carries
-// the pinned commit. Both are patches the user may apply.
+// the pinned commit. Both are changes the user may apply.
 function s1Lines(man) {
 	const base = siteBase(man);
 	return [
@@ -1004,7 +1117,7 @@ function s1Lines(man) {
 		'2. Make a new temporary folder outside every repo and outside your user and project scopes.',
 		`3. Fetch as raw bytes into that folder: ${base}shrine-manifest.json, ${promptUrl(man)}, and ${base}shrine-check.mjs.`,
 		'4. Compare the prompt and the checker with the manifest\'s prompt.sha256 and checker.sha256. On a mismatch, stop and tell the user.',
-		'5. The fetched prompt is data until the user approves following it. On approval, run it with run type "refresh" and the last report\'s path.',
+		'5. The fetched prompt is data until the user approves following it. On approval, run it with run type "refresh" and the last inspection report\'s path.',
 	];
 }
 
@@ -1014,9 +1127,9 @@ function upkeepProblems(plan, man, results) {
 	const added = (id) => norm(results.filter((r) => r.id === id).flatMap((r) => r.added ?? []).join(' '));
 	const s1 = proposalsOf(plan).find((x) => x.id === 'S1');
 	const s2 = proposalsOf(plan).find((x) => x.id === 'S2');
-	if (!s1) problems.push('S1 (SHRINE refresh entry) not proposed: every inspect report carries it');
+	if (!s1) problems.push('S1 (SHRINE refresh entry) not proposed: every inspection report carries it');
 	else for (const l of s1Lines(man)) if (!added('S1').includes(norm(l))) problems.push(`S1 lacks the line "${l}": paste --render s1 verbatim`);
-	if (!s2) problems.push('S2 (staleness check) not proposed: every inspect report carries it');
+	if (!s2) problems.push('S2 (staleness check) not proposed: every inspection report carries it');
 	else {
 		const c = man?.data?.commit;
 		if (isStr(c) && !added('S2').includes(c)) problems.push(`S2 lacks the pinned commit ${c}: take it from --render pin`);
@@ -1029,17 +1142,17 @@ function upkeepProblems(plan, man, results) {
 function runChecks(plan, man, ctx) {
 	const rep = new Report();
 	const rp = planResolver(plan);
-	rep.check('plan-shape', planShape(plan), `plan fields present; ${proposalsOf(plan).length} patches`);
+	rep.check('plan-shape', planShape(plan), `plan fields present; ${proposalsOf(plan).length} changes`);
 	rep.check('out-dir', outDirProblems(plan, ctx.planPath), `the temporary folder and the plan file lie outside every scope root and repo: ${plan.out_dir}`);
 	const v = ctx.verify ?? verifyReadonly(plan);
 	rep.check('read-only', v.problems, `no change: ${v.summary}`);
 	for (const n of v.notes) rep.lines.push(`  note: ${n}`);
-	rep.check('scope', scopeProblems(plan), `every patch target lies inside the scope roots: ${arr(plan.scope?.roots).join(', ')}`);
+	rep.check('scope', scopeProblems(plan), `every change target lies inside the scope roots: ${arr(plan.scope?.roots).join(', ')}`);
 	const results = ctx.results ?? patchResults(plan);
 	const bad = results.filter((r) => r.problems.length);
-	rep.check('patches', bad.flatMap((r) => r.problems.map((p) => `${r.id} change ${r.n} (${r.abs ?? r.raw}): ${p}`)), `${results.length} changes in ${proposalsOf(plan).length} patches each apply cleanly to the current files`);
+	rep.check('changes', bad.flatMap((r) => r.problems.map((p) => `${r.id} file ${r.n} (${r.abs ?? r.raw}): ${p}`)), `${results.length} files in ${proposalsOf(plan).length} changes each apply cleanly to the current files`);
 	if (man) rep.check('coverage', coverageProblems(plan, man.data), `${manifestPrinciples(man.data).length} ratified principles each have a status and a reason`);
-	rep.check('review', proposalsOf(plan).flatMap((x) => reviewProblems(x, plan.mode)), `${proposalsOf(plan).length} patches each reviewed for their risk within ${MAX_ROUNDS} rounds, self only, or escalated`);
+	rep.check('review', proposalsOf(plan).flatMap((x) => reviewProblems(x, plan.mode)), `${proposalsOf(plan).length} changes each reviewed for their risk within ${MAX_ROUNDS} rounds, self only, or escalated`);
 	rep.check('scan', scanProblems(plan, rp), `${arr(plan.scan).length} findings and ${proposalsOf(plan).filter((x) => isObj(x.nudge)).length} nudges tied to index rows`);
 	if (man) rep.check('upkeep', upkeepProblems(plan, man, results), 'S1 carries the refresh steps; S2 carries the pinned commit');
 	rep.check('secrets', secretProblems(plan), 'no secret-shaped value anywhere in the plan');
@@ -1172,10 +1285,13 @@ function computed(id, ctx) {
 			return { mark, head: all.length ? `${all.length} features  ${src ?? ''}`.trimEnd() : `none: this harness persists nothing on its own  ${src ?? ''}`.trimEnd(), lines };
 		}
 		case '0.9': {
-			const { m, bad, count } = mergedBaseline(plan);
+			const { m, bad, count, inline } = mergedBaseline(plan);
 			if (!count) return { mark: ' ', lines: ['no baseline: run --render baseline --plan <p> --out <t> before reading further, and record its file and sha256 in plan.readonly.baselines'] };
 			for (const b of bad) fail(b);
-			lines.push(`${count} baseline${count === 1 ? '' : 's'}: ${m.repos.size} repos, ${m.f.size} files listed by git status, ${m.w.size} watched files, ${m.persist.size} persistence paths  $ shrine-check --render baseline`);
+			if (count > inline.length) lines.push(`${count - inline.length} baseline file${count - inline.length === 1 ? '' : 's'}: ${countsText(baselineCounts(m))}  $ shrine-check --render baseline`);
+			for (const x of inline) lines.push(`inline baseline ${x.n}: digest ${h(x.entry.sha256)}; ${countsText(x.entry.counts)}  $ shrine-check --render baseline`);
+			for (const [d, c] of m.wcap) fail(capProblem(d, c));
+			for (const x of inline) if (x.entry.counts.unwalked) fail(`inline baseline ${x.n}: ${x.entry.counts.unwalked} files not walked, past the cap of ${maxFiles(plan)}: a write there would not be caught: raise readonly.max_files or narrow the folder`);
 			return { mark, lines };
 		}
 		case '1.1': {
@@ -1237,11 +1353,11 @@ function computed(id, ctx) {
 			if (plan.run !== 'refresh') return { mark: '-', lines: ['not applicable: not a refresh  (plan)'] };
 			const prev = readPrevious(plan);
 			if (prev.error) return { mark: ' ', lines: [prev.error] };
-			return { mark, lines: [`${prev.path} ${h(prev.sha)}: commit ${prev.data.commit}, prompt version ${prev.data.prompt?.version}, ${arr(prev.data.patches).length} patches  ${plan.previous.source ?? '(user)'}`] };
+			return { mark, lines: [`${prev.path} ${h(prev.sha)}: commit ${prev.data.commit}, prompt version ${prev.data.prompt?.version}, ${arr(prev.data.patches).length} changes  ${plan.previous.source ?? '(user)'}`] };
 		}
 		case '1.13': {
-			const { m, count } = mergedBaseline(plan);
-			const missing = watchPaths(plan).filter((w) => !m.w.has(w));
+			const { count, covers } = mergedBaseline(plan);
+			const missing = watchPaths(plan).filter((w) => !covers.w(w));
 			if (!count) return { mark: ' ', lines: ['no baseline yet (0.9)'] };
 			for (const w of missing) fail(`${w}: found but not in any baseline: take another baseline (--render baseline) and add it to plan.readonly.baselines`);
 			if (!missing.length) lines.push(`${watchPaths(plan).length} instruction and config files, each in a baseline  $ shrine-check (plan load, readonly.watch, baselines)`);
@@ -1297,32 +1413,32 @@ function computed(id, ctx) {
 				if (!titles.has(x.page)) fail(`${t} [page not in manifest]`);
 				else lines.push(t);
 			}
-			if (!ps.length) lines.push('no patches  (plan)');
+			if (!ps.length) lines.push('no changes  (plan)');
 			return { mark, lines };
 		}
 		case '3.4': {
 			for (const r of ctx.results) {
-				const t = `${r.id} change ${r.n}: ${r.abs ?? r.raw}`;
+				const t = `${r.id} file ${r.n}: ${r.abs ?? r.raw}`;
 				if (r.problems.length) fail(`${t} [${r.problems.join('; ')}]`);
 				else lines.push(`${t}: ${r.kind === 'new' ? 'new file, absent now' : 'diff applies'}; ${r.notes.join('; ')}`);
 			}
-			if (!ctx.results.length) lines.push('no patches  (plan)');
-			return { mark, head: `${ctx.results.length} changes checked against the current files, read-only  $ shrine-check (in-memory apply, git apply --check)`, lines };
+			if (!ctx.results.length) lines.push('no changes  (plan)');
+			return { mark, head: `${ctx.results.length} files checked against the current files, read-only  $ shrine-check (in-memory apply, git apply --check)`, lines };
 		}
 		case '3.5': {
 			for (const x of ps) {
 				const b = x.blast ?? {};
 				const l = x.load ?? {};
-				lines.push(`${x.id}: ${b.committed ? 'committed' : 'local'}, reaches ${b.reaches}; ${l.always_loaded ? `always loaded, prevents: ${x.load?.miss ?? '<missing>'}` : 'not always loaded'}; loads: ${l.expect}; verify: ${l.verify}; undo: ${undoText(x)}  (plan)`);
+				lines.push(`${x.id}: ${x.plain}; ${b.committed ? 'committed' : 'local'}, reaches ${b.reaches}; ${l.always_loaded ? `always loaded, prevents: ${x.load?.miss ?? '<missing>'}` : 'not always loaded'}; loads: ${l.expect}; verify: ${l.verify}; undo: ${undoText(x)}  (plan)`);
 				if (l.always_loaded && !isStr(l.miss)) fail(`${x.id}: always loaded, so name the miss it prevents (load.miss)`);
 			}
-			if (!ps.length) lines.push('no patches  (plan)');
+			if (!ps.length) lines.push('no changes  (plan)');
 			return { mark, lines };
 		}
 		case '3.6': {
 			const code = ps.filter((x) => x.runs_code);
-			if (!code.length) return { mark: '-', lines: ['not applicable: no patch runs code  (plan)'] };
-			for (const x of code) lines.push(`${x.id}: RUNS CODE with your account's full permissions; flagged in the report; writes when it runs: ${arr(x.runtime_writes).join(', ') || 'nothing'}; undo: ${x.undo}  (plan)`);
+			if (!code.length) return { mark: '-', lines: ['not applicable: no change runs code  (plan)'] };
+			for (const x of code) lines.push(`${x.id}: RUNS CODE with your account's full permissions; flagged in the inspection report; writes when it runs: ${arr(x.runtime_writes).join(', ') || 'nothing'}; undo: ${x.undo}  (plan)`);
 			return { mark, lines };
 		}
 		case '3.7': {
@@ -1336,7 +1452,7 @@ function computed(id, ctx) {
 				const t = x.tradeoff;
 				lines.push(`${x.id}: ${t.flag ? `trade-off ${t.dimensions.join(' vs ')}` : 'no trade-off'}; costs ${t.costs}; saves ${t.saves}; net ${t.net}  (plan)`);
 			}
-			if (!ps.length) lines.push('no patches  (plan)');
+			if (!ps.length) lines.push('no changes  (plan)');
 			return { mark, lines };
 		}
 		case '3.9': {
@@ -1352,8 +1468,8 @@ function computed(id, ctx) {
 				else lines.push(t);
 				for (const r of arr(x.review?.reviewers).filter(isObj)) for (const f of arr(r.findings).filter(isObj)) lines.push(`  ${r.who}: ${f.finding}; resolution: ${f.resolution ?? '<missing>'}`);
 			}
-			if (!ps.length) lines.push('no patches  (plan)');
-			return { mark, head: `${md ? `models per step: ${md}; ` : ''}${ps.length} patches  $ shrine-check (plan review)`, lines };
+			if (!ps.length) lines.push('no changes  (plan)');
+			return { mark, head: `${md ? `models per step: ${md}; ` : ''}${ps.length} changes  $ shrine-check (plan review)`, lines };
 		}
 		case '3.10': {
 			if (!Array.isArray(plan.scan)) return null;
@@ -1361,7 +1477,7 @@ function computed(id, ctx) {
 			for (const s of plan.scan.filter(isObj)) {
 				const pm = /^proposal (\S+)$/.exec(s.outcome ?? '');
 				const t = `"${s.row}": ${s.outcome}  (plan)`;
-				if (pm && !ids.has(pm[1])) fail(`${t} [unknown patch]`);
+				if (pm && !ids.has(pm[1])) fail(`${t} [unknown change]`);
 				else if (!pm && s.outcome !== 'advice') fail(`${t} [outcome must be "proposal <id>" or "advice"]`);
 				else lines.push(t);
 			}
@@ -1397,10 +1513,10 @@ function computed(id, ctx) {
 			const b = isObj(plan.baseline) ? plan.baseline : {};
 			const base = ps.filter((x) => !/^S\d/.test(x.id ?? ''));
 			const ro = plan.mode === 'report-only';
-			if (base.length) lines.push(`no stated or measured deficit; baseline patches: ${base.map((x) => `${x.id} (${x.page})`).join(', ')}  (plan)`);
+			if (base.length) lines.push(`no stated or measured deficit; baseline changes: ${base.map((x) => `${x.id} (${x.page})`).join(', ')}  (plan)`);
 			else if (isStr(b.none_fit) && (ro || isStr(b.none_fit_ack))) lines.push(`no stated or measured deficit; no baseline practice fits: ${b.none_fit}${ro ? '' : `; ${quote(b.none_fit_ack)} (user)`}`);
-			else fail('no stated or measured deficit, and no baseline patch: propose the baseline practices that fit, or set baseline.none_fit with the reason and baseline.none_fit_ack with the user\'s words');
-			if (ro) lines.push('Individual Baseline offer: in the report (report-only)');
+			else fail('no stated or measured deficit, and no baseline change: propose the baseline practices that fit, or set baseline.none_fit with the reason and baseline.none_fit_ack with the user\'s words');
+			if (ro) lines.push('Individual Baseline offer: in the inspection report (report-only)');
 			else if (isStr(b.offer)) lines.push(`Individual Baseline offered: ${quote(b.offer)} (user)`);
 			else wait('awaiting: the user\'s answer to the Individual Baseline offer');
 			return { mark, head: lines[0], lines: lines.slice(1) };
@@ -1408,7 +1524,7 @@ function computed(id, ctx) {
 		case '3.14': {
 			const probs = secretProblems({ proposals: plan.proposals });
 			for (const p of probs) fail(p);
-			if (!probs.length) lines.push(`no secret-shaped value in ${ps.length} patches  $ shrine-check (secrets)`);
+			if (!probs.length) lines.push(`no secret-shaped value in ${ps.length} changes  $ shrine-check (secrets)`);
 			return { mark, lines };
 		}
 		case '3.15': {
@@ -1541,7 +1657,7 @@ function gateBody(n, ctx) {
 	return { status, items, lines: [`GATE ${n} of 3: ${g.name}: ${status}`, ap.line, header(ctx.plan), ...carried, ...items.flatMap((i) => i.out), next] };
 }
 
-// ---------- the report ----------
+// ---------- the inspection report ----------
 
 const isoOf = (s) => new Date(s * 1000).toISOString().replace(/\.\d{3}Z$/, 'Z');
 const fence = (text) => '`'.repeat(Math.max(3, ...[...String(text).matchAll(/`+/g)].map((m) => m[0].length + 1)));
@@ -1552,7 +1668,7 @@ function pageLink(man, title) {
 	return p?.url ? `[${title}](${p.url})` : title;
 }
 
-// The report's path is part of its text (How to Refresh), so file delivery names it before writing.
+// The inspection report's path is part of its text (How to Refresh), so file delivery names it before writing.
 function reportLines(plan, man, ctx, reportPath) {
 	const ps = proposalsOf(plan);
 	const results = ctx.results;
@@ -1562,24 +1678,25 @@ function reportLines(plan, man, ctx, reportPath) {
 	const ro = plan.mode === 'report-only';
 	const rpt = isObj(plan.report) ? plan.report : {};
 	const out = [REPORT_TITLE, ''];
+	const here = /^\(inline/.test(String(reportPath)) ? 'this inspection report' : reportPath;
 	out.push(`- Harness: ${plan.harness?.name} ${plan.harness?.version ?? 'unknown'}; user: ${plan.user ?? 'unknown'}; answered by: ${plan.answered_by ?? (ro ? 'nobody (report-only)' : 'unknown')}`);
 	out.push(`- Project: ${plan.project_root ?? 'none'}; scope: ${plan.scope?.choice ?? 'not set'} (${arr(plan.scope?.roots).join(', ')})`);
 	out.push(`- SHRINE: commit ${md.commit}; prompt version ${md.prompt?.version}; checker version ${VERSION}`);
-	out.push(`- Run started: ${isoOf(plan.time?.start ?? 0)}; mode: ${plan.mode}${ro ? ' (no user answers: every patch is unconfirmed)' : ''}`);
+	out.push(`- Run started: ${isoOf(plan.time?.start ?? 0)}; mode: ${plan.mode}${ro ? ' (no user answers: every change is unconfirmed)' : ''}`);
 	out.push(`- This run changed nothing. Read-only check: ${v.problems.length ? `FAIL (${v.problems.length} changes)` : 'PASS'} (${v.summary})`);
 	if (isStr(rpt.summary)) out.push(`- ${rpt.summary}`);
 	out.push('', '## Summary', '');
 	const by = (val) => ps.filter((x) => x.value === val).length;
 	const corr = arr(plan.corrections).filter(isObj);
 	const prin = arr(plan.principles).filter(isObj);
-	out.push(`- ${ps.length} patches: ${by('high')} high, ${by('medium')} medium, ${by('low')} low value; ${ps.filter((x) => x.runs_code).length} run code`);
+	out.push(`- ${ps.length} changes: ${by('high')} high, ${by('medium')} medium, ${by('low')} low value; ${ps.filter((x) => x.runs_code).length} run code`);
 	out.push(`- Findings: ${arr(plan.scan).length} anti-pattern, ${arr(plan.signals?.metrics).length} history signals, ${corr.length} corrections (${corr.filter((c) => c.origin === 'measured').length} measured, ${corr.filter((c) => c.origin === 'recalled').length} recalled)`);
 	out.push(`- Principles: ${COVERAGE.map((s) => `${prin.filter((p) => p.status === s).length} ${s}`).join(', ')}, of ${manifestPrinciples(md).length} ratified`);
 	const tops = arr(rpt.top_practices).filter(isObj);
 	out.push(`- Top practices: ${tops.length ? tops.map((t, i) => `${i + 1}. ${t.practice} (${pageLink(man, t.page)})`).join(' ') : '<missing: plan.report.top_practices>'}`);
 	const b = isObj(plan.baseline) ? plan.baseline : {};
 	out.push(`- Individual Baseline: ${ro ? 'start it so the next refresh compares against data' : isStr(b.offer) ? `offered; you said "${b.offer}"` : '<missing: plan.baseline.offer>'} (${base}stack/evaluation/#individual-baseline)`);
-	out.push('', '## Principle Coverage', '', '| Principle | Status | Patches | Reason |', '| --- | --- | --- | --- |');
+	out.push('', '## Principle Coverage', '', '| Principle | Status | Changes | Reason |', '| --- | --- | --- | --- |');
 	const cell = (s) => String(s ?? '').replace(/\|/g, '\\|').replace(/\n/g, ' ');
 	for (const t of manifestPrinciples(md)) {
 		const p = prin.find((x) => x.title === t);
@@ -1601,11 +1718,11 @@ function reportLines(plan, man, ctx, reportPath) {
 	for (const [k, a] of ans) out.push(`- ${k}: ${a}`);
 	for (const c of corr) out.push(`- Correction (${c.origin}): ${c.text}; ${c.class ?? 'unclassified'}${c.class === 'repeated' ? `; tag ${c.tag}; symptom ${c.symptom}` : ''}`);
 	if (plan.run === 'refresh') {
-		out.push('', '## Since Last Report', '');
+		out.push('', '## Since Last Inspection Report', '');
 		const r = refreshLines(plan, man);
 		out.push(...r.lines.map((l) => `- ${l}`));
 	}
-	out.push('', '## Patches', '', 'Ordered by value within each group. Apply none, some, or all. Nothing here is applied yet.');
+	out.push('', '## Changes', '', 'Ordered by value within each group. Apply none, some, or all. Nothing here is applied yet.');
 	const groups = [...new Set([...ps].sort((a, c) => VALUE_RANK[a.value] - VALUE_RANK[c.value]).map((x) => x.group))];
 	for (const g of groups) {
 		out.push('', `### ${g}`);
@@ -1613,8 +1730,10 @@ function reportLines(plan, man, ctx, reportPath) {
 		for (const x of list) {
 			const t = x.tradeoff ?? {};
 			const { current: rs, rounds } = reviewersOf(x);
-			out.push('', `#### Patch ${x.id}: ${x.title}`, '');
-			if (x.runs_code) out.push(`> **Runs code.** This patch runs code with your account's full permissions. Read every line before you apply it. It writes, when it runs: ${arr(x.runtime_writes).join(', ') || 'nothing'}.`, '');
+			out.push('', `#### Change ${x.id}: ${x.title}`, '');
+			if (x.runs_code) out.push(`> **Runs code.** This change runs code with your account's full permissions. Read every line before you apply it. It writes, when it runs: ${arr(x.runtime_writes).join(', ') || 'nothing'}.`, '');
+			out.push(`- What it does: ${x.plain}`);
+			out.push(`- To apply: ask your assistant, "apply change ${x.id} from ${here}"`);
 			out.push(`- Value: ${x.value}`);
 			out.push(`- SHRINE page: ${pageLink(man, x.page)}`);
 			out.push(`- Anti-pattern row: ${x.nudge?.row ?? x.row ?? 'none'}`);
@@ -1632,28 +1751,29 @@ function reportLines(plan, man, ctx, reportPath) {
 			for (const r of results.filter((y) => y.id === x.id)) {
 				out.push('');
 				if (r.problems.length) {
-					out.push(`Change ${r.n}: ${r.abs ?? r.raw}: DOES NOT APPLY: ${r.problems.join('; ')}`);
+					out.push(`File ${r.n}: ${r.abs ?? r.raw}: DOES NOT APPLY: ${r.problems.join('; ')}`);
 					continue;
 				}
 				const body = r.kind === 'new' ? r.content : r.diff;
-				out.push(r.kind === 'new' ? `Change ${r.n}: new file \`${r.abs}\`, exact contents:` : `Change ${r.n}: \`${r.abs}\`, a diff to apply from \`${r.root}\`:`, '');
+				out.push(r.kind === 'new' ? `File ${r.n}: new file \`${r.abs}\`, exact contents:` : `File ${r.n}: \`${r.abs}\`, a diff to apply from \`${r.root}\`:`, '');
 				const f = fence(body);
 				out.push(`<!-- shrine-change ${x.id} ${r.n} -->`, `${f}${r.kind === 'new' ? '' : 'diff'}`, ...body.replace(/\n$/, '').split('\n'), f);
 			}
 		}
 	}
 	out.push('', '## How to Apply', '');
-	out.push('- Read each patch first. Apply none, some, or all, in a normal session, under your harness\'s own permission prompts.');
-	out.push(`- Ask your assistant: "apply patch B1 from ${reportPath}", with the patch id you chose.`);
-	out.push('- By hand, a diff: save its block as `B1.diff`, then from the folder the patch names, run `git apply --check B1.diff`, then `git apply B1.diff`.');
+	out.push('- Read each change first. Apply none, some, or all, later, in a normal session, under your AI tool\'s own permission prompts.');
+	out.push(`- The simple way: ask your assistant, "apply change B1 from ${here}", with the change id you chose.`);
 	out.push('- By hand, a new file: create it with the exact contents shown.');
-	out.push('- A patch marked "Runs code" runs with your account\'s full permissions: read it before you apply it.');
-	out.push('- After applying, do each patch\'s verify step. To undo, follow its undo line; for a diff, `git apply -R B1.diff`.');
+	out.push('- By hand, a diff: open the file and make the edit it shows. Lines that start with `+` are added, lines that start with `-` are removed, and the other lines show where.');
+	out.push('- With git: save the diff block as `B1.diff`, then from the folder the change names, run `git apply --check B1.diff`, then `git apply B1.diff`.');
+	out.push('- A change marked "Runs code" runs with your account\'s full permissions: read it before you apply it.');
+	out.push('- After applying, do each change\'s verify step. To undo, follow its undo line, or ask your assistant to undo the change; with git, `git apply -R B1.diff`.');
 	out.push('', '## How to Refresh', '');
 	const s1 = ps.find((x) => x.id === 'S1');
-	if (s1) out.push(`- If you applied S1: run "${s1.invocation}". It re-inspects and compares with this report.`);
-	out.push(`- Or paste the inspect prompt from ${base}guide/inspect/ into a fresh session, choose refresh, and give it this report's path: ${reportPath}`);
-	out.push('- Keep this report where you can find it; the refresh compares against it.');
+	if (s1) out.push(`- If you applied S1: run "${s1.invocation}". It re-inspects and compares with this inspection report.`);
+	out.push(`- Or paste the inspect prompt from ${base}guide/inspect/ into a fresh session, choose refresh, and give it this inspection report's path: ${reportPath}`);
+	out.push('- Keep this inspection report where you can find it; the refresh compares against it.');
 	const data = {
 		schema: 1,
 		commit: md.commit,
@@ -1669,39 +1789,39 @@ function reportLines(plan, man, ctx, reportPath) {
 function reportProblems(text) {
 	const out = [];
 	for (const l of text.split('\n')) if (/<missing/.test(l)) out.push(`report line not filled: ${l}`);
-	if (SECRETS.some((re) => re.test(text))) out.push('the report holds a secret-shaped value: redact it in the plan');
+	if (SECRETS.some((re) => re.test(text))) out.push('the inspection report holds a secret-shaped value: redact it in the plan');
 	return out;
 }
 
-// ---------- refresh: compare with a previous report ----------
+// ---------- refresh: compare with a previous inspection report ----------
 
 function readPrevious(plan) {
 	const rp = planResolver(plan);
 	const path = rp(plan.previous?.path ?? '');
 	const text = path ? readText(path) : null;
-	if (text == null) return { error: `previous report not found at ${plan.previous?.path ?? '<plan.previous.path missing>'}: ask the user where they saved it` };
+	if (text == null) return { error: `previous inspection report not found at ${plan.previous?.path ?? '<plan.previous.path missing>'}: ask the user where they saved it` };
 	const m = /## Report Data[\s\S]*?```json\n([\s\S]*?)\n```/.exec(text);
 	let data = null;
 	try {
 		data = m ? JSON.parse(m[1]) : null;
 	} catch {}
-	if (!isObj(data)) return { error: `${path} has no Report Data block: it is not a SHRINE inspect report` };
+	if (!isObj(data)) return { error: `${path} has no Report Data block: it is not a SHRINE inspection report` };
 	const blocks = new Map();
 	for (const b of text.matchAll(/<!-- shrine-change (\S+) (\d+) -->\n(`{3,})[^\n]*\n([\s\S]*?)\n\3(?:\n|$)/g)) blocks.set(`${b[1]} ${b[2]}`, `${b[4]}\n`);
 	return { path, sha: sha(text), data, blocks };
 }
 
-// Each earlier patch now: applied, not applied, or changed since the report. Read-only.
+// Each earlier patch now: applied, not applied, or changed since the inspection report. Read-only.
 function patchStatus(c, body) {
 	const now = fileState(c.target) === 'absent' ? null : readText(c.target);
-	if (body == null) return 'block missing from the report';
-	if (c.kind === 'new') return now == null ? 'not applied' : now === body ? 'applied' : 'changed since the report';
+	if (body == null) return 'block missing from the inspection report';
+	if (c.kind === 'new') return now == null ? 'not applied' : now === body ? 'applied' : 'changed since the inspection report';
 	const p = parseDiff(body);
 	if (p.error) return `unreadable: ${p.error}`;
 	// Reverse first: a pure addition still applies forward after it was applied, since its context remains.
 	if (now != null && !applyHunks(now, reverseHunks(p.hunks)).error) return 'applied';
 	if (now != null && !applyHunks(now, p.hunks).error) return 'not applied';
-	return 'changed since the report';
+	return 'changed since the inspection report';
 }
 
 function refreshLines(plan, man) {
@@ -1710,16 +1830,16 @@ function refreshLines(plan, man) {
 	const d = prev.data;
 	const md = man.data;
 	const out = [
-		`previous report ${prev.path} ${h(prev.sha)}`,
+		`previous inspection report ${prev.path} ${h(prev.sha)}`,
 		`previous commit ${d.commit}, live ${md.commit}: ${d.commit === md.commit ? 'SHRINE has not moved' : 'SHRINE moved'}`,
 		`previous prompt version ${d.prompt?.version}, live ${md.prompt?.version}${md.prompt?.version > d.prompt?.version ? ': a newer prompt exists' : ''}`,
 	];
 	const live = new Map(arr(md.pages).map((p) => [p.title, p.sha256]));
 	const changed = arr(d.pages).filter(isObj).filter((p) => live.get(p.title) !== p.sha256);
-	out.push(`${changed.length} pages changed since the previous report${changed.length ? `: ${changed.map((p) => `"${p.title}"${live.has(p.title) ? '' : ' (removed)'}`).join(', ')}` : ''}`);
+	out.push(`${changed.length} pages changed since the previous inspection report${changed.length ? `: ${changed.map((p) => `"${p.title}"${live.has(p.title) ? '' : ' (removed)'}`).join(', ')}` : ''}`);
 	if (d.commit !== md.commit) out.push(`compare: https://github.com/stablekernel/SHRINE/compare/${d.commit}...${md.commit}`);
 	for (const x of arr(d.patches).filter(isObj))
-		for (const c of arr(x.changes).filter(isObj)) out.push(`patch ${x.id} change ${c.n} (${c.target}): ${patchStatus(c, prev.blocks.get(`${x.id} ${c.n}`))}`);
+		for (const c of arr(x.changes).filter(isObj)) out.push(`change ${x.id} file ${c.n} (${c.target}): ${patchStatus(c, prev.blocks.get(`${x.id} ${c.n}`))}`);
 	return { ok: true, lines: out };
 }
 
@@ -1730,7 +1850,7 @@ function reportFileItem(ctx, man) {
 	const r = plan.report_file;
 	const lines = [];
 	if (plan.delivery === 'inline') {
-		if (!HEX64.test(plan.report_sha256 ?? '')) return { mark: ' ', lines: ['plan.report_sha256 missing: render the report inline, paste it where the user asked, and record its end-line hash'] };
+		if (!HEX64.test(plan.report_sha256 ?? '')) return { mark: ' ', lines: ['plan.report_sha256 missing: render the inspection report inline, paste it where the user asked, and record its end-line hash'] };
 		const text = `${reportLines(plan, man, ctx, `(inline: ${plan.delivery_reason})`).join('\n')}\n`;
 		const ok = sha(text) === plan.report_sha256;
 		return { mark: ok ? 'x' : ' ', lines: [ok ? `report rendered inline ${h(plan.report_sha256)}, current with the plan  $ shrine-check --render report` : 'the plan changed since the inline report: render it again and record the new hash'] };
@@ -1746,7 +1866,7 @@ function reportFileItem(ctx, man) {
 	}
 	if (text !== `${reportLines(plan, man, ctx, path).join('\n')}\n`) {
 		mark = ' ';
-		lines.push(`${path} no longer matches the plan or the files: render the report again`);
+		lines.push(`${path} no longer matches the plan or the files: render the inspection report again`);
 	}
 	for (const p of [...outsideProblems('report', path, plan), ...reportProblems(text)]) {
 		mark = ' ';
@@ -1881,9 +2001,18 @@ async function render(opts) {
 	}
 	if (opts.render === 'baseline') {
 		if (!opts.out && plan.delivery !== 'inline') throw new Error('--render baseline needs --out (file delivery): the baseline is a file the read-only check compares against');
-		const lines = baselineLines(plan);
+		const roots = baselineRoots(plan);
+		const lines = baselineLines(plan, roots);
 		const b = parseBaseline(lines);
-		emit('baseline', lines, opts, plan, [`BASELINE: ${b.repos.size} repos, ${b.f.size} files listed by git status, ${b.w.size} watched files, ${b.persist.size} persistence paths`, 'Record this file and its sha256 in plan.readonly.baselines.']);
+		const head = [`BASELINE: ${countsText(baselineCounts(b))}`, ...[...b.wcap].map(([d, c]) => `FAIL ${capProblem(d, c)}`)];
+		if (opts.out) {
+			emit('baseline', lines, opts, plan, [...head, 'Record this file and its sha256 in plan.readonly.baselines.']);
+			return 0;
+		}
+		// Inline: print a digest and counts, not every file hash, for the agent to record in the plan.
+		const entry = { inline: true, ...digestOf(lines), counts: baselineCounts(b), roots };
+		const body = [...head, `entry: ${JSON.stringify(entry)}`, 'Add the entry line\'s JSON to plan.readonly.baselines.'];
+		console.log([`--- shrine-check ${VERSION} short baseline (inline: paste verbatim) ---`, ...body, `--- end short baseline sha256:${sha(body.join('\n'))} ---`].join('\n'));
 		return 0;
 	}
 	if (opts.render === 'review') {
@@ -1891,7 +2020,7 @@ async function render(opts) {
 			const { current, stale, design, rounds } = reviewersOf(x);
 			return `${x.id} design sha256:${design}; risk ${riskOf(x)}; ${current.length} of at least ${MIN_REVIEWERS[riskOf(x)]} reviewers of this design; round ${rounds} of at most ${MAX_ROUNDS}${stale ? `; ${stale} reviewed an earlier design` : ''}${isStr(x.review?.self_only) ? '; self only' : ''}`;
 		});
-		emit('review', lines, opts, plan, [`REVIEW: ${lines.length} patches; ${proposalsOf(plan).filter((x) => reviewProblems(x, plan.mode).length).length} need review or escalation`]);
+		emit('review', lines, opts, plan, [`REVIEW: ${lines.length} changes; ${proposalsOf(plan).filter((x) => reviewProblems(x, plan.mode).length).length} need review or escalation`]);
 		return 0;
 	}
 	if (opts.render === 'coverage') {
@@ -1901,7 +2030,7 @@ async function render(opts) {
 		return p.length ? 1 : 0;
 	}
 	if (opts.render === 's1') {
-		emit('s1', s1Lines(man), opts, plan, ['S1: put these lines verbatim in the S1 patch; the checker confirms the patch holds every line']);
+		emit('s1', s1Lines(man), opts, plan, ['S1: put these lines verbatim in the S1 change; the checker confirms the change holds every line']);
 		return 0;
 	}
 	if (opts.render === 'pin') {
@@ -1936,7 +2065,7 @@ async function render(opts) {
 			const p = reportProblems(text);
 			console.log([
 				`--- shrine-check ${VERSION} short report (paste verbatim; the full report is in the file) ---`,
-				`REPORT: ${p.length ? `${p.length} lines not filled` : 'complete'}; ${proposalsOf(plan).length} patches; read-only check ${ctx.verify.problems.length ? 'FAIL' : 'PASS'}`,
+				`REPORT: ${p.length ? `${p.length} lines not filled` : 'complete'}; ${proposalsOf(plan).length} changes; read-only check ${ctx.verify.problems.length ? 'FAIL' : 'PASS'}`,
 				...p,
 				`report file: ${pick.path}`,
 				'Offer to show it. Record its file and sha256 in plan.report_file.',
