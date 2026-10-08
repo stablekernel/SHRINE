@@ -24,7 +24,7 @@ import { homedir } from 'node:os';
 import { dirname, isAbsolute, join, resolve, sep } from 'node:path';
 import { fileURLToPath } from 'node:url';
 
-const VERSION = 3;
+const VERSION = 4;
 const PICKS = ['in place', 'locally only', 'reviewable change', 'reject'];
 const OPTIONS = PICKS.slice(0, 3);
 const STATUSES = ['pending', 'done', 'rejected'];
@@ -83,7 +83,8 @@ const GATES = [
 		['4.11', 'Coverage'], ['4.12', 'Decision per proposal', 'user'], ['4.13', 'No secret in any diff'],
 		['4.14', 'Entries from 1.8', 'user'], ['4.15', 'Nothing written in Phase 4'], ['4.16', 'Trade-off per proposal'],
 		['4.17', 'S1 refresh entry', 'user'], ['4.18', 'S2 staleness check', 'user'],
-		['4.19', 'Model fit and adversarial review'], ['4.20', 'Scan findings resolved'], ['4.21', 'Nudges'] ] },
+		['4.19', 'Model fit and adversarial review'], ['4.20', 'Scan findings resolved'], ['4.21', 'Nudges'],
+		['4.22', 'Baseline practices', 'user'] ] },
 	{ n: 5, name: 'Apply', approval: false, next: 'Phase 6: Verify, Self-Audit, Hand Off', items: [
 		['5.1', 'Record written per scope'], ['5.2', 'Backups'], ['5.3', 'Each change'], ['5.4', 'Applied text matches approved text'],
 		['5.5', 'Each change landed at its chosen scope'], ['5.6', 'Backups not committed'], ['5.7', 'No pending entries left'],
@@ -111,7 +112,7 @@ const INVARIANTS = [
 	['10 Cannot pause', ['0.2', '0.3']],
 	['11 Blast radius', ['1.4', '3.7', '4.2', '4.4', '4.9', '5.5', '5.6', '5.11']],
 	['12 Evidence from tools', ['0.7', '1.1', '1.13', '1.14', '5.10', '5.11', '6.1', '6.2', '6.8']],
-	['13 Practise SHRINE', ['1.13', '1.14', '4.11', '4.19', '4.20', '4.21', '6.1']],
+	['13 Practise SHRINE', ['1.13', '1.14', '4.11', '4.19', '4.20', '4.21', '4.22', '6.1']],
 ];
 
 // ---------- input ----------
@@ -131,6 +132,11 @@ function parseArgs(argv) {
 		} else throw new Error(`unknown argument: ${a}`);
 	}
 	if (opts.uninstall && !opts.recordBackup) throw new Error('--uninstall needs --record-backup');
+	if (opts.uninstall && opts.record) {
+		const r = resolve(expandHome(opts.record));
+		if (r === resolve(expandHome(opts.recordBackup)) || /[\\/]\.shrine[\\/]backups[\\/]/.test(r))
+			throw new Error('--record is the record\'s own path, not its backup: pass the path the record had, and its backup as --record-backup');
+	}
 	if (opts.out && !opts.render) throw new Error('--out works only with --render');
 	if (opts.render) {
 		if (!RENDERS.includes(opts.render)) throw new Error(`--render must be one of: ${RENDERS.join(', ')}`);
@@ -268,10 +274,14 @@ function shapeErrors(r) {
 		});
 	if (r.renders != null) {
 		if (!Array.isArray(r.renders)) errs.push('renders must be an array');
-		else
+		else {
+			const seen = new Set();
 			r.renders.forEach((x, i) => {
-				if (!isObj(x) || !isStr(x.gate) || !isStr(x.file) || typeof x.sha256 !== 'string') errs.push(`renders[${i}] needs gate, file, and sha256`);
+				if (!isObj(x) || !isStr(x.gate) || typeof x.sha256 !== 'string') return errs.push(`renders[${i}] needs gate and sha256`);
+				if (seen.has(x.gate)) errs.push(`renders holds gate ${x.gate} twice: replace the record's renders with this run's, do not add to them`);
+				seen.add(x.gate);
 			});
+		}
 	}
 	return errs;
 }
@@ -391,8 +401,8 @@ function installChecks(rep, rec, man, opts, plan) {
 	rep.check('record-update', ru.problems, `${ru.lines.length} record updates (A0), each with a backup equal to its before hash`);
 	if (!ru.problems.length) ru.lines.forEach((l) => rep.info(l));
 
-	const rh = renderHashProblems(r, plan, resolvePath);
-	rep.check('render-hashes', rh.problems, `${rh.lines.length} approved gate renders, each file equal to its stored sha256`);
+	const rh = renderHashProblems(r, plan);
+	rep.check('render-hashes', rh.problems, rh.pass);
 	if (!rh.problems.length) rh.lines.forEach((l) => rep.info(l));
 
 	const drift = [];
@@ -465,29 +475,39 @@ function recordUpdateCheck(entries, resolvePath, recordPath) {
 	return { problems, lines };
 }
 
-// Each approved gate's render file: the record and the plan store its sha256, and the file must
-// still equal it. A missing file fails only in the same run (with --plan); temp folders get cleared.
-function renderHashProblems(r, plan, resolvePath) {
+// The record keeps each approved gate render as a hash only; render files live in the run's
+// temporary folder and are gone after it. So the files are checked only within a run (with
+// --plan): each plan render file must still equal its approved sha256, and a record written in
+// this run must hold the same hashes. After the run the stored hashes are shown, and no file is read.
+const writtenThisRun = (plan, r) =>
+	proposalsOf(plan).some((x) => ['approved', 'edited and approved'].includes(x.decision) && goodEntries(r).some((e) => e.id === x.id));
+
+function renderHashProblems(r, plan) {
 	const problems = [];
 	const lines = [];
-	const stored = Array.isArray(r?.renders) ? r.renders.filter((x) => isObj(x) && isStr(x.file)) : [];
-	for (const x of stored) {
-		const path = resolvePath(x.file);
-		const actual = fileSha(path);
-		if (actual == null) {
-			if (plan) problems.push(`gate ${x.gate}: render file ${path} missing`);
-			else lines.push(`  gate ${x.gate} ${path} not on this machine any more (temporary folder); stored ${h(x.sha256)}`);
-		} else if (actual !== x.sha256) problems.push(`gate ${x.gate}: render file ${path} ${h(actual)} != stored ${h(x.sha256)}`);
-		else lines.push(`  gate ${x.gate} ${path} ${h(actual)}`);
+	const stored = Array.isArray(r?.renders) ? r.renders.filter((x) => isObj(x) && isStr(x.gate)) : [];
+	const planned = isObj(plan?.renders) ? Object.entries(plan.renders).filter(([, v]) => isObj(v)) : [];
+	if (!planned.length) {
+		for (const x of stored) lines.push(`  gate ${x.gate} stored ${h(x.sha256)}`);
+		return { problems, lines, pass: `${stored.length} approved gate renders stored as hashes; render files belong to their run and are not read` };
 	}
-	if (isObj(plan?.renders))
-		for (const [gate, v] of Object.entries(plan.renders)) {
-			if (!isObj(v)) continue;
+	const rp = planResolver(plan);
+	for (const [gate, v] of planned) {
+		const path = isStr(v.file) ? rp(v.file) : null;
+		const actual = path ? fileSha(path) : null;
+		if (actual == null) problems.push(`gate ${gate}: render file ${path ?? v.file} missing`);
+		else if (actual !== v.sha256) problems.push(`gate ${gate}: render file ${path} ${h(actual)} != approved ${h(v.sha256)}`);
+		else lines.push(`  gate ${gate} ${path} ${h(actual)}`);
+	}
+	const fresh = writtenThisRun(plan, r);
+	if (fresh)
+		for (const [gate, v] of planned) {
 			const rec = stored.find((x) => x.gate === gate);
-			if (!rec) problems.push(`gate ${gate}: plan.renders has it, the record's renders do not`);
-			else if (rec.sha256 !== v.sha256) problems.push(`gate ${gate}: record ${h(rec.sha256)} != plan ${h(v.sha256)}`);
+			if (!rec) problems.push(`gate ${gate}: plan.renders has it, the record's renders do not: replace the record's renders with this run's`);
+			else if (rec.sha256 !== v.sha256) problems.push(`gate ${gate}: record ${h(rec.sha256)} != plan ${h(v.sha256)}: replace the record's renders with this run's`);
 		}
-	return { problems, lines };
+	else lines.push('  record not written in this run: its renders are an earlier run\'s and are not compared');
+	return { problems, lines, pass: `${planned.length} approved gate renders in this run, each file equal to its approved sha256${fresh ? ' and to the record' : ''}` };
 }
 
 function uninstallChecks(rep, opts, plan) {
@@ -822,8 +842,13 @@ function framed(kind, body) {
 // The exact bytes of a render file, so a hash of it can be recomputed from the plan.
 const renderText = (kind, body) => `${framed(kind, body).join('\n')}\n`;
 
+// The design the menus show: every proposal field except the user's replies. The menus print
+// its hash, so a plan edit after the menus were shown changes the menus hash and blocks 4.9.
+const REPLIES = ['pick', 'ack', 'decision', 'quote'];
+const designSha = (plan) => sha(JSON.stringify(proposalsOf(plan).map((x) => Object.fromEntries(Object.entries(x).filter(([k]) => !REPLIES.includes(k))))));
+
 function menuBody(plan) {
-	const out = [];
+	const out = [`plan design sha256:${designSha(plan)}`];
 	for (const x of (plan.proposals ?? []).filter(isObj)) {
 		out.push(`${x.id} ${x.title}`);
 		if (plan.run !== 'uninstall') {
@@ -1021,10 +1046,18 @@ function computed(id, ctx) {
 			// File delivery stores the menus render file's sha256; inline delivery stores the end-line hash.
 			const want = plan.delivery === 'inline' ? menuSha(plan) : sha(renderText('menus', menuBody(plan)));
 			let head;
+			const how = `Run --render menus${plan.delivery === 'inline' ? ', paste it, and copy its end-line hash' : ' --out <dir>, have the user open the file, and copy its render sha256'} into menus_sha256`;
 			if (plan.menus_sha256 !== want) {
 				mark = ' ';
-				head = `menus not shown as rendered: plan.menus_sha256 ${h(plan.menus_sha256 ?? null)} != current menus sha256:${want}. Run --render menus${plan.delivery === 'inline' ? ', paste it, and copy its end-line hash' : ' --out <dir>, have the user open the file, and copy its render sha256'}`;
+				head = isStr(plan.menus_sha256)
+					? `the plan changed after the menus were rendered: plan.menus_sha256 ${h(plan.menus_sha256)} != current menus sha256:${want}. ${how}, then ask for each pick again and set picks_menus_sha256`
+					: `menus not shown as rendered: plan.menus_sha256 ${h(null)} != current menus sha256:${want}. ${how}`;
 			} else head = `menus shown: sha256:${want}, ${ps.length} proposals, 4 options each  $ shrine-check --render menus`;
+			const stalePicks = plan.menus_sha256 === want && ps.some((x) => x.pick != null) && plan.picks_menus_sha256 !== want;
+			if (stalePicks) {
+				mark = ' ';
+				lines.push(`picks were given on an earlier menus render: show the current menus and ask for each pick again, then set picks_menus_sha256 to sha256:${want}`);
+			}
 			for (const x of ps) {
 				if (x.pick == null) wait(`${x.id}: pick awaiting`);
 				else if (x.pick !== 'reject' && !isStr(x.ack)) wait(`${x.id}: [${PICKS.indexOf(x.pick) + 1}] ${x.pick}; acknowledgement of who is affected awaiting`);
@@ -1114,6 +1147,24 @@ function computed(id, ctx) {
 				else lines.push(t);
 			}
 			return { mark, lines };
+		}
+		case '4.22': {
+			// No stated or measured deficit: the user still gets the baseline practices that fit,
+			// or an explicit "none fit" they acknowledged, and the Individual Baseline offer.
+			if (plan.run !== 'install') return { mark: '-', lines: [`not applicable: ${plan.run}  (plan)`] };
+			const nc = Array.isArray(plan.corrections) ? plan.corrections.length : 0;
+			const nf = Array.isArray(plan.scan) ? plan.scan.length : 0;
+			if (nc + nf) return { mark: '-', lines: [`not applicable: ${nc} corrections and ${nf} anti-pattern findings to design from  (plan)`] };
+			const b = isObj(plan.baseline) ? plan.baseline : {};
+			const base = ps.filter((x) => !/^[ASR]\d/.test(x.id ?? ''));
+			const report = plan.mode !== 'full';
+			if (base.length) lines.push(`no stated or measured deficit; baseline proposals: ${base.map((x) => `${x.id} (${x.page})`).join(', ')}  (plan)`);
+			else if (isStr(b.none_fit) && (report || isStr(b.none_fit_ack))) lines.push(`no stated or measured deficit; no baseline practice fits: ${b.none_fit}${report ? '' : `; ${quote(b.none_fit_ack)} (user)`}`);
+			else fail(`no stated or measured deficit, and no baseline-practice proposal: propose the baseline practices that fit, or set baseline.none_fit with the reason and baseline.none_fit_ack with the user's words`);
+			if (report) lines.push(`Individual Baseline offer: in the report (${plan.mode})`);
+			else if (isStr(b.offer)) lines.push(`Individual Baseline offered: ${quote(b.offer)} (user)`);
+			else wait('awaiting: the user\'s answer to the Individual Baseline offer');
+			return { mark, head: lines[0], lines: lines.slice(1) };
 		}
 		case '6.1': {
 			if (plan.run === 'uninstall') return { mark: '-', lines: ['not applicable: uninstall removes additions; nothing new has to load  (plan)'] };
@@ -1213,8 +1264,11 @@ function renderItem(id, title, ctx, gateN) {
 	let head;
 	const subs = [];
 	if (evr && comp) {
-		// A computed problem outranks the agent's own mark; a computed pass keeps it.
-		mark = comp.mark === 'x' ? evr.mark : worst(evr.mark === '-' ? 'x' : evr.mark, comp.mark);
+		// A computed problem outranks the agent's own mark; a computed pass keeps it; a [-] both
+		// sides agree on stays [-].
+		if (comp.mark === 'x') mark = evr.mark;
+		else if (comp.mark === '-' && ['x', '-'].includes(evr.mark)) mark = '-';
+		else mark = worst(evr.mark === '-' ? 'x' : evr.mark, comp.mark);
 		head = evr.text;
 		subs.push(...evr.sub, ...comp.lines.map((l) => `      ${l}`));
 	} else if (comp) {
@@ -1241,12 +1295,19 @@ function header(ctx) {
 	return `Mode: ${plan.mode}    Time: ${t.used ?? '?'} of ${t.agreed ?? '?'} min`;
 }
 
+// An uninstall skips Phases 2 and 3: their gates print [-] and need no approval, and Gate 4's
+// Approved line carries the Gate 1 approval.
+const SKIPPED_ON_UNINSTALL = [2, 3];
+const needsApproval = (n, plan) => GATES[n].approval && !(plan.run === 'uninstall' && SKIPPED_ON_UNINSTALL.includes(n));
+
 function approvedLine(gateN, ctx) {
 	const { plan } = ctx;
 	if (plan.mode === 'report-only') return { ok: true, line: 'Approved: report-only' };
 	if (gateN === 0) return { ok: true, line: 'Approved: none needed' };
-	const prev = GATES[gateN - 1];
-	if (!prev.approval) return { ok: true, line: 'Approved: none needed' };
+	let p = gateN - 1;
+	if (plan.run === 'uninstall' && gateN === 4) p = 1;
+	const prev = GATES[p];
+	if (!needsApproval(p, plan)) return { ok: true, line: 'Approved: none needed' };
 	const q = plan.approvals?.[String(prev.n)];
 	if (!isStr(q)) return { ok: false, line: `Approved: [ ] missing: the user's approval of gate ${prev.n}` };
 	const r = renderApproval(prev.n, ctx);
@@ -1275,15 +1336,22 @@ function gateBody(gateN, ctx) {
 	const items = g.items.map(([id, title]) => renderItem(id, title, ctx, gateN));
 	const ap = approvedLine(gateN, ctx);
 	const marks = items.map((i) => i.mark);
+	// Gate 0 is printed by hand, so its items must reach the plan before Gate 1 renders.
+	const carried = [];
+	if (gateN >= 1) {
+		const missing = GATES[0].items.filter(([id, title]) => renderItem(id, title, ctx, 0).out[0].endsWith('missing from the plan')).map(([id]) => id);
+		if (missing.length) carried.push(`[ ] Gate 0 in the plan: ${missing.join(', ')} missing; add Gate 0's evidence to the plan before Gate 1`);
+	}
+	const approval = needsApproval(gateN, ctx.plan);
 	let status = 'PASS';
-	if (!ap.ok || marks.includes(' ')) status = 'BLOCKED';
+	if (!ap.ok || marks.includes(' ') || carried.length) status = 'BLOCKED';
 	else if (marks.includes('wait')) status = 'WAITING FOR APPROVAL';
-	else if (g.approval && ctx.plan.mode === 'full' && !isStr(ctx.plan.approvals?.[String(gateN)])) status = 'WAITING FOR APPROVAL';
+	else if (approval && ctx.plan.mode === 'full' && !isStr(ctx.plan.approvals?.[String(gateN)])) status = 'WAITING FOR APPROVAL';
 	const next =
 		status === 'BLOCKED'
 			? 'Next: fix each [ ] item, ask the user, or abort. Approval needed: no.'
-			: `Next: ${g.next}. Approval needed: ${g.approval && ctx.plan.mode === 'full' ? `yes. Reply "approve gate ${gateN}"` : 'no'}.`;
-	return { status, items, lines: [`GATE ${gateN} of 6: ${g.name}: ${status}`, ap.line, header(ctx), ...items.flatMap((i) => i.out), next] };
+			: `Next: ${g.next}. Approval needed: ${approval && ctx.plan.mode === 'full' ? `yes. Reply "approve gate ${gateN}"` : 'no'}.`;
+	return { status, items, lines: [`GATE ${gateN} of 6: ${g.name}: ${status}`, ap.line, header(ctx), ...carried, ...items.flatMap((i) => i.out), next] };
 }
 
 function restoreLines(recData, recordPath) {
@@ -1301,9 +1369,11 @@ function restoreLines(recData, recordPath) {
 	return out.length ? out : ['no changes to restore'];
 }
 
-function reportLines(plan, recData, recordPath, man) {
+function reportLines(plan, recData, recordPath, man, un = {}) {
 	const entries = goodEntries(recData);
-	const done = entries.filter((e) => e.status === 'done');
+	const ids = new Set(proposalsOf(plan).map((x) => x.id));
+	// Changed lists this run's changes; a re-run's record also holds earlier runs' entries.
+	const done = entries.filter((e) => e.status === 'done' && (!ids.size || ids.has(e.id)));
 	const skipped = [...entries.filter((e) => e.status === 'rejected').map((e) => e.id), ...proposalsOf(plan).filter((x) => x.decision === 'rejected' && !entries.some((e) => e.id === x.id)).map((x) => x.id)];
 	const rr = recordPath ? resolver(recordPath) : (p) => p;
 	const backups = entries.filter((e) => isStr(e.backup)).map((e) => rr(e.backup));
@@ -1316,6 +1386,16 @@ function reportLines(plan, recData, recordPath, man) {
 	const top = tops.length
 		? tops.map((t, i) => `${i + 1}. ${t.practice} (${pages.get(t.page)?.url ?? (man ? `<"${t.page}" has no url in the manifest>` : `"${t.page}"`)})`).join(' ')
 		: '<missing: plan.report.top_practices>';
+	if (un.uninstall)
+		// The record and SHRINE's additions are gone: no undo, rerun, or handoff line applies.
+		return [
+			`Removed: ${done.map((e) => `${e.id} ${e.target}`).join('; ') || 'nothing'}`,
+			`Skipped: ${skipped.map((id) => `${id} (${why[id] ?? '<missing: plan.report.skipped_why>'})`).join('; ') || 'none'}`,
+			`Paste-ready: ${isStr(rpt.paste_ready) ? rpt.paste_ready : '<missing: plan.report.paste_ready>'}`,
+			`Record: removed (6.6): ${recordPath ? resolve(recordPath) : '<record>'}`,
+			un.backupsDeleted ? 'Backups: deleted on your approval (6.7)' : `Backups: kept: ${backups.join(', ') || 'none'} (restore steps in the README beside them)`,
+			`Top practices: ${top}`,
+		];
 	return [
 		`Changed: ${done.map((e) => `${e.id} ${e.target}`).join('; ') || 'nothing'}`,
 		`Skipped: ${skipped.map((id) => `${id} (${why[id] ?? '<missing: plan.report.skipped_why>'})`).join('; ') || 'none'}`,
@@ -1334,8 +1414,8 @@ function reportLines(plan, recData, recordPath, man) {
 }
 
 // The report is complete when the plan fills every line the checker cannot derive.
-function reportProblems(plan, recData, man) {
-	const lines = reportLines(plan, recData ?? { entries: [] }, null, man);
+function reportProblems(plan, recData, man, un) {
+	const lines = reportLines(plan, recData ?? { entries: [] }, null, man, un);
 	return lines.filter((l) => /<missing|has no url in the manifest/.test(l)).map((l) => `report line not filled: ${l}`);
 }
 
@@ -1377,10 +1457,11 @@ function renderFinal(ctx, opts) {
 	finalItem('6.3', 'Invariant Map', inv.every((i) => i.ok) ? 'x' : ' ', [`${inv.filter((i) => i.ok).length} of ${INVARIANTS.length} invariants with every item [x] or [-]  $ shrine-check (marks in this gate)`, ...inv.map((i) => i.line)]);
 	if (r64) body.push(...r64.out);
 	else finalItem('6.4', 'Restore instructions', 'x', ['from the record  $ shrine-check (record)', ...restoreLines(recData, opts.record)]);
-	const rprobs = reportProblems(plan, recData, ctx.man);
+	const un = { uninstall: plan.run === 'uninstall' && opts.uninstall, backupsDeleted: opts.backupsDeleted };
+	const rprobs = reportProblems(plan, recData, ctx.man, un);
 	finalItem('6.5', 'Report', rprobs.length ? ' ' : 'x', [
 		rprobs.length ? `fill plan.report, then render again: ${rprobs.length} lines not filled` : 'rendered from the record and plan.report; show it with --render report after this gate  $ shrine-check (record, plan report)',
-		...reportLines(plan, recData ?? { entries: [] }, opts.record, ctx.man),
+		...reportLines(plan, recData ?? { entries: [] }, opts.record, ctx.man, un),
 	]);
 	body.push(...r66.out, ...r67.out);
 	if (r68) body.push(...r68.out);
@@ -1533,8 +1614,9 @@ async function render(opts) {
 	}
 	if (opts.render === 'report') {
 		const recData = opts.uninstall ? loadJSON(opts.recordBackup).data : opts.record ? loadJSON(opts.record).data : { entries: [] };
-		const lines = reportLines(plan, recData, opts.record, ctx.man);
-		const p = reportProblems(plan, recData, ctx.man);
+		const un = { uninstall: opts.uninstall, backupsDeleted: opts.backupsDeleted };
+		const lines = reportLines(plan, recData, opts.record, ctx.man, un);
+		const p = reportProblems(plan, recData, ctx.man, un);
 		emit('report', lines, opts, plan, [`REPORT: ${p.length ? `${p.length} lines not filled` : 'complete'}; ${lines.length} lines`]);
 		return p.length ? 1 : 0;
 	}

@@ -75,7 +75,7 @@ These hold on every harness, whatever the agent designs. Each maps to gate items
 
 1. Copy the prompt below, or fetch the raw file: [install-prompt.md](/SHRINE/install-prompt.md)
 
-2. Bring two or three recent corrections you made to agent output, and say whether each has happened before; the agent designs from the repeated ones
+2. Bring two or three recent corrections you made to agent output, and say whether each has happened before; the agent designs from the repeated ones; with none, it still proposes the baseline practices that fit
 
 3. Start a session in your harness, in the project you want to set up, and paste the prompt
 
@@ -116,7 +116,9 @@ Agent-readable copies of this page (llms.txt files) leave the prompt out on purp
 - A small Node script SHRINE ships; it changes no file, writes only new render files in the run's temporary folder (never inside your project or home scope, never over an existing file), and fetches only the manifest
 - It checks the record against the manifest and your files: required fields, full 64-hex hashes, page hashes, the four-option pick, each file's hash chain, backups, drift, and pending entries
 - It checks the agent's plan file: every change and backup inside the scope you chose, every ratified principle covered with a reason, enough reviewers for each proposal's risk, each scan finding tied to an index row, and no shortened hash
-- It checks each approved render file against its recorded hash, and the record update on a re-run like any other change
+- Within a run, it checks each approved render file against its hash; the record keeps only those hashes, so a cleared temporary folder never fails a later check
+- It checks the record update on a re-run like any other change
+- If the plan changes after you saw the pick menus, Gate 4 blocks until the menus are shown again and you pick again
 - A change counts as loading only with proof from a fresh session after the write, from the agent's probe or your check
 - It renders every gate, every pick menu with all four options, the final gate with every item and full hashes, and the report; a FAIL blocks the gate
 - It runs code, so the agent asks once per run; without Node, or if you decline, the agent runs the same checks by hand, marks them "checked manually", and prints each gate by hand, marked "rendered manually"
@@ -126,7 +128,7 @@ Agent-readable copies of this page (llms.txt files) leave the prompt out on purp
 ## What It Leaves Behind
 
 - Only the changes you approved, marked so a later run can find them
-- A record and backups in each scope it changed, under `.shrine/` at the project root or `~/.shrine/`
+- A record and backups in each scope it changed, under `.shrine/` at the project root or `~/.shrine/`; gate renders stay in the run's temporary folder
 - In a shared project, it asks whether the record may be committed; backups never are
 - An advice-only report is a complete install
 
