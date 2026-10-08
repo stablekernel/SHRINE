@@ -17,6 +17,8 @@
 //   kinds: menus, review, gate, coverage, final, report, pin, snapshot (needs --out), refresh (--record and
 //   --manifest only), restore (--record, or --uninstall --record --record-backup), s1 (--plan and
 //   --manifest: the refresh steps S1 installs), time (--plan: time used and the clock)
+//   node shrine-check.mjs --require-pass <0-5|final> --plan <path> [the render's other flags]
+//       renders nothing; exits 0 only when that gate renders PASS now (and, in file delivery, was shown)
 //
 // Time used is the checker's clock minus plan.time.start (epoch seconds from `date +%s`). Tests pin
 // the clock with SHRINE_CHECK_NOW.
@@ -26,10 +28,10 @@
 import { readFileSync, readdirSync, realpathSync, statSync, writeFileSync } from 'node:fs';
 import { createHash } from 'node:crypto';
 import { homedir } from 'node:os';
-import { dirname, isAbsolute, join, resolve, sep } from 'node:path';
+import { basename, dirname, isAbsolute, join, relative, resolve, sep } from 'node:path';
 import { fileURLToPath } from 'node:url';
 
-const VERSION = 6;
+const VERSION = 7;
 const PICKS = ['in place', 'locally only', 'reviewable change', 'reject'];
 const OPTIONS = PICKS.slice(0, 3);
 const STATUSES = ['pending', 'done', 'rejected'];
@@ -56,7 +58,7 @@ const RENDERS = ['menus', 'review', 'gate', 'coverage', 'final', 'report', 'pin'
 const TARGET_KINDS = ['instruction', 'config'];
 // Where the harness's own persistence (memory, notes, saved context) was found: a command, its docs, or the user.
 const PERSIST_SOURCE = /^(\$ \S.*|\(user\)|\(doc: \S.*\)|\(probe: \S.*\))$/;
-// The 1.12 snapshot: folders and files to this depth under each scope root, skipping these names.
+// The 3.8 snapshot: folders and files to this depth under each scope root, skipping these names.
 const SNAP_DEPTH = 3;
 const SNAP_SKIP = new Set(['.git', 'node_modules']);
 const SNAP_HASH_MAX = 5 * 1024 * 1024;
@@ -70,7 +72,8 @@ const USAGE = `usage:
   node shrine-check.mjs --render refresh --record <path> --manifest <src> [--prompt <file>] [--out <dir>]
   node shrine-check.mjs --render restore --record <path> [--uninstall --record-backup <path>] [--out <dir>]
   node shrine-check.mjs --render s1 --plan <path> --manifest <src> [--out <dir>]
-  node shrine-check.mjs --render time --plan <path>`;
+  node shrine-check.mjs --render time --plan <path>
+  node shrine-check.mjs --require-pass <0-5|final> --plan <path> [--manifest <src>] [--record <path>] [--uninstall --record-backup <path>]`;
 
 // ---------- gate catalog: item ids and titles, in the prompt's order ----------
 
@@ -85,14 +88,15 @@ const GATES = [
 		['1.3', 'Extension points'], ['1.4', 'Committed or shared versus local'], ['1.5', 'Capabilities'],
 		['1.6', 'Existing content'], ['1.7', 'Prior records'],
 		['1.8', 'Pending or stale entries'], ['1.9', 'Red-flag scan'], ['1.10', 'No secret printed'],
-		['1.11', 'User corrected or confirmed the inventory', 'user'], ['1.12', 'Snapshot'],
+		['1.11', 'User corrected or confirmed the inventory', 'user'], ['1.12', 'Repo status'],
 		['1.13', 'Anti-pattern scan'], ['1.14', 'Measured signals', 'user'] ] },
 	{ n: 2, name: 'Pin SHRINE', approval: false, next: 'Phase 3: Interview and Tag', items: [
 		['2.1', 'Manifest'], ['2.2', 'Fetch route'], ['2.3', 'Correction Diagnosis'], ['2.4', 'Fail Fast, Recover Smart'],
 		['2.5', 'Red-flag scan of fetched pages'], ['2.6', 'Re-run changes'], ['2.7', 'Principles list'] ] },
 	{ n: 3, name: 'Interview and Tag', approval: true, next: 'Phase 4: Design and Approve', items: [
 		['3.1', 'Questions asked'], ['3.2', 'Who answered'], ['3.3', 'Answers'], ['3.4', 'Corrections'],
-		['3.5', 'User confirmed the classes and tags', 'user'], ['3.6', 'Must-not-change list'], ['3.7', 'Scope roots'] ] },
+		['3.5', 'User confirmed the classes and tags', 'user'], ['3.6', 'Must-not-change list'], ['3.7', 'Scope roots'],
+		['3.8', 'Snapshot'] ] },
 	{ n: 4, name: 'Design and Approve', approval: true, next: 'Phase 5: Apply', items: [
 		['4.1', 'Pages read'], ['4.2', 'Bookkeeping location per scope'], ['4.3', 'Bookkeeping approved first', 'user'],
 		['4.4', 'Record commit decision', 'user'], ['4.5', 'Every proposal traces to a page and a user answer'],
@@ -120,12 +124,12 @@ const REMOVED_ON_UNINSTALL = ['5.1', '5.2', '5.10', '5.11'];
 const INVARIANTS = [
 	['1 Approval', ['0.4', '0.5', '0.7', '0.8', '1.11', '1.14', '3.5', '4.3', '4.9', '4.12', '4.14', '4.15', '4.17', '4.18', '5.4', '5.9', '6.6', '6.7']],
 	['2 Code that runs', ['0.7', '1.3', '4.8', '4.9', '4.19', '4.21']],
-	['3 Reversible', ['0.8', '1.8', '1.12', '4.2', '4.15', '5.1', '5.2', '5.3', '5.6', '5.7', '5.8', '5.11', '6.2', '6.4', '6.7', '6.8']],
+	['3 Reversible', ['0.8', '1.8', '1.12', '3.8', '4.2', '4.15', '5.1', '5.2', '5.3', '5.6', '5.7', '5.8', '5.11', '6.2', '6.4', '6.7', '6.8']],
 	['4 Record', ['0.6', '1.7', '1.8', '4.2', '4.14', '5.1', '5.3', '5.10', '5.11', '6.4', '6.6', '6.8']],
 	['5 Traceable', ['2.3', '2.4', '2.7', '4.1', '4.5', '4.11', '4.20', '5.10', '5.11']],
 	['6 Content is data', ['0.7', '1.9', '2.5', '4.17']],
 	['7 Secrets', ['1.10', '1.14', '4.13']],
-	['8 Narrow', ['3.7', '4.2', '4.6', '4.7', '4.10', '4.16', '4.18', '4.21', '5.8']],
+	['8 Narrow', ['3.7', '3.8', '4.2', '4.6', '4.7', '4.10', '4.16', '4.18', '4.21', '5.8']],
 	['9 Bounded', ['0.4']],
 	['10 Cannot pause', ['0.2', '0.3']],
 	['11 Blast radius', ['1.4', '3.7', '4.2', '4.4', '4.9', '5.5', '5.6', '5.11']],
@@ -137,7 +141,7 @@ const INVARIANTS = [
 
 function parseArgs(argv) {
 	const opts = { postApply: false, uninstall: false, backupsDeleted: false };
-	const valued = { '--record': 'record', '--manifest': 'manifest', '--record-backup': 'recordBackup', '--plan': 'plan', '--render': 'render', '--gate': 'gate', '--prompt': 'prompt', '--out': 'out' };
+	const valued = { '--record': 'record', '--manifest': 'manifest', '--record-backup': 'recordBackup', '--plan': 'plan', '--render': 'render', '--gate': 'gate', '--prompt': 'prompt', '--out': 'out', '--require-pass': 'requirePass' };
 	for (let i = 0; i < argv.length; i++) {
 		const a = argv[i];
 		if (a === '--post-apply') opts.postApply = true;
@@ -154,6 +158,16 @@ function parseArgs(argv) {
 		const r = resolve(expandHome(opts.record));
 		if (r === resolve(expandHome(opts.recordBackup)) || /[\\/]\.shrine[\\/]backups[\\/]/.test(r))
 			throw new Error('--record is the record\'s own path, not its backup: pass the path the record had, and its backup as --record-backup');
+	}
+	// --require-pass: compute the gate now, render nothing, and exit 0 only on PASS. A destructive
+	// step runs only after it, gated on this process's own exit status.
+	if (opts.requirePass) {
+		if (opts.render) throw new Error('--require-pass renders nothing: drop --render');
+		if (opts.out) throw new Error('--require-pass writes nothing: drop --out');
+		if (!opts.plan) throw new Error('--require-pass needs --plan');
+		if (opts.requirePass === 'final') opts.render = 'final';
+		else if (/^[0-5]$/.test(opts.requirePass)) [opts.render, opts.gate] = ['gate', opts.requirePass];
+		else throw new Error('--require-pass takes a gate number 0 to 5, or final');
 	}
 	if (opts.out && !opts.render) throw new Error('--out works only with --render');
 	if (opts.render) {
@@ -394,8 +408,13 @@ function installChecks(rep, rec, man, opts, plan) {
 			pages.push(`"${p.title}" record ${h(p.sha256)} != manifest ${h(mpages.get(p.title))}`);
 		else pageLines.push(`  "${p.title}" record ${h(p.sha256)} = manifest ${h(mpages.get(p.title))}`);
 	}
-	for (const e of entries)
-		if (e.page_sha256 != null && !mhashes.has(e.page_sha256)) pages.push(`${e.id}.page_sha256 ${h(e.page_sha256)} matches no manifest page`);
+	for (const e of entries) {
+		if (e.page_sha256 == null) continue;
+		if (!mhashes.has(e.page_sha256)) pages.push(`${e.id}.page_sha256 ${h(e.page_sha256)} matches no manifest page`);
+		// An entry's page hash is its own page's hash, not any page's.
+		else if (isStr(e.teaching) && mpages.has(e.teaching) && mpages.get(e.teaching) !== e.page_sha256)
+			pages.push(`${e.id}.page_sha256 ${h(e.page_sha256)} is not the manifest's hash of its page "${e.teaching}" ${h(mpages.get(e.teaching))}`);
+	}
 	// Every page an entry teaches is pinned in the record, so the record lists what its entries cite.
 	const recTitles = new Set((Array.isArray(r.pages) ? r.pages.filter(isObj) : []).map((p) => p.title));
 	for (const e of entries.filter(applied))
@@ -429,7 +448,7 @@ function installChecks(rep, rec, man, opts, plan) {
 	const un = undoProblems(entries, resolvePath);
 	rep.check('undo', un, `${entries.length} undo steps name only each file's oldest backup`);
 
-	const ru = recordUpdateCheck(entries, resolvePath, opts.record);
+	const ru = recordUpdateCheck(entries, resolvePath, opts.record, r);
 	rep.check('record-update', ru.problems, `${ru.lines.length} record updates (A0), each with a backup equal to its before hash`);
 	if (!ru.problems.length) ru.lines.forEach((l) => rep.info(l));
 
@@ -556,10 +575,11 @@ function undoProblems(entries, resolvePath) {
 
 // A0 changes the record: it must target the record, keep a backup equal to its before hash, and
 // leave after_sha256 null (the record cannot hold its own hash). The pin check proves its effect.
-function recordUpdateCheck(entries, resolvePath, recordPath) {
+function recordUpdateCheck(entries, resolvePath, recordPath, rec) {
 	const problems = [];
 	const lines = [];
 	const self = resolve(recordPath);
+	const now = new Map((Array.isArray(rec?.pages) ? rec.pages.filter(isObj) : []).map((p) => [p.title, p.sha256]));
 	for (const e of entries.filter(recordUpdate).filter(applied)) {
 		if (resolvePath(e.target) !== self) problems.push(`${e.id}: record_update entry targets ${resolvePath(e.target)}, not the record ${self}`);
 		if (e.after_sha256 != null) problems.push(`${e.id}: a record update takes after_sha256 null: the record cannot hold its own hash`);
@@ -572,6 +592,17 @@ function recordUpdateCheck(entries, resolvePath, recordPath) {
 		if (actual == null) problems.push(`${e.id}: record backup ${path} missing`);
 		else if (actual !== e.before_sha256) problems.push(`${e.id}: record backup ${path} ${h(actual)} != before ${h(e.before_sha256)}`);
 		else lines.push(`  ${e.id} record backup ${path} ${h(actual)}`);
+		// A0 moves page hashes: every entry whose page changed carries the record's new hash.
+		let old = null;
+		try {
+			old = JSON.parse(readFileSync(path, 'utf8'));
+		} catch {}
+		const before = new Map((Array.isArray(old?.pages) ? old.pages.filter(isObj) : []).map((p) => [p.title, p.sha256]));
+		for (const [title, hash] of now) {
+			if (!before.has(title) || before.get(title) === hash) continue;
+			for (const x of entries.filter(applied).filter((y) => !recordUpdate(y) && y.teaching === title && y.page_sha256 != null && y.page_sha256 !== hash))
+				problems.push(`${e.id}: "${title}" changed since the record's backup, but ${x.id}.page_sha256 ${h(x.page_sha256)} != the record's ${h(hash)}: update each entry whose page changed`);
+		}
 	}
 	return { problems, lines };
 }
@@ -601,8 +632,9 @@ function renderHashProblems(r, plan) {
 		else lines.push(`  gate ${gate} ${path} ${h(actual)}`);
 	}
 	const fresh = writtenThisRun(plan, r);
+	// Gate 5 renders after Phase 5 writes the record, so the record holds approved renders up to Gate 4.
 	if (fresh)
-		for (const [gate, v] of planned) {
+		for (const [gate, v] of planned.filter(([g]) => g !== '5')) {
 			const rec = stored.find((x) => x.gate === gate);
 			if (!rec) problems.push(`gate ${gate}: plan.renders has it, the record's renders do not: replace the record's renders with this run's`);
 			else if (rec.sha256 !== v.sha256) problems.push(`gate ${gate}: record ${h(rec.sha256)} != plan ${h(v.sha256)}: replace the record's renders with this run's`);
@@ -786,6 +818,9 @@ function planShape(p) {
 	if (p.report != null && !isObj(p.report)) errs.push('plan.report must be an object');
 	if (p.persist != null && !(isObj(p.persist) && Array.isArray(p.persist.features) && p.persist.features.every((f) => isObj(f) && isStr(f.feature) && isStr(f.path) && typeof f.automatic === 'boolean')))
 		errs.push('plan.persist needs source and features: each with feature, path, and automatic (true or false)');
+	// Harness churn is left out of the snapshot by a rule the plan records, never by a bulk accept.
+	if (isObj(p.snapshot) && p.snapshot.ignore != null && !(Array.isArray(p.snapshot.ignore) && p.snapshot.ignore.every((x) => isObj(x) && isStr(x.path) && isStr(x.rule))))
+		errs.push('plan.snapshot.ignore: each entry needs path and rule (why the harness rewrites it and why it is out of scope)');
 	return errs;
 }
 
@@ -935,13 +970,71 @@ function projectOnly(plan) {
 // Harnesses encode a project path in their history folder names (for example `/` to `-`).
 const normKey = (s) => String(s).replace(/[^A-Za-z0-9]/g, '-');
 
-// ---------- the 1.12 snapshot: folders and files under each scope root ----------
+// ---------- the 3.8 snapshot: folders and files under each scope root ----------
 
 const under = (p, roots) => roots.some((r) => p === r || p.startsWith(r.endsWith(sep) ? r : r + sep));
 const snapIgnore = (plan) => {
 	const rp = planResolver(plan);
-	return (Array.isArray(plan.snapshot?.ignore) ? plan.snapshot.ignore.filter(isStr) : []).map((p) => rp(p)).filter(Boolean).map(realish);
+	return snapIgnoreList(plan).map((x) => rp(x.path)).filter(Boolean).map(realish);
 };
+const snapIgnoreList = (plan) => (Array.isArray(plan.snapshot?.ignore) ? plan.snapshot.ignore.filter((x) => isObj(x) && isStr(x.path)) : []);
+
+// An ignore leaves out harness churn only: never a scope root, a persistence path, a target, or bookkeeping.
+function ignoreProblems(plan) {
+	const rp = planResolver(plan);
+	const guarded = (plan.scope?.roots ?? []).filter(isStr).map((r) => ['scope root', realish(expandHome(r))]);
+	for (const f of persistRoots(plan)) guarded.push([`persistence path of ${f.feature}`, f.path]);
+	for (const x of proposalsOf(plan)) for (const t of tpaths(x)) if (rp(t)) guarded.push([`${x.id} target`, realish(rp(t))]);
+	for (const b of (plan.bookkeeping ?? []).filter(isObj)) {
+		if (isStr(b.record) && rp(b.record)) guarded.push(['bookkeeping record', realish(rp(b.record))]);
+		if (isStr(b.backups) && rp(b.backups)) guarded.push(['bookkeeping backups', realish(rp(b.backups))]);
+	}
+	const out = [];
+	for (const x of snapIgnoreList(plan)) {
+		const p = rp(x.path) ? realish(rp(x.path)) : null;
+		const hit = p && guarded.find(([, g]) => under(g, [p]));
+		if (hit) out.push(`snapshot.ignore ${p} covers the ${hit[0]} ${hit[1]}: an ignore leaves out only harness churn outside every root and target`);
+	}
+	return out;
+}
+
+// Persistence is watched at this project's own path. A whole harness home also holds every other
+// project's sessions and caches: watching it floods 5.8 with churn the run did not write.
+function persistProblems(plan) {
+	const home = realish(homedir());
+	const pr = isStr(plan?.project_root) ? realish(expandHome(plan.project_root)) : null;
+	const key = pr ? normKey(pr) : null;
+	const roots = persistRoots(plan);
+	const holds = (dir) => {
+		const kids = (d) => {
+			try {
+				return readdirSync(d, { withFileTypes: true }).filter((x) => x.isDirectory()).map((x) => join(d, x.name));
+			} catch {
+				return [];
+			}
+		};
+		for (const a of kids(dir)) {
+			if (basename(a).includes(key)) return a;
+			const b = kids(a).find((x) => basename(x).includes(key));
+			if (b) return b;
+		}
+		return null;
+	};
+	const out = [];
+	for (const f of roots) {
+		const p = f.path;
+		const other = roots.find((g) => g.path !== p && under(g.path, [p]));
+		const held = key ? holds(p) : null;
+		const why = p === home ? 'the home folder'
+			: dirname(p) === home ? 'a whole harness home'
+			: pr && under(pr, [p]) ? 'an ancestor of the project root'
+			: held ? `the folder that holds this project's own folder ${held}`
+			: other ? `an ancestor of persist path ${other.raw}`
+			: null;
+		if (why) out.push(`persist path ${f.raw} is ${why}: watch only this project's own persistence path, never a whole harness home`);
+	}
+	return out;
+}
 
 function snapshotLines(plan) {
 	const roots = (plan.scope?.roots ?? []).filter(isStr).map((r) => realish(expandHome(r)));
@@ -987,20 +1080,20 @@ const persistFeatures = (plan) => (isObj(plan?.persist) && Array.isArray(plan.pe
 // Harness persistence folders on this machine, resolved, with the feature that writes each.
 function persistRoots(plan) {
 	const rp = planResolver(plan);
-	return persistFeatures(plan).filter((f) => !isRemote(f.path)).map((f) => ({ ...f, path: rp(f.path) })).filter((f) => f.path).map((f) => ({ ...f, path: realish(f.path) }));
+	return persistFeatures(plan).filter((f) => !isRemote(f.path)).map((f) => ({ ...f, raw: f.path, path: rp(f.path) })).filter((f) => f.path).map((f) => ({ ...f, path: realish(f.path) }));
 }
 
 function parseSnapshot(lines) {
 	const map = new Map();
-	let roots = 0;
-	let persist = 0;
+	const rootList = [];
+	const persistList = [];
 	for (const l of lines) {
-		if (/^root /.test(l)) roots++;
-		if (/^persist /.test(l)) persist++;
+		const rm = /^(root|persist) (.+?)(?: absent)?$/.exec(l);
+		if (rm) (rm[1] === 'root' ? rootList : persistList).push(rm[2]);
 		const m = /^([dfl]) (.+?)(?: (sha256:[0-9a-f]{64}|size \d+))?$/.exec(l);
 		if (m) map.set(m[2], { kind: m[1], hash: m[3] ?? null });
 	}
-	return { map, roots, persist };
+	return { map, roots: rootList.length, persist: persistList.length, rootList, persistList };
 }
 
 function readSnapshot(plan, rp) {
@@ -1013,11 +1106,18 @@ function readSnapshot(plan, rp) {
 		return { ok: false, why: `snapshot file ${sn.file} not found: take it again with --render snapshot` };
 	}
 	const s = sha(text);
-	if (s !== sn.sha256) return { ok: false, why: `snapshot file ${path} ${h(s)} != plan.snapshot.sha256 ${h(sn.sha256)}: it changed since 1.12` };
-	return { ok: true, path, sha: s, ...parseSnapshot(renderBody(text)) };
+	if (s !== sn.sha256) return { ok: false, why: `snapshot file ${path} ${h(s)} != plan.snapshot.sha256 ${h(sn.sha256)}: it changed since 3.8` };
+	const parsed = parseSnapshot(renderBody(text));
+	// The snapshot is of the chosen scope: one taken before the scope was recorded, or under other
+	// roots, compares the wrong folders.
+	const took = [...parsed.rootList, ...parsed.persistList];
+	const want = [...(plan.scope?.roots ?? []).filter(isStr).map((r) => realish(expandHome(r))), ...persistRoots(plan).map((f) => f.path)];
+	if ([...took].sort().join('\n') !== [...want].sort().join('\n'))
+		return { ok: false, why: `snapshot ${path} was taken under other roots (${took.join(', ')}) than the plan's scope roots (${want.join(', ')}): take it again before any write, limited to the chosen scope; never widen the scope to match a snapshot` };
+	return { ok: true, path, sha: s, ...parsed };
 }
 
-// 5.8: walk the scope roots again and compare with the 1.12 snapshot. A difference is declared when
+// 5.8: walk the scope roots again and compare with the 3.8 snapshot. A difference is declared when
 // it is a record target or backup, under a runtime path, a folder an entry declares, a bookkeeping
 // file, or a path the user accepted (plan.snapshot.accepted).
 function snapshotDiff(plan, rp, recData, recordPath) {
@@ -1048,7 +1148,15 @@ function snapshotDiff(plan, rp, recData, recordPath) {
 		if (isStr(b.record)) shrineDir(rp(b.record), 'bookkeeping');
 		if (isStr(b.backups)) add(trees, rp(b.backups), 'bookkeeping');
 	}
-	for (const a of (plan.snapshot?.accepted ?? []).filter((x) => isObj(x) && isStr(x.path) && isStr(x.quote))) add(exact, rp(a.path), `accepted by the user: "${a.quote}"`);
+	// Past 3 accepted differences, each acceptance quotes the user naming that path: a bulk accept counts for none.
+	const acc = (plan.snapshot?.accepted ?? []).filter((x) => isObj(x) && isStr(x.path) && isStr(x.quote));
+	const bulk = new Map();
+	for (const a of acc) {
+		const p = rp(a.path);
+		if (!p) continue;
+		if (acc.length > 3 && !a.quote.includes(basename(p))) bulk.set(realish(p), `bulk accept: ${acc.length} differences accepted; past 3, each acceptance quotes the user naming that path [ask about each one]`);
+		else add(exact, p, `accepted by the user: "${a.quote}"`);
+	}
 	// Harness persistence counts only when an approved proposal uses that feature (approved_by).
 	const ok = new Set(proposalsOf(plan).filter((x) => liveProposal(x) && ['approved', 'edited and approved'].includes(x.decision)).map((x) => x.id));
 	for (const f of persistRoots(plan).filter((x) => isStr(x.approved_by) && ok.has(x.approved_by))) add(trees, f.path, `harness persistence (${f.feature}), approved in ${f.approved_by}`);
@@ -1068,6 +1176,10 @@ function snapshotDiff(plan, rp, recData, recordPath) {
 		const w = why(p);
 		const pf = w ? null : persisted(p);
 		if (w) lines.push(`${what} ${p}: ${w}`);
+		else if (bulk.has(p)) {
+			bad++;
+			lines.push(`${what} ${p}: ${bulk.get(p)}`);
+		}
 		else if (pf) {
 			bad++;
 			lines.push(`${what} ${p}: harness persistence (${pf.feature}), written during the run [list it for the user: keep it (plan.snapshot.accepted, with their words) or remove it]`);
@@ -1077,8 +1189,8 @@ function snapshotDiff(plan, rp, recData, recordPath) {
 		}
 	}
 	const src = `$ shrine-check (snapshot ${before.path}, walked again now)`;
-	if (!diffs.length) return { mark: 'x', head: `no difference from the 1.12 snapshot  ${src}`, lines: [] };
-	return { mark: bad ? ' ' : 'x', head: `${diffs.length} differences from the 1.12 snapshot, ${bad ? `${bad} not declared` : 'each declared'}  ${src}`, lines };
+	if (!diffs.length) return { mark: 'x', head: `no difference from the 3.8 snapshot  ${src}`, lines: [] };
+	return { mark: bad ? ' ' : 'x', head: `${diffs.length} differences from the 3.8 snapshot, ${bad ? `${bad} not declared` : 'each declared'}  ${src}`, lines };
 }
 
 // Load entries keyed by real path. `pre` is the pre-write hint; `fresh` is the proof after the write.
@@ -1388,7 +1500,7 @@ function computed(id, ctx) {
 	switch (id) {
 		case '0.8': {
 			// The harness's own persistence is a write: found at Phase 0, unused unless approved,
-			// disclosed when automatic, and walked with the scope roots by 1.12, 5.8, and the Final Gate.
+			// disclosed when automatic, and walked with the scope roots by 3.8, 5.8, and the Final Gate.
 			const ps = plan.persist;
 			if (!isObj(ps)) return { mark: ' ', lines: ['plan.persist missing: at Phase 0, find whether this harness persists anything on its own (memory, notes, learned facts, saved context) and where, from its docs or config'] };
 			const src = PERSIST_SOURCE.test(ps.source ?? '') ? ps.source : null;
@@ -1402,6 +1514,7 @@ function computed(id, ctx) {
 					: f.automatic ? 'writes on its own; disclosed at Gate 0; 5.8 and the Final Gate list new content for you to keep or remove' : 'the agent does not use it during the run';
 				lines.push(`${f.feature} at ${where}: ${what}${isStr(f.approved_by) ? `; used only as approved in ${f.approved_by}` : ''}`);
 			}
+			for (const p of persistProblems(plan)) fail(p);
 			const remote = all.filter((f) => isRemote(f.path)).length;
 			return { mark, head: all.length ? `${all.length} features, ${remote ? `${all.length - remote} in the snapshot, ${remote} remote` : 'each in the snapshot'}  ${src ?? ''}`.trimEnd() : `none: this harness persists nothing on its own  ${src ?? ''}`.trimEnd(), lines };
 		}
@@ -1511,14 +1624,17 @@ function computed(id, ctx) {
 			if (!isStr(q)) return { mark: ' ', lines: ['bookkeeping not approved: ask for group A before any other approval, and put the user\'s words in plan.approvals["4.3"]'] };
 			return { mark: 'x', lines: [`${quote(q)} (user), before the menus the picks answer (the menus render needs it)`] };
 		}
-		case '1.12': {
+		case '3.8': {
 			const sn = plan.snapshot;
-			if (!isObj(sn) || !isStr(sn.file)) return plan.mode === 'full' ? { mark: ' ', lines: ['no checker snapshot: run --render snapshot --plan <p> --out <t>, and put its file and sha256 in plan.snapshot'] } : null;
+			if (!isObj(sn) || !isStr(sn.file)) return plan.mode === 'full' ? { mark: ' ', lines: ['no checker snapshot: after the scope is chosen (3.7), run --render snapshot --plan <p> --out <t>, and put its file and sha256 in plan.snapshot'] } : null;
+			const probs = [...persistProblems(plan), ...ignoreProblems(plan)];
+			if (probs.length) return { mark: ' ', lines: probs };
 			const r = readSnapshot(plan, rp);
 			if (!r.ok) return { mark: ' ', lines: [r.why] };
 			const vals = [...r.map.values()];
 			const d = vals.filter((v) => v.kind === 'd').length;
-			return { mark, head: `${d} folders and ${vals.length - d} files under ${r.roots} scope roots${r.persist ? ` and ${r.persist} harness persistence folders` : ''}; ignored: ${(sn.ignore ?? []).join(', ') || 'none'}  $ shrine-check --render snapshot`, lines: [`${r.path} ${h(r.sha)}`] };
+			const ign = snapIgnoreList(plan).map((x) => `${x.path} (${x.rule})`).join(', ') || 'none';
+			return { mark, head: `${d} folders and ${vals.length - d} files under ${r.roots} scope roots${r.persist ? ` and ${r.persist} harness persistence folders` : ''}; ignored: ${ign}  $ shrine-check --render snapshot`, lines: [`${r.path} ${h(r.sha)}`] };
 		}
 		case '4.2': {
 			const sp = scopeProblems(plan);
@@ -1727,7 +1843,7 @@ function gate5Computed(id, ctx) {
 	const { recordPath, checkRep } = ctx;
 	if (id === '5.8') {
 		const sn = ctx.plan.snapshot;
-		if (!isObj(sn) || !isStr(sn.file)) return ctx.plan.mode === 'full' && rec ? { mark: ' ', lines: ['no 1.12 snapshot in the plan: 5.8 compares the scope roots with it'] } : null;
+		if (!isObj(sn) || !isStr(sn.file)) return ctx.plan.mode === 'full' && rec ? { mark: ' ', lines: ['no 3.8 snapshot in the plan: 5.8 compares the scope roots with it'] } : null;
 		return snapshotDiff(ctx.plan, ctx.rp, rec?.data ?? { entries: [] }, rec ? recordPath : null);
 	}
 	if (!rec) return null;
@@ -1774,7 +1890,7 @@ function renderItem(id, title, ctx, gateN) {
 	const { plan } = ctx;
 	const ev = plan.evidence?.[id];
 	const rp = ctx.rp;
-	if (plan.run === 'uninstall' && (gateN === 2 || gateN === 3)) return { mark: '-', out: [`[-] ${id} ${title}: not applicable: uninstall path`] };
+	if (plan.run === 'uninstall' && (gateN === 2 || gateN === 3) && id !== '3.8') return { mark: '-', out: [`[-] ${id} ${title}: not applicable: uninstall path`] };
 	if (plan.run === 'uninstall' && gateN === 4 && !UNINSTALL_GATE4.includes(id)) return { mark: '-', out: [`[-] ${id} ${title}: not applicable: uninstall path`] };
 	if (ctx.final && plan.run === 'uninstall' && REMOVED_ON_UNINSTALL.includes(id) && !exists(resolve(ctx.recordPath)))
 		return { mark: '-', out: [`[-] ${id} ${title}: removed under 6.6/6.7; 6.8 checks them instead`] };
@@ -1869,6 +1985,40 @@ function shownLine(n, ctx) {
 	return r.ok ? null : `[ ] Gate ${n} shown: ${r.why}; paste gate ${n}'s short block, then record its file and sha256`;
 }
 
+// 0.8 is printed by hand from its template: it names each persistence path the plan holds.
+function printed08Problems(plan) {
+	const text = String(plan.evidence?.['0.8']?.text ?? '');
+	const rp = planResolver(plan);
+	const out = [...persistProblems(plan)];
+	for (const f of persistFeatures(plan)) {
+		const abs = isRemote(f.path) ? null : rp(f.path);
+		const forms = [f.path, f.path.replace(/\/+$/, ''), abs, abs?.replace(/\/+$/, '')].filter(isStr);
+		if (!forms.some((x) => text.includes(x))) out.push(`as printed omits the path of ${f.feature} (${f.path}): print 0.8 from its template, one line per feature with its path`);
+	}
+	return out;
+}
+
+// An approval answers the render it was given for. A re-render of an approved gate whose items
+// differ was not shown when the user approved, so it needs its own paste and approval.
+function changedSinceApproval(n, ctx, items) {
+	const { plan } = ctx;
+	const q = plan.approvals?.[String(n)];
+	const v = plan.renders?.[String(n)];
+	if (plan.delivery !== 'file' || plan.mode === 'report-only' || !isStr(q) || !isObj(v) || !isStr(v.file)) return null;
+	const path = ctx.rp(v.file);
+	let text = null;
+	try {
+		text = readFileSync(path ?? '', 'utf8');
+	} catch {
+		return null;
+	}
+	if (!text.startsWith(`--- shrine-check ${VERSION} render gate ${n} `)) return null;
+	const was = text.split('\n').filter((l) => /^\[[x -]\] \d/.test(l));
+	const now = items.map((i) => i.out[0]);
+	if (was.join('\n') === now.join('\n')) return null;
+	return `[ ] Gate ${n} changed since its approval: "${q}" answered ${path}, and this render's items differ. Paste this render, ask again, then record the new approval and render`;
+}
+
 function gateBody(gateN, ctx) {
 	const g = GATES[gateN];
 	const items = g.items.map(([id, title]) => renderItem(id, title, ctx, gateN));
@@ -1879,10 +2029,13 @@ function gateBody(gateN, ctx) {
 	if (gateN >= 1) {
 		const missing = GATES[0].items.filter(([id, title]) => {
 			const r = renderItem(id, title, ctx, 0);
-			return r.out[0].endsWith('missing from the plan') || (id === '0.8' && !isObj(ctx.plan.persist));
+			return r.out[0].endsWith('missing from the plan') || (id === '0.8' && (!isObj(ctx.plan.persist) || !isObj(ctx.plan.evidence?.['0.8'])));
 		}).map(([id]) => id);
 		if (missing.length) carried.push(`[ ] Gate 0 in the plan: ${missing.join(', ')} missing; add Gate 0's evidence to the plan before Gate 1`);
+		else for (const p of printed08Problems(ctx.plan)) carried.push(`[ ] Gate 0 in the plan: 0.8 ${p}`);
 	}
+	const changed = changedSinceApproval(gateN, ctx, items);
+	if (changed) carried.push(changed);
 	const shown = shownLine(gateN - 1, ctx);
 	if (shown) carried.push(shown);
 	const approval = needsApproval(gateN, ctx.plan);
@@ -1912,11 +2065,32 @@ function restoreLines(recData, recordPath) {
 	return out.length ? out : ['no changes to restore'];
 }
 
+// An entry changed in this run when its target differs from the 3.8 snapshot, taken before any
+// write. A re-run's record also holds earlier runs' entries, whose targets this run left alone.
+function changedThisRun(plan, recordPath) {
+	const sn = plan.snapshot;
+	if (!recordPath || !isObj(sn) || !isStr(sn.file)) return () => true;
+	const s = readSnapshot(plan, planResolver(plan));
+	if (!s.ok) return () => true;
+	const rr = resolver(recordPath);
+	const walked = [...s.rootList, ...s.persistList];
+	return (e) => {
+		const p = realish(rr(e.target));
+		const now = fileSha(p);
+		const before = s.map.get(p);
+		if (before) return before.kind !== 'f' || !/^sha256:/.test(before.hash ?? '') || before.hash !== h(now);
+		// Absent from a snapshot that would list it: the file is new in this run if it exists now.
+		const seen = walked.some((r) => under(p, [r]) && relative(r, p).split(sep).length <= SNAP_DEPTH);
+		return seen ? now != null : true;
+	};
+}
+
 function reportLines(plan, recData, recordPath, man, un = {}) {
 	const entries = goodEntries(recData);
 	const ids = new Set(proposalsOf(plan).map((x) => x.id));
-	// Changed lists this run's changes; a re-run's record also holds earlier runs' entries.
-	const done = entries.filter((e) => e.status === 'done' && (!ids.size || ids.has(e.id)));
+	// Changed lists this run's changes only; Removed (uninstall) lists every removal entry.
+	const mine = un.uninstall ? () => true : changedThisRun(plan, recordPath);
+	const done = entries.filter((e) => e.status === 'done' && (!ids.size || ids.has(e.id)) && mine(e));
 	const skipped = [...entries.filter((e) => e.status === 'rejected').map((e) => e.id), ...proposalsOf(plan).filter((x) => x.decision === 'rejected' && !entries.some((e) => e.id === x.id)).map((x) => x.id)];
 	const rr = recordPath ? resolver(recordPath) : (p) => p;
 	const backups = entries.filter((e) => isStr(e.backup)).map((e) => rr(e.backup));
@@ -2181,6 +2355,11 @@ async function render(opts) {
 		return 0;
 	}
 	if (opts.render === 'snapshot') {
+		// After the scope is chosen and before any write, limited to the chosen roots.
+		if (!isStr(plan.scope?.quote)) throw new Error('the snapshot is taken after the scope is chosen: record plan.scope (choice, roots, and the user\'s words) at Phase 3, then take it');
+		if (plan.mode === 'full' && isStr(plan.approvals?.['4'])) throw new Error('Gate 4 is approved, so writes may have started: a snapshot now could hide this run\'s writes. Compare against the snapshot taken before Gate 4; if it is wrong, report it, and never widen the scope to fix it');
+		const probs = [...persistProblems(plan), ...ignoreProblems(plan)];
+		if (probs.length) throw new Error(`snapshot refused:\n${probs.map((x) => `  - ${x}`).join('\n')}`);
 		const lines = snapshotLines(plan);
 		const p = parseSnapshot(lines);
 		const d = [...p.map.values()].filter((v) => v.kind === 'd').length;
@@ -2246,13 +2425,26 @@ async function render(opts) {
 		ctx.final = true;
 		const f = renderFinal(ctx, opts);
 		const blocked = f.lines.filter((l) => /^\[ \] /.test(l)).map((l) => l.split(':')[0].slice(4));
+		if (opts.requirePass) return requirePass('final', f.status === 'PASS' ? null : `the Final Gate is ${f.status} now${blocked.length ? `; open items: ${blocked.join(', ')}` : ''}`);
 		emit('final', f.lines, opts, plan, [`FINAL GATE: ${f.status}`, markCounts(f.marks), ...(blocked.length ? [`open items: ${blocked.join(', ')}`] : [])]);
 		return f.status === 'PASS' ? 0 : 1;
 	}
 	const g = gateBody(opts.gate, ctx);
 	const open = g.lines.filter((l) => /^\[ \] /.test(l)).map((l) => l.split(':')[0].slice(4));
+	if (opts.requirePass) {
+		const n = opts.gate;
+		const shown = n >= 1 && plan.delivery === 'file' && plan.mode !== 'report-only' ? renderApproval(n, ctx, '') : { ok: true };
+		const why = !shown.ok ? `gate ${n} was not shown: ${shown.why}` : g.status !== 'PASS' ? `gate ${n} is ${g.status} now${open.length ? `; open items: ${open.join(', ')}` : ''}` : null;
+		return requirePass(`gate ${n}`, why);
+	}
 	emit(`gate ${opts.gate}`, g.lines, opts, plan, [g.lines[0], g.lines[1], markCounts(g.items.map((i) => i.mark)), ...(open.length ? [`open items: ${open.join(', ')}`] : []), g.lines[g.lines.length - 1]]);
 	return g.status === 'BLOCKED' ? 1 : 0;
+}
+
+// One line, and the exit status a destructive step is gated on. It writes nothing.
+function requirePass(what, why) {
+	console.log(why ? `REQUIRE-PASS ${what}: FAIL: ${why}. Stop: do not run the next step` : `REQUIRE-PASS ${what}: PASS`);
+	return why ? 1 : 0;
 }
 
 async function main() {

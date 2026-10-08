@@ -5,7 +5,7 @@ import { test } from 'node:test';
 import assert from 'node:assert/strict';
 import { spawnSync } from 'node:child_process';
 import { createHash } from 'node:crypto';
-import { mkdtempSync, mkdirSync, readFileSync, realpathSync, rmSync, writeFileSync } from 'node:fs';
+import { mkdtempSync, mkdirSync, readFileSync, readdirSync, realpathSync, rmSync, writeFileSync } from 'node:fs';
 import { homedir, tmpdir } from 'node:os';
 import { join } from 'node:path';
 import { fileURLToPath, pathToFileURL } from 'node:url';
@@ -58,7 +58,7 @@ function promptItems() {
 }
 const ITEMS = promptItems();
 // Items the checker computes in full; the agent adds no evidence line for them.
-const RENDERED = ['0.8', '1.12', '4.3', '5.8', '2.1', '2.3', '2.4', '2.7', '3.7', '4.1', '4.5', '4.9', '4.11', '4.12', '4.16', '4.17', '4.18', '4.19', '4.21', '4.22', '5.1', '5.2', '5.3', '5.7', '5.10', '5.11', '6.1', '6.3', '6.4', '6.5', '6.8'];
+const RENDERED = ['0.8', '3.8', '4.3', '5.8', '2.1', '2.3', '2.4', '2.7', '3.7', '4.1', '4.5', '4.9', '4.11', '4.12', '4.16', '4.17', '4.18', '4.19', '4.21', '4.22', '5.1', '5.2', '5.3', '5.7', '5.10', '5.11', '6.1', '6.3', '6.4', '6.5', '6.8'];
 
 const entry = (over) => ({
 	id: 'X',
@@ -109,6 +109,8 @@ function planFor(root) {
 	for (const ids of Object.values(ITEMS)) for (const id of ids) if (!RENDERED.includes(id)) evidence[id] = { mark: 'x', text: `evidence for ${id}`, source: '(plan)' };
 	evidence['6.6'] = { mark: '-', text: 'not an uninstall' };
 	evidence['6.7'] = { mark: '-', text: 'not an uninstall' };
+	// Gate 0 is printed by hand from its template; 0.8 names each persistence path (none here).
+	evidence['0.8'] = { mark: 'x', text: 'none found', source: '$ ls ~/.test-harness' };
 	return {
 		schema: 1,
 		run: 'install',
@@ -194,7 +196,7 @@ function fixture(mutate = () => {}) {
 		],
 	};
 	const plan = planFor(root);
-	plan.snapshot = { ignore: ['tmp'] };
+	plan.snapshot = { ignore: [{ path: 'tmp', rule: 'test scratch folder' }] };
 	mutate({ record, plan, manifest, root });
 	stampReviews(plan);
 	const recordPath = join(root, '.shrine', 'test-harness.tester.json');
@@ -204,13 +206,15 @@ function fixture(mutate = () => {}) {
 	writeFileSync(recordPath, JSON.stringify(record, null, 2));
 	writeFileSync(planPath, JSON.stringify(plan, null, 2));
 	const snapDir = realpathSync(mkdtempSync(join(tmpdir(), 'shrine-snap-')));
-	// The 1.12 snapshot, taken by the checker after the fixture is on disk (so 5.8 sees no change).
+	// The 3.8 snapshot, taken by the checker after the fixture is on disk (so 5.8 sees no change),
+	// before Gate 4 is approved, as the checker requires.
 	if (isObj(plan.snapshot) && !plan.snapshot.file) {
+		const early = JSON.parse(JSON.stringify(plan));
+		if (isObj(early.approvals)) delete early.approvals['4'];
+		writeFileSync(planPath, JSON.stringify(early, null, 2));
 		const m = /render file: (.+)\nrender sha256:([0-9a-f]{64})/.exec(run(['--render', 'snapshot', '--plan', planPath, '--out', snapDir]).out);
-		if (m) {
-			Object.assign(plan.snapshot, { file: m[1], sha256: m[2] });
-			writeFileSync(planPath, JSON.stringify(plan, null, 2));
-		}
+		if (m) Object.assign(plan.snapshot, { file: m[1], sha256: m[2] });
+		writeFileSync(planPath, JSON.stringify(plan, null, 2));
 	}
 	return { root, recordPath, manifestPath, planPath, plan, snapDir };
 }
@@ -1238,16 +1242,16 @@ test('D2: a code-running proposal declares its runtime writes; they stay in scop
 
 test('D2: the snapshot lists folders; 5.8 catches an undeclared new path and a deleted folder', () => {
 	withFixture(({ root }) => mkdirSync(join(root, '.claude', 'commands'), { recursive: true }), (f) => {
-		const g1 = run(gateArgs(f, 1));
-		assert.match(g1.out, /\[x\] 1\.12 Snapshot: .* folders and \d+ files under 1 scope roots; ignored: tmp {2}\$ shrine-check --render snapshot/);
+		const g3 = run(gateArgs(f, 3));
+		assert.match(g3.out, /\[x\] 3\.8 Snapshot: .* folders and \d+ files under 1 scope roots; ignored: tmp \(test scratch folder\) {2}\$ shrine-check --render snapshot/);
 		const clean = run(gateArgs(f, 5, ['--record', f.recordPath]));
-		assert.match(clean.out, /\[x\] 5\.8 Nothing changed outside approved targets: no difference from the 1\.12 snapshot/);
+		assert.match(clean.out, /\[x\] 5\.8 Nothing changed outside approved targets: no difference from the 3\.8 snapshot/);
 		mkdirSync(join(f.root, '.shrine', 'state'));
 		writeFileSync(join(f.root, '.shrine', 'state', 'count'), '1');
 		rmSync(join(f.root, '.claude', 'commands'), { recursive: true });
 		const bad = run(gateArgs(f, 5, ['--record', f.recordPath]));
 		assert.equal(bad.code, 1, bad.out);
-		assert.match(bad.out, /\[ \] 5\.8 Nothing changed outside approved targets: 3 differences from the 1\.12 snapshot, 3 not declared/);
+		assert.match(bad.out, /\[ \] 5\.8 Nothing changed outside approved targets: 3 differences from the 3\.8 snapshot, 3 not declared/);
 		assert.match(bad.out, /new folder .*\/\.shrine\/state: not a record target, backup, runtime path, or folder an entry declares/);
 		assert.match(bad.out, /deleted folder .*\/\.claude\/commands: not a record target/);
 	});
@@ -1261,7 +1265,7 @@ test('D2: the snapshot lists folders; 5.8 catches an undeclared new path and a d
 		rmSync(join(f.root, '.claude', 'commands'), { recursive: true });
 		const ok = run(gateArgs(f, 5, ['--record', f.recordPath]));
 		assert.equal(ok.code, 0, ok.out);
-		assert.match(ok.out, /\[x\] 5\.8 Nothing changed outside approved targets: 3 differences from the 1\.12 snapshot, each declared/);
+		assert.match(ok.out, /\[x\] 5\.8 Nothing changed outside approved targets: 3 differences from the 3\.8 snapshot, each declared/);
 	});
 });
 
@@ -1453,18 +1457,23 @@ test('D10: the uninstall Final Gate runs on a temp copy of the record backup, re
 
 // ---------- v14: harness persistence, S1 drift, gate identity, time, target kinds, diffs ----------
 
+// Harness persistence in the plan, and Gate 0's line 0.8 as printed from its template.
+const persistAs = (source, features) => ({ plan }) => {
+	plan.persist = { source, features };
+	plan.evidence['0.8'] = { mark: 'x', text: features.map((x) => `${x.feature} at ${x.path}, ${x.automatic ? 'writes on its own' : 'used only if a proposal is approved'}`).join('; '), source: '(plan)' };
+};
 const finalArgs = (f) => ['--render', 'final', '--plan', f.planPath, '--manifest', f.manifestPath, '--record', f.recordPath];
 
 test('E1: harness persistence folders join the snapshot; new content there blocks 5.8 until the user keeps or removes it', () => {
 	const mem = realpathSync(mkdtempSync(join(tmpdir(), 'shrine-mem-')));
 	writeFileSync(join(mem, 'MEMORY.md'), '- an older note\n');
 	try {
-		withFixture(({ plan }) => (plan.persist = { source: '(doc: https://docs.example/memory)', features: [{ feature: 'auto-memory', path: mem, automatic: true }] }), (f) => {
+		withFixture(persistAs('(doc: https://docs.example/memory)', [{ feature: 'auto-memory', path: mem, automatic: true }]), (f) => {
 			const g1 = run(gateArgs(f, 1));
-			assert.match(g1.out, /\[x\] 1\.12 Snapshot: \d+ folders and \d+ files under 1 scope roots and 1 harness persistence folders; ignored: tmp/);
+			assert.match(run(gateArgs(f, 3)).out, /\[x\] 3\.8 Snapshot: \d+ folders and \d+ files under 1 scope roots and 1 harness persistence folders; ignored: tmp/);
 			showMenus(f);
 			const fin = run(finalArgs(f));
-			assert.match(fin.out, /\[x\] 0\.8 Harness persistence: 1 features, each in the snapshot {2}\(doc: https:\/\/docs\.example\/memory\)\n {6}auto-memory at .*shrine-mem-\S+: writes on its own; disclosed at Gate 0; 5\.8 and the Final Gate list new content for you to keep or remove/);
+			assert.match(fin.out, /\[x\] 0\.8 Harness persistence: auto-memory at \S+shrine-mem-\S+, writes on its own {2}\(plan\)\n {6}auto-memory at .*shrine-mem-\S+: writes on its own; disclosed at Gate 0; 5\.8 and the Final Gate list new content for you to keep or remove/);
 			assert.equal(run(gateArgs(f, 5, ['--record', f.recordPath])).code, 0);
 			writeFileSync(join(mem, 'note.md'), 'written during the run\n');
 			const bad = run(gateArgs(f, 5, ['--record', f.recordPath]));
@@ -1476,18 +1485,21 @@ test('E1: harness persistence folders join the snapshot; new content there block
 		});
 		const gmd = join(mem, 'GEMINI.md');
 		writeFileSync(gmd, '## Gemini Added Memories\n');
-		withFixture(({ plan }) => (plan.persist = { source: '(doc: https://geminicli.com/docs/tools/memory)', features: [{ feature: 'memory file', path: gmd, automatic: false }] }), (f) => {
+		withFixture(persistAs('(doc: https://geminicli.com/docs/tools/memory)', [{ feature: 'memory file', path: gmd, automatic: false }]), (f) => {
 			assert.equal(run(gateArgs(f, 5, ['--record', f.recordPath])).code, 0);
 			writeFileSync(gmd, '## Gemini Added Memories\n- a fact saved during the run\n');
 			assert.match(run(gateArgs(f, 5, ['--record', f.recordPath])).out, /changed file .*GEMINI\.md: harness persistence \(memory file\), written during the run/);
 		});
-		withFixture(({ plan }) => (plan.persist = { source: '(doc: https://docs.github.com/en/copilot/concepts/agents/copilot-memory)', features: [{ feature: 'Copilot Memory', path: 'https://github.com/settings/copilot', automatic: true }] }), (f) => {
+		withFixture(persistAs('(doc: https://docs.github.com/en/copilot/concepts/agents/copilot-memory)', [{ feature: 'Copilot Memory', path: 'https://github.com/settings/copilot', automatic: true }]), (f) => {
 			const g1 = run(gateArgs(f, 1));
 			assert.doesNotMatch(g1.out, /harness persistence folders/);
 			showMenus(f);
 			assert.match(run(finalArgs(f)).out, /^ {6}Copilot Memory at https:\/\/github\.com\/settings\/copilot: not on this machine, so no snapshot walks it; disclosed at Gate 0; review it there after the run$/m);
 		});
-		withFixture(({ plan }) => delete plan.persist, (f) => {
+		withFixture(({ plan }) => {
+			delete plan.persist;
+			delete plan.evidence['0.8'];
+		}, (f) => {
 			assert.match(run(gateArgs(f, 1)).out, /^\[ \] Gate 0 in the plan: 0\.8 missing; add Gate 0's evidence to the plan before Gate 1$/m);
 			showMenus(f);
 			const fin = run(finalArgs(f));
@@ -1632,6 +1644,257 @@ test('E8: uninstall asks 6.6 on its own; its words cannot double as an acceptanc
 	});
 });
 
+// ---------- v15: snapshot after scope, narrow persistence, exit-status gates ----------
+
+const snapArgs = (f, out) => ['--render', 'snapshot', '--plan', f.planPath, '--out', out];
+// File delivery: show the menus and Gates 1 to n as the agent would, recording each short block;
+// the record holds this run's approved render hashes (Gates 1 to 4).
+function showGates(f, out, upTo) {
+	const m = shortOf(run(['--render', 'menus', '--plan', f.planPath, '--out', out]).out);
+	editPlan(f, (p) => Object.assign(p, { menus_sha256: m.sha256, picks_menus_sha256: m.sha256, menus_file: m.file }));
+	for (let n = 1; n <= upTo; n++) {
+		const g = shortOf(run([...gateArgs(f, n, n === 5 ? ['--record', f.recordPath] : []), '--out', out]).out);
+		editPlan(f, (p) => (p.renders = { ...(p.renders ?? {}), [n]: g }));
+	}
+	const plan = JSON.parse(readFileSync(f.planPath, 'utf8'));
+	const rec = JSON.parse(readFileSync(f.recordPath, 'utf8'));
+	rec.renders = Object.entries(plan.renders).filter(([n]) => n !== '5').map(([gate, v]) => ({ gate, sha256: v.sha256 }));
+	writeFileSync(f.recordPath, JSON.stringify(rec));
+}
+const reqArgs = (f, g, more = []) => ['--require-pass', String(g), '--plan', f.planPath, '--manifest', f.manifestPath, ...more];
+
+test('F1: the snapshot is taken after the scope is recorded and before Gate 4 is approved; one under other roots blocks 3.8 and 5.8', () => {
+	withFixture(undefined, (f) => {
+		const out = outDir();
+		try {
+			editPlan(f, (p) => delete p.scope.quote);
+			const early = run(snapArgs(f, out));
+			assert.equal(early.code, 2, early.out);
+			assert.match(early.out, /the snapshot is taken after the scope is chosen: record plan\.scope \(choice, roots, and the user's words\) at Phase 3, then take it/);
+			editPlan(f, (p) => (p.scope.quote = 'only this project'));
+			const late = run(snapArgs(f, out));
+			assert.equal(late.code, 2, late.out);
+			assert.match(late.out, /Gate 4 is approved, so writes may have started: a snapshot now could hide this run's writes/);
+			const g3 = run(gateArgs(f, 3));
+			assert.match(g3.out, /^\[x\] 3\.8 Snapshot: \d+ folders and \d+ files under 1 scope roots; ignored: tmp \(test scratch folder\) {2}\$ shrine-check --render snapshot$/m);
+			const other = realpathSync(mkdtempSync(join(tmpdir(), 'shrine-other-')));
+			try {
+				editPlan(f, (p) => p.scope.roots.push(other));
+				const g3b = run(gateArgs(f, 3));
+				assert.equal(g3b.code, 1, g3b.out);
+				assert.match(g3b.out, /^\[ \] 3\.8 Snapshot: snapshot \S+ was taken under other roots .* than the plan's scope roots .*: take it again before any write, limited to the chosen scope; never widen the scope to match a snapshot$/m);
+				assert.match(run(gateArgs(f, 5, ['--record', f.recordPath])).out, /^\[ \] 5\.8 [^\n]*taken under other roots/m);
+			} finally {
+				rmSync(other, { recursive: true, force: true });
+			}
+		} finally {
+			rmSync(out, { recursive: true, force: true });
+		}
+	});
+	withFixture(uninstallPlan, (f) => {
+		assert.match(run(gateArgs(f, 3)).out, /^\[x\] 3\.8 Snapshot: /m);
+	});
+});
+
+test('F2: harness persistence is watched at this project\'s own path, never a whole harness home', () => {
+	const home = realpathSync(mkdtempSync(join(tmpdir(), 'shrine-home-')));
+	try {
+		withFixture(undefined, (f) => {
+			const key = f.root.replace(/[^A-Za-z0-9]/g, '-');
+			mkdirSync(join(home, '.harness', 'projects', key, 'memory'), { recursive: true });
+			mkdirSync(join(home, '.harness', 'projects', '-other-project', 'memory'), { recursive: true });
+			const out = outDir();
+			const persist = (...paths) => editPlan(f, (p) => {
+				p.persist.features = paths.map((path, i) => ({ feature: `feature ${i}`, path, automatic: true }));
+				p.evidence['0.8'] = { mark: 'x', text: paths.map((path, i) => `feature ${i} at ${path}, writes on its own`).join('; '), source: '$ ls ~/.harness' };
+				delete p.approvals['4'];
+			});
+			try {
+				for (const [path, why] of [['~', 'the home folder'], ['~/.harness', 'a whole harness home'], ['~/.harness/projects', `the folder that holds this project's own folder`]]) {
+					persist(path);
+					const s = run(snapArgs(f, out), { HOME: home });
+					assert.equal(s.code, 2, s.out);
+					assert.match(s.out, new RegExp(`persist path ${path.replace(/[.*+?^${}()|[\]\\]/g, '\\$&')} is ${why}[^\\n]*: watch only this project's own persistence path, never a whole harness home`));
+					assert.match(run(gateArgs(f, 1), { HOME: home }).out, /^\[ \] Gate 0 in the plan: 0\.8 [^\n]*whole harness home/m);
+				}
+				persist(`~/.harness/projects/${key}`, `~/.harness/projects/${key}/memory`);
+				assert.match(run(snapArgs(f, out), { HOME: home }).out, /persist path ~\/\.harness\/projects\/\S+ is an ancestor of persist path ~\/\.harness\/projects\/\S+\/memory/);
+				persist(`~/.harness/projects/${key}/memory`);
+				const ok = run(snapArgs(f, out), { HOME: home });
+				assert.equal(ok.code, 0, ok.out);
+				assert.match(ok.out, /SNAPSHOT: \d+ folders and \d+ files under 1 scope roots and 1 harness persistence folders/);
+			} finally {
+				rmSync(out, { recursive: true, force: true });
+			}
+		});
+	} finally {
+		rmSync(home, { recursive: true, force: true });
+	}
+});
+
+test('F3: out-of-scope harness churn is excluded by a recorded rule, and an ignore never hides a target or a root', () => {
+	withFixture(undefined, (f) => {
+		const out = outDir();
+		try {
+			editPlan(f, (p) => delete p.approvals['4']);
+			editPlan(f, (p) => (p.snapshot.ignore = ['tmp']));
+			const bare = run(snapArgs(f, out));
+			assert.equal(bare.code, 2, bare.out);
+			assert.match(bare.out, /plan\.snapshot\.ignore: each entry needs path and rule \(why the harness rewrites it and why it is out of scope\)/);
+			for (const [path, what] of [['.', 'scope root'], ['CLAUDE.md', 'B1 target'], ['.shrine', 'bookkeeping record']]) {
+				editPlan(f, (p) => (p.snapshot.ignore = [{ path, rule: 'harness churn' }]));
+				const r = run(snapArgs(f, out));
+				assert.equal(r.code, 2, r.out);
+				assert.match(r.out, new RegExp(`snapshot\\.ignore \\S+ covers the ${what} `));
+			}
+		} finally {
+			rmSync(out, { recursive: true, force: true });
+		}
+	});
+});
+
+test('F4: more than 3 accepted differences need each quote to name its path; a bulk accept counts for none', () => {
+	withFixture(undefined, (f) => {
+		for (const n of ['a', 'b', 'c', 'd']) writeFileSync(join(f.root, `${n}.log`), n);
+		editPlan(f, (p) => (p.snapshot.accepted = ['a', 'b', 'c', 'd'].map((n) => ({ path: `${n}.log`, quote: 'A.' }))));
+		const bad = run(gateArgs(f, 5, ['--record', f.recordPath]));
+		assert.equal(bad.code, 1, bad.out);
+		assert.match(bad.out, /new file .*a\.log: bulk accept: 4 differences accepted; past 3, each acceptance quotes the user naming that path/);
+		editPlan(f, (p) => (p.snapshot.accepted = ['a', 'b', 'c', 'd'].map((n) => ({ path: `${n}.log`, quote: `keep ${n}.log` }))));
+		assert.equal(run(gateArgs(f, 5, ['--record', f.recordPath])).code, 0);
+	});
+});
+
+test('F5: --require-pass exits non-zero unless the gate renders PASS now and, in file delivery, was shown', () => {
+	withFixture(fileDelivery(), (f) => {
+		const out = outDir();
+		try {
+			showGates(f, out, 4);
+			const notShown = run(reqArgs(f, 5, ['--record', f.recordPath]));
+			assert.equal(notShown.code, 1, notShown.out);
+			assert.match(notShown.out, /^REQUIRE-PASS gate 5: FAIL: gate 5 was not shown: plan\.renders\["5"\] does not name the render file\. Stop: do not run the next step$/m);
+			const g5 = shortOf(run([...gateArgs(f, 5, ['--record', f.recordPath]), '--out', out]).out);
+			editPlan(f, (p) => (p.renders = { ...p.renders, 5: g5 }));
+			const ok = run(reqArgs(f, 5, ['--record', f.recordPath]));
+			assert.equal(ok.code, 0, ok.out);
+			assert.match(ok.out, /^REQUIRE-PASS gate 5: PASS$/m);
+			writeFileSync(join(f.root, 'stale.md'), 'edited by hand\n');
+			const fail = run(reqArgs(f, 5, ['--record', f.recordPath]));
+			assert.equal(fail.code, 1, fail.out);
+			assert.match(fail.out, /^REQUIRE-PASS gate 5: FAIL: gate 5 is BLOCKED now; open items: [^\n]*5\.11[^\n]*\. Stop: do not run the next step$/m);
+			const files = readdirSync(out).length;
+			run(reqArgs(f, 5, ['--record', f.recordPath]));
+			assert.equal(readdirSync(out).length, files, 'require-pass writes no render file');
+			const usage = run(['--require-pass', '5', '--plan', f.planPath, '--out', out]);
+			assert.equal(usage.code, 2, usage.out);
+		} finally {
+			rmSync(out, { recursive: true, force: true });
+		}
+	});
+	withFixture(uninstallPlan, (f) => {
+		showMenus(f);
+		const backup = join(f.root, '.shrine', 'backups', 'record.json.1');
+		writeFileSync(backup, readFileSync(f.recordPath));
+		const copy = keepRecordBackup(f, backup);
+		const fin = ['--require-pass', 'final', '--uninstall', '--plan', f.planPath, '--manifest', f.manifestPath, '--record', f.recordPath, '--record-backup', copy];
+		assert.match(run(fin).out, /^REQUIRE-PASS final: FAIL: the Final Gate is BLOCKED now; open items: [^\n]*6\.8/m);
+		rmSync(f.recordPath);
+		const ok = run(fin);
+		assert.equal(ok.code, 0, ok.out);
+		assert.match(ok.out, /^REQUIRE-PASS final: PASS$/m);
+	});
+});
+
+test('F6: the record holds approved renders up to Gate 4; Gate 5 renders after the record is written', () => {
+	const out = outDir();
+	const file = join(out, 'gate-4-1.txt');
+	const g5 = join(out, 'gate-5-1.txt');
+	writeFileSync(file, 'gate 4\n');
+	writeFileSync(g5, 'gate 5\n');
+	try {
+		const ok = planCheck(({ record, plan }) => {
+			record.renders = [{ gate: '4', sha256: sha('gate 4\n') }];
+			plan.renders = { 4: { file, sha256: sha('gate 4\n') }, 5: { file: g5, sha256: sha('gate 5\n') } };
+		});
+		assert.equal(ok.code, 0, ok.out);
+		assert.match(ok.out, /PASS render-hashes: 2 approved gate renders in this run, each file equal to its approved sha256 and to the record/);
+	} finally {
+		rmSync(out, { recursive: true, force: true });
+	}
+});
+
+test('F7: Gate 0 line 0.8 names every persistence path in the plan; Gate 1 blocks otherwise', () => {
+	const mem = realpathSync(mkdtempSync(join(tmpdir(), 'shrine-mem-')));
+	try {
+		const set = (text) => ({ plan }) => {
+			plan.persist = { source: '(doc: https://docs.example/memory)', features: [{ feature: 'auto-memory', path: `${mem}/`, automatic: true }] };
+			if (text == null) delete plan.evidence['0.8'];
+			else plan.evidence['0.8'] = { mark: 'x', text, source: '(doc: https://docs.example/memory)' };
+		};
+		withFixture(set(null), (f) => assert.match(run(gateArgs(f, 1)).out, /^\[ \] Gate 0 in the plan: 0\.8 missing; add Gate 0's evidence to the plan before Gate 1$/m));
+		withFixture(set('auto-memory: writes on its own'), (f) => {
+			const g1 = run(gateArgs(f, 1));
+			assert.equal(g1.code, 1, g1.out);
+			assert.match(g1.out, /^\[ \] Gate 0 in the plan: 0\.8 as printed omits the path of auto-memory \(\S+shrine-mem-\S+\): print 0\.8 from its template, one line per feature with its path$/m);
+		});
+		withFixture(set(`auto-memory at ${mem}/, writes on its own`), (f) => assert.doesNotMatch(run(gateArgs(f, 1)).out, /Gate 0 in the plan/));
+	} finally {
+		rmSync(mem, { recursive: true, force: true });
+	}
+});
+
+test('F8: an A0 update carries the new page hash into every entry whose page changed', () => {
+	const OLD = '{"old":"record"}';
+	const a0 = (b1Page) => ({ record, root, manifest }) => {
+		const old = JSON.parse(JSON.stringify(record));
+		old.entries = old.entries.filter((e) => e.id !== 'A0');
+		const OLDPAGE = sha('page one, older');
+		old.pages[0].sha256 = OLDPAGE;
+		writeFileSync(join(root, '.shrine', 'backups', 'record.json.1'), JSON.stringify(old));
+		record.entries.push(entry({ id: 'A0', target: '.shrine/test-harness.tester.json', scope: 'locally only', record_update: true, before_sha256: sha(JSON.stringify(old)), backup: '.shrine/backups/record.json.1', page_sha256: null, undo: 'restore the record from its backup' }));
+		record.entries[0].page_sha256 = b1Page === 'old' ? OLDPAGE : record.entries[0].page_sha256;
+		manifest.pages = [...manifest.pages, { title: 'Older Copy', sha256: OLDPAGE, section: 'patterns', status: null, url: site('patterns/older') }];
+	};
+	const bad = check(a0('old'));
+	assert.equal(bad.code, 1, bad.out);
+	assert.match(bad.out, /- A0: "Correction Diagnosis" changed since the record's backup, but B1\.page_sha256 sha256:[0-9a-f]{64} != the record's sha256:[0-9a-f]{64}: update each entry whose page changed/);
+	assert.match(bad.out, /- B1\.page_sha256 sha256:[0-9a-f]{64} is not the manifest's hash of its page "Correction Diagnosis"/);
+	const ok = check(a0('new'));
+	assert.equal(ok.code, 0, ok.out);
+});
+
+test('F9: the report lists as Changed only the entries whose target changed in this run', () => {
+	withFixture(undefined, (f) => {
+		writeFileSync(join(f.root, 'CLAUDE.md'), AFTER_B2);
+		const r0 = run(['--render', 'report', '--plan', f.planPath, '--manifest', f.manifestPath, '--record', f.recordPath]);
+		assert.match(r0.out, /^Changed: nothing$/m);
+		const rec = JSON.parse(readFileSync(f.recordPath, 'utf8'));
+		const NEXT = `${AFTER_B2}more\n`;
+		writeFileSync(join(f.root, 'CLAUDE.md'), NEXT);
+		rec.entries[1].after_sha256 = sha(NEXT);
+		writeFileSync(f.recordPath, JSON.stringify(rec));
+		const r1 = run(['--render', 'report', '--plan', f.planPath, '--manifest', f.manifestPath, '--record', f.recordPath]);
+		assert.match(r1.out, /^Changed: B1 CLAUDE\.md; B2 CLAUDE\.md$/m);
+	});
+});
+
+test('F10: a gate re-rendered after its approval with other items blocks until it is shown and approved again', () => {
+	withFixture(fileDelivery(), (f) => {
+		const out = outDir();
+		try {
+			const g1 = shortOf(run([...gateArgs(f, 1), '--out', out]).out);
+			editPlan(f, (p) => (p.renders = { 1: g1 }));
+			assert.doesNotMatch(run(gateArgs(f, 1)).out, /changed since its approval/);
+			editPlan(f, (p) => (p.evidence['1.2'] = { mark: 'x', text: 'one managed settings file', source: '$ ls /etc/harness' }));
+			const again = run(gateArgs(f, 1));
+			assert.equal(again.code, 1, again.out);
+			assert.match(again.out, /^\[ \] Gate 1 changed since its approval: "approve gate 1" answered \S+gate-1-1\.txt, and this render's items differ\. Paste this render, ask again, then record the new approval and render$/m);
+		} finally {
+			rmSync(out, { recursive: true, force: true });
+		}
+	});
+});
+
 // ---------- the prompt and the checker agree ----------
 
 test('the checker renders exactly the prompt\'s gate items, in order', () => {
@@ -1658,8 +1921,8 @@ test('the checker\'s invariant map equals the prompt\'s Invariant Map', () => {
 	});
 });
 
-test('prompt version is 14', () => {
-	assert.match(PROMPT, /^Prompt version: 14$/m);
+test('prompt version is 15', () => {
+	assert.match(PROMPT, /^Prompt version: 15$/m);
 });
 
 test('checker source changes nothing: one write call (new render files only), no spawn or extra network APIs', () => {
