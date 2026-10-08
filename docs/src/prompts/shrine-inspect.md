@@ -1,6 +1,6 @@
 # SHRINE Inspect
 
-Prompt version: 19
+Prompt version: 20
 
 SHRINE Inspect reviews your AI environment and how you use it, then reports changes worth making, each tied to the SHRINE practice behind it. It changes nothing itself.
 
@@ -45,14 +45,14 @@ These rules apply to every phase.
 - **Pause**: end your turn and do nothing more until the user replies. A harness permission prompt for a tool call is not a gate, and approving one is not approving a gate.
 - **Approval**: a user reply that names what it approves, for example "approve gate 1". Quote the user's words as evidence. Anything else is not approval: ask again.
 - **Write**: any create, edit, delete, rename, install, setting change, commit, branch, or stash, in any scope, and any use of the harness's memory or notes. Read-only work is: list, read, search, hash, `git status`, `git diff`, fetch into the temporary folder, write the plan file there, and run the checker.
-- **Report-only mode**: you print every gate and produce the inspection report, but ask nothing. Items that need a user reply print as `[-] not applicable: report-only`. Changes trace to a page and to discovery, and the inspection report labels them unconfirmed. Deliver the inspection report in your output channel (for a cloud task, its pull request description or the comment the user asked for).
+- **Report-only mode**: you print every gate and produce the inspection report, but ask nothing. Items that need a user reply print as `[-] not applicable: report-only`. Changes trace to a page and to discovery, and the inspection report labels them unconfirmed. Deliver the inspection report in your output channel (for a cloud task, its pull request description or the comment the user asked for): with no report file, paste its plain-text form (Phase 4).
 
-**Temporary folder.** At Phase 0, make a new folder in the system's temporary location (for example `mktemp -d`). It must lie outside every repo, the project, your home folder, and every scope root; the checker refuses one that does not, and every render must go to it. The manifest copy, the checker, fetched pages, the plan file, render files, and the inspection report all go there. If your harness cannot write any file outside the repo (for example a cloud agent restricted to its checkout), use inline delivery: pass the plan to the checker on standard input (`--plan -`, from a heredoc), record each baseline's `entry:` line in the plan (a digest and counts, in `readonly.baselines`), record page hashes from a command (`pages[].sha256` with `source`), and put the inline report where the user asked. Still write nothing in the repo.
+**Temporary folder.** At Phase 0, make a new folder in the system's temporary location (for example `mktemp -d`). It must lie outside every repo, the project, your home folder, and every scope root; the checker refuses one that does not, and every render must go to it. The manifest copy, the checker, fetched pages, the plan file, render files, and the inspection report all go there. If your harness cannot write any file outside the repo (for example a cloud agent restricted to its checkout), use inline delivery: pass the plan to the checker on standard input (`--plan -`, from a heredoc), record each baseline's `entry:` line in the plan (a digest and counts, in `readonly.baselines`), record page hashes from a command (`pages[].sha256` with `source`), and put the plain-text inspection report where the user asked. Still write nothing in the repo.
 
 **Render.** The checker renders every gate, the Final Gate, and the inspection report from the plan file and the manifest.
 
 - **File delivery** (the default): every render command takes `--out <t>`, where `<t>` is the temporary folder. The checker writes the full render to a new file there and prints a short block: its status, counts, open items, the file's path, and its `sha256`. Paste the short block verbatim, from its `--- shrine-check` line to its `--- end short` line. Ask the user to open the file; if your harness can show a file, offer to show it. Never retype, summarize, or abridge a render.
-- **Inline fallback**: only when the user cannot open files on this machine, or you cannot write the temporary folder. Set `"delivery": "inline"` and `delivery_reason`, run without `--out`, and paste the full render from its `--- shrine-check` line to its `--- end` line. "Same as above", ranges such as "1.2-1.6", and shortened paths are not the render.
+- **Inline fallback**: only when the user cannot open files on this machine, or you cannot write the temporary folder. Set `"delivery": "inline"` and `delivery_reason`, run without `--out`, and paste the full render from its `--- shrine-check` line to its `--- end` line. "Same as above", ranges such as "1.2-1.6", and shortened paths are not the render. The inspection report is the exception: when you can write the temporary folder, render it with `--out` even in inline delivery (Phase 4).
 - A gate is BLOCKED unless its short block (or, inline, its full render) is pasted for this phase. When it shows `[ ]`, fix the plan file or the gap, then render again.
 - **Hashes and times in prose**: never quote a hash in your own words, in full or in part. Name the render file that holds it. Take every time from `--render time`.
 - Commands (`<c>` is `node <t>/shrine-check.mjs`; `<m>` is the manifest copy; `<p>` is the plan file; add `--out <t>` to each render):
@@ -65,7 +65,7 @@ These rules apply to every phase.
   - Refresh comparison with the previous inspection report: `<c> --render refresh --plan <p> --manifest <m>`
   - Time used and the clock: `<c> --render time --plan <p>`
   - Read-only check: `<c> --verify-readonly --plan <p>`; every check at once: `<c> --check --plan <p> --manifest <m>`
-  - Report: `<c> --render report --plan <p> --manifest <m>`
+  - Report: `<c> --render report --plan <p> --manifest <m>`; it writes one HTML file (Phase 4)
   - Final Gate: `<c> --render final --plan <p> --manifest <m>`
 - **Fallback**: without Node, or when the user declines the checker, print the same layout by hand, add `(rendered manually)` to each gate's first line, and run each check by hand with its command output as evidence: a hash list of every watched file before and after for the read-only check, plus `git status --porcelain` where there is a git repo, and, for each diff, `git apply --check` where git is available, or a line-by-line comparison with the current file. Mark each such item "checked manually".
 
@@ -80,7 +80,7 @@ These rules apply to every phase.
   "models": { "<step>": "<model or tier used>" },
   "project_root": "<abs path>", "out_dir": "<the temporary folder, abs path>",
   "checker": { "file": "<the fetched checker in out_dir>" },
-  "previous": { "path": "<the earlier inspection report>", "source": "(user) | $ <command that found it>" } | null,
+  "previous": { "path": "<the earlier inspection report's .html file>", "source": "(user) | $ <command that found it>" } | null,
   "persist": { "source": "$ <command> | (doc: <url>) | (user)", "features": [ { "feature": "<memory, notes, ...>", "path": "<this project's own folder, file, or URL>", "automatic": false } ] },
   "load": [ { "path": "<instruction file>", "loads": "yes | no | unverified", "source": "$ <command> | (probe: <how>) | (user)",
     "probe": { "how": "<how>", "readonly": true, "note": "<what it writes> | null", "consent": "<the user's words> | null" } | null } ],
@@ -96,7 +96,8 @@ These rules apply to every phase.
   "evidence": { "<item id>": { "mark": "x | - | wait |  ", "text": "<one line>", "source": "$ <command> | (user) | (plan) | (probe: <how>)", "files": [ "<path the checker hashes>" ] } },
   "principles": [ { "title": "<manifest title>", "status": "applied | advised | not relevant", "proposals": [ "<ids>" ], "reason": "<tied to an answer, a finding, or a correction>" } ],
   "baseline": { "offer": "<the user's answer to the Individual Baseline offer>", "none_fit": "<why no baseline practice fits> | null", "none_fit_ack": "<the user's words> | null" },
-  "report": { "top_practices": [ { "practice": "<one line>", "page": "<manifest title>" } ], "summary": "<one line> | null" },
+  "report": { "top_practices": [ { "practice": "<one line>", "page": "<manifest title>" } ], "summary": "<one line> | null",
+    "advice": [ { "title": "<title>", "plain": "<the practice, in plain words>", "page": "<manifest title>", "value": "high | medium | low", "shared": false } ] },
   "report_file": { "file": "<report path>", "sha256": "<from its short block>" }, "report_sha256": "<inline delivery only>",
   "proposals": [ {
     "id": "B1", "group": "<theme>", "value": "high | medium | low", "title": "<title>", "plain": "<what it does, in plain words>", "page": "<manifest title>", "row": "<index row> | null",
@@ -159,7 +160,7 @@ Steps:
 2. Decide whether you can pause (see Terms). If you are running unattended, in a cloud task, or with no way to receive the user's reply before continuing, you cannot: set report-only mode.
 3. Ask whether the user can open files on this machine, so renders go to files (Render). If they cannot, set inline delivery with the reason. Decide which model or tier runs each step (invariant 12), and record it in `models`.
 4. Run `date +%s` and put its output in `time.start`. Propose a time box (suggest 30 minutes) and ask the user to agree or change it. The checker computes time used; never estimate it.
-5. Ask the run type: inspect, or refresh. Tell the user: "Refresh is experimental: it has not yet had a full real-world test. Report problems as GitHub issues." A refresh compares with a previous inspection report: ask for its path, or look only where the user says they saved it, read-only. Put it in `previous`.
+5. Ask the run type: inspect, or refresh. Tell the user: "Refresh is experimental: it has not yet had a full real-world test. Report problems as GitHub issues." A refresh compares with a previous inspection report, the `.html` file an earlier run wrote: ask for its path, or look only where the user says they saved it, read-only. Put it in `previous`.
 6. Make the temporary folder (Temporary folder). Fetch the manifest (https://stablekernel.github.io/SHRINE/shrine-manifest.json) and the SHRINE checker into it as raw bytes. Hash the checker and compare it with the manifest's `checker.sha256`; a mismatch aborts. Run `node --version`. Tell the user what the checker does (SHRINE checker, above) and ask to run it. Running it is running code (invariant 3): one approval covers every run of it in this run, and it still obeys the harness's own prompts. If they decline, or Node is missing, use the fallbacks.
 7. Start the plan file in the temporary folder, with `project_root` (the project or folder the user works in; leave it out when there is none, for example a chat app with only settings), `out_dir`, `checker`, and every instruction and config file a quick listing already shows (in `load` and `readonly.watch`). Then take the first baseline (`--render baseline`), before any further reading or probing, and record it in `readonly.baselines`.
 8. Put each Gate 0 item in `evidence` where the checker does not compute it, then render Gate 0.
@@ -301,15 +302,15 @@ Entry: Gate 3 printed with PASS.
 Steps:
 
 1. Run the read-only check (`--verify-readonly`). On FAIL, print the Abort Gate.
-2. Render the inspection report (`--render report`). Paste its short block, give the user the inspection report's path, and offer to show it. Put its file and `sha256` in `report_file`. In inline delivery, paste the full report where the user reads it (for a cloud task, the pull request description or the comment the user asked for) and put its end-line hash in `report_sha256`. Never retype or abridge it.
+2. Render the inspection report (`--render report --out <t>`). It is one HTML file that opens in any browser, with no network access; it embeds its own data, so a refresh reads it back. Paste its short block, give the user the file's path, and offer to open it in their browser. Put its file and `sha256` in `report_file`. In inline delivery with a report file (the user cannot open files), the short block holds a plain-text summary: show it, and tell the user where the file is. With no report file at all (you cannot write the temporary folder), render without `--out`, paste the plain-text report where the user reads it (for a cloud task, the pull request description or the comment the user asked for), and put its end-line hash in `report_sha256`. Never retype or abridge it.
 3. **Self-audit.** Re-read this prompt's Control Plane, every gate item, and the Invariant Map. For each item in Gates 0 to 3, confirm its evidence is still true now. Report any gap as `[ ]` with what is wrong (4.3).
 4. Render the Final Gate (`--render final`) and paste its short block.
-5. Tell the user how to apply a change (the inspection report's How to Apply section: the simplest is to ask their assistant, in a normal session, to apply change <id>), and that a refresh compares against this inspection report, so they should keep it. If 3.13 did not already ask, offer to start the Individual Baseline. Schedule nothing.
+5. Tell the user how to apply a change (the inspection report's How to Apply section: the simplest is to ask their assistant, in a normal session, to apply change <id>), and that a refresh compares against this inspection report, so they should keep the file. If 3.13 did not already ask, offer to start the Individual Baseline. Schedule nothing.
 
 **Final Gate.** The checker renders it: first line `FINAL GATE: PASS | BLOCKED`, then every item of Gates 0 to 3 with its current mark, then:
 
 - 4.1 Read-only check: nothing changed in any repo, watched file, or harness persistence path since the baselines (rendered from `--verify-readonly`)
-- 4.2 Report: the inspection report file is current with the plan, lies outside every scope root and repo, and has every line filled (rendered from `report_file`)
+- 4.2 Report: the inspection report file (HTML) is current with the plan, lies outside every scope root and repo, and has every line filled (rendered from `report_file`)
 - 4.3 Self-audit: "all items confirmed", or each gap
 - 4.4 Invariant Map: each invariant with its item ids and their marks (rendered)
 - 4.5 Checker, final run: every check PASS (rendered)
@@ -354,7 +355,7 @@ This section is generative. Design your own mechanisms from your environment, no
 - Teams: Authority Cascade, Governance
 - Symptoms: Anti-patterns (the index), then the fix page each row links
 
-**What kind of teaching.** Most of SHRINE is human practice. For each relevant teaching, decide which it is: an every-session agent rule, an on-demand procedure, work for a separate context, a machine check, an in-the-moment nudge, a practice for the user, or an org or team duty (advice in the inspection report, no change).
+**What kind of teaching.** Most of SHRINE is human practice. For each relevant teaching, decide which it is: an every-session agent rule, an on-demand procedure, work for a separate context, a machine check, an in-the-moment nudge, a practice for the user, or an org or team duty (advice in the inspection report, no change: put it in `report.advice`).
 
 **Nudges.** A nudge is a change class: any way your harness can act or prompt at the moment an anti-pattern happens. Examples only: a second correction on the same point suggests a context reset; a large diff or a long draft suggests reviewable output; an edit to a shared instruction file shows who it affects. Only an anti-pattern your harness can detect mechanically qualifies. A nudge is advisory by default (blocking needs the user's words asking for it), rate-limited, easy to turn off, tied to its index row, and costed in its trade-off. With no way to act at that moment, give the advice instead.
 
@@ -367,7 +368,7 @@ This section is generative. Design your own mechanisms from your environment, no
 - Write methods, not facts that go stale. Confirmed conventions count as methods; restated SHRINE text does not
 - Mark each addition so a later refresh can find it. A change may remove or rewrite the user's own lines only where a tagged correction traces to them (context: wrong) or discovery finds them duplicate, stale, or conflicting; say so in its trade-off
 - One edit per file, and one change per decision: the user applies changes one at a time, in any order, so each must apply alone to the current files
-- If no change beats advice, propose none. A report of advice alone is complete
+- If no change beats advice, propose none, and put the advice in `report.advice`; the inspection report shows it with nothing to apply. A report of advice alone is complete
 
 **Change Fields.** For each change, in `proposals`:
 

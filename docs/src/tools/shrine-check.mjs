@@ -1,6 +1,6 @@
 #!/usr/bin/env node
 // SHRINE checker, inspect mode: validates the plan file of a SHRINE inspect run and renders the
-// rigid parts of the run's output (gates, the Final Gate, and the inspection report) from it.
+// rigid parts of the run's output (gates, the Final Gate, and the inspection report, one HTML file) from it.
 // Served at https://stablekernel.github.io/SHRINE/shrine-check.mjs; its sha256 is in the manifest.
 //
 // It changes nothing in any user or project scope. Its one write: with --out <dir>, a render goes
@@ -30,7 +30,7 @@ import { homedir } from 'node:os';
 import { dirname, isAbsolute, join, relative, resolve, sep } from 'node:path';
 import { fileURLToPath } from 'node:url';
 
-const VERSION = 10;
+const VERSION = 11;
 const COVERAGE = ['applied', 'advised', 'not relevant'];
 const RUNS = ['inspect', 'refresh'];
 const MODES = ['interactive', 'report-only'];
@@ -62,7 +62,6 @@ const WALK_MAX_FILES = 10000;
 // change targets: dependency, cache, and build folders, and OS metadata files.
 const SKIP_DIRS = new Set(['.git', 'node_modules', '__pycache__', '.venv', 'venv', '.cache', '.pytest_cache', '.mypy_cache', 'dist', 'build']);
 const SKIP_FILES = new Set(['.DS_Store', 'Thumbs.db']);
-const REPORT_TITLE = '# Your SHRINE inspection report';
 // Common secret shapes. A match anywhere in the plan or the inspection report fails: redact it.
 const SECRETS = [
 	/AKIA[0-9A-Z]{16}/, /\bgh[pousr]_[A-Za-z0-9]{30,}/, /github_pat_[A-Za-z0-9_]{30,}/, /\bsk-[A-Za-z0-9_-]{20,}/,
@@ -408,7 +407,10 @@ function planShape(p) {
 			if (r.max_files != null && !(Number.isInteger(r.max_files) && r.max_files > 0)) errs.push('readonly.max_files must be a positive whole number');
 		}
 	}
-	if (p.previous != null && !(isObj(p.previous) && isStr(p.previous.path))) errs.push('plan.previous needs path: the earlier inspection report\'s path');
+	if (p.previous != null && !(isObj(p.previous) && isStr(p.previous.path))) errs.push('plan.previous needs path: the earlier inspection report\'s path (its .html file)');
+	if (p.report != null && !isObj(p.report)) errs.push('plan.report must be an object');
+	else if (p.report?.advice != null && !(Array.isArray(p.report.advice) && p.report.advice.every((a) => isObj(a) && isStr(a.title) && isStr(a.plain) && isStr(a.page) && VALUES.includes(a.value) && (a.shared == null || typeof a.shared === 'boolean'))))
+		errs.push(`plan.report.advice entries need title, plain, page, and value (${VALUES.join(', ')}); shared (true or false) is optional`);
 	return errs;
 }
 
@@ -1353,7 +1355,8 @@ function computed(id, ctx) {
 			if (plan.run !== 'refresh') return { mark: '-', lines: ['not applicable: not a refresh  (plan)'] };
 			const prev = readPrevious(plan);
 			if (prev.error) return { mark: ' ', lines: [prev.error] };
-			return { mark, lines: [`${prev.path} ${h(prev.sha)}: commit ${prev.data.commit}, prompt version ${prev.data.prompt?.version}, ${arr(prev.data.patches).length} changes  ${plan.previous.source ?? '(user)'}`] };
+			const pc = arr(prev.data.changes).filter((c) => isObj(c) && !c.advice).length;
+			return { mark, lines: [`${prev.path} ${h(prev.sha)}: commit ${prev.data.shrine.commit}, prompt version ${prev.data.shrine.prompt_version}, ${pc} changes  ${plan.previous.source ?? '(user)'}`] };
 		}
 		case '1.13': {
 			const { count, covers } = mergedBaseline(plan);
@@ -1657,19 +1660,38 @@ function gateBody(n, ctx) {
 	return { status, items, lines: [`GATE ${n} of 3: ${g.name}: ${status}`, ap.line, header(ctx.plan), ...carried, ...items.flatMap((i) => i.out), next] };
 }
 
-// ---------- the inspection report ----------
+// ---------- the inspection report: one self-contained HTML file ----------
 
+// The report is one HTML file, rendered here in full with every value escaped, so it reads and prints
+// with scripts off. Its data rides along as JSON, for a refresh and for the copy buttons; a small
+// inline script adds only the filters, the theme switch, and copy buttons. Its Content-Security-Policy
+// allows only its own style and script (by hash), so the page loads and runs nothing else.
+const REPORT_KIND = 'shrine-inspect-report';
+const REPORT_SCHEMA = 1;
+const REPORT_TITLE = 'Your SHRINE inspection report';
 const isoOf = (s) => new Date(s * 1000).toISOString().replace(/\.\d{3}Z$/, 'Z');
-const fence = (text) => '`'.repeat(Math.max(3, ...[...String(text).matchAll(/`+/g)].map((m) => m[0].length + 1)));
 const VALUE_RANK = { high: 0, medium: 1, low: 2 };
-
-function pageLink(man, title) {
-	const p = arr(man?.data?.pages).find((x) => isObj(x) && x.title === title);
-	return p?.url ? `[${title}](${p.url})` : title;
+const VALUE_LABEL = { high: 'High value', medium: 'Medium value', low: 'Low value' };
+const STATUS_LABEL = { applied: 'Applied', advised: 'Advised', 'not relevant': 'Not relevant' };
+const plural = (n, one, many = `${one}s`) => `${n} ${n === 1 ? one : many}`;
+const MONTHS = ['Jan', 'Feb', 'Mar', 'Apr', 'May', 'Jun', 'Jul', 'Aug', 'Sep', 'Oct', 'Nov', 'Dec'];
+function dateText(iso, withTime) {
+	const d = new Date(String(iso));
+	if (Number.isNaN(d.getTime())) return String(iso ?? '');
+	const p = (n) => String(n).padStart(2, '0');
+	return `${d.getUTCDate()} ${MONTHS[d.getUTCMonth()]} ${d.getUTCFullYear()}${withTime ? `, ${p(d.getUTCHours())}:${p(d.getUTCMinutes())} UTC` : ''}`;
 }
 
-// The inspection report's path is part of its text (How to Refresh), so file delivery names it before writing.
-function reportLines(plan, man, ctx, reportPath) {
+// Only an https SHRINE page becomes a link; any other URL is shown as text.
+const shrineUrl = (u) => (typeof u === 'string' && u.startsWith(SITE) && /^[A-Za-z0-9\-._~:/#%]+$/.test(u) ? u : null);
+function pageRef(man, title) {
+	const p = arr(man?.data?.pages).find((x) => isObj(x) && x.title === title);
+	return { title: isStr(title) ? title : '', url: shrineUrl(p?.url) };
+}
+
+// Everything the report shows, as data. The HTML is rendered from this object alone, and the object
+// is embedded in the file, so a refresh reads back exactly what the user saw.
+function reportData(plan, man, ctx, reportPath) {
 	const ps = proposalsOf(plan);
 	const results = ctx.results;
 	const v = ctx.verify;
@@ -1677,182 +1699,909 @@ function reportLines(plan, man, ctx, reportPath) {
 	const base = siteBase(man);
 	const ro = plan.mode === 'report-only';
 	const rpt = isObj(plan.report) ? plan.report : {};
-	const out = [REPORT_TITLE, ''];
-	const here = /^\(inline/.test(String(reportPath)) ? 'this inspection report' : reportPath;
-	out.push(`- Harness: ${plan.harness?.name} ${plan.harness?.version ?? 'unknown'}; user: ${plan.user ?? 'unknown'}; answered by: ${plan.answered_by ?? (ro ? 'nobody (report-only)' : 'unknown')}`);
-	out.push(`- Project: ${plan.project_root ?? 'none'}; scope: ${plan.scope?.choice ?? 'not set'} (${arr(plan.scope?.roots).join(', ')})`);
-	out.push(`- SHRINE: commit ${md.commit}; prompt version ${md.prompt?.version}; checker version ${VERSION}`);
-	out.push(`- Run started: ${isoOf(plan.time?.start ?? 0)}; mode: ${plan.mode}${ro ? ' (no user answers: every change is unconfirmed)' : ''}`);
-	out.push(`- This run changed nothing. Read-only check: ${v.problems.length ? `FAIL (${v.problems.length} changes)` : 'PASS'} (${v.summary})`);
-	if (isStr(rpt.summary)) out.push(`- ${rpt.summary}`);
-	out.push('', '## Summary', '');
-	const by = (val) => ps.filter((x) => x.value === val).length;
+	const here = reportPath ?? 'this inspection report';
 	const corr = arr(plan.corrections).filter(isObj);
 	const prin = arr(plan.principles).filter(isObj);
-	out.push(`- ${ps.length} changes: ${by('high')} high, ${by('medium')} medium, ${by('low')} low value; ${ps.filter((x) => x.runs_code).length} run code`);
-	out.push(`- Findings: ${arr(plan.scan).length} anti-pattern, ${arr(plan.signals?.metrics).length} history signals, ${corr.length} corrections (${corr.filter((c) => c.origin === 'measured').length} measured, ${corr.filter((c) => c.origin === 'recalled').length} recalled)`);
-	out.push(`- Principles: ${COVERAGE.map((s) => `${prin.filter((p) => p.status === s).length} ${s}`).join(', ')}, of ${manifestPrinciples(md).length} ratified`);
+	const ratified = manifestPrinciples(md);
+	const str = (s) => (s == null ? '' : String(s));
+	const changes = ps.map((x) => {
+		const t = isObj(x.tradeoff) ? x.tradeoff : {};
+		const { current: rs, rounds } = reviewersOf(x);
+		const escl = x.review?.escalated;
+		const g = isObj(x.nudge) ? x.nudge : null;
+		return {
+			id: x.id, advice: false, group: str(x.group), value: x.value, title: str(x.title), plain: str(x.plain),
+			page: pageRef(man, x.page), row: g?.row ?? x.row ?? null, traces_to: str(x.answer), principles: arr(x.principles).filter(isStr),
+			runs_code: x.runs_code === true, runtime_writes: arr(x.runtime_writes).filter(isStr),
+			reach: { shared: x.blast?.committed === true, reaches: str(x.blast?.reaches) },
+			tradeoff: { flag: t.flag === true, dimensions: arr(t.dimensions).filter(isStr), costs: str(t.costs), saves: str(t.saves), net: str(t.net) },
+			loads: { always_loaded: x.load?.always_loaded === true, miss: x.load?.miss ?? null, expect: str(x.load?.expect) },
+			verify: str(x.load?.verify), undo: undoText(x),
+			review: {
+				risk: riskOf(x), designed_by: str(x.model), self_only: isStr(x.review?.self_only) ? x.review.self_only : null, reviewers: rs.length, rounds,
+				escalated: isObj(escl) ? (isStr(escl.quote) ? `"${escl.quote}"` : str(escl.why)) : null,
+			},
+			nudge: g ? { trigger: str(g.trigger), advisory: g.advisory === true, rate_limit: str(g.rate_limit), disable: str(g.disable) } : null,
+			entry: x.id === 'S1' ? { mechanism: str(x.mechanism), invocation: str(x.invocation) } : null,
+			ask: `apply change ${x.id} from ${here}`,
+			files: results.filter((r) => r.id === x.id).map((r) => {
+				const ok = !r.problems.length;
+				return { n: r.n, target: r.abs ?? r.raw, root: ok ? r.root : null, kind: ok ? r.kind : null, sha256: ok ? r.sha256 : null, body: ok ? (r.kind === 'new' ? r.content : r.diff) : null, problems: r.problems };
+			}),
+		};
+	});
+	const advice = arr(rpt.advice).filter(isObj).map((a, i) => ({
+		id: `A${i + 1}`, advice: true, group: 'Advice', value: a.value, title: str(a.title), plain: str(a.plain), page: pageRef(man, a.page),
+		reach: { shared: a.shared === true, reaches: a.shared === true ? 'You and the people you work with.' : 'Only you.' }, runs_code: false,
+	}));
+	const items = [...changes, ...advice].sort((a, c) => (VALUE_RANK[a.value] ?? 3) - (VALUE_RANK[c.value] ?? 3) || a.id.localeCompare(c.id));
+	const count = (f) => items.filter(f).length;
 	const tops = arr(rpt.top_practices).filter(isObj);
-	out.push(`- Top practices: ${tops.length ? tops.map((t, i) => `${i + 1}. ${t.practice} (${pageLink(man, t.page)})`).join(' ') : '<missing: plan.report.top_practices>'}`);
 	const b = isObj(plan.baseline) ? plan.baseline : {};
-	out.push(`- Individual Baseline: ${ro ? 'start it so the next refresh compares against data' : isStr(b.offer) ? `offered; you said "${b.offer}"` : '<missing: plan.baseline.offer>'} (${base}stack/evaluation/#individual-baseline)`);
-	out.push('', '## Principle Coverage', '', '| Principle | Status | Changes | Reason |', '| --- | --- | --- | --- |');
-	const cell = (s) => String(s ?? '').replace(/\|/g, '\\|').replace(/\n/g, ' ');
-	for (const t of manifestPrinciples(md)) {
-		const p = prin.find((x) => x.title === t);
-		out.push(`| ${pageLink(man, t)} | ${p?.status ?? 'MISSING'} | ${arr(p?.proposals).join(', ') || 'none'} | ${cell(p?.reason)} |`);
-	}
-	out.push('', '## Findings', '', '### Anti-pattern Scan', '');
-	if (!arr(plan.scan).length) out.push('- No anti-pattern found.');
-	for (const s of arr(plan.scan).filter(isObj)) out.push(`- ${s.row}: ${s.evidence} (\`${s.source}\`); outcome: ${s.outcome}`);
-	out.push('', '### Session History', '');
 	const sg = plan.signals;
-	if (!isObj(sg) || !isStr(sg.consent) || ['declined', 'not available'].includes(sg.consent)) out.push(`- Not read: ${isObj(sg) ? sg.consent ?? 'not asked' : 'not asked'}.`);
-	else {
-		out.push(`- Read with your consent ("${sg.consent}"): ${sg.read?.path} filtered to ${sg.read?.filter}`);
-		for (const x of arr(sg.metrics).filter(isObj)) out.push(`- ${x.name}: ${x.value}${isStr(x.window) ? ` over ${x.window}` : ''} (\`${x.source}\`)`);
-	}
-	out.push('', '### Interview', '');
-	const ans = isObj(plan.answers) ? Object.entries(plan.answers) : [];
-	if (!ans.length) out.push(`- ${ro ? 'No interview: report-only.' : 'No answers recorded.'}`);
-	for (const [k, a] of ans) out.push(`- ${k}: ${a}`);
-	for (const c of corr) out.push(`- Correction (${c.origin}): ${c.text}; ${c.class ?? 'unclassified'}${c.class === 'repeated' ? `; tag ${c.tag}; symptom ${c.symptom}` : ''}`);
-	if (plan.run === 'refresh') {
-		out.push('', '## Since Last Inspection Report', '');
-		const r = refreshLines(plan, man);
-		out.push(...r.lines.map((l) => `- ${l}`));
-	}
-	out.push('', '## Changes', '', 'Ordered by value within each group. Apply none, some, or all. Nothing here is applied yet.');
-	const groups = [...new Set([...ps].sort((a, c) => VALUE_RANK[a.value] - VALUE_RANK[c.value]).map((x) => x.group))];
-	for (const g of groups) {
-		out.push('', `### ${g}`);
-		const list = ps.filter((x) => x.group === g).sort((a, c) => VALUE_RANK[a.value] - VALUE_RANK[c.value] || a.id.localeCompare(c.id));
-		for (const x of list) {
-			const t = x.tradeoff ?? {};
-			const { current: rs, rounds } = reviewersOf(x);
-			out.push('', `#### Change ${x.id}: ${x.title}`, '');
-			if (x.runs_code) out.push(`> **Runs code.** This change runs code with your account's full permissions. Read every line before you apply it. It writes, when it runs: ${arr(x.runtime_writes).join(', ') || 'nothing'}.`, '');
-			out.push(`- What it does: ${x.plain}`);
-			out.push(`- To apply: ask your assistant, "apply change ${x.id} from ${here}"`);
-			out.push(`- Value: ${x.value}`);
-			out.push(`- SHRINE page: ${pageLink(man, x.page)}`);
-			out.push(`- Anti-pattern row: ${x.nudge?.row ?? x.row ?? 'none'}`);
-			out.push(`- Traces to: ${x.answer}`);
-			if (arr(x.principles).length) out.push(`- Principles: ${arr(x.principles).join(', ')}`);
-			out.push(`- Trade-off: ${t.flag ? `${arr(t.dimensions).join(' vs ')}; ` : ''}costs ${t.costs}; saves ${t.saves}; net ${t.net}`);
-			out.push(`- Blast radius: ${x.blast?.committed ? 'committed or shared' : 'local only'}; reaches ${x.blast?.reaches}; runs code: ${x.runs_code ? 'yes' : 'no'}`);
-			out.push(`- Loads: ${x.load?.always_loaded ? `always loaded; prevents ${x.load.miss}; ` : ''}${x.load?.expect}`);
-			out.push(`- Verify after applying: ${x.load?.verify}`);
-			out.push(`- Undo: ${undoText(x)}`);
-			const esc = x.review?.escalated;
-			out.push(`- Review: risk ${riskOf(x)}; designed by ${x.model}; ${isStr(x.review?.self_only) ? `self only (${x.review.self_only})` : `${rs.length} reviewers of this design`}; ${rounds} rounds${isObj(esc) ? `; escalated to you: ${isStr(esc.quote) ? `"${esc.quote}"` : esc.why}` : ''}`);
-			if (isObj(x.nudge)) out.push(`- Nudge: when ${x.nudge.trigger}; ${x.nudge.advisory ? 'advisory' : 'blocking'}; at most ${x.nudge.rate_limit}; turn off: ${x.nudge.disable}`);
-			if (x.id === 'S1') out.push(`- Mechanism: ${x.mechanism}; invoke as "${x.invocation}"`);
-			for (const r of results.filter((y) => y.id === x.id)) {
-				out.push('');
-				if (r.problems.length) {
-					out.push(`File ${r.n}: ${r.abs ?? r.raw}: DOES NOT APPLY: ${r.problems.join('; ')}`);
-					continue;
-				}
-				const body = r.kind === 'new' ? r.content : r.diff;
-				out.push(r.kind === 'new' ? `File ${r.n}: new file \`${r.abs}\`, exact contents:` : `File ${r.n}: \`${r.abs}\`, a diff to apply from \`${r.root}\`:`, '');
-				const f = fence(body);
-				out.push(`<!-- shrine-change ${x.id} ${r.n} -->`, `${f}${r.kind === 'new' ? '' : 'diff'}`, ...body.replace(/\n$/, '').split('\n'), f);
-			}
-		}
-	}
-	out.push('', '## How to Apply', '');
-	out.push('- Read each change first. Apply none, some, or all, later, in a normal session, under your AI tool\'s own permission prompts.');
-	out.push(`- The simple way: ask your assistant, "apply change B1 from ${here}", with the change id you chose.`);
-	out.push('- By hand, a new file: create it with the exact contents shown.');
-	out.push('- By hand, a diff: open the file and make the edit it shows. Lines that start with `+` are added, lines that start with `-` are removed, and the other lines show where.');
-	out.push('- With git: save the diff block as `B1.diff`, then from the folder the change names, run `git apply --check B1.diff`, then `git apply B1.diff`.');
-	out.push('- A change marked "Runs code" runs with your account\'s full permissions: read it before you apply it.');
-	out.push('- After applying, do each change\'s verify step. To undo, follow its undo line, or ask your assistant to undo the change; with git, `git apply -R B1.diff`.');
-	out.push('', '## How to Refresh', '');
+	const read = isObj(sg) && isStr(sg.consent) && !['declined', 'not available'].includes(sg.consent);
 	const s1 = ps.find((x) => x.id === 'S1');
-	if (s1) out.push(`- If you applied S1: run "${s1.invocation}". It re-inspects and compares with this inspection report.`);
-	out.push(`- Or paste the inspect prompt from ${base}guide/inspect/ into a fresh session, choose refresh, and give it this inspection report's path: ${reportPath}`);
-	out.push('- Keep this inspection report where you can find it; the refresh compares against it.');
-	const data = {
-		schema: 1,
-		commit: md.commit,
-		prompt: { version: md.prompt?.version, sha256: md.prompt?.sha256 },
-		checker_version: VERSION,
-		pages: arr(plan.pages).filter(isObj).map((p) => ({ title: p.title, sha256: arr(md.pages).find((m) => m.title === p.title)?.sha256 ?? null })),
-		patches: ps.map((x) => ({ id: x.id, title: x.title, changes: results.filter((r) => r.id === x.id && !r.problems.length).map((r) => ({ n: r.n, target: r.abs, root: r.root, kind: r.kind, sha256: r.sha256 })) })),
+	const ids = new Set(items.map((x) => x.id));
+	return {
+		kind: REPORT_KIND,
+		schema: REPORT_SCHEMA,
+		title: REPORT_TITLE,
+		report_path: reportPath ?? null,
+		run: {
+			type: plan.run, mode: plan.mode, unconfirmed: ro, started: isoOf(plan.time?.start ?? 0),
+			harness: { name: str(plan.harness?.name), version: str(plan.harness?.version ?? 'unknown') },
+			user: str(plan.user ?? 'unknown'), answered_by: str(plan.answered_by ?? (ro ? 'nobody (report-only)' : 'unknown')),
+			project: str(plan.project_root ?? 'none'), scope: { choice: str(plan.scope?.choice ?? 'not set'), roots: arr(plan.scope?.roots).filter(isStr) },
+			read_only: { pass: !v.problems.length, changes: v.problems.length, summary: v.summary },
+			note: isStr(rpt.summary) ? rpt.summary : null,
+		},
+		shrine: {
+			site: shrineUrl(base) ?? SITE, commit: str(md.commit), prompt_version: md.prompt?.version ?? null, prompt_sha256: md.prompt?.sha256 ?? null, checker_version: VERSION,
+			pages: arr(plan.pages).filter(isObj).map((p) => ({ title: str(p.title), url: pageRef(man, p.title).url, sha256: arr(md.pages).find((m) => m.title === p.title)?.sha256 ?? null })),
+		},
+		summary: {
+			changes: count((x) => !x.advice), advice: count((x) => x.advice),
+			value: { high: count((x) => x.value === 'high'), medium: count((x) => x.value === 'medium'), low: count((x) => x.value === 'low') },
+			reach: { only_you: count((x) => !x.reach.shared), shared: count((x) => x.reach.shared) },
+			runs_code: { yes: count((x) => x.runs_code), no: count((x) => !x.runs_code) },
+			findings: { scan: arr(plan.scan).length, signals: arr(sg?.metrics).length, corrections: corr.length, measured: corr.filter((c) => c.origin === 'measured').length, recalled: corr.filter((c) => c.origin === 'recalled').length },
+			principles: { ratified: ratified.length, ...Object.fromEntries(COVERAGE.map((s) => [s, prin.filter((p) => p.status === s).length])) },
+			top_practices: tops.length ? tops.map((t) => ({ text: str(t.practice), page: pageRef(man, t.page) })) : [{ text: '<missing: plan.report.top_practices>', page: null }],
+			baseline: { text: ro ? 'start it, so the next refresh compares against data' : isStr(b.offer) ? `offered; you said "${b.offer}"` : '<missing: plan.baseline.offer>', url: shrineUrl(`${base}stack/evaluation/#individual-baseline`) },
+		},
+		principles: ratified.map((t) => {
+			const p = prin.find((x) => x.title === t);
+			return { title: t, url: pageRef(man, t).url, status: p?.status ?? 'MISSING', changes: arr(p?.proposals).filter(isStr), reason: str(p?.reason) };
+		}),
+		findings: {
+			scan: arr(plan.scan).filter(isObj).map((s) => {
+				const m = /^proposal (\S+)$/.exec(s.outcome ?? '');
+				return { row: str(s.row), evidence: str(s.evidence), source: str(s.source), outcome: str(s.outcome), change: m && ids.has(m[1]) ? m[1] : null };
+			}),
+			anti_patterns: pageRef(man, INDEX_TITLE),
+			history: read
+				? { read: true, consent: sg.consent, path: str(sg.read?.path), filter: str(sg.read?.filter), metrics: arr(sg.metrics).filter(isObj).map((x) => ({ name: str(x.name), value: str(x.value), window: x.window ?? null, source: str(x.source) })) }
+				: { read: false, why: isObj(sg) ? str(sg.consent ?? 'not asked') : 'not asked', metrics: [] },
+			corrections: corr.map((c) => ({ text: str(c.text), origin: str(c.origin), class: str(c.class ?? 'unclassified'), tag: c.tag ?? null, symptom: c.symptom ?? null })),
+			interview: (isObj(plan.answers) ? Object.entries(plan.answers) : []).map(([k, a]) => ({ topic: k, answer: str(a) })),
+			interview_note: ro ? 'No interview: report-only.' : 'No answers recorded.',
+		},
+		refresh: plan.run === 'refresh' ? refreshCompare(plan, man) : null,
+		changes: items,
+		how_to_apply: [
+			'Read each change first. Apply none, some, or all, later, in a normal session, under your AI tool\'s own permission prompts.',
+			`The simple way: ask your assistant, "apply change B1 from ${here}", with the change id you chose.`,
+			'By hand, a new file: create it with the exact contents shown.',
+			'By hand, a diff: open the file and make the edit it shows. Lines that start with + are added, lines that start with - are removed, and the other lines show where.',
+			'With git: save the diff as B1.diff, then from the folder the change names, run git apply --check B1.diff, then git apply B1.diff.',
+			'After applying, do each change\'s check. To undo, follow its undo line, or ask your assistant to undo the change; with git, git apply -R B1.diff.',
+		],
+		apply_note: `A change marked "Runs code" runs with your account's full permissions: read it before you apply it.${advice.length ? ' Advice has nothing to apply: it is a practice for you to try.' : ''}`,
+		how_to_refresh: [
+			...(s1 ? [`If you applied S1: run "${s1.invocation}". It inspects again and compares with this inspection report.`] : []),
+			`Or paste the SHRINE Inspect prompt into a new session, choose refresh, and give it this file's path: ${reportPath ?? '(no report file was written)'}`,
+		],
+		prompt_page: { title: 'SHRINE Inspect', url: shrineUrl(`${base}guide/inspect/`) },
+		refresh_note: 'Keep this file where you can find it. It holds the full report as data, so a refresh can compare against it.',
 	};
-	out.push('', '## Report Data', '', 'For the next refresh. Data only.', '', '```json', JSON.stringify(data, null, 2), '```');
-	return out;
 }
 
-function reportProblems(text) {
+// A report is complete when no line is a placeholder and no secret-shaped value slipped through.
+function reportProblems(data, text) {
 	const out = [];
-	for (const l of text.split('\n')) if (/<missing/.test(l)) out.push(`report line not filled: ${l}`);
+	walkStrings(data, '', (s, path) => {
+		if (/<missing/.test(s)) out.push(`report line not filled: ${path}: ${s}`);
+	});
 	if (SECRETS.some((re) => re.test(text))) out.push('the inspection report holds a secret-shaped value: redact it in the plan');
 	return out;
 }
 
+// ---------- HTML rendering: every value escaped ----------
+
+const ESC = { '&': '&amp;', '<': '&lt;', '>': '&gt;', '"': '&quot;', "'": '&#39;' };
+const esc = (s) => String(s ?? '').replace(/[&<>"']/g, (c) => ESC[c]);
+const link = (ref) => {
+	const u = shrineUrl(ref?.url);
+	return u ? `<a href="${esc(u)}" rel="noopener noreferrer" target="_blank">${esc(ref.title)}</a>` : esc(ref?.title);
+};
+// JSON inside a script element: no "<", ">", or "&" survives, so "</script>" and "<!--" cannot end or bend it.
+const embedJson = (o) => JSON.stringify(o, null, 1).replace(/[<>&\u2028\u2029]/g, (c) => `\\u${c.charCodeAt(0).toString(16).padStart(4, '0')}`);
+const cspHash = (s) => `'sha256-${createHash('sha256').update(s).digest('base64')}'`;
+
+const SVG = (body, w = 16, cls = 'ico') => `<svg class="${cls}" width="${w}" height="${w}" viewBox="0 0 ${w} ${w}" aria-hidden="true" focusable="false">${body}</svg>`;
+const ICON = {
+	only: SVG('<circle cx="8" cy="8" r="3" fill="currentColor"/>'),
+	shared: SVG('<circle cx="8" cy="8" r="2.5" fill="currentColor"/><circle cx="8" cy="8" r="6.5" fill="none" stroke="currentColor" stroke-width="1.5"/>'),
+	warn: SVG('<path d="M8 1.5 15 14H1z" fill="none" stroke="currentColor" stroke-width="1.5" stroke-linejoin="round"/><path d="M8 6v4M8 11.5v1" fill="none" stroke="currentColor" stroke-width="1.6" stroke-linecap="round"/>'),
+	applied: SVG('<circle cx="8" cy="8" r="7" fill="currentColor"/><path class="tick" d="M4.8 8.2 7 10.4l4.2-4.6" fill="none" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round"/>'),
+	advised: SVG('<circle cx="8" cy="8" r="6.25" fill="none" stroke="currentColor" stroke-width="1.5"/><path d="M8 1.75a6.25 6.25 0 0 1 0 12.5z" fill="currentColor"/>'),
+	other: SVG('<circle cx="8" cy="8" r="6.25" fill="none" stroke="currentColor" stroke-width="1.5" stroke-dasharray="2.5 2"/>'),
+	chev: SVG('<path d="M5 8l6 6 6-6" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"/>', 22, 'chev'),
+};
+const meter = (v) => `<span class="meter" aria-hidden="true">${[0, 1, 2].map((i) => `<i${i < ({ high: 3, medium: 2, low: 1 }[v] ?? 0) ? ' class="on"' : ''}></i>`).join('')}</span>`;
+const reachLabel = (shared) => (shared ? 'Shared with others' : 'Only you');
+const num = (n) => String(Math.round(n * 100) / 100);
+
+function barSvg(parts, total) {
+	let x = 0;
+	const rects = parts.map(([n, cls]) => {
+		const w = total ? (n / total) * 100 : 0;
+		const r = `<rect x="${num(x)}" y="0" width="${num(w)}" height="8" class="${cls}"/>`;
+		x += w;
+		return r;
+	});
+	return `<svg class="bar" viewBox="0 0 100 8" preserveAspectRatio="none" aria-hidden="true" focusable="false">${rects.join('')}</svg>`;
+}
+
+// The summary counts are the filters: each count is a button that shows only those changes.
+function filterPanel(d) {
+	const s = d.summary;
+	const total = d.changes.length;
+	const group = (title, filter, rows) => `<div class="tally"><h3>${esc(title)}</h3><ul>${rows.map((r) => `<li><button type="button" class="pick" data-filter="${filter}" data-key="${r.key}" disabled><span class="n">${r.n}</span><span class="tag">${r.icon}${esc(r.label)}</span></button></li>`).join('')}</ul>${barSvg(rows.map((r) => [r.n, r.bar]), total)}</div>`;
+	return `<div class="tallies" role="group" aria-label="Changes by value, reach, and code. Choose a count to show only those changes.">
+${group('By value', 'value', ['high', 'medium', 'low'].map((k, i) => ({ key: k, n: s.value[k], label: VALUE_LABEL[k], icon: meter(k), bar: `seg v${i}` })))}
+${group('Who it reaches', 'reach', [{ key: 'only-you', n: s.reach.only_you, label: reachLabel(false), icon: ICON.only, bar: 'seg v0' }, { key: 'shared', n: s.reach.shared, label: reachLabel(true), icon: ICON.shared, bar: 'seg muted' }])}
+${group('Runs code', 'code', [{ key: 'yes', n: s.runs_code.yes, label: 'Runs code', icon: ICON.warn, bar: 'seg warn' }, { key: 'no', n: s.runs_code.no, label: 'No code', icon: '', bar: 'seg muted' }])}
+</div>`;
+}
+
+const block = (title, body, cls = 'block') => `<div class="${cls}"><h4>${esc(title)}</h4>${body}</div>`;
+const p = (s, cls) => `<p${cls ? ` class="${cls}"` : ''}>${esc(s)}</p>`;
+
+function preHtml(body, isDiff) {
+	const lines = String(body).replace(/\n$/, '').split('\n');
+	const cls = (l) => (!isDiff ? '' : /^(\+\+\+|---) /.test(l) ? 'meta' : l[0] === '+' ? 'add' : l[0] === '-' ? 'del' : l.startsWith('@@') ? 'hunk' : '');
+	return `<pre class="code" tabindex="0">${lines.map((l) => `<span${cls(l) ? ` class="${cls(l)}"` : ''}>${esc(l)}\n</span>`).join('')}</pre>`;
+}
+
+function cardHtml(c, d, anti) {
+	const tags = [
+		`<span class="tag">${meter(c.value)}${esc(VALUE_LABEL[c.value] ?? c.value)}</span>`,
+		`<span class="tag">${c.reach.shared ? ICON.shared : ICON.only}${esc(reachLabel(c.reach.shared))}</span>`,
+		c.runs_code ? `<span class="tag code">${ICON.warn}Runs code</span>` : '',
+		c.advice ? '<span class="tag advice">Advice only</span>' : '',
+		d.run.unconfirmed && !c.advice ? '<span class="tag advice">Unconfirmed</span>' : '',
+		c.advice ? '' : `<span class="tag group">${esc(c.group)}</span>`,
+	].join('');
+	const body = [];
+	if (c.advice) {
+		body.push(block('Why', `<p class="why-link">SHRINE practice: ${link(c.page)}</p>`));
+		body.push(block('Who it affects', p(c.reach.reaches)));
+		body.push(block('Apply it', p('Nothing to apply. This is a practice for you to try.')));
+	} else {
+		if (c.runs_code) body.push(`<div class="warn" role="note"><strong>This change runs code with your account's full permissions.</strong><span>Read every line before you apply it. When it runs, it writes: ${esc(c.runtime_writes.join(', ') || 'nothing')}.</span></div>`);
+		const row = c.row ? `<p>Known problem: ${esc(c.row)}${anti.url ? ` (${link(anti)})` : ''}</p>` : '';
+		const pr = c.principles.length ? p(`Principles: ${c.principles.join(', ')}`) : '';
+		body.push(block('Why', `${p(`Traces to: ${c.traces_to}`)}<p class="why-link">SHRINE practice: ${link(c.page)}</p>${row}${pr}`));
+		const t = c.tradeoff;
+		body.push(block('Trade-off', `<div class="trade"><div><h5>You gain</h5>${p(t.saves)}</div><div><h5>It costs</h5>${p(t.costs)}</div></div>${p(`Net: ${t.net}${t.flag ? `. It trades ${t.dimensions.join(' against ')}` : ''}.`, 'net')}`));
+		body.push(block('Who it affects', p(`${c.reach.shared ? 'Committed or shared' : 'Local only'}: reaches ${c.reach.reaches}.`)));
+		body.push(block('When it loads', p(`${c.loads.always_loaded ? `Always loaded; it prevents: ${c.loads.miss ?? ''}. ` : ''}${c.loads.expect}`)));
+		body.push(block('How to check it worked', p(c.verify)));
+		body.push(block('How to undo it', p(c.undo)));
+		const r = c.review;
+		body.push(block('Review', p(`Risk: ${r.risk}. Designed by ${r.designed_by}; ${r.self_only ? `self only (${r.self_only})` : `${plural(r.reviewers, 'reviewer')} of this design`}; ${plural(r.rounds, 'round')}${r.escalated ? `; escalated to you: ${r.escalated}` : ''}.`)));
+		if (c.nudge) body.push(block('Nudge', p(`When ${c.nudge.trigger}; ${c.nudge.advisory ? 'advisory' : 'blocking'}; at most ${c.nudge.rate_limit}; turn it off: ${c.nudge.disable}.`)));
+		if (c.entry) body.push(block('How you start it', p(`${c.entry.mechanism}: "${c.entry.invocation}"`)));
+		body.push(block('Ask your assistant', `<div class="ask" id="ask-${esc(c.id)}"><code>${esc(c.ask)}</code></div>`));
+		for (const f of c.files) {
+			if (f.problems.length) {
+				body.push(block(`File ${f.n}`, `<div class="warn" role="note"><strong>This file's change does not apply.</strong><span>${esc(`${f.target}: ${f.problems.join('; ')}`)}</span></div>`, 'block wide'));
+				continue;
+			}
+			const head = f.kind === 'new' ? `New file <code>${esc(f.target)}</code>, exact contents` : `Edit to <code>${esc(f.target)}</code>, a diff to apply from <code>${esc(f.root)}</code>`;
+			body.push(block(c.files.length > 1 ? `The exact change, file ${f.n}` : 'The exact change', `<div class="file-head" id="file-${esc(c.id)}-${f.n}"><span>${head}</span></div>${preHtml(f.body, f.kind !== 'new')}`, 'block wide'));
+		}
+	}
+	return `<li data-value="${esc(c.value)}" data-reach="${c.reach.shared ? 'shared' : 'only-you'}" data-code="${c.runs_code ? 'yes' : 'no'}">
+<details class="card${c.runs_code ? ' runs-code' : ''}${c.advice ? ' advice' : ''}" id="change-${esc(c.id)}" open>
+<summary class="card-head"><span class="card-id"><span class="visually-hidden">${c.advice ? 'Advice' : 'Change'} </span>${esc(c.id)}</span><h3 class="card-title">${esc(c.title)}</h3>${ICON.chev}<span class="tags">${tags}</span><span class="card-sum">${esc(c.plain)}</span></summary>
+<div class="card-body">${body.join('\n')}</div>
+</details>
+</li>`;
+}
+
+function principlesHtml(d) {
+	const ids = new Set(d.changes.map((c) => c.id));
+	const ref = (id) => (ids.has(id) ? `<a href="#change-${esc(id)}">${esc(id)}</a>` : esc(id));
+	return d.principles.map((x) => {
+		const icon = x.status === 'applied' ? ICON.applied : x.status === 'advised' ? ICON.advised : ICON.other;
+		const refs = x.changes.length ? `<span class="refs">${x.changes.length === 1 ? 'Change' : 'Changes'} ${x.changes.map(ref).join(', ')}</span>` : '';
+		return `<li><span class="p-name">${link({ title: x.title, url: x.url })}</span><span class="status s-${esc(String(x.status).replace(/\s+/g, '-'))}">${icon}${esc(STATUS_LABEL[x.status] ?? x.status)}</span><span class="p-reason">${esc(x.reason)}${refs}</span></li>`;
+	}).join('\n');
+}
+
+const BASIS = { measured: 'Measured', recalled: 'Recalled', stated: 'You said' };
+const basis = (b) => `<span class="basis ${BASIS[b] ? b : 'stated'}">${BASIS[b] ?? BASIS.stated}</span>`;
+
+function findingsHtml(d) {
+	const f = d.findings;
+	const scan = f.scan.length
+		? f.scan.map((s) => {
+			const cut = s.row.indexOf(' / ');
+			const [cat, sym] = cut < 0 ? ['', s.row] : [s.row.slice(0, cut), s.row.slice(cut + 3)];
+			const out = s.change ? `Leads to <a href="#change-${esc(s.change)}">change ${esc(s.change)}</a>` : esc(s.outcome === 'advice' ? 'Advice only' : `Outcome: ${s.outcome}`);
+			return `<li>${cat ? `<p class="cat">${esc(cat)}</p>` : ''}<p class="what">${esc(sym)} ${basis('measured')}</p>${p(s.evidence, 'ev')}<p class="src">Found with <code>${esc(s.source)}</code></p><p class="out">${out}</p></li>`;
+		}).join('\n')
+		: '<li><p>No anti-pattern found.</p></li>';
+	const h = f.history;
+	const hist = h.read
+		? `${p(`Read with your consent ("${h.consent}"), from ${h.path}, filtered to ${h.filter}. Read-only, local only.`)}<ul class="signals">${h.metrics.map((m) => `<li><span class="n">${esc(m.value)}</span><span class="l">${esc(m.name)}${m.window ? ` over ${esc(m.window)}` : ''}</span><code>${esc(m.source)}</code></li>`).join('')}</ul>`
+		: p(`Not read: ${h.why}.`);
+	const corr = f.corrections.length
+		? `<ul class="find-list">${f.corrections.map((c) => `<li><p class="what">${esc(c.text)} ${basis(c.origin)}</p>${p(`${c.class}${c.class === 'repeated' ? `; tag ${c.tag ?? ''}; symptom ${c.symptom ?? ''}` : ''}`, 'out')}</li>`).join('')}</ul>`
+		: p('No corrections recorded.');
+	const qa = f.interview.length ? `<dl class="qa">${f.interview.map((q) => `<div><dt>${esc(q.topic)}</dt><dd>${esc(q.answer)} ${basis('stated')}</dd></div>`).join('')}</dl>` : p(f.interview_note);
+	return `<div class="find-group"><h3>Known problems it found</h3><p>Matches against the SHRINE ${link(f.anti_patterns)} list. ${esc(plural(f.scan.length, 'finding'))}.</p><ul class="find-list">${scan}</ul></div>
+<div class="find-group"><h3>Your session history</h3>${hist}</div>
+<div class="find-group"><h3>Corrections you made</h3><p>Fixes you gave the assistant. Repeats point to a gap in its setup.</p>${corr}</div>
+<div class="find-group"><h3>Your interview answers</h3>${qa}</div>`;
+}
+
+function sinceHtml(r, d) {
+	if (r.error) return `<div class="warn" role="note"><strong>The previous inspection report could not be read.</strong><span>${esc(r.error)}</span></div>`;
+	const pv = r.previous;
+	const intro = `Compared with your inspection report${pv.started ? ` from ${dateText(pv.started)}` : ''} (${pv.path}). ${r.moved ? `SHRINE moved from commit ${pv.commit} to ${r.live_commit}.` : 'SHRINE has not moved.'} Prompt version ${pv.prompt_version} then, ${r.live_prompt_version} now${r.newer_prompt ? ': a newer prompt exists' : ''}.`;
+	const states = r.earlier.length
+		? r.earlier.map((e) => `<li><span class="state st-${esc(e.status.replace(/\s+/g, '-'))}">${esc(e.status)}</span><span><strong>${esc(`${e.id}: ${e.title}`)}</strong><br><span class="p-reason">${esc(`File ${e.n}: ${e.target}`)}</span></span></li>`).join('')
+		: '<li><span class="state">none</span><span>The previous report proposed no change.</span></li>';
+	const pages = r.pages_changed.length
+		? r.pages_changed.map((x) => `<li class="one">${link(x)}${x.removed ? ' <span class="p-reason">(removed)</span>' : ''}</li>`).join('')
+		: '<li class="one">No page you read has changed.</li>';
+	return `${p(intro, 'since-intro')}<div class="since"><div><h3>Your earlier changes</h3><ul class="state-list">${states}</ul></div><div><h3>SHRINE pages that changed</h3><ul class="state-list">${pages}</ul>${r.compare ? `<p class="note">Every change since then: <code>${esc(r.compare)}</code></p>` : ''}</div></div>`;
+}
+
+function reportHtml(d) {
+	const run = d.run;
+	const s = d.summary;
+	const sh = d.shrine;
+	const total = d.changes.length;
+	const anti = d.findings.anti_patterns;
+	const lede = `A check-up of how you set up and use your AI tools. It suggests ${plural(s.changes, 'change')}${s.advice ? ` and ${plural(s.advice, 'piece')} of advice` : ''}, each tied to the SHRINE practice behind it.`;
+	const promise = run.read_only.pass
+		? `<div class="promise" role="note"><strong>This inspection changed nothing.</strong><span>You choose what to apply, later. Read-only check: passed (${esc(run.read_only.summary)}).</span></div>`
+		: `<div class="warn" role="note"><strong>Read this first: the read-only check found ${esc(plural(run.read_only.changes, 'change'))}.</strong><span>${esc(run.read_only.summary)}</span></div>`;
+	const meta = [
+		['Ran on', dateText(run.started, true)],
+		['For', `${run.user}; answered by ${run.answered_by}`],
+		['Assistant', `${run.harness.name} ${run.harness.version}`],
+		['Project', run.project],
+		['Looked at', `${run.scope.choice} (${run.scope.roots.join(', ')})`],
+		['Mode', `${run.mode}${run.unconfirmed ? ' (no user answers: every change is unconfirmed)' : ''}`],
+		['SHRINE version', `commit ${sh.commit}; prompt version ${sh.prompt_version}; checker version ${sh.checker_version}`],
+		...(run.type === 'refresh' ? [['Report type', 'Refresh: compared with your last inspection report']] : []),
+	].map(([k, v]) => `<dt>${esc(k)}</dt><dd>${esc(v)}</dd>`).join('');
+	const toc = [['summary', 'Summary'], ['changes', 'Changes'], ['principles', 'Principle coverage'], ['findings', 'Findings'], ...(d.refresh ? [['since', 'Since your last inspection report']] : []), ['apply', 'How to apply'], ['refresh', 'How to refresh']];
+	const tops = s.top_practices.map((t) => `<li>${esc(t.text)}${t.page ? `. ${link(t.page)}` : ''}</li>`).join('');
+	const pc = s.principles;
+	const body = `<a class="skip" href="#main">Skip to the inspection report</a>
+<div class="shell">
+<nav class="toc" aria-label="Report sections"><p>On this page</p><ul>${toc.map(([id, t]) => `<li><a href="#${id}">${esc(t)}</a></li>`).join('')}</ul></nav>
+<main id="main">
+<header class="masthead">
+<div class="topbar"><p class="brand"><strong>SHRINE</strong> Inspect</p>
+<fieldset class="theme" id="theme" hidden><legend>Colour theme</legend><label><input type="radio" name="theme" value="auto" checked><span>Auto</span></label><label><input type="radio" name="theme" value="light"><span>Light</span></label><label><input type="radio" name="theme" value="dark"><span>Dark</span></label></fieldset></div>
+<h1>${esc(d.title)}</h1>
+${p(lede, 'lede')}${run.note ? p(run.note, 'lede note-line') : ''}
+${promise}
+<dl class="meta">${meta}</dl>
+</header>
+<section id="summary" aria-labelledby="summary-h">
+<div class="section-head"><h2 id="summary-h">Summary</h2><p>${esc(plural(total, 'item'))} in this report. <span class="js-hint">Choose a count to show only those changes.</span></p></div>
+${filterPanel(d)}
+<div class="top-practices"><h3>Top practices for you</h3><ol>${tops}</ol></div>
+${p(`Findings: ${plural(s.findings.scan, 'known problem')}, ${plural(s.findings.signals, 'history signal')}, ${plural(s.findings.corrections, 'correction')} (${s.findings.measured} measured, ${s.findings.recalled} recalled).`, 'findings-line')}
+${p(`Principles: ${pc.applied} applied, ${pc.advised} advised, ${pc['not relevant']} not relevant, of ${pc.ratified} ratified.`, 'findings-line')}
+<p class="findings-line">Individual Baseline: ${esc(s.baseline.text)}. ${link({ title: 'What the Individual Baseline is', url: s.baseline.url })}</p>
+</section>
+<section id="changes" aria-labelledby="changes-h">
+<div class="section-head"><h2 id="changes-h">Changes worth making</h2><p>Ordered by value. Open a change to see why, what it costs, and how to check or undo it. Nothing here is applied yet.</p></div>
+<div class="list-tools"><p class="count" id="count" role="status" aria-live="polite">${esc(plural(total, 'item'))}</p><div class="btn-row" id="list-buttons"></div></div>
+<ul class="cards" id="cards">
+${d.changes.map((c) => cardHtml(c, d, anti)).join('\n')}
+</ul>
+<div class="empty" id="empty" hidden><p><strong>No changes match these filters.</strong></p><p>Clear the filters to see every change.</p></div>
+</section>
+<section id="principles" aria-labelledby="principles-h">
+<div class="section-head"><h2 id="principles-h">Principle coverage</h2><p>How each ratified SHRINE principle shows up in this inspection report.</p></div>
+<ul class="principles">${principlesHtml(d)}</ul>
+</section>
+<section id="findings" aria-labelledby="findings-h">
+<div class="section-head"><h2 id="findings-h">Findings</h2><p>What the inspection saw. ${basis('measured')} comes from a tool. ${basis('recalled')} comes from your memory. ${basis('stated')} is an interview answer.</p></div>
+${findingsHtml(d)}
+</section>
+${d.refresh ? `<section id="since" aria-labelledby="since-h"><div class="section-head"><h2 id="since-h">Since your last inspection report</h2></div>${sinceHtml(d.refresh, d)}</section>` : ''}
+<section id="apply" aria-labelledby="apply-h">
+<div class="section-head"><h2 id="apply-h">How to apply</h2><p>Nothing changes until you choose. Apply none, some, or all.</p></div>
+<ol class="steps">${d.how_to_apply.map((x) => `<li>${esc(x)}</li>`).join('')}</ol>
+${p(d.apply_note, 'note')}
+</section>
+<section id="refresh" aria-labelledby="refresh-h">
+<div class="section-head"><h2 id="refresh-h">How to refresh</h2><p>Run the inspection again later to see what moved. ${link(d.prompt_page)}</p></div>
+<ol class="steps">${d.how_to_refresh.map((x) => `<li>${esc(x)}</li>`).join('')}</ol>
+${p(d.refresh_note, 'note')}
+</section>
+<footer>${p(`Inspection report ${d.report_path ? `saved at ${d.report_path}` : 'with no file'}. SHRINE commit ${sh.commit}. Made by SHRINE Inspect, checker version ${sh.checker_version}.`)}</footer>
+</main>
+</div>
+<div class="toast" id="toast" aria-hidden="true"></div>
+<p class="visually-hidden" id="announce" role="status" aria-live="polite"></p>`;
+	const json = embedJson(d);
+	const csp = `default-src 'none'; style-src ${cspHash(REPORT_CSS)}; script-src ${cspHash(REPORT_JS)}; base-uri 'none'; form-action 'none'`;
+	return `<!doctype html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<meta http-equiv="Content-Security-Policy" content="${csp}">
+<meta name="referrer" content="no-referrer">
+<meta name="generator" content="shrine-check ${VERSION}">
+<meta name="shrine-report-data-sha256" content="${sha(json)}">
+<title>${esc(d.title)}</title>
+<style>${REPORT_CSS}</style>
+</head>
+<body>
+${body}
+<script type="application/json" id="shrine-report-data">${json}</script>
+<script>${REPORT_JS}</script>
+</body>
+</html>
+`;
+}
+
+// The plain-text form: inline delivery shows it in chat. Without a report file it carries every
+// section and each change's exact edit, since nothing else holds them.
+function reportText(d, full) {
+	const run = d.run;
+	const s = d.summary;
+	const out = [`${d.title} (plain text)`];
+	out.push(d.report_path ? `Report file: ${d.report_path} (one HTML file; it opens in any browser)` : 'Report file: none (this harness could not write one)');
+	out.push(run.read_only.pass ? `This inspection changed nothing. Read-only check: PASS (${run.read_only.summary})` : `Read-only check: FAIL (${run.read_only.changes} changes; ${run.read_only.summary})`);
+	out.push(`Assistant: ${run.harness.name} ${run.harness.version}; user: ${run.user}; answered by: ${run.answered_by}`);
+	out.push(`Project: ${run.project}; scope: ${run.scope.choice} (${run.scope.roots.join(', ')})`);
+	out.push(`SHRINE: commit ${d.shrine.commit}; prompt version ${d.shrine.prompt_version}; checker version ${d.shrine.checker_version}`);
+	out.push(`Run started: ${run.started}; mode: ${run.mode}${run.unconfirmed ? ' (no user answers: every change is unconfirmed)' : ''}`);
+	if (run.note) out.push(run.note);
+	out.push('', 'Summary');
+	out.push(`- ${plural(s.changes, 'change')} and ${s.advice} advice: ${s.value.high} high, ${s.value.medium} medium, ${s.value.low} low value; ${s.runs_code.yes} run code; ${s.reach.shared} shared with others`);
+	out.push(`- Findings: ${s.findings.scan} anti-pattern, ${s.findings.signals} history signals, ${s.findings.corrections} corrections (${s.findings.measured} measured, ${s.findings.recalled} recalled)`);
+	out.push(`- Principles: ${s.principles.applied} applied, ${s.principles.advised} advised, ${s.principles['not relevant']} not relevant, of ${s.principles.ratified} ratified`);
+	out.push(`- Top practices: ${s.top_practices.map((t, i) => `${i + 1}. ${t.text}${t.page ? ` (${t.page.title})` : ''}`).join(' ')}`);
+	out.push(`- Individual Baseline: ${s.baseline.text}`);
+	if (full) {
+		out.push('', 'Principle coverage');
+		for (const x of d.principles) out.push(`- ${x.title}: ${x.status}${x.changes.length ? ` (${x.changes.join(', ')})` : ''}; ${x.reason}`);
+		out.push('', 'Findings');
+		for (const x of d.findings.scan) out.push(`- ${x.row}: ${x.evidence} (${x.source}); outcome: ${x.outcome}`);
+		if (!d.findings.scan.length) out.push('- No anti-pattern found.');
+		const h = d.findings.history;
+		out.push(h.read ? `- Session history read with your consent ("${h.consent}"): ${h.path} filtered to ${h.filter}` : `- Session history not read: ${h.why}`);
+		for (const m of h.metrics) out.push(`- ${m.name}: ${m.value}${m.window ? ` over ${m.window}` : ''} (${m.source})`);
+		for (const q of d.findings.interview) out.push(`- ${q.topic}: ${q.answer}`);
+		if (!d.findings.interview.length) out.push(`- ${d.findings.interview_note}`);
+		for (const c of d.findings.corrections) out.push(`- Correction (${c.origin}): ${c.text}; ${c.class}`);
+	}
+	if (d.refresh) {
+		out.push('', 'Since your last inspection report');
+		const r = d.refresh;
+		if (r.error) out.push(`- ${r.error}`);
+		else out.push(...refreshTextLines(r).map((l) => `- ${l}`));
+	}
+	out.push('', 'Changes, ordered by value');
+	for (const c of d.changes) {
+		out.push(`- ${c.id} (${c.value} value${c.advice ? ', advice only' : ''}${c.runs_code ? ', RUNS CODE' : ''}): ${c.title}. ${c.plain}`);
+		if (c.advice) {
+			out.push('  Nothing to apply.');
+			continue;
+		}
+		if (c.runs_code) out.push(`  Runs code with your account's full permissions. Read it before you apply it. It writes, when it runs: ${c.runtime_writes.join(', ') || 'nothing'}.`);
+		out.push(`  To apply: ask your assistant, "${c.ask}"`);
+		if (!full) continue;
+		out.push(`  Why: ${c.traces_to}; SHRINE page: ${c.page.title}${c.row ? `; known problem: ${c.row}` : ''}`);
+		out.push(`  Trade-off: costs ${c.tradeoff.costs}; saves ${c.tradeoff.saves}; net ${c.tradeoff.net}`);
+		out.push(`  Reaches: ${c.reach.reaches}; check: ${c.verify}; undo: ${c.undo}`);
+		const r = c.review;
+		out.push(`  Review: risk ${r.risk}; ${r.self_only ? `self only (${r.self_only})` : `${r.reviewers} reviewers of this design`}; ${r.rounds} rounds${r.escalated ? `; escalated to you: ${r.escalated}` : ''}`);
+		for (const f of c.files) {
+			if (f.problems.length) {
+				out.push(`  File ${f.n}: ${f.target}: DOES NOT APPLY: ${f.problems.join('; ')}`);
+				continue;
+			}
+			out.push(f.kind === 'new' ? `  File ${f.n}: new file ${f.target}, exact contents:` : `  File ${f.n}: ${f.target}, a diff to apply from ${f.root}:`);
+			out.push(...f.body.replace(/\n$/, '').split('\n').map((l) => `    ${l}`));
+		}
+	}
+	out.push('', 'How to apply', ...d.how_to_apply.map((x) => `- ${x}`), `- ${d.apply_note}`);
+	out.push('', 'How to refresh', ...d.how_to_refresh.map((x) => `- ${x}`), `- ${d.refresh_note}`);
+	return `${out.join('\n')}\n`;
+}
+
 // ---------- refresh: compare with a previous inspection report ----------
+
+// Read a previous report's embedded data. The file must be a SHRINE HTML report whose data still
+// matches the hash recorded beside it, and whose schema this checker reads.
+function parseReportHtml(text) {
+	const blocks = [...text.matchAll(/<script type="application\/json" id="shrine-report-data">([\s\S]*?)<\/script>/g)];
+	if (!blocks.length) {
+		if (/^## Report Data$/m.test(text)) return { error: 'it is a Markdown inspection report from an earlier SHRINE version: refresh reads only the HTML inspection report; run a new inspect instead' };
+		return { error: 'it is not a SHRINE inspection report: it has no SHRINE report data' };
+	}
+	if (blocks.length > 1 || text.split('id="shrine-report-data"').length !== 2) return { error: 'it holds more than one report data block: it is not a SHRINE inspection report as SHRINE wrote it' };
+	const metas = [...text.matchAll(/<meta name="shrine-report-data-sha256" content="([0-9a-f]{64})">/g)];
+	if (metas.length !== 1) return { error: 'it has no recorded report data hash: it is not a SHRINE inspection report' };
+	const got = sha(blocks[0][1]);
+	if (got !== metas[0][1]) return { error: `its report data ${h(got)} != recorded ${h(metas[0][1])}: the file was edited after SHRINE wrote it` };
+	let data = null;
+	try {
+		data = JSON.parse(blocks[0][1]);
+	} catch {
+		return { error: 'its report data is not valid JSON: it is not a SHRINE inspection report' };
+	}
+	if (!isObj(data) || data.kind !== REPORT_KIND) return { error: 'its report data is not a SHRINE inspection report' };
+	if (data.schema !== REPORT_SCHEMA) return { error: `its report data is schema ${data.schema}; this checker reads schema ${REPORT_SCHEMA}: fetch the current checker, or run a new inspect` };
+	if (!isObj(data.shrine) || !isStr(data.shrine.commit) || !Array.isArray(data.shrine.pages) || !Array.isArray(data.changes)) return { error: 'its report data lacks shrine.commit, shrine.pages, or changes' };
+	return { data };
+}
 
 function readPrevious(plan) {
 	const rp = planResolver(plan);
 	const path = rp(plan.previous?.path ?? '');
 	const text = path ? readText(path) : null;
 	if (text == null) return { error: `previous inspection report not found at ${plan.previous?.path ?? '<plan.previous.path missing>'}: ask the user where they saved it` };
-	const m = /## Report Data[\s\S]*?```json\n([\s\S]*?)\n```/.exec(text);
-	let data = null;
-	try {
-		data = m ? JSON.parse(m[1]) : null;
-	} catch {}
-	if (!isObj(data)) return { error: `${path} has no Report Data block: it is not a SHRINE inspection report` };
-	const blocks = new Map();
-	for (const b of text.matchAll(/<!-- shrine-change (\S+) (\d+) -->\n(`{3,})[^\n]*\n([\s\S]*?)\n\3(?:\n|$)/g)) blocks.set(`${b[1]} ${b[2]}`, `${b[4]}\n`);
-	return { path, sha: sha(text), data, blocks };
+	const r = parseReportHtml(text);
+	if (r.error) return { error: `previous inspection report ${path}: ${r.error}` };
+	return { path, sha: sha(text), data: r.data };
 }
 
-// Each earlier patch now: applied, not applied, or changed since the inspection report. Read-only.
-function patchStatus(c, body) {
-	const now = fileState(c.target) === 'absent' ? null : readText(c.target);
-	if (body == null) return 'block missing from the inspection report';
-	if (c.kind === 'new') return now == null ? 'not applied' : now === body ? 'applied' : 'changed since the inspection report';
-	const p = parseDiff(body);
-	if (p.error) return `unreadable: ${p.error}`;
+// Each earlier change now: applied, not applied, or changed since the inspection report. Read-only.
+function patchStatus(f) {
+	if (!isStr(f.target) || !isStr(f.body)) return 'not readable from the inspection report';
+	const now = fileState(f.target) === 'absent' ? null : readText(f.target);
+	if (f.kind === 'new') return now == null ? 'not applied' : now === f.body ? 'applied' : 'changed since the inspection report';
+	const pd = parseDiff(f.body);
+	if (pd.error) return `unreadable: ${pd.error}`;
 	// Reverse first: a pure addition still applies forward after it was applied, since its context remains.
-	if (now != null && !applyHunks(now, reverseHunks(p.hunks)).error) return 'applied';
-	if (now != null && !applyHunks(now, p.hunks).error) return 'not applied';
+	if (now != null && !applyHunks(now, reverseHunks(pd.hunks)).error) return 'applied';
+	if (now != null && !applyHunks(now, pd.hunks).error) return 'not applied';
 	return 'changed since the inspection report';
 }
 
-function refreshLines(plan, man) {
+function refreshCompare(plan, man) {
 	const prev = readPrevious(plan);
-	if (prev.error) return { ok: false, lines: [prev.error] };
+	if (prev.error) return { error: prev.error };
 	const d = prev.data;
 	const md = man.data;
-	const out = [
-		`previous inspection report ${prev.path} ${h(prev.sha)}`,
-		`previous commit ${d.commit}, live ${md.commit}: ${d.commit === md.commit ? 'SHRINE has not moved' : 'SHRINE moved'}`,
-		`previous prompt version ${d.prompt?.version}, live ${md.prompt?.version}${md.prompt?.version > d.prompt?.version ? ': a newer prompt exists' : ''}`,
-	];
-	const live = new Map(arr(md.pages).map((p) => [p.title, p.sha256]));
-	const changed = arr(d.pages).filter(isObj).filter((p) => live.get(p.title) !== p.sha256);
-	out.push(`${changed.length} pages changed since the previous inspection report${changed.length ? `: ${changed.map((p) => `"${p.title}"${live.has(p.title) ? '' : ' (removed)'}`).join(', ')}` : ''}`);
-	if (d.commit !== md.commit) out.push(`compare: https://github.com/stablekernel/SHRINE/compare/${d.commit}...${md.commit}`);
-	for (const x of arr(d.patches).filter(isObj))
-		for (const c of arr(x.changes).filter(isObj)) out.push(`change ${x.id} file ${c.n} (${c.target}): ${patchStatus(c, prev.blocks.get(`${x.id} ${c.n}`))}`);
-	return { ok: true, lines: out };
+	const live = new Map(arr(md.pages).filter(isObj).map((p) => [p.title, p]));
+	const moved = d.shrine.commit !== md.commit;
+	return {
+		previous: { path: prev.path, sha256: prev.sha, commit: d.shrine.commit, prompt_version: d.shrine.prompt_version ?? null, started: isStr(d.run?.started) ? d.run.started : null, changes: arr(d.changes).filter((c) => isObj(c) && !c.advice).length },
+		live_commit: md.commit,
+		moved,
+		live_prompt_version: md.prompt?.version ?? null,
+		newer_prompt: md.prompt?.version > d.shrine.prompt_version,
+		pages_changed: arr(d.shrine.pages).filter(isObj).filter((p) => live.get(p.title)?.sha256 !== p.sha256).map((p) => ({ title: String(p.title), url: shrineUrl(live.get(p.title)?.url), removed: !live.has(p.title) })),
+		compare: moved ? `https://github.com/stablekernel/SHRINE/compare/${d.shrine.commit}...${md.commit}` : null,
+		earlier: arr(d.changes).filter((c) => isObj(c) && !c.advice).flatMap((c) => arr(c.files).filter(isObj).map((f) => ({ id: String(c.id), title: String(c.title ?? ''), n: f.n, target: String(f.target ?? ''), status: patchStatus(f) }))),
+	};
 }
 
+function refreshTextLines(r) {
+	const pv = r.previous;
+	return [
+		`previous inspection report ${pv.path} ${h(pv.sha256)}`,
+		`previous commit ${pv.commit}, live ${r.live_commit}: ${r.moved ? 'SHRINE moved' : 'SHRINE has not moved'}`,
+		`previous prompt version ${pv.prompt_version}, live ${r.live_prompt_version}${r.newer_prompt ? ': a newer prompt exists' : ''}`,
+		`${r.pages_changed.length} pages changed since the previous inspection report${r.pages_changed.length ? `: ${r.pages_changed.map((p) => `"${p.title}"${p.removed ? ' (removed)' : ''}`).join(', ')}` : ''}`,
+		...(r.compare ? [`compare: ${r.compare}`] : []),
+		...r.earlier.map((e) => `change ${e.id} file ${e.n} (${e.target}): ${e.status}`),
+	];
+}
+
+function refreshLines(plan, man) {
+	const r = refreshCompare(plan, man);
+	if (r.error) return { ok: false, lines: [r.error] };
+	return { ok: true, lines: refreshTextLines(r) };
+}
+
+// The report page's own style and script, inlined into every report. The script uses textContent
+// only, and adds only the filters, the theme switch, and copy buttons; the page reads without it.
+const REPORT_CSS = String.raw`
+:root {
+  --bg: #f4f7f8; --surface: #ffffff; --surface-2: #eaf0f2; --ink: #15222d; --ink-2: #44535f;
+  --line: #d3dde2; --line-strong: #9fb0ba; --accent: #0f766e; --accent-ink: #0b5952; --accent-soft: #d9f0ec;
+  --warn-bg: #fdf1dc; --warn-line: #b45309; --warn-ink: #5f3305;
+  --add-bg: #e3f4ea; --add-ink: #14532d; --del-bg: #fbe5e5; --del-ink: #7f1d1d; --focus: #1d4ed8;
+  --serif: Charter, "Bitstream Charter", "Iowan Old Style", "Sitka Text", Cambria, Georgia, serif;
+  --sans: system-ui, -apple-system, "Segoe UI", Roboto, "Helvetica Neue", "Noto Sans", Arial, sans-serif;
+  --mono: ui-monospace, SFMono-Regular, Menlo, Consolas, "Liberation Mono", monospace;
+  --measure: 66ch;
+  color-scheme: light;
+}
+@media (prefers-color-scheme: dark) {
+  :root:not([data-theme="light"]) {
+    --bg: #111b24; --surface: #172530; --surface-2: #1d2e3a; --ink: #e5edf2; --ink-2: #a9b8c3;
+    --line: #2b3f4d; --line-strong: #4b6474; --accent: #2dd4bf; --accent-ink: #5eead4; --accent-soft: #123b3a;
+    --warn-bg: #2b2010; --warn-line: #e09a3a; --warn-ink: #fbd9a8;
+    --add-bg: #12311f; --add-ink: #a7f3c4; --del-bg: #3a1717; --del-ink: #fecaca; --focus: #93c5fd;
+    color-scheme: dark;
+  }
+}
+:root[data-theme="dark"] {
+  --bg: #111b24; --surface: #172530; --surface-2: #1d2e3a; --ink: #e5edf2; --ink-2: #a9b8c3;
+  --line: #2b3f4d; --line-strong: #4b6474; --accent: #2dd4bf; --accent-ink: #5eead4; --accent-soft: #123b3a;
+  --warn-bg: #2b2010; --warn-line: #e09a3a; --warn-ink: #fbd9a8;
+  --add-bg: #12311f; --add-ink: #a7f3c4; --del-bg: #3a1717; --del-ink: #fecaca; --focus: #93c5fd;
+  color-scheme: dark;
+}
+* { box-sizing: border-box; }
+[hidden] { display: none !important; }
+html { -webkit-text-size-adjust: 100%; }
+body { margin: 0; background: var(--bg); color: var(--ink); font: 17px/1.65 var(--sans); letter-spacing: 0.005em; }
+a { color: var(--accent-ink); text-underline-offset: 0.18em; text-decoration-thickness: 1px; }
+a:hover { text-decoration-thickness: 2px; }
+:focus-visible { outline: 3px solid var(--focus); outline-offset: 2px; border-radius: 4px; }
+h1, h2, h3 { font-family: var(--serif); font-weight: 600; line-height: 1.25; margin: 0; color: var(--ink); }
+h1 { font-size: clamp(2rem, 5vw, 2.6rem); letter-spacing: -0.01em; }
+h2 { font-size: 1.55rem; }
+h3 { font-size: 1.12rem; font-family: var(--sans); font-weight: 650; }
+p { margin: 0; }
+ul, ol { margin: 0; padding-left: 1.3em; }
+li + li { margin-top: 0.35em; }
+code, pre { font-family: var(--mono); font-size: 0.88em; }
+code { overflow-wrap: anywhere; }
+.skip { position: absolute; left: -9999px; top: 0; background: var(--surface); padding: 8px 14px; z-index: 10; }
+.skip:focus { left: 16px; top: 12px; }
+.visually-hidden { position: absolute !important; width: 1px; height: 1px; overflow: hidden; clip: rect(0 0 0 0); white-space: nowrap; }
+.js-hint { display: none; }
+.js .js-hint { display: inline; }
+
+.shell { max-width: 1180px; margin: 0 auto; padding: 0 16px 80px; display: grid; grid-template-columns: minmax(0, 1fr); gap: 40px; }
+.toc { display: none; }
+@media (min-width: 1100px) {
+  .shell { grid-template-columns: 210px minmax(0, 1fr); padding: 0 32px 96px; }
+  .toc { display: block; position: sticky; top: 24px; align-self: start; padding-top: 32px; font-size: 0.92rem; }
+  .toc p { color: var(--ink-2); margin-bottom: 8px; }
+  .toc ul { list-style: none; padding: 0; border-left: 2px solid var(--line); }
+  .toc li + li { margin-top: 0; }
+  .toc a { display: block; padding: 5px 0 5px 14px; margin-left: -2px; border-left: 2px solid transparent; color: var(--ink-2); text-decoration: none; }
+  .toc a:hover { color: var(--ink); border-left-color: var(--line-strong); }
+}
+main { min-width: 0; max-width: 820px; }
+section { margin-top: 64px; scroll-margin-top: 16px; }
+.section-head { margin-bottom: 20px; max-width: var(--measure); }
+.section-head p { color: var(--ink-2); margin-top: 6px; }
+
+.masthead { padding-top: 32px; }
+.topbar { display: flex; flex-wrap: wrap; gap: 12px 20px; align-items: center; justify-content: space-between; margin-bottom: 36px; }
+.brand { font-family: var(--serif); font-size: 1.05rem; color: var(--ink-2); }
+.brand strong { color: var(--ink); font-weight: 600; }
+.theme { display: inline-flex; border: 1px solid var(--line); border-radius: 999px; padding: 3px; margin: 0; background: var(--surface); }
+.theme legend { position: absolute; width: 1px; height: 1px; overflow: hidden; clip: rect(0 0 0 0); }
+.theme label { position: relative; }
+.theme input { position: absolute; opacity: 0; inset: 0; margin: 0; cursor: pointer; }
+.theme span { display: block; padding: 4px 12px; border-radius: 999px; font-size: 0.85rem; color: var(--ink-2); }
+.theme input:checked + span { background: var(--accent-soft); color: var(--accent-ink); font-weight: 600; }
+.theme input:focus-visible + span { outline: 3px solid var(--focus); outline-offset: 1px; }
+.lede { font-size: 1.15rem; color: var(--ink-2); margin-top: 14px; max-width: 58ch; }
+.note-line { font-size: 1rem; margin-top: 8px; }
+.promise { margin-top: 24px; padding: 14px 18px; border-left: 4px solid var(--accent); background: var(--accent-soft); border-radius: 0 8px 8px 0; max-width: var(--measure); }
+.promise strong, .warn strong { display: block; font-size: 1.05rem; }
+.promise span { color: var(--ink-2); font-size: 0.95rem; overflow-wrap: anywhere; }
+.meta { display: grid; grid-template-columns: max-content minmax(0, 1fr); gap: 6px 20px; margin: 24px 0 0; font-size: 0.95rem; max-width: var(--measure); }
+.meta dt { color: var(--ink-2); }
+.meta dd { margin: 0; overflow-wrap: anywhere; }
+@media (max-width: 520px) { .meta { grid-template-columns: minmax(0, 1fr); gap: 0; } .meta dd { margin-bottom: 10px; } }
+
+.tallies { display: grid; grid-template-columns: repeat(auto-fit, minmax(200px, 1fr)); background: var(--surface); border: 1px solid var(--line); border-radius: 12px; }
+.tally { padding: 16px 18px; min-width: 0; }
+.tally + .tally { border-left: 1px solid var(--line); }
+@media (max-width: 680px) { .tally + .tally { border-left: 0; border-top: 1px solid var(--line); } }
+.tally h3 { font-size: 0.95rem; color: var(--ink-2); font-weight: 600; }
+.tally ul { list-style: none; padding: 0; margin-top: 8px; }
+.tally li + li { margin-top: 2px; }
+.pick { display: flex; align-items: baseline; gap: 10px; width: 100%; font: inherit; color: inherit; text-align: left; background: none; border: 1px solid transparent; border-radius: 8px; padding: 2px 8px; margin-left: -8px; }
+.js .pick { cursor: pointer; }
+.js .pick:hover { background: var(--surface-2); }
+.pick[aria-pressed="true"] { background: var(--accent-soft); border-color: var(--accent); color: var(--accent-ink); font-weight: 600; }
+.js .pick[aria-pressed="true"]:hover { background: var(--accent-soft); }
+.pick .n { font-family: var(--serif); font-size: 1.6rem; font-weight: 600; min-width: 1.4ch; text-align: right; font-variant-numeric: tabular-nums; line-height: 1.3; }
+.bar { display: block; width: 100%; height: 8px; margin-top: 12px; border-radius: 4px; background: var(--surface-2); }
+.bar .seg { fill: var(--accent); }
+.bar .v1 { fill-opacity: 0.6; }
+.bar .v2 { fill-opacity: 0.3; }
+.bar .muted { fill: var(--line-strong); }
+.bar .warn { fill: var(--warn-line); }
+.top-practices { margin-top: 24px; max-width: var(--measure); }
+.top-practices ol { margin-top: 10px; }
+.findings-line { margin-top: 14px; color: var(--ink-2); max-width: var(--measure); }
+
+.meter { display: inline-flex; gap: 2px; align-items: flex-end; vertical-align: -1px; }
+.meter i { display: block; width: 5px; border-radius: 1px; background: var(--line-strong); opacity: 0.45; }
+.meter i:nth-child(1) { height: 7px; } .meter i:nth-child(2) { height: 10px; } .meter i:nth-child(3) { height: 13px; }
+.meter i.on { background: var(--accent); opacity: 1; }
+.tag { display: inline-flex; align-items: center; gap: 6px; }
+.ico { flex: none; }
+.tag.code { color: var(--warn-ink); background: var(--warn-bg); border: 1px solid var(--warn-line); border-radius: 6px; padding: 0 8px; font-weight: 600; }
+.tag.advice { border: 1px solid var(--line-strong); border-radius: 6px; padding: 0 8px; }
+
+.list-tools { display: flex; flex-wrap: wrap; gap: 10px 16px; align-items: center; justify-content: space-between; margin-bottom: 14px; }
+.count { color: var(--ink-2); }
+.btn { font: inherit; font-size: 0.92rem; color: var(--ink); background: var(--surface); border: 1px solid var(--line-strong); border-radius: 8px; padding: 6px 14px; cursor: pointer; min-height: 36px; }
+.btn:hover { background: var(--surface-2); }
+.btn.primary { background: var(--accent); color: var(--surface); border-color: var(--accent); font-weight: 600; }
+:root[data-theme="dark"] .btn.primary { color: #0b1a17; }
+@media (prefers-color-scheme: dark) { :root:not([data-theme="light"]) .btn.primary { color: #0b1a17; } }
+.btn.primary:hover { filter: brightness(1.08); }
+.btn-row { display: flex; gap: 8px; flex-wrap: wrap; }
+.empty { padding: 24px; border: 1px dashed var(--line-strong); border-radius: 10px; }
+.empty p + p { margin-top: 10px; }
+
+.cards { list-style: none; padding: 0; display: grid; gap: 14px; }
+.cards > li { margin: 0; min-width: 0; }
+.card { background: var(--surface); border: 1px solid var(--line); border-radius: 12px; overflow: hidden; min-width: 0; }
+.card.runs-code { border-color: var(--warn-line); }
+.card-head { list-style: none; display: grid; grid-template-columns: auto minmax(0, 1fr) auto; gap: 4px 14px; padding: 16px 18px; cursor: pointer; }
+.card-head::-webkit-details-marker { display: none; }
+.card-head:focus-visible { outline: 3px solid var(--focus); outline-offset: -3px; border-radius: 12px; }
+.card-head:hover .card-title { text-decoration: underline; text-decoration-thickness: 1px; text-underline-offset: 0.2em; }
+.card-id { grid-row: 1 / span 3; font-family: var(--serif); font-size: 1.5rem; font-weight: 600; color: var(--accent-ink); line-height: 1.2; min-width: 1.2ch; }
+.card-title { font-family: var(--serif); font-size: 1.22rem; font-weight: 600; line-height: 1.3; }
+.chev { grid-row: 1 / span 3; grid-column: 3; margin-top: 4px; color: var(--ink-2); transition: transform 160ms ease; }
+details[open] > .card-head .chev { transform: rotate(180deg); }
+.tags { display: flex; flex-wrap: wrap; gap: 6px 16px; font-size: 0.9rem; color: var(--ink-2); grid-column: 2; }
+.card-sum { grid-column: 2; color: var(--ink-2); max-width: 62ch; margin-top: 2px; }
+.card-body { padding: 4px 18px 22px; border-top: 1px solid var(--line); min-width: 0; }
+@media (min-width: 640px) { .card-body { padding-left: calc(18px + 1.2ch + 28px); } }
+.warn { margin-top: 18px; padding: 12px 16px; border: 1px solid var(--warn-line); border-left-width: 5px; background: var(--warn-bg); color: var(--warn-ink); border-radius: 8px; max-width: var(--measure); overflow-wrap: anywhere; }
+.masthead .warn { margin-top: 24px; }
+.block { margin-top: 22px; max-width: var(--measure); min-width: 0; }
+.block.wide { max-width: 100%; }
+.block h4 { margin: 0 0 6px; font-size: 1.05rem; font-weight: 650; }
+.block p + p { margin-top: 8px; }
+.trade { display: grid; grid-template-columns: minmax(0, 1fr); gap: 12px; }
+@media (min-width: 640px) { .trade { grid-template-columns: 1fr 1fr; } }
+.trade > div { border: 1px solid var(--line); border-radius: 8px; padding: 10px 14px; }
+.trade h5 { margin: 0 0 6px; font-size: 0.95rem; font-weight: 650; }
+.net { margin-top: 10px; color: var(--ink-2); }
+.ask { display: flex; flex-wrap: wrap; gap: 10px; align-items: center; margin-top: 6px; }
+.ask code { background: var(--surface-2); padding: 6px 10px; border-radius: 6px; }
+.file-head { display: flex; flex-wrap: wrap; gap: 8px 12px; align-items: center; justify-content: space-between; margin-bottom: 8px; color: var(--ink-2); font-size: 0.95rem; }
+.file-head span { min-width: 0; }
+pre.code { margin: 0; padding: 12px 0; background: var(--bg); border: 1px solid var(--line); border-radius: 8px; overflow-x: auto; line-height: 1.55; max-width: 100%; }
+pre.code span { display: block; padding: 0 14px; white-space: pre; min-width: max-content; }
+pre.code .add { background: var(--add-bg); color: var(--add-ink); }
+pre.code .del { background: var(--del-bg); color: var(--del-ink); }
+pre.code .hunk, pre.code .meta { color: var(--ink-2); }
+
+.principles { list-style: none; padding: 0; border-top: 1px solid var(--line); }
+.principles li { display: grid; align-items: baseline; grid-template-columns: minmax(0, 1fr); gap: 2px 16px; padding: 12px 0; border-bottom: 1px solid var(--line); margin: 0; }
+@media (min-width: 640px) { .principles li { grid-template-columns: 15em 7.5em minmax(0, 1fr); } }
+.status { display: inline-flex; gap: 6px; align-items: center; font-size: 0.92rem; font-weight: 600; }
+.status .tick { stroke: var(--surface); }
+.p-reason { color: var(--ink-2); }
+.p-reason .refs { display: block; font-size: 0.9rem; margin-top: 2px; }
+
+.find-group + .find-group { margin-top: 32px; }
+.find-group > h3 { margin-bottom: 4px; }
+.find-group > p { color: var(--ink-2); margin-bottom: 12px; max-width: var(--measure); }
+.find-list { list-style: none; padding: 0; display: grid; gap: 10px; }
+.find-list > li { margin: 0; background: var(--surface); border: 1px solid var(--line); border-radius: 10px; padding: 12px 16px; max-width: var(--measure); min-width: 0; }
+.find-list .cat, .find-list .src { font-size: 0.88rem; color: var(--ink-2); }
+.find-list .what { font-weight: 600; }
+.find-list .ev { margin-top: 2px; }
+.find-list .out { font-size: 0.92rem; color: var(--ink-2); margin-top: 4px; }
+.basis { display: inline-block; font-size: 0.8rem; font-weight: 600; border-radius: 4px; padding: 0 7px; vertical-align: 1px; border: 1px solid; }
+.basis.measured { color: var(--accent-ink); border-color: var(--accent); background: var(--accent-soft); }
+.basis.recalled { color: var(--ink-2); border-color: var(--line-strong); border-style: dashed; }
+.basis.stated { color: var(--ink-2); border-color: var(--line-strong); }
+.signals { display: grid; grid-template-columns: repeat(auto-fit, minmax(150px, 1fr)); gap: 10px; list-style: none; padding: 0; margin-top: 12px; }
+.signals li { margin: 0; background: var(--surface); border: 1px solid var(--line); border-radius: 10px; padding: 10px 14px; min-width: 0; }
+.signals .n { font-family: var(--serif); font-size: 1.5rem; font-weight: 600; display: block; font-variant-numeric: tabular-nums; }
+.signals .l { display: block; font-size: 0.92rem; color: var(--ink-2); }
+.signals code { display: block; font-size: 0.75rem; color: var(--ink-2); margin-top: 4px; }
+.qa { margin: 0; max-width: var(--measure); }
+.qa div { padding: 10px 0; border-bottom: 1px solid var(--line); }
+.qa dt { color: var(--ink-2); font-size: 0.92rem; }
+.qa dd { margin: 0; }
+
+.since-intro { color: var(--ink-2); max-width: var(--measure); margin-bottom: 16px; overflow-wrap: anywhere; }
+.since { display: grid; gap: 12px; grid-template-columns: minmax(0, 1fr); }
+@media (min-width: 640px) { .since { grid-template-columns: 1fr 1fr; } }
+.since > div { background: var(--surface); border: 1px solid var(--line); border-radius: 10px; padding: 14px 16px; min-width: 0; }
+.since h3 { margin-bottom: 8px; }
+.state-list { list-style: none; padding: 0; }
+.state-list li { display: grid; grid-template-columns: 8.5em minmax(0, 1fr); gap: 10px; padding: 6px 0; border-bottom: 1px solid var(--line); margin: 0; overflow-wrap: anywhere; }
+.state-list li.one { grid-template-columns: minmax(0, 1fr); }
+.state-list li:last-child { border-bottom: 0; }
+.state { font-size: 0.88rem; font-weight: 600; color: var(--ink-2); }
+.state.st-applied { color: var(--accent-ink); }
+.state.st-changed-since-the-inspection-report { color: var(--warn-ink); }
+
+.steps { max-width: var(--measure); }
+.steps li { padding-left: 4px; }
+.steps li + li { margin-top: 10px; }
+.note { margin-top: 16px; color: var(--ink-2); max-width: var(--measure); overflow-wrap: anywhere; }
+footer { margin-top: 72px; padding-top: 20px; border-top: 1px solid var(--line); color: var(--ink-2); font-size: 0.9rem; max-width: var(--measure); overflow-wrap: anywhere; }
+.toast { position: fixed; bottom: 20px; left: 50%; transform: translateX(-50%); background: var(--ink); color: var(--bg); padding: 8px 16px; border-radius: 8px; font-size: 0.95rem; opacity: 0; pointer-events: none; transition: opacity 160ms; }
+.toast.show { opacity: 1; }
+@media (prefers-reduced-motion: reduce) { *, *::before, *::after { transition: none !important; animation: none !important; } }
+@media print {
+  :root, :root[data-theme="dark"] {
+    --bg: #fff; --surface: #fff; --surface-2: #f1f4f5; --ink: #000; --ink-2: #333; --line: #bbb; --line-strong: #777;
+    --accent: #0f766e; --accent-ink: #0b5952; --accent-soft: #fff; --warn-bg: #fff; --warn-ink: #000;
+    --add-bg: #fff; --del-bg: #fff; --add-ink: #000; --del-ink: #000; color-scheme: light;
+  }
+  body { font-size: 11pt; }
+  .toc, .theme, .list-tools .btn-row, .copy, .skip, .toast, .chev, .empty, .js-hint { display: none !important; }
+  .shell { display: block; padding: 0; }
+  main { max-width: none; }
+  .cards > li[hidden] { display: block !important; }
+  .card-head { break-after: avoid; }
+  pre.code { overflow: visible; }
+  pre.code span { white-space: pre-wrap; min-width: 0; }
+  a { color: #000; }
+  section { margin-top: 28px; }
+  h2 { break-after: avoid; }
+}
+`;
+
+const REPORT_JS = String.raw`
+(function () {
+  "use strict";
+  var d = document, root = d.documentElement;
+  root.classList.add("js");
+  var data = null;
+  try { data = JSON.parse(d.getElementById("shrine-report-data").textContent); } catch (e) { data = null; }
+  function el(tag, cls, text) { var n = d.createElement(tag); if (cls) n.className = cls; if (text != null) n.textContent = String(text); return n; }
+  function list(v) { return Array.isArray(v) ? v : []; }
+
+  var theme = d.getElementById("theme"), KEY = "shrine-report-theme";
+  function setTheme(t) { if (t === "light" || t === "dark") root.setAttribute("data-theme", t); else root.removeAttribute("data-theme"); }
+  if (theme) {
+    theme.hidden = false;
+    var saved = null;
+    try { saved = localStorage.getItem(KEY); } catch (e) {}
+    if (saved === "light" || saved === "dark") {
+      setTheme(saved);
+      var r0 = theme.querySelector("input[value='" + saved + "']");
+      if (r0) r0.checked = true;
+    }
+    theme.addEventListener("change", function (e) {
+      setTheme(e.target.value);
+      try { localStorage.setItem(KEY, e.target.value); } catch (er) {}
+    });
+  }
+
+  var toast = d.getElementById("toast"), announce = d.getElementById("announce"), timer;
+  function notify(msg) {
+    announce.textContent = "";
+    setTimeout(function () { announce.textContent = msg; }, 30);
+    toast.textContent = msg;
+    toast.classList.add("show");
+    clearTimeout(timer);
+    timer = setTimeout(function () { toast.classList.remove("show"); }, 1800);
+  }
+  function fallbackCopy(text) {
+    var t = el("textarea");
+    t.value = text; t.setAttribute("readonly", ""); t.className = "visually-hidden";
+    d.body.appendChild(t); t.select();
+    var ok = false;
+    try { ok = d.execCommand("copy"); } catch (e) {}
+    d.body.removeChild(t);
+    return ok;
+  }
+  function copy(text, what, btn) {
+    function done(ok) {
+      notify(ok ? what + " copied" : "Copy failed. Select the text and copy it by hand.");
+      if (ok) { var old = btn.textContent; btn.textContent = "Copied"; setTimeout(function () { btn.textContent = old; }, 1600); }
+    }
+    if (navigator.clipboard && window.isSecureContext) navigator.clipboard.writeText(text).then(function () { done(true); }, function () { done(fallbackCopy(text)); });
+    else done(fallbackCopy(text));
+  }
+  function copyBtn(label, text, what, primary) {
+    var b = el("button", "btn copy" + (primary ? " primary" : ""), label);
+    b.type = "button";
+    b.addEventListener("click", function () { copy(text, what, b); });
+    return b;
+  }
+  if (data) list(data.changes).forEach(function (c) {
+    if (!c || c.advice) return;
+    var ask = d.getElementById("ask-" + c.id);
+    if (ask && typeof c.ask === "string") ask.appendChild(copyBtn("Copy request", c.ask, "Request for change " + c.id, true));
+    list(c.files).forEach(function (f) {
+      var head = f && d.getElementById("file-" + c.id + "-" + f.n);
+      if (head && typeof f.body === "string") head.appendChild(copyBtn(f.kind === "new" ? "Copy contents" : "Copy diff", f.body, (f.kind === "new" ? "Contents" : "Diff") + " for change " + c.id, false));
+    });
+  });
+
+  var items = [].slice.call(d.querySelectorAll("#cards > li"));
+  var cards = items.map(function (li) { return li.querySelector("details"); });
+  cards.forEach(function (c, i) { if (i > 0) c.open = false; });
+  function openTo(id) { var t = id && d.getElementById(id); if (t && t.tagName === "DETAILS") t.open = true; }
+  d.addEventListener("click", function (e) {
+    var a = e.target.closest && e.target.closest("a[href^='#change-']");
+    if (a) openTo(a.getAttribute("href").slice(1));
+  });
+  window.addEventListener("hashchange", function () { openTo(location.hash.slice(1)); });
+  openTo(location.hash.slice(1));
+
+  var row = d.getElementById("list-buttons");
+  var openAll = el("button", "btn", "Open all"), closeAll = el("button", "btn", "Close all"), clear = el("button", "btn", "Clear filters");
+  [openAll, closeAll, clear].forEach(function (b) { b.type = "button"; row.appendChild(b); });
+  openAll.addEventListener("click", function () { cards.forEach(function (c, i) { if (!items[i].hidden) c.open = true; }); });
+  closeAll.addEventListener("click", function () { cards.forEach(function (c) { c.open = false; }); });
+
+  var state = { value: null, reach: null, code: null };
+  var picks = [].slice.call(d.querySelectorAll(".pick"));
+  var count = d.getElementById("count"), empty = d.getElementById("empty"), total = items.length;
+  function apply() {
+    var shown = 0;
+    items.forEach(function (li) {
+      var ok = (!state.value || li.getAttribute("data-value") === state.value) && (!state.reach || li.getAttribute("data-reach") === state.reach) && (!state.code || li.getAttribute("data-code") === state.code);
+      li.hidden = !ok;
+      if (ok) shown++;
+    });
+    picks.forEach(function (b) { b.setAttribute("aria-pressed", state[b.getAttribute("data-filter")] === b.getAttribute("data-key") ? "true" : "false"); });
+    var on = !!(state.value || state.reach || state.code);
+    var noun = total === 1 ? " item" : " items";
+    count.textContent = on ? "Showing " + shown + " of " + total + noun : "Showing all " + total + noun;
+    clear.hidden = !on;
+    empty.hidden = shown !== 0;
+  }
+  picks.forEach(function (b) {
+    b.disabled = false;
+    b.addEventListener("click", function () {
+      var f = b.getAttribute("data-filter"), k = b.getAttribute("data-key");
+      state[f] = state[f] === k ? null : k;
+      apply();
+    });
+  });
+  clear.addEventListener("click", function () { state = { value: null, reach: null, code: null }; apply(); if (picks[0]) picks[0].focus(); });
+  apply();
+
+  var printState = null;
+  window.addEventListener("beforeprint", function () { printState = cards.map(function (c) { return c.open; }); cards.forEach(function (c) { c.open = true; }); });
+  window.addEventListener("afterprint", function () { if (printState) cards.forEach(function (c, i) { c.open = printState[i]; }); printState = null; });
+})();
+`;
+
 // ---------- the Final Gate ----------
+
+// The plain-text report, as inline delivery prints it with no report file.
+const inlineReport = (plan, man, ctx) => reportText(reportData(plan, man, ctx, null), true);
+const htmlReport = (plan, man, ctx, path) => {
+	const data = reportData(plan, man, ctx, path);
+	const html = reportHtml(data);
+	return { data, html };
+};
 
 function reportFileItem(ctx, man) {
 	const { plan } = ctx;
 	const r = plan.report_file;
 	const lines = [];
-	if (plan.delivery === 'inline') {
-		if (!HEX64.test(plan.report_sha256 ?? '')) return { mark: ' ', lines: ['plan.report_sha256 missing: render the inspection report inline, paste it where the user asked, and record its end-line hash'] };
-		const text = `${reportLines(plan, man, ctx, `(inline: ${plan.delivery_reason})`).join('\n')}\n`;
-		const ok = sha(text) === plan.report_sha256;
+	if (!isObj(r) && plan.delivery === 'inline') {
+		if (!HEX64.test(plan.report_sha256 ?? '')) return { mark: ' ', lines: ['plan.report_sha256 missing: render the inspection report (with --out when you can write the temporary folder, and record report_file), or inline, paste it where the user asked, and record its end-line hash'] };
+		const ok = sha(inlineReport(plan, man, ctx)) === plan.report_sha256;
 		return { mark: ok ? 'x' : ' ', lines: [ok ? `report rendered inline ${h(plan.report_sha256)}, current with the plan  $ shrine-check --render report` : 'the plan changed since the inline report: render it again and record the new hash'] };
 	}
 	if (!isObj(r) || !isStr(r.file)) return { mark: ' ', lines: ['plan.report_file missing: run --render report --out <t>, show the short block, and record its file and sha256'] };
@@ -1864,11 +2613,12 @@ function reportFileItem(ctx, man) {
 		mark = ' ';
 		lines.push(`report file ${path} ${h(sha(text))} != recorded ${h(r.sha256)}`);
 	}
-	if (text !== `${reportLines(plan, man, ctx, path).join('\n')}\n`) {
+	const now = htmlReport(plan, man, ctx, path);
+	if (text !== now.html) {
 		mark = ' ';
 		lines.push(`${path} no longer matches the plan or the files: render the inspection report again`);
 	}
-	for (const p of [...outsideProblems('report', path, plan), ...reportProblems(text)]) {
+	for (const p of [...outsideProblems('report', path, plan), ...reportProblems(now.data, text)]) {
 		mark = ' ';
 		lines.push(p);
 	}
@@ -2048,35 +2798,38 @@ async function render(opts) {
 	if (opts.render === 'report') {
 		if (opts.out) {
 			const dir = outDir(opts, plan);
-			let pick = freePath(dir, 'shrine-report', '.md', null);
-			let text = `${reportLines(plan, man, ctx, pick.path).join('\n')}\n`;
+			let pick = freePath(dir, 'shrine-report', '.html', null);
+			let made = htmlReport(plan, man, ctx, pick.path);
 			// An identical report already written keeps its file.
 			for (let n = 1; ; n++) {
-				const path = join(dir, `shrine-report-${n}.md`);
+				const path = join(dir, `shrine-report-${n}.html`);
 				if (path === pick.path) break;
-				const same = `${reportLines(plan, man, ctx, path).join('\n')}\n`;
-				if (fileSha(path) === sha(same)) {
+				const same = htmlReport(plan, man, ctx, path);
+				if (fileSha(path) === sha(same.html)) {
 					pick = { path, fresh: false };
-					text = same;
+					made = same;
 					break;
 				}
 			}
-			if (pick.fresh) writeFileSync(pick.path, text, { flag: 'wx' });
-			const p = reportProblems(text);
+			if (pick.fresh) writeFileSync(pick.path, made.html, { flag: 'wx' });
+			const p = reportProblems(made.data, made.html);
+			const inline = plan.delivery === 'inline';
 			console.log([
 				`--- shrine-check ${VERSION} short report (paste verbatim; the full report is in the file) ---`,
 				`REPORT: ${p.length ? `${p.length} lines not filled` : 'complete'}; ${proposalsOf(plan).length} changes; read-only check ${ctx.verify.problems.length ? 'FAIL' : 'PASS'}`,
 				...p,
 				`report file: ${pick.path}`,
-				'Offer to show it. Record its file and sha256 in plan.report_file.',
-				`render sha256:${sha(text)}`,
-				`--- end short report sha256:${sha(text)} ---`,
+				'One HTML file: it opens in any browser and loads nothing from the network. Offer to open it. Tell the user to keep it: a refresh compares against it. Record its file and sha256 in plan.report_file.',
+				...(inline ? ['Inline delivery: show the user this plain-text summary, and tell them where the file is.', ...reportText(made.data, false).replace(/\n$/, '').split('\n')] : []),
+				`render sha256:${sha(made.html)}`,
+				`--- end short report sha256:${sha(made.html)} ---`,
 			].join('\n'));
 			return p.length ? 1 : 0;
 		}
-		const text = `${reportLines(plan, man, ctx, `(inline: ${plan.delivery_reason ?? 'no file'})`).join('\n')}\n`;
+		const data = reportData(plan, man, ctx, null);
+		const text = reportText(data, true);
 		process.stdout.write(`--- shrine-check ${VERSION} report (paste verbatim) ---\n${text}--- end report sha256:${sha(text)} ---\n`);
-		return reportProblems(text).length ? 1 : 0;
+		return reportProblems(data, text).length ? 1 : 0;
 	}
 	if (opts.render === 'final') {
 		const f = renderFinal(ctx, man, pf.path);
