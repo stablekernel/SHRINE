@@ -32,11 +32,11 @@ At the end of each phase the agent prints a gate: a checklist where each item ha
 The agent supplies data in a plan file; the checker renders the gates, the pick menus, the final gate, and the report from it. Long, repeated, exact text is where agents cut corners, so the checker writes each render to a file, and the agent pastes only a short block: the status, the counts, the file path, and the file's hash. You open the file; if your harness can show files, the agent offers to. Each approval records that file's hash, and the next gate checks it.
 
 0. **Start**: harness, whether it can pause, mode, time box, prior records; you approve (pasting the prompt is the request; it does not ask whether to run)
-1. **Discover**: inventory of your instruction files, extension points, shared locations, prior records, an anti-pattern scan, measured signals (with your consent), and a snapshot of the paths it may change; you correct it
+1. **Discover**: inventory of your instruction files, extension points, shared locations, prior records, an anti-pattern scan, measured signals (with your consent), and a snapshot of the folders and files in your scope; you correct it
 2. **Pin SHRINE**: manifest commit and page hashes; a mismatch aborts
 3. **Interview and tag**: up to 10 questions; corrections are optional, labeled measured or recalled, then classified and tagged; you confirm
 4. **Design and approve**: bookkeeping first, then each proposal, attacked by independent reviewers before you see it (more of them for shared or code-running changes), with its page, diff, trade-off, reviews, and a four-option menu (`[1] in place`, `[2] locally only`, `[3] reviewable change`, `[4] reject`); you pick one per proposal, then approve the printed gate; nothing is written before that
-5. **Apply**: backups, record, each change logged pending then done with its proposal id and before and after fingerprints; the snapshot shows nothing else changed
+5. **Apply**: backups, record, each change logged pending then done with its proposal id and before and after fingerprints; the snapshot shows nothing else changed, new and deleted folders included
 6. **Verify and hand off**: proof in a fresh session that each change loads, a self-audit, then a final gate with every item, the invariant map, restore steps, and the report
 
 A harness that cannot pause prints every gate in report-only mode and changes nothing.
@@ -118,7 +118,8 @@ Agent-readable copies of this page (llms.txt files) leave the prompt out on purp
 - It checks the agent's plan file: every change and backup inside the scope you chose, every ratified principle covered with a reason, enough reviewers for each proposal's risk, each scan finding tied to an index row, and no shortened hash
 - Within a run, it checks each approved render file against its hash; the record keeps only those hashes, so a cleared temporary folder never fails a later check
 - It checks the record update on a re-run like any other change
-- If the plan changes after you saw the pick menus, Gate 4 blocks until the menus are shown again and you pick again
+- If the plan changes after you saw the pick menus, Gate 4 blocks until the changed proposal is reviewed again, the menus are shown again with what changed, and you pick again
+- Time used is computed from a start time recorded from a command, never estimated
 - A change counts as loading only with proof from a fresh session after the write, from the agent's probe or your check
 - It renders every gate, every pick menu with all four options, the final gate with every item and full hashes, and the report; a FAIL blocks the gate
 - It runs code, so the agent asks once per run; without Node, or if you decline, the agent runs the same checks by hand, marks them "checked manually", and prints each gate by hand, marked "rendered manually"
@@ -143,7 +144,7 @@ Agent-readable copies of this page (llms.txt files) leave the prompt out on purp
 
 ## Re-run and Undo
 
-- Say "SHRINE refresh", or paste the prompt again; it compares the recorded commit and page hashes and shows what changed
+- Run the refresh entry by the name the report's handoff line gives, or paste the prompt again; it compares the recorded commit and page hashes and shows what changed
 - It shows your recorded answers and asks only whether they still hold
 - Unfinished or drifted entries from a past run are listed first, then proposed and approved like any change
 - Your edits to its additions are kept unless you choose otherwise
