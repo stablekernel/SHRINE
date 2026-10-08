@@ -5,7 +5,7 @@ import { test } from 'node:test';
 import assert from 'node:assert/strict';
 import { spawnSync } from 'node:child_process';
 import { createHash } from 'node:crypto';
-import { existsSync, mkdtempSync, mkdirSync, readFileSync, readdirSync, realpathSync, writeFileSync } from 'node:fs';
+import { cpSync, existsSync, mkdtempSync, mkdirSync, readFileSync, readdirSync, realpathSync, writeFileSync } from 'node:fs';
 import { tmpdir } from 'node:os';
 import { dirname, join } from 'node:path';
 import { fileURLToPath, pathToFileURL } from 'node:url';
@@ -55,8 +55,11 @@ const PAGES = {
 // Items the agent supplies as evidence; every other item is computed by the checker.
 const EVIDENCE = ['0.1', '0.2', '0.3', '0.4', '0.5', '0.6', '1.2', '1.3', '1.4', '1.5', '1.6', '1.7', '1.8', '1.12', '2.2', '2.5', '2.7', '2.8', '2.9', '2.11', '3.3', '4.3'];
 
+// Fixture git calls ignore the machine's git config and hooks: a global hook or signing setup can add
+// seconds to every commit, and the tests must not depend on it.
+const GIT_ISOLATED = { ...process.env, GIT_CONFIG_GLOBAL: '/dev/null', GIT_CONFIG_NOSYSTEM: '1' };
 function git(cwd, ...args) {
-	return spawnSync('git', ['-c', 'user.name=t', '-c', 'user.email=t@t', '-c', 'commit.gpgsign=false', ...args], { cwd, encoding: 'utf8' });
+	return spawnSync('git', ['-c', 'user.name=t', '-c', 'user.email=t@t', '-c', 'commit.gpgsign=false', '-c', 'core.hooksPath=/dev/null', ...args], { cwd, encoding: 'utf8', env: GIT_ISOLATED });
 }
 
 function run(args, input) {
@@ -81,6 +84,23 @@ function insideRepo(dir) {
 }
 const TMP = [process.env.SHRINE_TEST_TMP, tmpdir(), '/tmp'].filter(Boolean).map((d) => realpathSync(d)).find((d) => !insideRepo(d));
 
+// The fixture's git project is built once, then copied for each test (git init + commit costs
+// hundreds of milliseconds, more with slow hooks).
+let template;
+function projTemplate() {
+	if (template) return template;
+	const dir = join(realpathSync(mkdtempSync(join(TMP, 'shrine-tpl-'))), 'proj');
+	mkdirSync(dir);
+	writeFileSync(join(dir, 'CLAUDE.md'), CLAUDE_MD);
+	writeFileSync(join(dir, '.gitignore'), 'local.json\n');
+	writeFileSync(join(dir, 'local.json'), '{"model":"x"}\n');
+	writeFileSync(join(dir, 'app.js'), 'console.log(1)\n');
+	git(dir, 'init', '-q');
+	git(dir, 'add', '.');
+	git(dir, 'commit', '-q', '-m', 'init');
+	return (template = dir);
+}
+
 function fixture() {
 	assert.ok(TMP, 'no temporary folder outside a git work tree: set SHRINE_TEST_TMP');
 	const base = realpathSync(mkdtempSync(join(TMP, 'shrine-')));
@@ -88,13 +108,7 @@ function fixture() {
 	const out = join(base, 'out');
 	mkdirSync(proj);
 	mkdirSync(join(out, 'pages'), { recursive: true });
-	writeFileSync(join(proj, 'CLAUDE.md'), CLAUDE_MD);
-	writeFileSync(join(proj, '.gitignore'), 'local.json\n');
-	writeFileSync(join(proj, 'local.json'), '{"model":"x"}\n');
-	writeFileSync(join(proj, 'app.js'), 'console.log(1)\n');
-	git(proj, 'init', '-q');
-	git(proj, 'add', '.');
-	git(proj, 'commit', '-q', '-m', 'init');
+	cpSync(projTemplate(), proj, { recursive: true });
 	const pages = [];
 	const planPages = [];
 	for (const [title, p] of Object.entries(PAGES)) {
