@@ -67,7 +67,7 @@ Review 12 changed files for correctness.
 6. Coordinator dedups findings by file, line, and claim
 7. Coordinator opens only the cited lines for high-severity findings before reporting
 
-## Pitfalls
+## Anti-patterns
 
 - **Trusting summaries over artifacts**: a subagent says "tests pass"; check the exit code or the file
 - **Agents sharing a branch**: parallel edits collide; give each writer its own worktree or keep writers to one

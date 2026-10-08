@@ -34,6 +34,13 @@ status: ratified
 - **Doc**: when it is rationale, the why behind a convention
 - Promote from instructions to lint as soon as a check can enforce it
 
+## Signal of Violation
+
+- Tuning the prompt to fix a codebase problem: the prompt grows while the same convention misses recur
+- Several idioms for one concern: agent output copies whichever file it read last
+- A checkable convention left as prose: review flags the same lint-able miss again and again
+- No known pattern to diff against: every review reads each line from scratch
+
 ## Implemented By
 
 - [Mechanical Scaffolding](/SHRINE/patterns/mechanical-scaffolding/): code generates the structure

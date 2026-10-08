@@ -78,6 +78,13 @@ Task: write a PR description from a diff.
 - Self-critique is weaker than external review
 - Vague criteria produce vague critique
 
+## Anti-patterns
+
+- "Is this good?" as the critique prompt: the critique praises the output or lists generic tweaks
+- Self-critique of reasoning with no external signal: the revision flips a correct answer
+- Revisions not tied to a failed item: the rewrite changes things no finding named
+- Self-critique as the only gate on high-stakes output: the model's blind spots about its own errors ship unchecked
+
 ## Related
 
 - [Verification Loops](/SHRINE/patterns/verification-loops/): external checks as the feedback signal

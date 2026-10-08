@@ -5,6 +5,10 @@ description: "Key terms and definitions."
 
 <!-- MAINTAINER: Keep entries in alphabetical order (ignore a leading "The") -->
 
+## Anti-pattern
+
+A common misuse of a pattern or capability, named with the symptom that reveals it. Principles call theirs a Signal of Violation. See [Anti-patterns](/SHRINE/reference/anti-patterns/).
+
 ## Brief
 
 A one-message task description for delegated work: goal, constraints, non-goals, a mirror to follow, a done command, and an ask for assumptions. See [Delegation Fit](/SHRINE/patterns/delegation-fit/#brief-shape).

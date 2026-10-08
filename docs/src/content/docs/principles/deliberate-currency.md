@@ -2,7 +2,7 @@
 title: "Deliberate Currency"
 description: "Stay current by owner, cadence, and pre-agreed tripwires, not by drift."
 proposal: "https://github.com/stablekernel/SHRINE/discussions/3"
-last-reviewed: 2026-09-16
+last-reviewed: 2026-10-07
 status: ratified
 ---
 
@@ -41,6 +41,13 @@ status: ratified
   - Token spend per shipped change trending up
 - Each tripwire has two levels: "log it" and "re-evaluate now"
 - Time-box each re-evaluation so thresholds reflect its cost
+
+## Signal of Violation
+
+- Drift: skills tuned against a retired model still load, and nobody can say who owns them
+- Churn: tooling choices reopen on every release though no tripwire fired
+- Tripwires with no baseline: nobody can state retry rate or spend per shipped change, so nothing ever fires
+- An inventory that only grows: no sweep has deleted a skill
 
 ## Implemented By
 

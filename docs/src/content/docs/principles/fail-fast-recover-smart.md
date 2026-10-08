@@ -66,7 +66,6 @@ Before correcting, decide whether the miss is one bad generation or a repeated m
 - **Repeated response**: stop correcting; fix the input ([Correction Diagnosis](/SHRINE/patterns/correction-diagnosis/)); encode the fix where it loads next time ([Discovery Propagation](/SHRINE/patterns/discovery-propagation/#where-lessons-land))
 - Behavioral variance means one miss is expected and is not proof of a bad brief ([Reproducibility](/SHRINE/principles/reproducibility/#levels))
 - Exploration paths are exempt; variance is the point there
-- Anti-patterns: re-rolling a systematic miss; rewriting the brief after a single miss
 
 ## In Practice
 
@@ -83,6 +82,15 @@ An unattended run that generates a migration file and a test for it.
   - Tokens used: measured and reported alongside the time limit
   - Next step: a human reviews the column type decision
 - See [Unattended Runs](/SHRINE/patterns/unattended-runs/) for running this without a human watching
+
+## Signal of Violation
+
+- Failure handling added after launch: the first outage is when someone writes the fallback
+- No mid-run checks: a bad intermediate output surfaces steps later as an unrelated error
+- Uncapped retries: one request burns tokens for minutes and returns nothing
+- Errors with no next step: a human has to rerun the job to learn what failed
+- Re-rolling a systematic miss: the same miss comes back on the second attempt
+- Rewriting the brief after a single miss: one expected variance miss treated as proof of a bad brief
 
 ## Implemented By
 

@@ -31,6 +31,8 @@ Patterns are reusable techniques for getting better results from AI. They're not
 | Confident answers about your own data that are wrong | [RAG](/SHRINE/patterns/rag/) |
 | A prompt change broke something that worked | [Prompt Regression Testing](/SHRINE/patterns/prompt-regression/) |
 
+More symptoms, each linked to its fix: [Anti-patterns](/SHRINE/reference/anti-patterns/)
+
 ## Prompting Patterns
 
 How to structure what you ask.

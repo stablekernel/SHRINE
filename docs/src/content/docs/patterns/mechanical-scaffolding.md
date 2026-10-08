@@ -118,7 +118,7 @@ def ticket_from_bug(bug_report):
 - **Code reviews**: checklist structure, severity levels
 - **Release notes**: categorization, formatting, audience
 
-## Pitfalls
+## Anti-patterns
 
 - **Scaffold drifts from the target schema**: the destination adds or renames a field and the scaffold keeps emitting the old shape; test the scaffold against the real schema
 - **Validation duplicated in prompt and code**: the two copies disagree over time; keep rules in code and send only failures back to the model

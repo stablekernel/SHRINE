@@ -33,6 +33,13 @@ status: ratified
 - Batch similar low-risk decisions
 - For code and documents, ask for output shaped for review ([Reviewable Output](/SHRINE/patterns/reviewable-output/))
 
+## Signal of Violation
+
+- Undefined boundary: whether a human signs off depends on who ran the agent that day
+- Rubber-stamping: approval rate near 100%, with seconds spent per decision
+- Human as bottleneck: work waits in the approval queue longer than the agent took to do it
+- Oversight after the fact: an external message or destructive change is found with no recorded approval
+
 ## Implemented By
 
 - [Adversarial Review](/SHRINE/patterns/adversarial-review/): machine review before human review

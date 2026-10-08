@@ -96,7 +96,7 @@ escalation: rounding happens in currency lib, not invoice code;
 - The human sees the cause in one read and decides whether to patch the library call site
 - No fourth attempt burns tokens on the same wrong file
 
-## Pitfalls
+## Anti-patterns
 
 - The loop edits the test until it passes
 - Error output truncated, so the model repairs the wrong thing
