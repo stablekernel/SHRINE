@@ -1,13 +1,13 @@
 // Build-time manifest of every docs page, served at /SHRINE/shrine-manifest.json.
-// The install prompt (src/prompts/shrine-install.md) uses it to pin a commit and to
-// diff pages by content hash on a re-run, and its refresh entry uses it to verify a newer
-// prompt. Data only: no instructions belong here.
+// The inspect prompt (src/prompts/shrine-inspect.md) uses it to pin a commit and to
+// hash-check every page it reads, and a refresh uses it to verify a newer prompt and to
+// compare with an earlier report. Data only: no instructions belong here.
 import type { APIRoute } from 'astro';
 import { getCollection, type CollectionEntry } from 'astro:content';
 import { createHash } from 'node:crypto';
 import { execFileSync } from 'node:child_process';
 import { readFileSync } from 'node:fs';
-import prompt from '../prompts/shrine-install.md?raw';
+import prompt from '../prompts/shrine-inspect.md?raw';
 import checker from '../tools/shrine-check.mjs?raw';
 
 const REPO = 'stablekernel/SHRINE';
@@ -33,7 +33,7 @@ function fileSha(filePath: string | undefined, id: string): string {
 // A prompt without one fails the build.
 function promptVersion(text: string): number {
 	const match = /^Prompt version: (\d+)$/m.exec(text);
-	if (!match) throw new Error('shrine-manifest: no "Prompt version: <n>" line in the install prompt');
+	if (!match) throw new Error('shrine-manifest: no "Prompt version: <n>" line in the inspect prompt');
 	return Number(match[1]);
 }
 
@@ -63,8 +63,18 @@ export const GET: APIRoute = async () => {
 
 	const body = {
 		commit,
-		prompt: { version: promptVersion(prompt), sha256: createHash('sha256').update(prompt).digest('hex') },
-		// The checker the prompt runs to render gates and check the record; the agent verifies this hash before running it.
+		// The inspect prompt: its served URL, its raw source at this commit, its version, and its hash.
+		prompt: {
+			name: 'shrine-inspect',
+			url: `${SITE}inspect-prompt.md`,
+			source:
+				commit === 'unknown'
+					? null
+					: `https://raw.githubusercontent.com/${REPO}/${commit}/docs/src/prompts/shrine-inspect.md`,
+			version: promptVersion(prompt),
+			sha256: createHash('sha256').update(prompt).digest('hex'),
+		},
+		// The read-only checker the prompt runs to render gates and the report; the agent verifies this hash before running it.
 		checker: {
 			url: `${SITE}shrine-check.mjs`,
 			source:

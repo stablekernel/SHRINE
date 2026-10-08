@@ -19,7 +19,7 @@ npm test         # checker tests (Node built-in runner); CI runs them before the
 - Pages: `src/content/docs/` (`principles/`, `patterns/`, `stack/`, `reference/`)
 - Sidebar: `astro.config.mjs`; add principle, pattern, and stack pages there (`reference/` autogenerates)
 - Internal links: absolute with the base, such as `/SHRINE/patterns/overview/`
-- Install prompt: `src/prompts/shrine-install.md`; its read-only checker: `src/tools/shrine-check.mjs` (tests in `tests/`)
+- Inspect prompt: `src/prompts/shrine-inspect.md`; its read-only checker: `src/tools/shrine-check.mjs` (tests in `tests/`)
 
 ## Contributing
 
