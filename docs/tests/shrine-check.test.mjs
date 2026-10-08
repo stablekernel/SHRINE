@@ -756,7 +756,7 @@ test('report: one self-contained HTML file outside the repo with every section, 
 	assert.match(html, new RegExp(`<meta name="shrine-report-data-sha256" content="${sha(DATA_BLOCK.exec(html)[1])}">`));
 });
 
-test('report: the summary counts are the filters, and every card starts open for a reader without scripts', () => {
+test('report: the summary counts are the filters, and every card starts open, with scripts on or off', () => {
 	const fx = ready();
 	const html = readFileSync(reportFile(fx).file, 'utf8');
 	const picks = [...html.matchAll(/<button type="button" class="pick" data-filter="(\w+)" data-key="([\w-]+)" disabled><span class="n">(\d+)<\/span>/g)].map((m) => `${m[1]}:${m[2]}=${m[3]}`);
@@ -765,6 +765,8 @@ test('report: the summary counts are the filters, and every card starts open for
 	const cards = [...html.matchAll(/<details class="card[^"]*" id="change-[^"]+"( open)?>/g)];
 	assert.equal(cards.length, 3);
 	assert.ok(cards.every((m) => m[1] === ' open'));
+	assert.equal((html.match(/<details /g) || []).length, cards.length, 'every details is a card, and every card is open');
+	assert.doesNotMatch(html, /if \(i > 0\) c\.open = false/, 'the script does not collapse cards on load');
 	assert.match(html, /<li data-value="low" data-reach="only-you" data-code="yes">/);
 });
 

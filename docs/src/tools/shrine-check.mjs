@@ -2536,7 +2536,6 @@ const REPORT_JS = String.raw`
 
   var items = [].slice.call(d.querySelectorAll("#cards > li"));
   var cards = items.map(function (li) { return li.querySelector("details"); });
-  cards.forEach(function (c, i) { if (i > 0) c.open = false; });
   function openTo(id) { var t = id && d.getElementById(id); if (t && t.tagName === "DETAILS") t.open = true; }
   d.addEventListener("click", function (e) {
     var a = e.target.closest && e.target.closest("a[href^='#change-']");
