@@ -30,7 +30,7 @@ import { homedir } from 'node:os';
 import { dirname, isAbsolute, join, relative, resolve, sep } from 'node:path';
 import { fileURLToPath } from 'node:url';
 
-const VERSION = 9;
+const VERSION = 10;
 const COVERAGE = ['applied', 'advised', 'not relevant'];
 const RUNS = ['inspect', 'refresh'];
 const MODES = ['interactive', 'report-only'];
@@ -54,6 +54,14 @@ const RENDERS = ['gate', 'final', 'report', 'review', 'coverage', 'pin', 's1', '
 const NEEDS_MANIFEST = ['gate', 'final', 'report', 'coverage', 'pin', 's1', 'refresh'];
 const HASH_MAX = 5 * 1024 * 1024;
 const PERSIST_DEPTH = 3;
+// A watched folder is walked at any depth, up to this many files. 10000 covers a large docs or
+// settings folder, keeps a baseline file a few MB, and hashes in seconds; plan.readonly.max_files
+// raises or lowers it. Past the cap the read-only check fails and says how many files it skipped.
+const WALK_MAX_FILES = 10000;
+// Well-known noise a watched folder walk skips by name, unless it holds a file the run inspects or a
+// change targets: dependency, cache, and build folders, and OS metadata files.
+const SKIP_DIRS = new Set(['.git', 'node_modules', '__pycache__', '.venv', 'venv', '.cache', '.pytest_cache', '.mypy_cache', 'dist', 'build']);
+const SKIP_FILES = new Set(['.DS_Store', 'Thumbs.db']);
 const REPORT_TITLE = '# Your SHRINE inspection report';
 // Common secret shapes. A match anywhere in the plan or the inspection report fails: redact it.
 const SECRETS = [
@@ -396,7 +404,8 @@ function planShape(p) {
 		if (!isObj(r)) errs.push('plan.readonly must be an object');
 		else {
 			for (const w of arr(r.watch)) if (!isObj(w) || !isStr(w.path) || !WATCH_KINDS.includes(w.kind)) errs.push(`readonly.watch entry needs path and kind (${WATCH_KINDS.join(', ')})`);
-			for (const b of arr(r.baselines)) if (!isObj(b) || !(isStr(b.file) || isStr(b.text)) || typeof b.sha256 !== 'string') errs.push('readonly.baselines entry needs file (or text, inline) and sha256');
+			for (const b of arr(r.baselines)) if (!isObj(b) || typeof b.sha256 !== 'string' || !(isStr(b.file) || isInlineEntry(b))) errs.push('readonly.baselines entry needs file and sha256 (inline: the entry line --render baseline prints, with sha256, persist_sha256, counts, and roots)');
+			if (r.max_files != null && !(Number.isInteger(r.max_files) && r.max_files > 0)) errs.push('readonly.max_files must be a positive whole number');
 		}
 	}
 	if (p.previous != null && !(isObj(p.previous) && isStr(p.previous.path))) errs.push('plan.previous needs path: the earlier inspection report\'s path');
@@ -504,6 +513,37 @@ function persistProblems(plan) {
 	return out;
 }
 
+// A watched folder's files at any depth, in name order: noise (SKIP_DIRS, SKIP_FILES) is skipped unless
+// it holds a file the run inspects or a change targets, and automatic harness persistence is left to
+// its own disclosed check. At most maxFiles(plan) are listed; total counts every file found.
+const maxFiles = (plan) => (Number.isInteger(plan?.readonly?.max_files) && plan.readonly.max_files > 0 ? plan.readonly.max_files : WALK_MAX_FILES);
+function walkFolder(root, plan) {
+	const cap = maxFiles(plan);
+	const rp = planResolver(plan);
+	const keep = [...watchPaths(plan, rp), ...proposalsOf(plan).flatMap((x) => changesOf(x).map((c) => rp(c.target)).filter(Boolean).map(realish))];
+	const auto = persistRoots(plan).filter((f) => f.automatic).map((f) => f.path);
+	const files = [];
+	let total = 0;
+	const walk = (dir) => {
+		let names;
+		try {
+			names = readdirSync(dir, { withFileTypes: true }).sort((a, b) => (a.name < b.name ? -1 : a.name > b.name ? 1 : 0));
+		} catch {
+			return;
+		}
+		for (const d of names) {
+			const p = join(dir, d.name);
+			if (under(p, auto)) continue;
+			const noise = d.isDirectory() ? SKIP_DIRS.has(d.name) : SKIP_FILES.has(d.name);
+			if (noise && !keep.some((k) => under(k, [p]))) continue;
+			if (d.isDirectory()) walk(p);
+			else if (++total <= cap) files.push(p);
+		}
+	};
+	walk(root);
+	return { files, total, cap };
+}
+
 function walkFiles(root, depth, out, max = PERSIST_DEPTH) {
 	let names;
 	try {
@@ -532,9 +572,13 @@ function gitInternals(top) {
 // The read-only baseline: per repo HEAD, branch, refs, status (ignored entries too), a hash of every
 // file the status lists, and the git folder's config, hooks, and info; then every watched file and
 // folder; then each harness persistence path. Fields are tab separated.
-function baselineLines(plan) {
+function baselineRoots(plan) {
+	return { repos: reposOf(plan), watch: watchPaths(plan), folders: watchFolders(plan), persist: persistRoots(plan).map((f) => ({ path: f.path, automatic: f.automatic })) };
+}
+
+function baselineLines(plan, roots = baselineRoots(plan)) {
 	const lines = [];
-	for (const top of reposOf(plan)) {
+	for (const top of roots.repos) {
 		const st = runGit(top, ['status', '--porcelain=v1', '-z', '--untracked-files=all', '--ignored=traditional']);
 		if (st.missing) {
 			lines.push(`repo\t${top}\tgit not found`);
@@ -554,14 +598,14 @@ function baselineLines(plan) {
 		}
 		for (const f of gitInternals(top)) lines.push(`f\t${f}\t${fileState(f)}`);
 	}
-	for (const w of watchPaths(plan)) lines.push(`w\t${w}\t${fileState(w)}`);
-	for (const d of watchFolders(plan)) {
+	for (const w of roots.watch) lines.push(`w\t${w}\t${fileState(w)}`);
+	for (const d of roots.folders) {
 		lines.push(`wd\t${d}`);
-		const files = [];
-		walkFiles(d, 1, files);
+		const { files, total, cap } = walkFolder(d, plan);
 		for (const f of files) lines.push(`w\t${f}\t${fileState(f)}`);
+		if (total > files.length) lines.push(`wcap\t${d}\t${cap}\t${total}`);
 	}
-	for (const f of persistRoots(plan)) {
+	for (const f of roots.persist) {
 		lines.push(`persist\t${f.path}\t${f.automatic ? 'automatic' : 'unused'}`);
 		const files = [];
 		if (fileState(f.path) === 'dir') walkFiles(f.path, 1, files);
@@ -572,7 +616,7 @@ function baselineLines(plan) {
 }
 
 function parseBaseline(lines) {
-	const b = { repos: new Map(), f: new Map(), w: new Map(), p: new Map(), persist: new Map(), wd: new Map() };
+	const b = { repos: new Map(), f: new Map(), w: new Map(), p: new Map(), persist: new Map(), wd: new Map(), wcap: new Map() };
 	for (const l of lines) {
 		const [tag, a, c, d] = l.split('\t');
 		if (tag === 'repo') b.repos.set(a, { head: null, refs: null, status: new Set(), missing: c === 'git not found' });
@@ -582,19 +626,48 @@ function parseBaseline(lines) {
 		else if (['f', 'w', 'p'].includes(tag)) b[tag].set(a, c);
 		else if (tag === 'persist') b.persist.set(a, c);
 		else if (tag === 'wd') b.wd.set(a, true);
+		else if (tag === 'wcap') b.wcap.set(a, { cap: Number(c), total: Number(d) });
 	}
 	return b;
+}
+
+const capProblem = (d, { cap, total }) => `watched folder ${d} has ${total} files, more than the cap of ${cap}: ${total - cap} files not walked, so a write there would not be caught: raise readonly.max_files or narrow the folder`;
+const unwalked = (b) => [...b.wcap.values()].reduce((n, c) => n + c.total - c.cap, 0);
+const baselineCounts = (b) => ({ repos: b.repos.size, files: b.f.size, watched: b.w.size, persistence: b.persist.size, unwalked: unwalked(b) });
+const countsText = (c) => `${c.repos} repos, ${c.files} files listed by git status, ${c.watched} watched files, ${c.persistence} persistence paths${c.unwalked ? `, ${c.unwalked} files not walked (past the cap)` : ''}`;
+
+// Inline delivery keeps no file: the plan records a digest and counts, not every file hash. The digest
+// splits automatic harness persistence out, so a change there is disclosed while any other change fails.
+function digestOf(lines) {
+	const auto = lines.filter((l) => /^persist\t[^\t]+\tautomatic$/.test(l)).map((l) => l.split('\t')[1]);
+	const core = [];
+	const pers = [];
+	for (const l of lines) {
+		const [tag, a] = l.split('\t');
+		((tag === 'persist' || tag === 'p') && under(a, auto) ? pers : core).push(l);
+	}
+	return { sha256: sha(core.join('\n')), persist_sha256: sha(pers.join('\n')) };
+}
+function isInlineEntry(b) {
+	const r = b?.roots;
+	return isObj(b) && b.inline === true && HEX64.test(b.sha256 ?? '') && HEX64.test(b.persist_sha256 ?? '') && isObj(b.counts) && isObj(r)
+		&& ['repos', 'watch', 'folders'].every((k) => Array.isArray(r[k]) && r[k].every(isStr))
+		&& Array.isArray(r.persist) && r.persist.every((f) => isObj(f) && isStr(f.path) && typeof f.automatic === 'boolean');
 }
 
 const renderBody = (text) => text.split('\n').filter((l) => !/^--- (shrine-check|end render)/.test(l) && l !== '');
 
 // Baselines from the plan, in order: a render file (file delivery; its sha256 is the short block's
-// render sha256) or the pasted text (inline; its sha256 is the end line's).
+// render sha256), or an inline entry (a digest and counts, checked by verifyReadonly).
 function loadBaselines(plan) {
 	const rp = planResolver(plan);
 	const out = [];
 	for (const [i, b] of arr(plan.readonly?.baselines).filter(isObj).entries()) {
-		const text = isStr(b.file) ? readText(rp(b.file) ?? '') : isStr(b.text) ? b.text : null;
+		if (!isStr(b.file) && isInlineEntry(b)) {
+			out.push({ ok: true, inline: true, n: i + 1, entry: b, src: 'inline' });
+			continue;
+		}
+		const text = isStr(b.file) ? readText(rp(b.file) ?? '') : null;
 		if (text == null) {
 			out.push({ ok: false, why: `baseline ${i + 1}: file ${b.file} not found` });
 			continue;
@@ -602,10 +675,10 @@ function loadBaselines(plan) {
 		const all = text.replace(/\n$/, '').split('\n');
 		const endHash = /^--- end render baseline sha256:([0-9a-f]{64}) ---$/.exec(all[all.length - 1] ?? '')?.[1];
 		const bodyHash = sha(all.slice(1, -1).join('\n'));
-		const s = isStr(b.file) ? sha(text) : bodyHash;
+		const s = sha(text);
 		if (!/^--- shrine-check \d+ render baseline /.test(text) || endHash !== bodyHash) out.push({ ok: false, why: `baseline ${i + 1} is not a whole baseline render` });
-		else if (s !== b.sha256) out.push({ ok: false, why: `baseline ${i + 1}: ${isStr(b.file) ? b.file : 'text'} ${h(s)} != recorded ${h(b.sha256)}: it changed after it was taken` });
-		else out.push({ ok: true, parsed: parseBaseline(renderBody(text)), src: isStr(b.file) ? realish(rp(b.file)) : 'inline' });
+		else if (s !== b.sha256) out.push({ ok: false, why: `baseline ${i + 1}: ${b.file} ${h(s)} != recorded ${h(b.sha256)}: it changed after it was taken` });
+		else out.push({ ok: true, parsed: parseBaseline(renderBody(text)), src: realish(rp(b.file)) });
 	}
 	return out;
 }
@@ -622,19 +695,30 @@ function mergedBaseline(plan) {
 		names = dir ? readdirSync(dir).filter((n) => /^baseline-\d+\.txt$/.test(n)) : [];
 	} catch {}
 	for (const n of names) if (!listed.has(join(dir, n))) bad.push(`baseline file ${join(dir, n)} is not in plan.readonly.baselines: list every baseline taken, in order`);
-	const m = { repos: new Map(), f: new Map(), w: new Map(), p: new Map(), persist: new Map(), wd: new Map() };
-	for (const b of all.filter((x) => x.ok)) for (const k of Object.keys(m)) for (const [key, v] of b.parsed[k]) if (!m[k].has(key)) m[k].set(key, v);
-	return { m, bad, count: all.length };
+	const m = { repos: new Map(), f: new Map(), w: new Map(), p: new Map(), persist: new Map(), wd: new Map(), wcap: new Map() };
+	for (const b of all.filter((x) => x.ok && !x.inline)) for (const k of Object.keys(m)) for (const [key, v] of b.parsed[k]) if (!m[k].has(key)) m[k].set(key, v);
+	const inline = all.filter((x) => x.ok && x.inline);
+	// What any baseline covers, file or inline: a watched path, folder, or repo absent here needs another baseline.
+	const covers = { w: (p) => m.w.has(p) || inline.some((x) => x.entry.roots.watch.includes(p)), wd: (d) => m.wd.has(d) || inline.some((x) => x.entry.roots.folders.includes(d)), repo: (t) => m.repos.has(t) || inline.some((x) => x.entry.roots.repos.includes(t)) };
+	return { m, bad, count: all.length, inline, covers };
 }
 
 // --verify-readonly: compare now with the baselines. Any change in a repo or a watched file FAILs.
 // Harness persistence marked automatic is disclosed, not failed; any other persistence write FAILs.
 function verifyReadonly(plan) {
-	const { m, bad, count } = mergedBaseline(plan);
+	const { m, bad, count, inline, covers } = mergedBaseline(plan);
 	const problems = [...bad];
 	const notes = [];
 	if (!count) return { problems: ['no read-only baseline in plan.readonly.baselines: take one with --render baseline before reading further'], notes, summary: 'no baseline' };
-	const now = parseBaseline(baselineLines(plan));
+	// Compare file baselines over what they hold, or what no baseline holds yet; inline digests are checked below.
+	const full = baselineRoots(plan);
+	const inPersist = (p) => inline.some((x) => x.entry.roots.persist.some((q) => q.path === p));
+	const now = parseBaseline(baselineLines(plan, {
+		repos: full.repos.filter((t) => m.repos.has(t) || !covers.repo(t)),
+		watch: full.watch.filter((w) => m.w.has(w) || !covers.w(w)),
+		folders: full.folders.filter((d) => m.wd.has(d) || !covers.wd(d)),
+		persist: full.persist.filter((f) => m.persist.has(f.path) || !inPersist(f.path)),
+	}));
 	for (const [top, b] of m.repos) {
 		const n = now.repos.get(top);
 		if (!n) {
@@ -650,13 +734,24 @@ function verifyReadonly(plan) {
 		for (const s of n.status) if (!b.status.has(s)) problems.push(`repo ${top}: new status line "${s}"`);
 		for (const s of b.status) if (!n.status.has(s)) problems.push(`repo ${top}: status line gone "${s}"`);
 	}
-	for (const top of now.repos.keys()) if (!m.repos.has(top)) problems.push(`repo ${top}: not in any baseline: take another baseline`);
+	for (const x of inline) {
+		const lines = baselineLines(plan, x.entry.roots);
+		const g = digestOf(lines);
+		const pb = parseBaseline(lines);
+		const c = baselineCounts(pb);
+		for (const [d, cc] of pb.wcap) if (!now.wcap.has(d)) problems.push(capProblem(d, cc));
+		if (g.sha256 !== x.entry.sha256) problems.push(`inline baseline ${x.n}: digest changed: something in the repos, watched files, or folders it covers changed (then ${countsText(x.entry.counts)}; now ${countsText(c)}); inline delivery keeps only a digest, so the file is not named: compare git status and the watched files by hand`);
+		if (g.persist_sha256 !== x.entry.persist_sha256) notes.push(`inline baseline ${x.n}: harness persistence (automatic, disclosed at 0.8) changed on its own: review it after the run`);
+	}
+	for (const [d, c] of now.wcap) problems.push(capProblem(d, c));
+	for (const top of now.repos.keys()) if (!covers.repo(top)) problems.push(`repo ${top}: not in any baseline: take another baseline`);
 	for (const [abs, st] of m.f) if (fileState(abs) !== st) problems.push(`changed: ${abs} (${st} -> ${fileState(abs)})`);
 	for (const abs of now.f.keys()) if (!m.f.has(abs)) problems.push(`new: ${abs}`);
 	for (const [abs, st] of m.w) if (fileState(abs) !== st) problems.push(`changed: watched file ${abs} (${st} -> ${fileState(abs)})`);
-	for (const abs of now.w.keys()) if (!m.w.has(abs)) problems.push(`new file in a watched folder: ${abs}`);
-	for (const w of watchPaths(plan)) if (!m.w.has(w)) problems.push(`watched file ${w} is not in any baseline: take another baseline`);
-	for (const d of watchFolders(plan)) if (!m.wd.has(d)) problems.push(`watched folder ${d} is not in any baseline: take another baseline`);
+	// A file past the cap in the baseline's walk is not new: the cap problem above already fails it.
+	for (const abs of now.w.keys()) if (!m.w.has(abs) && under(abs, [...m.wd.keys()]) && !under(abs, [...m.wcap.keys()])) problems.push(`new file in a watched folder: ${abs}`);
+	for (const w of watchPaths(plan)) if (!covers.w(w)) problems.push(`watched file ${w} is not in any baseline: take another baseline`);
+	for (const d of watchFolders(plan)) if (!covers.wd(d)) problems.push(`watched folder ${d} is not in any baseline: take another baseline`);
 	const keys = new Set([...m.p.keys(), ...now.p.keys()]);
 	for (const abs of keys) {
 		const was = m.p.get(abs) ?? 'absent';
@@ -668,8 +763,9 @@ function verifyReadonly(plan) {
 		else problems.push(`harness persistence ${abs} changed (${was} -> ${is}): the agent must not use harness memory or notes during the run`);
 	}
 	const nr = noGitRoot(plan);
-	if (nr && !m.repos.size) notes.push(`no git repo: the project folder ${nr} and every watched file were compared by hash`);
-	return { problems, notes, summary: `${m.repos.size} repos, ${m.f.size + m.w.size} files, and ${m.persist.size} persistence paths compared with ${count} baseline${count === 1 ? '' : 's'}` };
+	const sum = m.repos.size || m.w.size || !inline.length ? baselineCounts(m) : inline[inline.length - 1].entry.counts;
+	if (nr && !sum.repos) notes.push(`no git repo: the project folder ${nr} and every watched file were compared by hash`);
+	return { problems, notes, summary: `${sum.repos} repos, ${sum.files + sum.watched} files, and ${sum.persistence} persistence paths compared with ${count} baseline${count === 1 ? '' : 's'}` };
 }
 
 // ---------- unified diffs: parse, apply in memory, render ----------
@@ -1189,10 +1285,13 @@ function computed(id, ctx) {
 			return { mark, head: all.length ? `${all.length} features  ${src ?? ''}`.trimEnd() : `none: this harness persists nothing on its own  ${src ?? ''}`.trimEnd(), lines };
 		}
 		case '0.9': {
-			const { m, bad, count } = mergedBaseline(plan);
+			const { m, bad, count, inline } = mergedBaseline(plan);
 			if (!count) return { mark: ' ', lines: ['no baseline: run --render baseline --plan <p> --out <t> before reading further, and record its file and sha256 in plan.readonly.baselines'] };
 			for (const b of bad) fail(b);
-			lines.push(`${count} baseline${count === 1 ? '' : 's'}: ${m.repos.size} repos, ${m.f.size} files listed by git status, ${m.w.size} watched files, ${m.persist.size} persistence paths  $ shrine-check --render baseline`);
+			if (count > inline.length) lines.push(`${count - inline.length} baseline file${count - inline.length === 1 ? '' : 's'}: ${countsText(baselineCounts(m))}  $ shrine-check --render baseline`);
+			for (const x of inline) lines.push(`inline baseline ${x.n}: digest ${h(x.entry.sha256)}; ${countsText(x.entry.counts)}  $ shrine-check --render baseline`);
+			for (const [d, c] of m.wcap) fail(capProblem(d, c));
+			for (const x of inline) if (x.entry.counts.unwalked) fail(`inline baseline ${x.n}: ${x.entry.counts.unwalked} files not walked, past the cap of ${maxFiles(plan)}: a write there would not be caught: raise readonly.max_files or narrow the folder`);
 			return { mark, lines };
 		}
 		case '1.1': {
@@ -1257,8 +1356,8 @@ function computed(id, ctx) {
 			return { mark, lines: [`${prev.path} ${h(prev.sha)}: commit ${prev.data.commit}, prompt version ${prev.data.prompt?.version}, ${arr(prev.data.patches).length} changes  ${plan.previous.source ?? '(user)'}`] };
 		}
 		case '1.13': {
-			const { m, count } = mergedBaseline(plan);
-			const missing = watchPaths(plan).filter((w) => !m.w.has(w));
+			const { count, covers } = mergedBaseline(plan);
+			const missing = watchPaths(plan).filter((w) => !covers.w(w));
 			if (!count) return { mark: ' ', lines: ['no baseline yet (0.9)'] };
 			for (const w of missing) fail(`${w}: found but not in any baseline: take another baseline (--render baseline) and add it to plan.readonly.baselines`);
 			if (!missing.length) lines.push(`${watchPaths(plan).length} instruction and config files, each in a baseline  $ shrine-check (plan load, readonly.watch, baselines)`);
@@ -1902,9 +2001,18 @@ async function render(opts) {
 	}
 	if (opts.render === 'baseline') {
 		if (!opts.out && plan.delivery !== 'inline') throw new Error('--render baseline needs --out (file delivery): the baseline is a file the read-only check compares against');
-		const lines = baselineLines(plan);
+		const roots = baselineRoots(plan);
+		const lines = baselineLines(plan, roots);
 		const b = parseBaseline(lines);
-		emit('baseline', lines, opts, plan, [`BASELINE: ${b.repos.size} repos, ${b.f.size} files listed by git status, ${b.w.size} watched files, ${b.persist.size} persistence paths`, 'Record this file and its sha256 in plan.readonly.baselines.']);
+		const head = [`BASELINE: ${countsText(baselineCounts(b))}`, ...[...b.wcap].map(([d, c]) => `FAIL ${capProblem(d, c)}`)];
+		if (opts.out) {
+			emit('baseline', lines, opts, plan, [...head, 'Record this file and its sha256 in plan.readonly.baselines.']);
+			return 0;
+		}
+		// Inline: print a digest and counts, not every file hash, for the agent to record in the plan.
+		const entry = { inline: true, ...digestOf(lines), counts: baselineCounts(b), roots };
+		const body = [...head, `entry: ${JSON.stringify(entry)}`, 'Add the entry line\'s JSON to plan.readonly.baselines.'];
+		console.log([`--- shrine-check ${VERSION} short baseline (inline: paste verbatim) ---`, ...body, `--- end short baseline sha256:${sha(body.join('\n'))} ---`].join('\n'));
 		return 0;
 	}
 	if (opts.render === 'review') {

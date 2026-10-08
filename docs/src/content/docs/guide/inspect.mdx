@@ -113,9 +113,13 @@ Agent-readable copies of this page (llms.txt files) leave the prompt out on purp
 - A small Node script SHRINE ships; the agent asks once before running it, because it runs code
 - Its only write is a new render file in the temporary folder; it refuses a folder inside your home folder, your project, your scopes, or any repo, and never overwrites a file
 - Git is optional; where there is a repo, it runs only read-only git commands, with optional locks off and your repo's fsmonitor hook and clean filters turned off: `status`, `rev-parse`, `symbolic-ref`, `for-each-ref`, `config` reads, and `apply --check`
-- The read-only check, before and after: every inspected instruction and settings file, your AI tool's persistence path, and either each repo's status (ignored entries included), HEAD, branches, tags, stash, and git folder, or, outside git, a hash of every file in the project folder; any difference fails the run
+- The read-only check, before and after: every inspected instruction and settings file, your AI tool's persistence path, and either each repo's status (ignored entries included), HEAD, branches, tags, stash, and git folder, or, outside git, a hash of every file in the project folder at any depth; any difference fails the run
+- Outside git, the walk skips well-known noise unless it holds an inspected file or a change target: the folders `.git`, `node_modules`, `__pycache__`, `.venv`, `venv`, `.cache`, `.pytest_cache`, `.mypy_cache`, `dist`, and `build`, and the files `.DS_Store` and `Thumbs.db`
+- It also skips your AI tool's automatic persistence path, which the run discloses at Gate 0 instead
+- It hashes at most 10,000 files per folder, and the plan can raise that cap; past it, the check fails and says how many files it did not walk
+- With inline delivery, the plan stores a digest and counts of the baseline, not every file hash; a difference fails the run without naming the file
 - Each diff is checked to apply cleanly to your current files, in memory and, where git is available, by `git apply --check`, without writing
-- It also checks: every change has a plain-language description, every ratified principle covered with a reason, enough reviewers for each change's risk within two rounds, each scan finding tied to an index row, the refresh and staleness patches, no secret-shaped value, and no shortened hash
+- It also checks: every change has a plain-language description, every ratified principle covered with a reason, enough reviewers for each change's risk within two rounds, each scan finding tied to an index row, the refresh and staleness changes, no secret-shaped value, and no shortened hash
 - It renders every gate, the Final Gate, and the inspection report from the agent's plan file; time used comes from a recorded start, never an estimate
 - Without Node, or if you decline, the agent runs the same checks by hand and marks them "checked manually"
 

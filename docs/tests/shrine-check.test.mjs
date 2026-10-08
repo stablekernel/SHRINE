@@ -120,7 +120,7 @@ function fixture() {
 	writeFileSync(join(out, 'shrine-check.mjs'), CHECKER_SRC);
 	const manifest = {
 		commit: COMMIT,
-		prompt: { version: 18, sha256: sha(PROMPT), url: 'https://stablekernel.github.io/SHRINE/inspect-prompt.md', source: null },
+		prompt: { version: 19, sha256: sha(PROMPT), url: 'https://stablekernel.github.io/SHRINE/inspect-prompt.md', source: null },
 		checker: { url: 'https://stablekernel.github.io/SHRINE/shrine-check.mjs', source: null, sha256: sha(CHECKER_SRC) },
 		pages,
 	};
@@ -286,8 +286,8 @@ test('the checker\'s invariant map equals the prompt\'s Invariant Map', () => {
 	assert.deepEqual(map, rows);
 });
 
-test('prompt version is 18, and the prompt has no em dash', () => {
-	assert.match(PROMPT, /^Prompt version: 18$/m);
+test('prompt version is 19, and the prompt has no em dash', () => {
+	assert.match(PROMPT, /^Prompt version: 19$/m);
 	assert.ok(!PROMPT.includes(EM_DASH));
 });
 
@@ -441,7 +441,7 @@ test('--plan - reads the plan from standard input, for a harness that cannot wri
 	const r = run(['--check', '--plan', '-', '--manifest', fx.manifestPath], JSON.stringify(fx.plan));
 	assert.equal(r.code, 0, r.out);
 	const rep = run(['--render', 'report', '--plan', '-', '--manifest', fx.manifestPath], JSON.stringify(fx.plan));
-	assert.match(rep.out, /^--- shrine-check 9 report \(paste verbatim\) ---$/m);
+	assert.match(rep.out, /^--- shrine-check 10 report \(paste verbatim\) ---$/m);
 	assert.match(rep.out, /^--- end report sha256:[0-9a-f]{64} ---$/m);
 });
 
@@ -854,17 +854,26 @@ test('verify-readonly: every baseline in the temporary folder must be listed, so
 	assert.match(run(['--verify-readonly', '--plan', fx.planPath]).out, /baseline file .*baseline-1\.txt is not in plan\.readonly\.baselines/);
 });
 
-test('verify-readonly: an inline baseline pasted into the plan is checked by its end-line hash', () => {
+test('verify-readonly: an inline baseline stores a digest and counts, not every file hash, and still catches a change', () => {
 	const fx = fixture();
 	save(fx);
 	const r = run(['--render', 'baseline', '--plan', fx.planPath]);
-	const end = /^--- end render baseline sha256:([0-9a-f]{64}) ---$/m.exec(r.out)[1];
-	fx.plan.readonly.baselines.push({ text: r.out, sha256: end });
+	assert.equal(r.code, 0, r.err);
+	assert.match(r.out, /BASELINE: 1 repos/);
+	const entry = JSON.parse(/^entry: (.+)$/m.exec(r.out)[1]);
+	assert.ok(!/sha256:[0-9a-f]{64}/.test(JSON.stringify(entry)), 'the inline entry holds per-file hashes');
+	assert.ok(!r.out.includes('local.json\tsha256:'), 'the inline render dumps the file list');
+	fx.plan.readonly.baselines.push(entry);
 	save(fx);
 	assert.equal(run(['--verify-readonly', '--plan', fx.planPath]).code, 0);
-	fx.plan.readonly.baselines[0].text = r.out.replace('repo\t', 'repo\t ');
+	assert.match(item(gate(fx, 0).out, '0.9'), /^\[x\] 0\.9 .*inline baseline 1: digest/);
+	writeFileSync(join(fx.proj, 'local.json'), '{}\n');
+	const v = run(['--verify-readonly', '--plan', fx.planPath]);
+	assert.equal(v.code, 1, v.out);
+	assert.match(v.out, /inline baseline 1: digest changed/);
+	fx.plan.readonly.baselines[0] = { text: 'x', sha256: entry.sha256 };
 	save(fx);
-	assert.match(run(['--verify-readonly', '--plan', fx.planPath]).out, /is not a whole baseline render/);
+	assert.equal(run(['--verify-readonly', '--plan', fx.planPath]).code, 2);
 });
 
 test('git commands run no repo code: a clean filter and an fsmonitor hook stay off', () => {
@@ -962,6 +971,82 @@ test('no git: diffs are still checked to apply, and the inspection report explai
 	const text = readFileSync(reportFile(fx).file, 'utf8');
 	assert.match(text, /^- To apply: ask your assistant, "apply change B1 from /m);
 	assert.match(text, /Lines that start with `\+` are added/);
+});
+
+test('no git: the walk has no depth limit, so a real file deep in a docs folder is caught', () => {
+	const fx = fixture();
+	rmSync(join(fx.proj, '.git'), { recursive: true, force: true });
+	const deep = join(fx.proj, 'docs', 'a', 'b', 'c', 'd', 'deep.md');
+	mkdirSync(dirname(deep), { recursive: true });
+	writeFileSync(deep, 'old\n');
+	baseline(fx);
+	writeFileSync(deep, 'new\n');
+	const r = run(['--verify-readonly', '--plan', fx.planPath]);
+	assert.equal(r.code, 1, r.out);
+	assert.match(r.out, /changed: watched file .*deep\.md/);
+});
+
+test('no git: noise is skipped: a 300-package node_modules adds nothing, and a .DS_Store write does not fail', () => {
+	const fx = fixture();
+	rmSync(join(fx.proj, '.git'), { recursive: true, force: true });
+	save(fx);
+	const before = run(['--render', 'baseline', '--plan', fx.planPath]).out;
+	for (let i = 0; i < 300; i++) {
+		mkdirSync(join(fx.proj, 'node_modules', `pkg-${i}`), { recursive: true });
+		writeFileSync(join(fx.proj, 'node_modules', `pkg-${i}`, 'index.js'), `${i}\n`);
+	}
+	mkdirSync(join(fx.proj, 'dist'));
+	writeFileSync(join(fx.proj, 'dist', 'kept.json'), '{}\n');
+	fx.plan.readonly.watch.push({ path: 'dist/kept.json', kind: 'config' });
+	save(fx);
+	const after = run(['--render', 'baseline', '--plan', fx.planPath]).out;
+	assert.ok(!after.includes('node_modules'), 'node_modules was walked');
+	const n = (t) => Number(/BASELINE: .*?(\d+) watched files/.exec(t)[1]);
+	assert.equal(n(after), n(before) + 1, 'only the watched dist file is new');
+	baseline(fx);
+	writeFileSync(join(fx.proj, '.DS_Store'), 'x');
+	writeFileSync(join(fx.proj, 'node_modules', 'pkg-0', 'index.js'), 'changed\n');
+	assert.equal(run(['--verify-readonly', '--plan', fx.planPath]).code, 0);
+	writeFileSync(join(fx.proj, 'dist', 'other.js'), 'x\n');
+	assert.match(run(['--verify-readonly', '--plan', fx.planPath]).out, /new file in a watched folder: .*dist\/other\.js/);
+});
+
+test('no git: past the file cap, the read-only check fails and says how many files it did not walk', () => {
+	const fx = fixture();
+	rmSync(join(fx.proj, '.git'), { recursive: true, force: true });
+	for (let i = 0; i < 10; i++) writeFileSync(join(fx.proj, `doc-${i}.md`), `${i}\n`);
+	fx.plan.readonly.max_files = 5;
+	baseline(fx);
+	const r = run(['--verify-readonly', '--plan', fx.planPath]);
+	assert.equal(r.code, 1, r.out);
+	assert.match(r.out, /has \d+ files, more than the cap of 5: \d+ files not walked/);
+	assert.match(item(gate(fx, 0).out, '0.9'), /^\[ \] 0\.9 /);
+	assert.match(gate(fx, 0).out, /\d+ files not walked/);
+	fx.plan.readonly.baselines = [];
+	save(fx);
+	const entry = JSON.parse(/^entry: (.+)$/m.exec(run(['--render', 'baseline', '--plan', fx.planPath]).out)[1]);
+	fx.plan.readonly.baselines = [entry];
+	save(fx);
+	assert.match(run(['--verify-readonly', '--plan', fx.planPath]).out, /more than the cap of 5: \d+ files not walked/);
+	fx.plan.readonly.max_files = 0;
+	save(fx);
+	assert.equal(run(['--verify-readonly', '--plan', fx.planPath]).code, 2);
+});
+
+test('no git: automatic persistence inside the project folder is disclosed, not also failed as a watched file', () => {
+	const fx = fixture();
+	rmSync(join(fx.proj, '.git'), { recursive: true, force: true });
+	const mem = join(fx.proj, '.harness', 'memory');
+	mkdirSync(mem, { recursive: true });
+	writeFileSync(join(mem, 'MEMORY.md'), 'old\n');
+	fx.plan.persist.features = [{ feature: 'memory', path: mem, automatic: true }];
+	baseline(fx);
+	writeFileSync(join(mem, 'note.md'), 'new\n');
+	writeFileSync(join(mem, 'MEMORY.md'), 'changed\n');
+	const r = run(['--verify-readonly', '--plan', fx.planPath]);
+	assert.equal(r.code, 0, r.out);
+	assert.match(r.out, /note: harness persistence .*note\.md changed on its own/);
+	assert.doesNotMatch(r.out, /watched (file|folder).*\.harness/);
 });
 
 test('every change needs a plain-language description', () => {
