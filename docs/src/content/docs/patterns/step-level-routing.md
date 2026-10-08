@@ -77,7 +77,7 @@ Fix a failing date-parsing bug. Tiers are generic labels ([Model Selection](/SHR
 - Measure against [TTV](/SHRINE/principles/tokens-to-value/): cost per successful outcome, not per call
 - Log the model and effort used for each step to find misroutes
 
-## Pitfalls
+## Anti-patterns
 
 - Optimizing per-call price while total cost per outcome rises
 - Switching models every step and paying for cold caches

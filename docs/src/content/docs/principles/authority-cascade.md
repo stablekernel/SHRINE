@@ -2,7 +2,7 @@
 title: "Authority Cascade"
 description: "Decisions follow a fixed precedence: Org > Client > Team > Role > Individual."
 proposal: "https://github.com/stablekernel/SHRINE/discussions/5"
-last-reviewed: 2026-09-16
+last-reviewed: 2026-10-07
 status: ratified
 ---
 
@@ -37,6 +37,13 @@ status: ratified
 - A team convention individuals routinely override gets deleted or promoted
 - Encode each layer in agent-loadable files ([Skills & Prompts](/SHRINE/stack/skills/))
 - Rule changes follow [Governance](/SHRINE/reference/governance/)
+
+## Signal of Violation
+
+- Settled questions reopened: the same convention is argued again in each review or engagement
+- An org rule that fails the altitude test: client teams carry standing exceptions to it
+- Conventions held in one person's head: agents rediscover them every session, and work stalls when that person rotates off
+- Written rule and daily practice disagree: the team convention says one thing, merged code does another
 
 ## Open Questions
 

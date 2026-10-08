@@ -80,7 +80,7 @@ See [Spec Then Build](/SHRINE/patterns/spec-then-build/) for stages 1 and 2 in d
 - Record which stage and which gate failed, with the input that caused it
 - Test each stage alone with fixture inputs
 
-## Pitfalls
+## Anti-patterns
 
 - **No gates**: a bad spec flows into a bad implementation that passes its own weak checks; errors compound downstream
 - **No resumability**: a stage-4 failure restarts from stage 1 and repays every token

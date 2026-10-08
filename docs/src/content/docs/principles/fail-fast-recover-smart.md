@@ -84,6 +84,13 @@ An unattended run that generates a migration file and a test for it.
   - Next step: a human reviews the column type decision
 - See [Unattended Runs](/SHRINE/patterns/unattended-runs/) for running this without a human watching
 
+## Signal of Violation
+
+- Failure handling added after launch: the first outage is when someone writes the fallback
+- No mid-run checks: a bad intermediate output surfaces steps later as an unrelated error
+- Uncapped retries: one request burns tokens for minutes and returns nothing
+- Errors with no next step: a human has to rerun the job to learn what failed
+
 ## Implemented By
 
 - [Structured Output](/SHRINE/patterns/structured-output/): schemas make bad output detectable

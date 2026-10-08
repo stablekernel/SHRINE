@@ -2,7 +2,7 @@
 title: "Reproducibility"
 description: "Choose the reproducibility level each part needs, and build the mechanisms to hit it."
 proposal: "https://github.com/stablekernel/SHRINE/discussions/9"
-last-reviewed: 2026-09-16
+last-reviewed: 2026-10-07
 status: ratified
 ---
 
@@ -32,6 +32,13 @@ status: ratified
 - Production: behavioral
 - Debugging: exact, by replaying logged inputs and outputs, not regenerating
 - Exploration and brainstorming: variance is a feature; mark those paths exempt
+
+## Signal of Violation
+
+- No level chosen: tests are retried until green, or their assertions get deleted
+- Exact matching where behavioral fits: tests fail on rephrasing alone
+- Debugging by regenerating: a bug is called fixed because a rerun happened to pass
+- Model version and parameters not logged: behavior shifts and nobody can tell what changed
 
 ## Implemented By
 

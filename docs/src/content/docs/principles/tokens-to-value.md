@@ -2,7 +2,7 @@
 title: "North Star: TTV (Tokens to Value)"
 description: "Maximize value per win, where a win costs tokens plus human attention."
 proposal: "https://github.com/stablekernel/SHRINE/discussions/2"
-last-reviewed: 2026-09-16
+last-reviewed: 2026-10-07
 status: ratified
 ---
 
@@ -61,6 +61,13 @@ Hypothetical numbers, to show the arithmetic only.
   - Human time: 27 minutes, mostly review
   - Human minutes per win: 3
 - **Read**: total tokens rose, yet both halves of cost per win fell. That is a TTV improvement
+
+## Signal of Violation
+
+- Optimizing raw token spend: the bill falls while rework or human steering rises
+- Attention left out of the cost: cheap runs that an engineer babysits count as savings
+- Tokens with no outcome ID: nobody can state what a win costs
+- No win defined for the workload: cost arguments settle by opinion
 
 ## Open Questions
 
