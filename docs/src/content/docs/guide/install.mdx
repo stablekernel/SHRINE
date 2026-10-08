@@ -101,6 +101,16 @@ Agent-readable copies of this page (llms.txt files) leave the prompt out on purp
 - [shrine-manifest.json](/SHRINE/shrine-manifest.json): the commit pin, each page's raw source link and hash, and the prompt's hash
 - Each page it needs, from GitHub at the pinned commit; a hash mismatch stops the run
 - If it cannot fetch, it asks you to paste the pages or point it at a clone
+- [shrine-check.mjs](/SHRINE/shrine-check.mjs): the checker, verified against the manifest's `checker.sha256` before it runs
+
+## The Checker
+
+- A small read-only Node script SHRINE ships; it writes nothing and fetches only the manifest
+- It checks the record against the manifest and your files: required fields, full 64-hex hashes, page hashes, the four-option pick, each file's hash chain, backups, drift, and pending entries
+- Gate 5 and the final gate paste its output as evidence; a FAIL blocks the gate
+- It runs code, so the agent asks once per run; without Node, or if you decline, the agent runs the same checks by hand and marks them "checked manually"
+- Every hash, count, and status on a gate is pasted from a command's output, with that command named
+- Rerun it anytime: `node shrine-check.mjs --record .shrine/<harness>.<user>.json --manifest https://stablekernel.github.io/SHRINE/shrine-manifest.json`
 
 ## What It Leaves Behind
 

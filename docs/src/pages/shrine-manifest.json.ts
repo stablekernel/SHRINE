@@ -8,6 +8,7 @@ import { createHash } from 'node:crypto';
 import { execFileSync } from 'node:child_process';
 import { readFileSync } from 'node:fs';
 import prompt from '../prompts/shrine-install.md?raw';
+import checker from '../tools/shrine-check.mjs?raw';
 
 const REPO = 'stablekernel/SHRINE';
 
@@ -60,6 +61,15 @@ export const GET: APIRoute = async () => {
 	const body = {
 		commit,
 		prompt: { version: promptVersion(prompt), sha256: createHash('sha256').update(prompt).digest('hex') },
+		// The read-only checker the prompt runs at Gates 5 and Final; the agent verifies this hash before running it.
+		checker: {
+			url: 'https://stablekernel.github.io/SHRINE/shrine-check.mjs',
+			source:
+				commit === 'unknown'
+					? null
+					: `https://raw.githubusercontent.com/${REPO}/${commit}/docs/src/tools/shrine-check.mjs`,
+			sha256: createHash('sha256').update(checker).digest('hex'),
+		},
 		pages,
 	};
 	return new Response(JSON.stringify(body, null, 2), {
