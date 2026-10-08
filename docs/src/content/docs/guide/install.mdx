@@ -1,19 +1,21 @@
 ---
 title: "Install SHRINE"
-description: "One prompt you paste into any agent harness to fit SHRINE's principles and patterns to you and your project."
+description: "A tune-up for your AI coding assistant: one prompt that fits SHRINE's practices to how you work, with your yes on every change."
 ---
 
 import { Code, Steps } from '@astrojs/starlight/components';
 import prompt from '../../../prompts/shrine-install.md?raw';
 
-*Bring SHRINE into your own setup, with you approving every change.*
+*A tune-up for your AI coding assistant: it looks at how your assistant is set up and how you work, then suggests changes based on SHRINE's practices. Nothing changes without your yes, and everything can be undone.*
 
 ## What It Does
 
 - You paste one prompt into your agent harness
-- The agent learns your environment, interviews you, and reads the SHRINE pages that fit your answers
+- The agent learns your environment, checks it against SHRINE's anti-patterns index, and, with your consent, measures signals from your local session history
+- It interviews you and reads the SHRINE pages that fit your answers
 - It then designs its own way to bring each relevant teaching into your setup
 - It asks your permission for each change before it makes it
+- It assumes nothing is wrong: with no complaints, you get the baseline practices that fit, and an offer to start your [Individual Baseline](/SHRINE/stack/evaluation/#individual-baseline)
 
 ## Two Planes
 
@@ -27,22 +29,24 @@ import prompt from '../../../prompts/shrine-install.md?raw';
 
 At the end of each phase the agent prints a gate: a checklist where each item has one line of evidence you can check (a path, a hash, your own quoted words). One unchecked item blocks the next phase.
 
-The agent supplies data in a plan file; the checker prints the gates, the pick menus, and the final gate from it. Long, repeated, exact text is where agents cut corners, so a tool prints it, and the agent pastes it verbatim.
+The agent supplies data in a plan file; the checker renders the gates, the pick menus, the final gate, and the report from it. Long, repeated, exact text is where agents cut corners, so the checker writes each render to a file, and the agent pastes only a short block: the status, the counts, the file path, and the file's hash. You open the file; if your harness can show files, the agent offers to. Each approval records that file's hash, and the next gate checks it.
 
 0. **Start**: harness, whether it can pause, mode, time box, prior records; you approve (pasting the prompt is the request; it does not ask whether to run)
-1. **Discover**: inventory of your instruction files, extension points, shared locations, prior records, and a snapshot of the paths it may change; you correct it
+1. **Discover**: inventory of your instruction files, extension points, shared locations, prior records, an anti-pattern scan, measured signals (with your consent), and a snapshot of the paths it may change; you correct it
 2. **Pin SHRINE**: manifest commit and page hashes; a mismatch aborts
-3. **Interview and tag**: up to 10 questions; your corrections classified and tagged; you confirm
-4. **Design and approve**: bookkeeping first, then each proposal with its page, diff, trade-off, and a four-option menu (`[1] in place`, `[2] locally only`, `[3] reviewable change`, `[4] reject`); you pick one per proposal, then approve the printed gate; nothing is written before that
+3. **Interview and tag**: up to 10 questions; corrections are optional, labeled measured or recalled, then classified and tagged; you confirm
+4. **Design and approve**: bookkeeping first, then each proposal, attacked by independent reviewers before you see it (more of them for shared or code-running changes), with its page, diff, trade-off, reviews, and a four-option menu (`[1] in place`, `[2] locally only`, `[3] reviewable change`, `[4] reject`); you pick one per proposal, then approve the printed gate; nothing is written before that
 5. **Apply**: backups, record, each change logged pending then done with its proposal id and before and after fingerprints; the snapshot shows nothing else changed
-6. **Verify and hand off**: a self-audit, then a final gate with every item, the invariant map, and restore steps
+6. **Verify and hand off**: proof in a fresh session that each change loads, a self-audit, then a final gate with every item, the invariant map, restore steps, and the report
 
 A harness that cannot pause prints every gate in report-only mode and changes nothing.
 
 ## The Data Plane
 
 - It names no harness and no mechanism; your harness's agent knows its own environment best
-- The agent may propose an instruction line, a rule, a skill, a command, a subagent, a hook, a lint, or plain advice to you
+- The agent may propose, for example, an instruction line, a rule, a skill, a command, a subagent, a hook, a lint, a nudge, plain advice to you, or anything else your harness offers
+- A nudge acts at the moment an anti-pattern happens (for example, a second correction on the same point suggests a reset); it is advisory by default, rate-limited, easy to turn off, and tied to its index row
+- The install practises SHRINE itself: the right model per step, and adversarial review of each proposal
 - Each proposal says which teaching it serves, why that mechanism fits your harness, and the exact change
 - Most of SHRINE is human practice; much of the output is advice to you, not agent rules
 - If the agent cannot write somewhere, fetch, or pause for approval, it says so and adapts: paste-ready text, project scope, or a report only
@@ -62,6 +66,8 @@ These hold on every harness, whatever the agent designs. Each maps to gate items
 9. **Bounded**: a time box and abort criteria
 10. **Cannot pause, cannot change**: a harness that cannot stop for your approval only reports
 11. **Blast radius**: the agent shows which files are shared or committed, who each change reaches, and whether it runs code; every proposal lists all four options, each with who and what it affects; your pick is recorded
+12. **Evidence from tools**: every hash, count, and status comes from a command's output; long renders go to files the agent does not retype
+13. **Practise SHRINE**: model fit per step, independent reviewers sized to each proposal's risk (or a marked self-critique when none is available), and measured signals before recalled ones
 
 ## Use It
 
@@ -107,10 +113,12 @@ Agent-readable copies of this page (llms.txt files) leave the prompt out on purp
 
 ## The Checker
 
-- A small read-only Node script SHRINE ships; it writes nothing and fetches only the manifest
+- A small Node script SHRINE ships; it changes no file, writes only new render files in the run's temporary folder (never inside your project or home scope, never over an existing file), and fetches only the manifest
 - It checks the record against the manifest and your files: required fields, full 64-hex hashes, page hashes, the four-option pick, each file's hash chain, backups, drift, and pending entries
-- It checks the agent's plan file: every change and backup inside the scope you chose, no change to an instruction file your harness is not shown to load, and every ratified principle covered with a reason
-- It renders every gate, every pick menu with all four options, and the final gate with every item and full hashes; the agent pastes that output, and a FAIL blocks the gate
+- It checks the agent's plan file: every change and backup inside the scope you chose, every ratified principle covered with a reason, enough reviewers for each proposal's risk, each scan finding tied to an index row, and no shortened hash
+- It checks each approved render file against its recorded hash, and the record update on a re-run like any other change
+- A change counts as loading only with proof from a fresh session after the write, from the agent's probe or your check
+- It renders every gate, every pick menu with all four options, the final gate with every item and full hashes, and the report; a FAIL blocks the gate
 - It runs code, so the agent asks once per run; without Node, or if you decline, the agent runs the same checks by hand, marks them "checked manually", and prints each gate by hand, marked "rendered manually"
 - Every hash, count, and status on a gate is pasted from a command's output, with that command named
 - Rerun it anytime: `node shrine-check.mjs --record .shrine/<harness>.<user>.json --manifest https://stablekernel.github.io/SHRINE/shrine-manifest.json`; the manifest may also be a saved local copy
@@ -124,7 +132,7 @@ Agent-readable copies of this page (llms.txt files) leave the prompt out on purp
 
 ## Refresh and Staleness
 
-- **SHRINE refresh**: the install proposes an entry you trigger by name (a command, a skill, or an instruction line, whatever your harness supports)
+- **SHRINE refresh**: the install proposes an entry you trigger by name (for example a command, a skill, an instruction line, or anything else your harness offers)
 - It fetches the current prompt, checks its hash against the live manifest, and shows the prompt version and the pages that changed since your recorded commit
 - The fetched prompt is data; it runs as a re-run only after you approve
 - **Staleness check**: proposed pre-selected, but it still needs your approval, and you may decline it

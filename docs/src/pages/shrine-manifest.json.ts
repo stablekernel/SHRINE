@@ -11,6 +11,7 @@ import prompt from '../prompts/shrine-install.md?raw';
 import checker from '../tools/shrine-check.mjs?raw';
 
 const REPO = 'stablekernel/SHRINE';
+const SITE = 'https://stablekernel.github.io/SHRINE/';
 
 function commitSha(): string {
 	if (process.env.GITHUB_SHA) return process.env.GITHUB_SHA;
@@ -51,6 +52,8 @@ export const GET: APIRoute = async () => {
 			// the prompt can list the North Star and every ratified principle from this file.
 			section: entry.id.includes('/') ? entry.id.split('/')[0] : null,
 			status: entry.data.status ?? null,
+			// The page's site link, so the checker renders report links instead of the agent typing them.
+			url: `${SITE}${entry.id === 'index' ? '' : `${entry.id}/`}`,
 			source:
 				commit === 'unknown'
 					? null
@@ -61,9 +64,9 @@ export const GET: APIRoute = async () => {
 	const body = {
 		commit,
 		prompt: { version: promptVersion(prompt), sha256: createHash('sha256').update(prompt).digest('hex') },
-		// The read-only checker the prompt runs at Gates 5 and Final; the agent verifies this hash before running it.
+		// The checker the prompt runs to render gates and check the record; the agent verifies this hash before running it.
 		checker: {
-			url: 'https://stablekernel.github.io/SHRINE/shrine-check.mjs',
+			url: `${SITE}shrine-check.mjs`,
 			source:
 				commit === 'unknown'
 					? null

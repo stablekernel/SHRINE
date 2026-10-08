@@ -19,12 +19,30 @@ const ORIGINAL = '# Project rules\n';
 const AFTER_B1 = `${ORIGINAL}<!-- shrine:B1 -->\nRun tests before done.\n`;
 const AFTER_B2 = `${AFTER_B1}<!-- shrine:B2 -->\nCite the failing test.\n`;
 const NEW_FILE = '<!-- shrine:S2 -->\nSHRINE staleness check\n';
+const INDEX = `---
+title: "Anti-patterns"
+---
+
+## Context and Memory
+
+| Symptom | Anti-pattern | Fix |
+|---|---|---|
+| Output quality falls as the session ages | Never resetting a drifting session | [Correction Diagnosis](/SHRINE/patterns/correction-diagnosis/#anti-patterns) |
+
+## Review and Verification
+
+| Symptom | Anti-pattern | Fix |
+|---|---|---|
+| Plausible code that does not run | No runnable check | [Verification Loops](/SHRINE/patterns/verification-loops/) |
+`;
+const site = (id) => `https://stablekernel.github.io/SHRINE/${id}/`;
 const PAGES = [
-	{ title: 'Correction Diagnosis', sha256: sha('page one'), section: 'patterns', status: null },
-	{ title: 'Fail Fast, Recover Smart', sha256: sha('page two'), section: 'principles', status: 'ratified' },
-	{ title: 'North Star: TTV (Tokens to Value)', sha256: sha('north star'), section: 'principles', status: 'ratified' },
-	{ title: 'Human in the Loop', sha256: sha('hitl'), section: 'principles', status: 'ratified' },
-	{ title: 'Draft Idea', sha256: sha('draft'), section: 'principles', status: 'draft' },
+	{ title: 'Correction Diagnosis', sha256: sha('page one'), section: 'patterns', status: null, url: site('patterns/correction-diagnosis') },
+	{ title: 'Fail Fast, Recover Smart', sha256: sha('page two'), section: 'principles', status: 'ratified', url: site('principles/fail-fast-recover-smart') },
+	{ title: 'North Star: TTV (Tokens to Value)', sha256: sha('north star'), section: 'principles', status: 'ratified', url: site('principles/tokens-to-value') },
+	{ title: 'Human in the Loop', sha256: sha('hitl'), section: 'principles', status: 'ratified', url: site('principles/human-in-the-loop') },
+	{ title: 'Draft Idea', sha256: sha('draft'), section: 'principles', status: 'draft', url: site('principles/draft-idea') },
+	{ title: 'Anti-patterns', sha256: sha(INDEX), section: 'reference', status: null, url: site('reference/anti-patterns') },
 ];
 const RATIFIED = PAGES.filter((p) => p.status === 'ratified').map((p) => p.title);
 
@@ -38,7 +56,7 @@ function promptItems() {
 }
 const ITEMS = promptItems();
 // Items the checker computes in full; the agent adds no evidence line for them.
-const RENDERED = ['2.1', '2.3', '2.4', '2.7', '3.7', '4.1', '4.5', '4.9', '4.11', '4.12', '4.16', '4.17', '4.18', '5.1', '5.2', '5.3', '5.7', '5.10', '5.11', '6.3', '6.4', '6.5', '6.8'];
+const RENDERED = ['2.1', '2.3', '2.4', '2.7', '3.7', '4.1', '4.5', '4.9', '4.11', '4.12', '4.16', '4.17', '4.18', '4.19', '4.21', '5.1', '5.2', '5.3', '5.7', '5.10', '5.11', '6.1', '6.3', '6.4', '6.5', '6.8'];
 
 const entry = (over) => ({
 	id: 'X',
@@ -67,6 +85,9 @@ const proposal = (over) => ({
 	always_loaded: true,
 	miss: 'skipped tests',
 	tradeoff: { costs: '30 tokens per session', saves: 'one review swap a week', net: 'positive', flag: true, dimensions: ['attention', 'tokens'] },
+	risk: 'local text',
+	model: 'strongest tier',
+	review: { reviewers: [{ who: 'second model', how: 'subagent', findings: [{ finding: 'line too vague', resolution: 'named the command' }] }] },
 	options: {
 		'in place': opt('you', ['CLAUDE.md']),
 		'locally only': opt('you', ['CLAUDE.local.md']),
@@ -89,6 +110,8 @@ function planFor(root) {
 		schema: 1,
 		run: 'install',
 		mode: 'full',
+		delivery: 'inline',
+		delivery_reason: 'test fixture reads stdout',
 		time: { used: 20, agreed: 45 },
 		harness: { name: 'test-harness', version: '1.0.0' },
 		user: 'tester',
@@ -98,7 +121,7 @@ function planFor(root) {
 		approvals: { 0: 'approve gate 0', 1: 'approve gate 1', 3: 'approve gate 3', 4: 'approve gate 4' },
 		bookkeeping: [{ record: '.shrine/test-harness.tester.json', backups: '.shrine/backups' }],
 		load: [
-			{ path: 'CLAUDE.md', loads: 'yes', source: '$ /memory' },
+			{ path: 'CLAUDE.md', loads: 'yes', source: '$ /memory', fresh: { session: 'fresh', after_write: true, loads: 'yes', source: '(probe: harness -p "list loaded files")', how: 'non-interactive run' } },
 			{ path: 'AGENTS.md', loads: 'unverified' },
 		],
 		pages: [
@@ -112,6 +135,15 @@ function planFor(root) {
 			{ title: 'Human in the Loop', status: 'not relevant', reason: 'review already gates every merge' },
 		],
 		menus_sha256: null,
+		report: {
+			skipped_why: { C1: 'user kept their own rule' },
+			paste_ready: 'none',
+			top_practices: [
+				{ practice: 'Run tests before done', page: 'Correction Diagnosis' },
+				{ practice: 'Tag repeated corrections', page: 'Fail Fast, Recover Smart' },
+				{ practice: 'Count attention in TTV', page: 'North Star: TTV (Tokens to Value)' },
+			],
+		},
 		proposals: [
 			proposal({ id: 'B1', title: 'Run tests before done' }),
 			proposal({ id: 'B2', title: 'Cite the failing test', tradeoff: { costs: 'none', saves: 'a lookup', net: 'positive', flag: false } }),
@@ -133,15 +165,16 @@ function fixture(mutate = () => {}) {
 	writeFileSync(join(root, 'stale.md'), NEW_FILE);
 	writeFileSync(join(root, 'pages', 'cd.md'), 'page one');
 	writeFileSync(join(root, 'pages', 'ff.md'), 'page two');
+	writeFileSync(join(root, 'pages', 'ap.md'), INDEX);
 	const manifest = {
 		commit: 'c0ffee',
-		prompt: { version: 10, sha256: sha('prompt') },
+		prompt: { version: 11, sha256: sha('prompt') },
 		checker: { url: 'https://stablekernel.github.io/SHRINE/shrine-check.mjs', sha256: sha('checker') },
 		pages: PAGES,
 	};
 	const record = {
 		schema: 1,
-		prompt: { version: 10, sha256: sha('prompt') },
+		prompt: { version: 11, sha256: sha('prompt') },
 		commit: 'c0ffee',
 		harness: { name: 'test-harness', version: '1.0.0' },
 		user: 'tester',
@@ -199,7 +232,7 @@ function check(mutate, extra = ['--post-apply']) {
 test('valid record passes every check with full hashes', () => {
 	const { code, out } = check();
 	assert.equal(code, 0, out);
-	assert.match(out, /RESULT: PASS \(10 of 10 checks passed\)/);
+	assert.match(out, /RESULT: PASS \(12 of 12 checks passed\)/);
 	assert.match(out, /PASS counts: pending 0; done 3 \(B1, B2, S2\); rejected 1 \(C1\)/);
 	assert.match(out, new RegExp(`sha256:${sha(AFTER_B2)}`));
 	assert.doesNotMatch(out, /FAIL/);
@@ -334,7 +367,7 @@ const planCheck = (mutate) => withFixture(mutate, (f) => run(['--record', f.reco
 test('valid plan adds plan-shape, scope, load, and coverage checks, all PASS', () => {
 	const { code, out } = planCheck();
 	assert.equal(code, 0, out);
-	assert.match(out, /RESULT: PASS \(14 of 14 checks passed\)/);
+	assert.match(out, /RESULT: PASS \(19 of 19 checks passed\)/);
 	assert.match(out, /PASS scope: every target, backup, and record path lies inside the scope roots/);
 	assert.match(out, /PASS coverage: 3 ratified principles each have a status and a reason/);
 });
@@ -356,16 +389,41 @@ test('scope: a proposal target or bookkeeping path outside the roots fails', () 
 	assert.match(out, /- bookkeeping backups .*\.shrine\/backups is outside the scope roots/);
 });
 
-test('load: a proposal that targets an unverified instruction file fails (defect 6)', () => {
-	const { code, out } = planCheck(({ plan }) => (plan.proposals[1].targets = ['AGENTS.md']));
-	assert.equal(code, 1);
-	assert.match(out, /FAIL load\n {2}- B2 targets AGENTS\.md, whose load status is "unverified"/);
+test('load: a pre-write "unverified" is a hint only; the menus show it and the check passes', () => {
+	withFixture(({ plan }) => (plan.proposals[1].targets = ['AGENTS.md']), (f) => {
+		const chk = run(['--record', f.recordPath, '--manifest', f.manifestPath, '--plan', f.planPath, '--post-apply']);
+		assert.match(chk.out, /PASS load:/);
+		const m = run(['--render', 'menus', '--plan', f.planPath]);
+		assert.match(m.out, /load hint: AGENTS\.md is "unverified" before the write; Phase 6 proves it loads in a fresh session/);
+	});
 });
 
-test('load: "yes" without a load source counts as unverified', () => {
-	const { code, out } = planCheck(({ plan }) => (plan.load[0].source = 'assumed from the docs'));
+test('load: a proof not marked fresh-session-after-write fails the load check (A3)', () => {
+	const { code, out } = planCheck(({ plan }) => (plan.load[0].fresh = { session: 'current', after_write: false, loads: 'yes', source: '(probe: context block order)' }));
 	assert.equal(code, 1);
-	assert.match(out, /B1 targets CLAUDE\.md, whose load status is "yes without a load source"/);
+	assert.match(out, /FAIL load\n {2}- CLAUDE\.md: a load proof counts only with session "fresh", after_write true/);
+});
+
+test('final 6.1: an always-loaded target without a fresh-session proof blocks; acceptance as not loading passes (A3)', () => {
+	withFixture(({ plan }) => delete plan.load[0].fresh, (f) => {
+		showMenus(f);
+		const { code, out } = run(['--render', 'final', '--plan', f.planPath, '--manifest', f.manifestPath, '--record', f.recordPath]);
+		assert.equal(code, 1);
+		assert.match(out, /^\[ \] 6\.1 Changes load: 1 always-loaded targets/m);
+		assert.match(out, /CLAUDE\.md: no load proof from a fresh session after the write/);
+	});
+	withFixture(({ plan }) => (plan.load[0].fresh = { session: 'fresh', after_write: true, loads: 'no', source: '(user)' }), (f) => {
+		showMenus(f);
+		const { out } = run(['--render', 'final', '--plan', f.planPath, '--manifest', f.manifestPath, '--record', f.recordPath]);
+		assert.match(out, /^\[ \] 6\.1 /m);
+		assert.match(out, /CLAUDE\.md: does not load in a fresh session/);
+	});
+	withFixture(({ plan }) => (plan.load[0].fresh = { accepted: 'fine, leave it not loading' }), (f) => {
+		showMenus(f);
+		const { code, out } = run(['--render', 'final', '--plan', f.planPath, '--manifest', f.manifestPath, '--record', f.recordPath]);
+		assert.equal(code, 0, out);
+		assert.match(out, /\[x\] 6\.1 .*\n {6}CLAUDE\.md: not loading, accepted: "fine, leave it not loading" \(user\)/);
+	});
 });
 
 test('coverage: a missing ratified principle or a missing reason fails (defect 8)', () => {
@@ -465,8 +523,8 @@ test('evidence without a source, or with a short hash, renders [ ] and blocks th
 test('gate 1 renders load status per instruction file; files listed in evidence are hashed by the checker', () => {
 	withFixture(({ plan }) => (plan.evidence['1.12'] = { mark: 'x', text: 'snapshot', source: '$ shasum', files: ['CLAUDE.md'] }), (f) => {
 		const { out } = run(['--render', 'gate', '--gate', '1', '--plan', f.planPath, '--manifest', f.manifestPath]);
-		assert.match(out, /CLAUDE\.md: loads yes {2}\$ \/memory/);
-		assert.match(out, /AGENTS\.md: loads unverified/);
+		assert.match(out, /CLAUDE\.md: loads yes \(pre-write hint; Phase 6 proves load in a fresh session\) {2}\$ \/memory/);
+		assert.match(out, /AGENTS\.md: loads unverified \(pre-write hint/);
 		assert.match(out, new RegExp(`CLAUDE\\.md sha256:${sha(AFTER_B2)} {2}\\$ shrine-check sha256`));
 	});
 });
@@ -488,7 +546,7 @@ test('gate 5 renders record, backups, changes, and the post-apply check with ful
 		assert.equal(code, 0, out);
 		assert.match(out, /GATE 5 of 6: Apply: PASS\nApproved: "approve gate 4" \(user\)/);
 		assert.match(out, /\[x\] 5\.3 Each change: 4 lines below\n {6}B1: CLAUDE\.md; done; before sha256:[0-9a-f]{64}; after sha256:[0-9a-f]{64}/);
-		assert.match(out, /RESULT: PASS \(14 of 14 checks passed\)/);
+		assert.match(out, /RESULT: PASS \(19 of 19 checks passed\)/);
 		for (const m of out.matchAll(/sha256:([0-9a-f]*)/g)) assert.equal(m[1].length, 64, `short hash in: ${m[0]}`);
 	});
 });
@@ -503,10 +561,12 @@ test('render final: every item of Gates 0 to 6 listed, full hashes, checker re-r
 			for (const id of ids) assert.equal(out.match(new RegExp(`^\\[[x-]\\] ${id.replace('.', '\\.')} `, 'gm'))?.length, 1, `item ${id} once`);
 		assert.doesNotMatch(out, /\d\.\d+-\d\.\d+|\d\.x\b/);
 		for (const m of out.matchAll(/sha256:([0-9a-f]*)/g)) assert.equal(m[1].length, 64, `short hash in: ${m[0]}`);
-		assert.match(out, /\[x\] 6\.8 Checker, final run: RESULT: PASS \(14 of 14 checks passed\)/);
-		assert.match(out, /\[x\] 6\.3 Invariant Map: 12 of 12 invariants/);
-		assert.match(out, /\[x\] 6\.5 Report: skeleton below/);
-		assert.match(out, /Handoff: keep tagging corrections, and re-run when one tag leads \(Individual Baseline: https:\/\/stablekernel\.github\.io\/SHRINE\/stack\/evaluation\/#individual-baseline\)/);
+		assert.match(out, /\[x\] 6\.8 Checker, final run: RESULT: PASS \(19 of 19 checks passed\)/);
+		assert.match(out, /\[x\] 6\.3 Invariant Map: 13 of 13 invariants/);
+		assert.match(out, /\[x\] 6\.5 Report: rendered from the record and plan\.report/);
+		assert.match(out, /Handoff: say "SHRINE refresh" when SHRINE moves; re-run when one correction tag leads or a measured signal moves \(Individual Baseline: https:\/\/stablekernel\.github\.io\/SHRINE\/stack\/evaluation\/#individual-baseline\)/);
+		assert.match(out, /Top practices: 1\. Run tests before done \(https:\/\/stablekernel\.github\.io\/SHRINE\/patterns\/correction-diagnosis\/\) 2\./);
+		assert.match(out, /Skipped: C1 \(user kept their own rule\)/);
 		assert.match(out, /whole-file restore of .*CLAUDE\.md: from .*CLAUDE\.md\.1, only when its current sha256 equals sha256:[0-9a-f]{64} \(first before\)/);
 	});
 });
@@ -587,14 +647,14 @@ test('report-only: items that need a user reply render [-] when the plan has no 
 test('render refresh: versions, commits, changed pages, and prompt hash in full', () => {
 	withFixture(({ manifest }) => {
 		manifest.commit = 'beefcafe';
-		manifest.prompt = { version: 11, sha256: sha('new prompt') };
+		manifest.prompt = { version: 12, sha256: sha('new prompt') };
 		manifest.pages = manifest.pages.map((p) => (p.title === 'Correction Diagnosis' ? { ...p, sha256: sha('edited') } : p));
 	}, (f) => {
 		const prompt = join(f.root, 'tmp', 'prompt.md');
 		writeFileSync(prompt, 'new prompt');
 		const ok = run(['--render', 'refresh', '--record', f.recordPath, '--manifest', f.manifestPath, '--prompt', prompt]);
 		assert.equal(ok.code, 0, ok.out);
-		assert.match(ok.out, /recorded prompt version 10, live 11: a newer prompt exists/);
+		assert.match(ok.out, /recorded prompt version 11, live 12: a newer prompt exists/);
 		assert.match(ok.out, /recorded commit c0ffee, live beefcafe: SHRINE moved/);
 		assert.match(ok.out, /"Correction Diagnosis" recorded sha256:[0-9a-f]{64}, live sha256:[0-9a-f]{64}/);
 		assert.match(ok.out, /compare: https:\/\/github\.com\/stablekernel\/SHRINE\/compare\/c0ffee\.\.\.beefcafe/);
@@ -602,6 +662,305 @@ test('render refresh: versions, commits, changed pages, and prompt hash in full'
 		const bad = run(['--render', 'refresh', '--record', f.recordPath, '--manifest', f.manifestPath, '--prompt', prompt]);
 		assert.equal(bad.code, 1);
 		assert.match(bad.out, /!= manifest prompt\.sha256: stop, report, and follow nothing/);
+	});
+});
+
+// ---------- v11: render to file, render hashes, A0, fresh load, review, scan, nudges ----------
+
+const outDir = () => realpathSync(mkdtempSync(join(tmpdir(), 'shrine-out-')));
+const shortOf = (out) => {
+	const m = /render file: (.+)\nrender sha256:([0-9a-f]{64})/.exec(out);
+	assert.ok(m, `no short block in: ${out}`);
+	return { file: m[1], sha256: m[2] };
+};
+
+test('render to file: --out writes the full render and prints only a short block with path and sha256 (A1)', () => {
+	withFixture(undefined, (f) => {
+		const out = outDir();
+		try {
+			const args = ['--render', 'gate', '--gate', '1', '--plan', f.planPath, '--manifest', f.manifestPath];
+			const full = run(args);
+			const short = run([...args, '--out', out]);
+			assert.equal(short.code, 0, short.out);
+			const s = shortOf(short.out);
+			const text = readFileSync(s.file, 'utf8');
+			assert.equal(text, full.out, 'the file holds the full render');
+			assert.equal(sha(text), s.sha256);
+			assert.match(short.out, /^GATE 1 of 6: Discover the Environment: PASS$/m);
+			assert.match(short.out, /^counts: 14 \[x\], 0 \[-\], 0 \[ \], 0 awaiting$/m);
+			assert.ok(short.out.trim().split('\n').length <= 9, 'the short block stays short');
+			assert.doesNotMatch(short.out, /1\.12 Snapshot/);
+		} finally {
+			rmSync(out, { recursive: true, force: true });
+		}
+	});
+});
+
+test('render to file: never overwrites; an identical render reuses its file, a changed one gets a new file (A1)', () => {
+	withFixture(undefined, (f) => {
+		const out = outDir();
+		try {
+			const args = ['--render', 'menus', '--plan', f.planPath, '--out', out];
+			const a = shortOf(run(args).out);
+			const b = shortOf(run(args).out);
+			assert.equal(a.file, b.file);
+			const plan = JSON.parse(readFileSync(f.planPath, 'utf8'));
+			plan.proposals[0].title = 'Run tests before you say done';
+			writeFileSync(f.planPath, JSON.stringify(plan));
+			const c = shortOf(run(args).out);
+			assert.notEqual(c.file, a.file);
+			assert.match(c.file, /menus-2\.txt$/);
+			assert.equal(sha(readFileSync(a.file)), a.sha256, 'the first file is untouched');
+		} finally {
+			rmSync(out, { recursive: true, force: true });
+		}
+	});
+});
+
+test('render to file: --out inside a scope root is refused', () => {
+	withFixture(undefined, (f) => {
+		const { code, out } = run(['--render', 'menus', '--plan', f.planPath, '--out', join(f.root, 'tmp')]);
+		assert.equal(code, 2);
+		assert.match(out, /lies inside .*: render files go in the run's temporary folder, outside every scope/);
+	});
+});
+
+test('file delivery: the next gate checks the approved render file and its sha256; 4.9 takes the menus file hash (A1)', () => {
+	withFixture(({ plan }) => {
+		plan.delivery = 'file';
+		delete plan.delivery_reason;
+	}, (f) => {
+		const out = outDir();
+		try {
+			const missing = run(['--render', 'gate', '--gate', '2', '--plan', f.planPath, '--manifest', f.manifestPath]);
+			assert.match(missing.out, /Approved: \[ \] "approve gate 1" \(user\), but plan\.renders\["1"\] does not name the render file the user approved/);
+			const g1 = shortOf(run(['--render', 'gate', '--gate', '1', '--plan', f.planPath, '--manifest', f.manifestPath, '--out', out]).out);
+			const menus = shortOf(run(['--render', 'menus', '--plan', f.planPath, '--out', out]).out);
+			const plan = JSON.parse(readFileSync(f.planPath, 'utf8'));
+			plan.renders = { 1: g1 };
+			plan.menus_sha256 = menus.sha256;
+			writeFileSync(f.planPath, JSON.stringify(plan));
+			const ok = run(['--render', 'gate', '--gate', '2', '--plan', f.planPath, '--manifest', f.manifestPath]);
+			assert.match(ok.out, new RegExp(`Approved: "approve gate 1" \\(user\\) for render ${g1.file} sha256:${g1.sha256}`));
+			assert.match(ok.out, /GATE 2 of 6: Pin SHRINE: PASS/);
+			const g4 = run(['--render', 'gate', '--gate', '4', '--plan', f.planPath, '--manifest', f.manifestPath]);
+			assert.match(g4.out, new RegExp(`\\[x\\] 4\\.9 Blast radius and pick menus: menus shown: sha256:${menus.sha256}`));
+			writeFileSync(g1.file, 'edited after approval');
+			const bad = run(['--render', 'gate', '--gate', '2', '--plan', f.planPath, '--manifest', f.manifestPath]);
+			assert.equal(bad.code, 1);
+			assert.match(bad.out, /GATE 2 of 6: Pin SHRINE: BLOCKED/);
+			assert.match(bad.out, /render file .* sha256:[0-9a-f]{64} != approved sha256:[0-9a-f]{64}/);
+		} finally {
+			rmSync(out, { recursive: true, force: true });
+		}
+	});
+});
+
+test('render-hashes: the record stores approved render hashes and the checker verifies each file (A1)', () => {
+	const out = outDir();
+	const file = join(out, 'gate-4-1.txt');
+	writeFileSync(file, 'the gate 4 render the user approved\n');
+	const good = sha('the gate 4 render the user approved\n');
+	try {
+		const store = (h) => ({ record, plan }) => {
+			record.renders = [{ gate: '4', file, sha256: h }];
+			plan.renders = { 4: { file, sha256: h } };
+		};
+		const ok = planCheck(store(good));
+		assert.equal(ok.code, 0, ok.out);
+		assert.match(ok.out, /PASS render-hashes: 1 approved gate renders/);
+		const bad = planCheck(store(MADE_UP));
+		assert.equal(bad.code, 1);
+		assert.match(bad.out, /FAIL render-hashes\n {2}- gate 4: render file .* sha256:[0-9a-f]{64} != stored sha256:a{0}(ab){32}/);
+		const notInRecord = planCheck(({ plan }) => (plan.renders = { 4: { file, sha256: good } }));
+		assert.match(notInRecord.out, /- gate 4: plan\.renders has it, the record's renders do not/);
+		rmSync(file);
+		const gonePlan = planCheck(store(good));
+		assert.match(gonePlan.out, /- gate 4: render file .* missing/);
+		const goneLater = check(({ record }) => (record.renders = [{ gate: '4', file, sha256: good }]));
+		assert.equal(goneLater.code, 0, goneLater.out);
+		assert.match(goneLater.out, /gate 4 .* not on this machine any more \(temporary folder\)/);
+	} finally {
+		rmSync(out, { recursive: true, force: true });
+	}
+});
+
+test('A0: a record update is a tracked entry with a backup; the checker covers it (A4)', () => {
+	const OLD = '{"old":"record"}';
+	const a0 = (over = {}) => ({ record, root }) => {
+		writeFileSync(join(root, '.shrine', 'backups', 'record.json.1'), OLD);
+		record.entries.push(entry({ id: 'A0', target: '.shrine/test-harness.tester.json', scope: 'locally only', record_update: true, before_sha256: sha(OLD), backup: '.shrine/backups/record.json.1', page_sha256: null, undo: 'restore the record from its backup', ...over }));
+	};
+	const ok = check(a0());
+	assert.equal(ok.code, 0, ok.out);
+	assert.match(ok.out, /PASS record-update: 1 record updates \(A0\)/);
+	assert.match(ok.out, /PASS hash-chain: 2 targets/);
+	assert.match(check(a0({ after_sha256: MADE_UP })).out, /FAIL record-update\n {2}- A0: a record update takes after_sha256 null/);
+	assert.match(check(a0({ backup: null })).out, /- A0: a record update needs a backup of the record taken before it/);
+	assert.match(check(a0({ target: 'CLAUDE.md' })).out, /- A0: record_update entry targets .*CLAUDE\.md, not the record/);
+	assert.match(check(a0({ before_sha256: MADE_UP })).out, /- A0: record backup .* != before/);
+	withFixture(a0(), (f) => {
+		showMenus(f);
+		const fin = run(['--render', 'final', '--plan', f.planPath, '--manifest', f.manifestPath, '--record', f.recordPath]);
+		assert.equal(fin.code, 0, fin.out);
+		assert.match(fin.out, /A0 \(record update\): restore the record from its backup; whole-record restore from .*record\.json\.1, whose sha256 is sha256:[0-9a-f]{64}/);
+		assert.match(fin.out, /A0: \.shrine\/test-harness\.tester\.json; done; before sha256:[0-9a-f]{64}; after not stored \(record update; see 5\.1\)/);
+	});
+});
+
+test('review: reviewer minimums by risk, undo check for code, and "self only" (B1)', () => {
+	const shared = planCheck(({ plan }) => (plan.proposals[0].risk = 'shared'));
+	assert.equal(shared.code, 1);
+	assert.match(shared.out, /FAIL review\n {2}- B1: 1 reviewers, shared needs at least 2, or mark the review "self only"/);
+	const code = planCheck(({ plan }) => {
+		plan.proposals[0].runs_code = true;
+		plan.proposals[0].review.reviewers.push({ who: 'third model', how: 'separate session', findings: [] });
+	});
+	assert.match(code.out, /- B1: runs code, so one reviewer must check its undo/);
+	const undo = planCheck(({ plan }) => {
+		plan.proposals[0].runs_code = true;
+		plan.proposals[0].review.reviewers.push({ who: 'third model', how: 'separate session', checks_undo: true, findings: [] });
+	});
+	assert.equal(undo.code, 0, undo.out);
+	const self = planCheck(({ plan }) => (plan.proposals[0].review = { reviewers: [], self_only: 'no subagents or other models in this harness' }));
+	assert.equal(self.code, 0, self.out);
+	withFixture(({ plan }) => (plan.proposals[1].risk = 'shared'), (f) => {
+		showMenus(f);
+		const g4 = run(['--render', 'gate', '--gate', '4', '--plan', f.planPath, '--manifest', f.manifestPath]);
+		assert.equal(g4.code, 1);
+		assert.match(g4.out, /\[ \] 4\.19 Model fit and adversarial review: /);
+		assert.match(g4.out, /B2: designed by strongest tier; risk shared; 1 of at least 2 reviewers {2}\(plan\) \[1 reviewers, shared needs at least 2/);
+		assert.match(g4.out, /finding: line too vague; resolution: named the command/);
+	});
+	withFixture(({ plan }) => (plan.proposals[0].review = { reviewers: [], self_only: 'no other model' }), (f) => {
+		const m = run(['--render', 'menus', '--plan', f.planPath]);
+		assert.match(m.out, /risk: local text; designed by: strongest tier; reviewed by: self only/);
+	});
+});
+
+const SCAN = { row: 'Context and Memory / Output quality falls as the session ages', evidence: '412 lines always loaded', source: '$ wc -l CLAUDE.md', fix: 'Correction Diagnosis', outcome: 'proposal B1' };
+const NUDGE = { row: 'Review and Verification / Plausible code that does not run', trigger: 'an edit with no test run after it', advisory: true, rate_limit: 'once per session', disable: 'delete the hook entry' };
+const withIndex = (more = () => {}) => ({ plan }) => {
+	plan.pages.push({ title: 'Anti-patterns', file: 'pages/ap.md' });
+	plan.scan = [{ ...SCAN }];
+	plan.proposals[0].nudge = { ...NUDGE };
+	delete plan.evidence['1.13'];
+	delete plan.evidence['4.20'];
+	more(plan);
+};
+
+test('scan and nudges: findings and nudges tie to index rows with tool output (B2, B5)', () => {
+	const ok = planCheck(withIndex());
+	assert.equal(ok.code, 0, ok.out);
+	assert.match(ok.out, /PASS scan: 1 anti-pattern findings and 1 nudges each tied to an index row/);
+	withFixture(withIndex(), (f) => {
+		showMenus(f);
+		const g1 = run(['--render', 'gate', '--gate', '1', '--plan', f.planPath, '--manifest', f.manifestPath]);
+		assert.match(g1.out, /\[x\] 1\.13 Anti-pattern scan: 1 findings against the Anti-patterns index/);
+		assert.match(g1.out, /"Context and Memory \/ Output quality falls as the session ages": 412 lines always loaded {2}\$ wc -l CLAUDE\.md; fix: Correction Diagnosis/);
+		const g4 = run(['--render', 'gate', '--gate', '4', '--plan', f.planPath, '--manifest', f.manifestPath]);
+		assert.match(g4.out, /\[x\] 4\.20 Scan findings resolved: "Context and Memory \/ Output quality falls as the session ages": proposal B1/);
+		assert.match(g4.out, /\[x\] 4\.21 Nudges: B1: "Review and Verification \/ Plausible code that does not run"; when an edit with no test run after it; advisory; at most once per session; turn off: delete the hook entry; runs code: no/);
+		const m = run(['--render', 'menus', '--plan', f.planPath]);
+		assert.match(m.out, /nudge for "Review and Verification \/ Plausible code that does not run": when an edit with no test run after it; advisory/);
+	});
+	const bad = planCheck(withIndex((plan) => {
+		plan.scan.push({ ...SCAN, row: 'Made up / Not in the index' });
+		plan.scan.push({ ...SCAN, source: '(user)' });
+		plan.scan.push({ ...SCAN, outcome: 'proposal Z9' });
+		plan.proposals[0].nudge.advisory = false;
+	}));
+	assert.equal(bad.code, 1);
+	assert.match(bad.out, /- finding "Made up \/ Not in the index" is not a row of the fetched Anti-patterns index/);
+	assert.match(bad.out, /evidence needs tool output \(\$ <command> or \(probe: \.\.\.\)\), not recall/);
+	assert.match(bad.out, /outcome names unknown proposal Z9/);
+	assert.match(bad.out, /- B1: a nudge that blocks needs the user's words asking for it/);
+});
+
+test('signals and corrections: measured with consent, recalled labeled; declined renders [-] (B3)', () => {
+	const sig = (signals, corrections) => ({ plan }) => {
+		plan.signals = signals;
+		if (corrections) plan.corrections = corrections;
+		delete plan.evidence['1.14'];
+		delete plan.evidence['3.4'];
+	};
+	withFixture(sig({ consent: 'yes, read my history', metrics: [{ name: 'repeated corrections', value: '6', window: '14 days', source: '$ jq -s length history.jsonl' }] }, [
+		{ text: 'used literal log keys', origin: 'measured', class: 'repeated', tag: 'context: missing', symptom: '6 corrections on log keys', source: '$ jq -s length history.jsonl' },
+		{ text: 'wrong test style', origin: 'recalled', class: 'one-off' },
+	]), (f) => {
+		const g1 = run(['--render', 'gate', '--gate', '1', '--plan', f.planPath, '--manifest', f.manifestPath]);
+		assert.match(g1.out, /\[x\] 1\.14 Measured signals: 2 lines below\n {6}consent: "yes, read my history" \(user\); read-only, local only, nothing leaves this machine\n {6}repeated corrections: 6 over 14 days {2}\$ jq/);
+		const g3 = run(['--render', 'gate', '--gate', '3', '--plan', f.planPath, '--manifest', f.manifestPath]);
+		assert.match(g3.out, /measured: used literal log keys; repeated; tag context: missing/);
+		assert.match(g3.out, /recalled: wrong test style; one-off {2}\(user\)/);
+	});
+	withFixture(sig({ consent: 'declined' }, []), (f) => {
+		const g1 = run(['--render', 'gate', '--gate', '1', '--plan', f.planPath, '--manifest', f.manifestPath]);
+		assert.match(g1.out, /\[-\] 1\.14 Measured signals: not applicable: session history declined/);
+		const g3 = run(['--render', 'gate', '--gate', '3', '--plan', f.planPath, '--manifest', f.manifestPath]);
+		assert.match(g3.out, /\[x\] 3\.4 Corrections: no corrections: none measured, none recalled/);
+	});
+	withFixture(sig({ consent: 'ok', metrics: [{ name: 'retries', value: '3', source: '(user)' }] }), (f) => {
+		const g1 = run(['--render', 'gate', '--gate', '1', '--plan', f.planPath, '--manifest', f.manifestPath]);
+		assert.match(g1.out, /\[ \] 1\.14 /);
+	});
+	withFixture(sig({ consent: 'ok', metrics: [] }, [{ text: 'x', origin: 'remembered', class: 'one-off' }]), (f) => {
+		assert.equal(run(['--render', 'gate', '--gate', '3', '--plan', f.planPath, '--manifest', f.manifestPath]).code, 2);
+	});
+});
+
+test('evidence with an abridged command, or a short hash anywhere in the plan, fails (A1, A2)', () => {
+	withFixture(({ plan }) => (plan.evidence['1.10'] = { mark: 'x', text: '0 values redacted', source: "$ grep -niE '(api_key|token)...' | wc -l" }), (f) => {
+		const g1 = run(['--render', 'gate', '--gate', '1', '--plan', f.planPath, '--manifest', f.manifestPath]);
+		assert.match(g1.out, /\[ \] 1\.10 .*abridged command: name the command in full/);
+	});
+	const short = planCheck(({ plan }) => (plan.proposals[0].answer = 'pinned at sha256:e43d2851, see refresh'));
+	assert.equal(short.code, 1);
+	assert.match(short.out, /FAIL plan-hashes\n {2}- proposals\[0\]\.answer: short or malformed hash "sha256:e43d2851"/);
+	const ellipsis = planCheck(({ plan }) => (plan.report.paste_ready = 'S1 note with prompt c0f82013… pinned'));
+	assert.match(ellipsis.out, /- report\.paste_ready: shortened hash/);
+});
+
+test('report: every line rendered from record, plan, and manifest; unfilled lines block 6.5 (A5)', () => {
+	withFixture(undefined, (f) => {
+		const r = run(['--render', 'report', '--plan', f.planPath, '--manifest', f.manifestPath, '--record', f.recordPath]);
+		assert.equal(r.code, 0, r.out);
+		assert.match(r.out, /^Rerun the checker: download https:\/\/stablekernel\.github\.io\/SHRINE\/shrine-check\.mjs/m);
+		assert.match(r.out, /^Top practices: 1\. Run tests before done \(https:\/\/stablekernel\.github\.io\/SHRINE\/patterns\/correction-diagnosis\/\) 2\. Tag repeated corrections/m);
+		assert.ok(r.out.trim().split('\n').length <= 15);
+	});
+	withFixture(({ plan }) => delete plan.report, (f) => {
+		showMenus(f);
+		const r = run(['--render', 'report', '--plan', f.planPath, '--manifest', f.manifestPath, '--record', f.recordPath]);
+		assert.equal(r.code, 1);
+		assert.match(r.out, /Top practices: <missing: plan\.report\.top_practices>/);
+		const fin = run(['--render', 'final', '--plan', f.planPath, '--manifest', f.manifestPath, '--record', f.recordPath]);
+		assert.match(fin.out, /^\[ \] 6\.5 Report: fill plan\.report, then render again: 3 lines not filled/m);
+	});
+});
+
+test('pin and refresh renders: hashes in full from the manifest; refresh short block (A2)', () => {
+	withFixture(undefined, (f) => {
+		const pin = run(['--render', 'pin', '--plan', f.planPath, '--manifest', f.manifestPath]);
+		assert.equal(pin.code, 0, pin.out);
+		assert.match(pin.out, /^commit c0ffee$/m);
+		assert.match(pin.out, new RegExp(`^prompt version 11; prompt sha256:${sha('prompt')}$`, 'm'));
+		assert.match(pin.out, new RegExp(`^ {2}"Correction Diagnosis" sha256:${PAGES[0].sha256}$`, 'm'));
+		const out = outDir();
+		try {
+			const prompt = join(out, 'prompt.md');
+			writeFileSync(prompt, 'prompt');
+			const r = run(['--render', 'refresh', '--record', f.recordPath, '--manifest', f.manifestPath, '--prompt', prompt, '--out', out]);
+			assert.equal(r.code, 0, r.out);
+			assert.match(r.out, /^REFRESH: prompt verified$/m);
+			assert.match(r.out, /^recorded commit c0ffee, live c0ffee: SHRINE has not moved$/m);
+			const s = shortOf(r.out);
+			assert.match(readFileSync(s.file, 'utf8'), /fetched prompt .* = manifest prompt\.sha256/);
+			const inside = run(['--render', 'refresh', '--record', f.recordPath, '--manifest', f.manifestPath, '--out', join(f.root, 'tmp')]);
+			assert.equal(inside.code, 2);
+		} finally {
+			rmSync(out, { recursive: true, force: true });
+		}
 	});
 });
 
@@ -619,7 +978,7 @@ test('the checker renders exactly the prompt\'s gate items, in order', () => {
 test('the checker\'s invariant map equals the prompt\'s Invariant Map', () => {
 	const table = PROMPT.split('## Invariant Map')[1].split('## Data Plane')[0];
 	const rows = [...table.matchAll(/^\| (\d+ [^|]+?) \| ([^|]+) \|$/gm)].map((m) => [m[1], [...m[2].matchAll(/\b\d\.\d+\b/g)].map((x) => x[0])]);
-	assert.equal(rows.length, 12);
+	assert.equal(rows.length, 13);
 	withFixture(undefined, (f) => {
 		showMenus(f);
 		const { out } = run(['--render', 'final', '--plan', f.planPath, '--manifest', f.manifestPath, '--record', f.recordPath]);
@@ -631,13 +990,15 @@ test('the checker\'s invariant map equals the prompt\'s Invariant Map', () => {
 	});
 });
 
-test('prompt version is 10', () => {
-	assert.match(PROMPT, /^Prompt version: 10$/m);
+test('prompt version is 11', () => {
+	assert.match(PROMPT, /^Prompt version: 11$/m);
 });
 
-test('checker source is read-only: no write, spawn, or extra network APIs', () => {
+test('checker source changes nothing: one write call (new render files only), no spawn or extra network APIs', () => {
 	const src = readFileSync(CHECKER, 'utf8');
-	for (const api of ['writeFile', 'appendFile', 'mkdir', 'rmSync', 'unlink', 'rename', 'copyFile', 'createWriteStream', 'child_process', 'node:http', 'node:net'])
+	for (const api of ['appendFile', 'mkdir', 'rmSync', 'unlink', 'rename', 'copyFile', 'createWriteStream', 'child_process', 'node:http', 'node:net'])
 		assert.ok(!src.includes(api), `checker must not use ${api}`);
+	assert.equal(src.match(/writeFileSync\(/g).length, 1, 'one write call, for render files');
+	assert.match(src, /writeFileSync\(path, text, \{ flag: 'wx' \}\)/, 'the write never overwrites');
 	assert.equal(src.match(/fetch\(/g).length, 1, 'one fetch call, for the manifest');
 });
