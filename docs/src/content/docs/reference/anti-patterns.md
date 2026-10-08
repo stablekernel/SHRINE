@@ -16,13 +16,14 @@ description: "Index of anti-patterns by the symptom you notice, linked to the pa
 | Same correction, again and again | Steering by chat correction | [Correction Diagnosis](/SHRINE/patterns/correction-diagnosis/#anti-patterns) |
 | Twenty turns of "no, not like that" | Prescribing before stating constraints | [Problem Before Prescription](/SHRINE/principles/problem-before-prescription/#signal-of-violation) |
 | Solved the wrong problem | No problem statement or constraints; verifying first, framing never | [Problem Before Prescription](/SHRINE/principles/problem-before-prescription/), [Correction Diagnosis](/SHRINE/patterns/correction-diagnosis/#anti-patterns), [Cause Chain](/SHRINE/patterns/correction-diagnosis/#cause-chain) |
-| Wandered mid-task; steering the implementation in chat | Skipping plan review; no plan review or milestone | [Spec, Then Build](/SHRINE/patterns/spec-then-build/#anti-patterns), [Cause Chain](/SHRINE/patterns/correction-diagnosis/#cause-chain) |
+| Wandered mid-task | No plan review or milestone | [Spec, Then Build](/SHRINE/patterns/spec-then-build/#anti-patterns), [Cause Chain](/SHRINE/patterns/correction-diagnosis/#cause-chain) |
 | No check can say the work is done | "Make it work" as the only criterion | [Spec, Then Build](/SHRINE/patterns/spec-then-build/#anti-patterns) |
 | Prompt grows while misses recur | Tuning the prompt over an inconsistent codebase; adding context to fix a context problem | [Consistency as Leverage](/SHRINE/principles/consistency-as-leverage/#signal-of-violation), [Correction Diagnosis](/SHRINE/patterns/correction-diagnosis/#anti-patterns), [Memory & Context](/SHRINE/stack/memory/#anti-patterns) |
 | The same miss on the second attempt | Re-rolling a systematic miss | [Fail Fast, Recover Smart](/SHRINE/principles/fail-fast-recover-smart/#signal-of-violation) |
-| Passes undo each other's work | Refining with no stopping criteria | [Iterative Refinement](/SHRINE/patterns/iterative-refinement/#anti-patterns) |
+| Refinement never ends | No stopping criteria | [Iterative Refinement](/SHRINE/patterns/iterative-refinement/#anti-patterns) |
+| Each pass reverses the last one | Passes that undo each other's work | [Iterative Refinement](/SHRINE/patterns/iterative-refinement/#anti-patterns) |
 | Wrong format or style | No exemplar to mirror | [Few-Shot Examples](/SHRINE/patterns/few-shot-examples/), [Structured Output](/SHRINE/patterns/structured-output/), [Cause Chain](/SHRINE/patterns/correction-diagnosis/#cause-chain) |
-| Shallow answers on hard steps; shallow reasoning on a hard step | Tier too small for the step | [Chain of Thought](/SHRINE/patterns/chain-of-thought/), [Step-Level Routing](/SHRINE/patterns/step-level-routing/), [Cause Chain](/SHRINE/patterns/correction-diagnosis/#cause-chain) |
+| Shallow answers on hard steps | Tier too small for the step | [Chain of Thought](/SHRINE/patterns/chain-of-thought/), [Step-Level Routing](/SHRINE/patterns/step-level-routing/), [Cause Chain](/SHRINE/patterns/correction-diagnosis/#cause-chain) |
 | Model over-fits to specifics | Examples that are too similar | [Few-Shot Examples](/SHRINE/patterns/few-shot-examples/#anti-patterns) |
 | Diminishing returns; context waste | Too many examples | [Few-Shot Examples](/SHRINE/patterns/few-shot-examples/#anti-patterns) |
 
@@ -37,7 +38,7 @@ description: "Index of anti-patterns by the symptom you notice, linked to the pa
 | Confident answers about your own data that are wrong | Relying on what the model memorized | [RAG](/SHRINE/patterns/rag/) |
 | A constraint is lost across compaction or handoff, and the next model or session breaks it | Treating compaction as free; a handoff summary that drops a constraint | [Memory & Context](/SHRINE/stack/memory/#anti-patterns), [Context Handoff](/SHRINE/patterns/context-handoff/#anti-patterns), [Step-Level Routing](/SHRINE/patterns/step-level-routing/#anti-patterns) |
 | Output quality falls as the session ages | Never resetting a drifting session | [Correction Diagnosis](/SHRINE/patterns/correction-diagnosis/#anti-patterns) |
-| Same fix made in two sessions | Insights that die with the session; correction never captured | [Discovery Propagation](/SHRINE/patterns/discovery-propagation/#anti-patterns), [Cause Chain](/SHRINE/patterns/correction-diagnosis/#cause-chain) |
+| Same fix made in two sessions | Correction never captured | [Discovery Propagation](/SHRINE/patterns/discovery-propagation/#anti-patterns), [Cause Chain](/SHRINE/patterns/correction-diagnosis/#cause-chain) |
 | Model uses content that does not apply | Retrieving too much or irrelevant content | [RAG](/SHRINE/patterns/rag/#anti-patterns) |
 | Agent cites code that has moved | Stale code index | [Repository Context](/SHRINE/stack/repository-context/#anti-patterns) |
 | Wrong tool picked; context fills | Too many tools loaded at once | [Tool Integration](/SHRINE/stack/tool-integration/#anti-patterns) |
@@ -65,7 +66,7 @@ description: "Index of anti-patterns by the symptom you notice, linked to the pa
 | Symptom | Anti-pattern | Fix |
 |---|---|---|
 | Architecture corrected in review | Delegating the architecture decision | [Delegation Fit](/SHRINE/patterns/delegation-fit/#anti-patterns) |
-| Fixing output takes longer than writing it; faster to have written it by hand | Delegating work faster to type than to brief; wrong work delegated | [Delegation Fit](/SHRINE/patterns/delegation-fit/#anti-patterns), [Cause Chain](/SHRINE/patterns/correction-diagnosis/#cause-chain) |
+| Fixing output takes longer than writing it | Wrong work delegated | [Delegation Fit](/SHRINE/patterns/delegation-fit/#anti-patterns), [Cause Chain](/SHRINE/patterns/correction-diagnosis/#cause-chain) |
 | The diff grows past the task | A brief with no non-goals | [Delegation Fit](/SHRINE/patterns/delegation-fit/#anti-patterns) |
 | Edits collide | Parallel agents sharing a branch | [Subagent Fanout](/SHRINE/patterns/subagent-fanout/#anti-patterns), [Agent Architecture](/SHRINE/stack/agent-architecture/#anti-patterns) |
 | Coordination context runs out | Orchestrator doing the work itself | [Agent Architecture](/SHRINE/stack/agent-architecture/#anti-patterns) |
@@ -111,7 +112,7 @@ description: "Index of anti-patterns by the symptom you notice, linked to the pa
 
 | Symptom | Anti-pattern | Fix |
 |---|---|---|
-| A prompt change broke something that worked; nobody can tell if a change helped | No baseline | [Prompt Regression Testing](/SHRINE/patterns/prompt-regression/#anti-patterns), [Evaluation & Benchmarking](/SHRINE/stack/evaluation/#anti-patterns) |
+| A prompt change broke something that worked | No baseline | [Prompt Regression Testing](/SHRINE/patterns/prompt-regression/#anti-patterns), [Evaluation & Benchmarking](/SHRINE/stack/evaluation/#anti-patterns) |
 | Tests fail on rephrasing alone | Exact string matching on free prose | [Prompt Regression Testing](/SHRINE/patterns/prompt-regression/#anti-patterns), [Reproducibility](/SHRINE/principles/reproducibility/#signal-of-violation) |
 | Flaky tests get retried or deleted | Single runs on nondeterministic output | [Prompt Regression Testing](/SHRINE/patterns/prompt-regression/#anti-patterns), [Reproducibility](/SHRINE/principles/reproducibility/#signal-of-violation) |
 | A bug "fixed" because a rerun passed | Debugging by regenerating | [Reproducibility](/SHRINE/principles/reproducibility/#signal-of-violation) |
@@ -127,7 +128,8 @@ description: "Index of anti-patterns by the symptom you notice, linked to the pa
 | Work stalls when they rotate off | Conventions held in one person's head | [Authority Cascade](/SHRINE/principles/authority-cascade/#signal-of-violation) |
 | Skills tuned for a retired model still load | Drift | [Deliberate Currency](/SHRINE/principles/deliberate-currency/#signal-of-violation) |
 | Tooling reopened on every release | Churn | [Deliberate Currency](/SHRINE/principles/deliberate-currency/#signal-of-violation) |
-| Nobody knows why a clause is there | A skill library that only grows | [Skills & Prompts](/SHRINE/stack/skills/#anti-patterns), [Memory & Context](/SHRINE/stack/memory/#anti-patterns) |
+| Nobody knows why a clause is there | Prompt archaeology | [Skills & Prompts](/SHRINE/stack/skills/#anti-patterns), [Memory & Context](/SHRINE/stack/memory/#anti-patterns) |
+| No sweep has deleted a skill | A skill library that only grows | [Skills & Prompts](/SHRINE/stack/skills/#anti-patterns) |
 | Shared instructions change unnoticed | Silent mutations without review | [Discovery Propagation](/SHRINE/patterns/discovery-propagation/#anti-patterns) |
 | Skills and patterns lost in the move | Switching harnesses without migrating skills | [Harness Selection](/SHRINE/stack/harness/#anti-patterns) |
 
