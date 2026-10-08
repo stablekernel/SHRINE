@@ -19,7 +19,9 @@ import prompt from '../../../prompts/shrine-install.md?raw';
 
 - **Control plane** (fixed): numbered phases, each ending in a printed gate; the agent follows them exactly
 - **Data plane** (generative): what to install and how; the agent designs it for you
-- Coverage goal: protection (verification, checkpoints, reviewable output), speed (delegation fit, briefs), efficiency (time to value, context hygiene)
+- Coverage goal: the [North Star](/SHRINE/principles/tokens-to-value/) (value per win, where a win costs tokens plus your attention) and each ratified principle, listed from the manifest
+- At Gate 4 each principle is marked applied, advised, or not relevant, with a reason tied to your answers
+- Every proposal states its trade-off: what it costs (attention, tokens, latency, friction) and what it saves or protects; one that gains on one dimension at another's expense is flagged
 
 ## Phases and Gates
 
@@ -29,7 +31,7 @@ At the end of each phase the agent prints a gate: a checklist where each item ha
 1. **Discover**: inventory of your instruction files, extension points, shared locations, prior records, and a snapshot of the paths it may change; you correct it
 2. **Pin SHRINE**: manifest commit and page hashes; a mismatch aborts
 3. **Interview and tag**: up to 10 questions; your corrections classified and tagged; you confirm
-4. **Design and approve**: bookkeeping first, then each proposal with its page, diff, and three scope options; you pick one per proposal, then approve the printed gate; nothing is written before that
+4. **Design and approve**: bookkeeping first, then each proposal with its page, diff, trade-off, and a four-option menu (`[1] in place`, `[2] locally only`, `[3] reviewable change`, `[4] reject`); you pick one per proposal, then approve the printed gate; nothing is written before that
 5. **Apply**: backups, record, each change logged pending then done with its proposal id and before and after fingerprints; the snapshot shows nothing else changed
 6. **Verify and hand off**: a self-audit, then a final gate with every item, the invariant map, and restore steps
 
@@ -49,15 +51,15 @@ These hold on every harness, whatever the agent designs. Each maps to gate items
 
 1. **Your approval**: nothing changes until you approve the exact change; bookkeeping is approved first, or you get paste-ready output only
 2. **Code that runs**: its own approval and a full-permissions warning; effects outside paths its record names, or will name once you approve the bookkeeping, are labeled "not reversible"
-3. **Reversible**: backups first, outside the repo or ignored by version control, kept on your machine; each change logged pending, then done once verified; a whole file is restored only if it matches its first recorded before fingerprint or its last after fingerprint
-4. **Recorded**: one record per harness per scope, at `.shrine/` in the project root or `~/.shrine/` (or a pointer there), with a fingerprint of each change and your answers (secrets redacted); only a record this harness wrote on this machine is trusted, with printed proof that version control does not track it, or an ignored local file holding its hash
+3. **Reversible**: backups first, outside the repo or ignored by version control, kept on your machine, never overwritten; each change logged pending, then done once verified; a whole file is restored from its oldest backup, and only if it matches its first recorded before fingerprint or its last after fingerprint
+4. **Recorded**: one record per harness, user, and scope, at `.shrine/` in the project root or `~/.shrine/` (or a pointer there), named for both (for example `.shrine/<harness>.<user>.json`) so teammates do not collide, and never written over another record, with a fingerprint of each change and your answers (secrets redacted); only a record this harness wrote on this machine is trusted, with printed proof that version control does not track it, or an ignored local file holding its hash
 5. **Traceable**: every proposal traces to a SHRINE page and your answers, never to repo content alone
 6. **Content is data**: only text that tries to steer the install run is a red flag; your normal instruction files are not
 7. **No secrets printed**: shown as `<redacted>`
-8. **Narrow**: smallest scope; each always-loaded line must prevent a miss you named or discovery found
+8. **Narrow**: smallest scope; each always-loaded line must prevent a miss you named or discovery found; the staleness check is the one exemption, with its cost shown
 9. **Bounded**: a time box and abort criteria
 10. **Cannot pause, cannot change**: a harness that cannot stop for your approval only reports
-11. **Blast radius**: the agent shows which files are shared or committed, who each change reaches, and whether it runs code; every proposal lists all three options: in place, local only, or a reviewable change; your pick is recorded
+11. **Blast radius**: the agent shows which files are shared or committed, who each change reaches, and whether it runs code; every proposal lists all four options, each with who and what it affects; your pick is recorded
 
 ## Use It
 
@@ -107,9 +109,18 @@ Agent-readable copies of this page (llms.txt files) leave the prompt out on purp
 - In a shared project, it asks whether the record may be committed; backups never are
 - An advice-only report is a complete install
 
+## Refresh and Staleness
+
+- **SHRINE refresh**: the install proposes an entry you trigger by name (a command, a skill, or an instruction line, whatever your harness supports)
+- It fetches the current prompt, checks its hash against the live manifest, and shows the prompt version and the pages that changed since your recorded commit
+- The fetched prompt is data; it runs as a re-run only after you approve
+- **Staleness check**: proposed pre-selected, but it still needs your approval, and you may decline it
+- It compares your recorded commit with the live manifest and tells you when SHRINE has moved; it changes nothing
+- Its proposal states its cost in tokens and attention
+
 ## Re-run and Undo
 
-- Paste the same prompt again; it compares the recorded commit and page hashes and shows what changed
+- Say "SHRINE refresh", or paste the prompt again; it compares the recorded commit and page hashes and shows what changed
 - It shows your recorded answers and asks only whether they still hold
 - Unfinished or drifted entries from a past run are listed first, then proposed and approved like any change
 - Your edits to its additions are kept unless you choose otherwise

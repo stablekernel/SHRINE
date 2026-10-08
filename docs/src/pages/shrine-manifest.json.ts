@@ -1,6 +1,7 @@
 // Build-time manifest of every docs page, served at /SHRINE/shrine-manifest.json.
 // The install prompt (src/prompts/shrine-install.md) uses it to pin a commit and to
-// diff pages by content hash on a re-run. Data only: no instructions belong here.
+// diff pages by content hash on a re-run, and its refresh entry uses it to verify a newer
+// prompt. Data only: no instructions belong here.
 import type { APIRoute } from 'astro';
 import { getCollection, type CollectionEntry } from 'astro:content';
 import { createHash } from 'node:crypto';
@@ -26,6 +27,14 @@ function fileSha(filePath: string | undefined, id: string): string {
 	return createHash('sha256').update(readFileSync(filePath)).digest('hex');
 }
 
+// The prompt's own version line, so a refresh can show the live version without parsing it.
+// A prompt without one fails the build.
+function promptVersion(text: string): number {
+	const match = /^Prompt version: (\d+)$/m.exec(text);
+	if (!match) throw new Error('shrine-manifest: no "Prompt version: <n>" line in the install prompt');
+	return Number(match[1]);
+}
+
 export const GET: APIRoute = async () => {
 	const commit = commitSha();
 	const entries = await getCollection('docs');
@@ -37,6 +46,10 @@ export const GET: APIRoute = async () => {
 		.map((entry: CollectionEntry<'docs'>) => ({
 			title: entry.data.title,
 			description: entry.data.description ?? null,
+			// Top-level docs folder ("principles", "patterns", ...) and ratification status, so
+			// the prompt can list the North Star and every ratified principle from this file.
+			section: entry.id.includes('/') ? entry.id.split('/')[0] : null,
+			status: entry.data.status ?? null,
 			source:
 				commit === 'unknown'
 					? null
@@ -46,7 +59,7 @@ export const GET: APIRoute = async () => {
 
 	const body = {
 		commit,
-		prompt: { sha256: createHash('sha256').update(prompt).digest('hex') },
+		prompt: { version: promptVersion(prompt), sha256: createHash('sha256').update(prompt).digest('hex') },
 		pages,
 	};
 	return new Response(JSON.stringify(body, null, 2), {
