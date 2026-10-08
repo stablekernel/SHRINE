@@ -78,7 +78,7 @@ return failure  # surface to a human, do not pass bad data on
 - `total` appears as a number in the source email
 - `due_date`, if present, parses and is not before the email date
 
-## Pitfall: Valid Schema, Wrong Values
+## Anti-pattern: Valid Schema, Wrong Values
 
 - A response can pass the schema and still be wrong: `total: 1200` when the email says `$12,000`
 - Schema validity checks shape; invariant checks catch semantic errors

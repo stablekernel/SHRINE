@@ -3,7 +3,7 @@ title: "Anti-patterns"
 description: "Index of anti-patterns by the symptom you notice, linked to the page that fixes each one."
 ---
 
-<!-- MAINTAINER: Derive every row from a page's "Anti-patterns" or "Signal of Violation" section; add a row when a page adds one -->
+<!-- MAINTAINER: Derive every row from a page's "Anti-patterns" or "Signal of Violation" section, the Correction Diagnosis cause chain, or the patterns overview symptom table; add a row when any of them adds one -->
 
 - Find the symptom you see, then follow the link to the fix
 - Principles list theirs under "Signal of Violation"; patterns and stack pages under "Anti-patterns"
@@ -11,125 +11,133 @@ description: "Index of anti-patterns by the symptom you notice, linked to the pa
 
 ## Correction Loops
 
-| Anti-pattern | Symptom | Fix |
+| Symptom | Anti-pattern | Fix |
 |---|---|---|
-| Steering by chat correction | The same correction, every session | [Correction Diagnosis](/SHRINE/patterns/correction-diagnosis/#anti-patterns) |
-| Prescribing before stating constraints | Twenty turns of "no, not like that" | [Problem Before Prescription](/SHRINE/principles/problem-before-prescription/#signal-of-violation) |
-| Verifying first, framing never | Checks pass; the wrong problem is solved | [Correction Diagnosis](/SHRINE/patterns/correction-diagnosis/#anti-patterns) |
-| Skipping plan review | Steering the implementation in chat | [Spec, Then Build](/SHRINE/patterns/spec-then-build/#anti-patterns) |
-| "Make it work" as the only criterion | No check can say the work is done | [Spec, Then Build](/SHRINE/patterns/spec-then-build/#anti-patterns) |
-| Tuning the prompt over an inconsistent codebase | Prompt grows; convention misses recur | [Consistency as Leverage](/SHRINE/principles/consistency-as-leverage/#signal-of-violation) |
-| Re-rolling a systematic miss | The same miss on the second attempt | [Fail Fast, Recover Smart](/SHRINE/principles/fail-fast-recover-smart/#one-off-or-repeated) |
-| Refining with no stopping criteria | Passes undo each other's work | [Iterative Refinement](/SHRINE/patterns/iterative-refinement/#anti-patterns) |
+| Same correction, again and again | Steering by chat correction | [Correction Diagnosis](/SHRINE/patterns/correction-diagnosis/#anti-patterns) |
+| Twenty turns of "no, not like that" | Prescribing before stating constraints | [Problem Before Prescription](/SHRINE/principles/problem-before-prescription/#signal-of-violation) |
+| Solved the wrong problem | No problem statement or constraints; verifying first, framing never | [Problem Before Prescription](/SHRINE/principles/problem-before-prescription/), [Correction Diagnosis](/SHRINE/patterns/correction-diagnosis/#anti-patterns), [Cause Chain](/SHRINE/patterns/correction-diagnosis/#cause-chain) |
+| Wandered mid-task; steering the implementation in chat | Skipping plan review; no plan review or milestone | [Spec, Then Build](/SHRINE/patterns/spec-then-build/#anti-patterns), [Cause Chain](/SHRINE/patterns/correction-diagnosis/#cause-chain) |
+| No check can say the work is done | "Make it work" as the only criterion | [Spec, Then Build](/SHRINE/patterns/spec-then-build/#anti-patterns) |
+| Prompt grows while misses recur | Tuning the prompt over an inconsistent codebase; adding context to fix a context problem | [Consistency as Leverage](/SHRINE/principles/consistency-as-leverage/#signal-of-violation), [Correction Diagnosis](/SHRINE/patterns/correction-diagnosis/#anti-patterns), [Memory & Context](/SHRINE/stack/memory/#anti-patterns) |
+| The same miss on the second attempt | Re-rolling a systematic miss | [Fail Fast, Recover Smart](/SHRINE/principles/fail-fast-recover-smart/#signal-of-violation) |
+| Passes undo each other's work | Refining with no stopping criteria | [Iterative Refinement](/SHRINE/patterns/iterative-refinement/#anti-patterns) |
+| Wrong format or style | No exemplar to mirror | [Few-Shot Examples](/SHRINE/patterns/few-shot-examples/), [Structured Output](/SHRINE/patterns/structured-output/), [Cause Chain](/SHRINE/patterns/correction-diagnosis/#cause-chain) |
+| Shallow answers on hard steps; shallow reasoning on a hard step | Tier too small for the step | [Chain of Thought](/SHRINE/patterns/chain-of-thought/), [Step-Level Routing](/SHRINE/patterns/step-level-routing/), [Cause Chain](/SHRINE/patterns/correction-diagnosis/#cause-chain) |
+| Model over-fits to specifics | Examples that are too similar | [Few-Shot Examples](/SHRINE/patterns/few-shot-examples/#anti-patterns) |
+| Diminishing returns; context waste | Too many examples | [Few-Shot Examples](/SHRINE/patterns/few-shot-examples/#anti-patterns) |
 
 ## Context and Memory
 
-| Anti-pattern | Symptom | Fix |
+| Symptom | Anti-pattern | Fix |
 |---|---|---|
-| Adding context to fix a context problem | Misses persist as the prompt grows | [Correction Diagnosis](/SHRINE/patterns/correction-diagnosis/#anti-patterns), [Memory & Context](/SHRINE/stack/memory/#anti-patterns) |
-| Dumping whole files or logs "just in case" | Context fills; signal gets buried | [Memory & Context](/SHRINE/stack/memory/#anti-patterns) |
-| Treating compaction as free | Constraints vanish mid-run | [Memory & Context](/SHRINE/stack/memory/#anti-patterns), [Context Handoff](/SHRINE/patterns/context-handoff/#anti-patterns) |
-| Never resetting a drifting session | Output quality falls as the session ages | [Correction Diagnosis](/SHRINE/patterns/correction-diagnosis/#anti-patterns) |
-| Handoff summary drops a constraint | The next model or session breaks it | [Step-Level Routing](/SHRINE/patterns/step-level-routing/#anti-patterns), [Context Handoff](/SHRINE/patterns/context-handoff/#anti-patterns) |
-| Insights that die with the session | The same lesson is relearned | [Discovery Propagation](/SHRINE/patterns/discovery-propagation/#anti-patterns) |
-| Retrieving too much or irrelevant content | Model uses content that does not apply | [RAG](/SHRINE/patterns/rag/#anti-patterns) |
-| Stale code index | Agent cites code that has moved | [Repository Context](/SHRINE/stack/repository-context/#anti-patterns) |
-| Too many tools loaded at once | Wrong tool picked; context fills | [Tool Integration](/SHRINE/stack/tool-integration/#anti-patterns) |
+| Context fills; signal gets buried | Dumping whole files or logs "just in case" | [Memory & Context](/SHRINE/stack/memory/#anti-patterns) |
+| Ignored a repo convention | Convention not written down, or inconsistent | [Consistency as Leverage](/SHRINE/principles/consistency-as-leverage/), [Cause Chain](/SHRINE/patterns/correction-diagnosis/#cause-chain) |
+| Output got worse after material was added | Irrelevant or conflicting context | [Memory & Context](/SHRINE/stack/memory/#in-session-context), [Cause Chain](/SHRINE/patterns/correction-diagnosis/#cause-chain) |
+| Long run drifts or loses the thread | Automatic summary as the only memory | [Context Handoff](/SHRINE/patterns/context-handoff/#anti-patterns), [Progress Breadcrumbs](/SHRINE/patterns/progress-breadcrumbs/) |
+| Confident answers about your own data that are wrong | Relying on what the model memorized | [RAG](/SHRINE/patterns/rag/) |
+| A constraint is lost across compaction or handoff, and the next model or session breaks it | Treating compaction as free; a handoff summary that drops a constraint | [Memory & Context](/SHRINE/stack/memory/#anti-patterns), [Context Handoff](/SHRINE/patterns/context-handoff/#anti-patterns), [Step-Level Routing](/SHRINE/patterns/step-level-routing/#anti-patterns) |
+| Output quality falls as the session ages | Never resetting a drifting session | [Correction Diagnosis](/SHRINE/patterns/correction-diagnosis/#anti-patterns) |
+| Same fix made in two sessions | Insights that die with the session; correction never captured | [Discovery Propagation](/SHRINE/patterns/discovery-propagation/#anti-patterns), [Cause Chain](/SHRINE/patterns/correction-diagnosis/#cause-chain) |
+| Model uses content that does not apply | Retrieving too much or irrelevant content | [RAG](/SHRINE/patterns/rag/#anti-patterns) |
+| Agent cites code that has moved | Stale code index | [Repository Context](/SHRINE/stack/repository-context/#anti-patterns) |
+| Wrong tool picked; context fills | Too many tools loaded at once | [Tool Integration](/SHRINE/stack/tool-integration/#anti-patterns) |
 
 ## Review and Verification
 
-| Anti-pattern | Symptom | Fix |
+| Symptom | Anti-pattern | Fix |
 |---|---|---|
-| Same agent and context generates and reviews | Review finds nothing the author missed | [Adversarial Review](/SHRINE/patterns/adversarial-review/#anti-patterns) |
-| "Is this good?" as the critique prompt | Critique praises or lists generic tweaks | [Self-Critique](/SHRINE/patterns/self-critique/#anti-patterns) |
-| "Tests pass" with no command or output | Claims cannot be checked | [Reviewable Output](/SHRINE/patterns/reviewable-output/#anti-patterns) |
-| Refactor mixed with behavior change | Diffs too large to review | [Reviewable Output](/SHRINE/patterns/reviewable-output/#anti-patterns) |
-| The loop edits the test until it passes | Green checks, broken behavior | [Verification Loops](/SHRINE/patterns/verification-loops/#anti-patterns) |
-| Treating schema-valid as correct | Valid JSON with wrong values | [Structured Output](/SHRINE/patterns/structured-output/#anti-patterns) |
-| Gates that always pass | A check nobody has seen fail | [Pipeline Orchestration](/SHRINE/patterns/pipeline-orchestration/#anti-patterns) |
-| Using consensus to avoid thinking | Agreement accepted without reasons | [Multi-Model Consensus](/SHRINE/patterns/multi-model-consensus/#anti-patterns) |
-| Not reading the reasoning | Conclusions that do not follow ship | [Chain of Thought](/SHRINE/patterns/chain-of-thought/#anti-patterns) |
-| Trusting tool output without validation | Bad data flows downstream | [Tool Integration](/SHRINE/stack/tool-integration/#anti-patterns) |
+| Review finds nothing the author missed | Same agent and context generates and reviews | [Adversarial Review](/SHRINE/patterns/adversarial-review/#anti-patterns) |
+| Critique praises or lists generic tweaks | "Is this good?" as the critique prompt | [Self-Critique](/SHRINE/patterns/self-critique/#anti-patterns) |
+| A "tests pass" claim that cannot be checked, or that hides a failing exit code | "Tests pass" with no command or output; trusting subagent summaries over artifacts | [Reviewable Output](/SHRINE/patterns/reviewable-output/#anti-patterns), [Subagent Fanout](/SHRINE/patterns/subagent-fanout/#anti-patterns), [Agent Architecture](/SHRINE/stack/agent-architecture/#anti-patterns) |
+| Diffs too large to review | Refactor mixed with behavior change; task too large for one brief | [Reviewable Output](/SHRINE/patterns/reviewable-output/#anti-patterns), [Cause Chain](/SHRINE/patterns/correction-diagnosis/#cause-chain) |
+| Green checks, broken behavior | The loop edits the test until it passes | [Verification Loops](/SHRINE/patterns/verification-loops/#anti-patterns) |
+| Plausible code that does not run | No runnable check | [Verification Loops](/SHRINE/patterns/verification-loops/), [Cause Chain](/SHRINE/patterns/correction-diagnosis/#cause-chain) |
+| Valid JSON with wrong values | Treating schema-valid as correct | [Structured Output](/SHRINE/patterns/structured-output/#anti-patterns) |
+| The scaffold keeps emitting the old shape | Scaffold drifts from the target schema | [Mechanical Scaffolding](/SHRINE/patterns/mechanical-scaffolding/#anti-patterns) |
+| The two copies disagree over time | Validation duplicated in prompt and code | [Mechanical Scaffolding](/SHRINE/patterns/mechanical-scaffolding/#anti-patterns) |
+| A check nobody has seen fail | Gates that always pass | [Pipeline Orchestration](/SHRINE/patterns/pipeline-orchestration/#anti-patterns) |
+| Agreement accepted without reasons | Using consensus to avoid thinking | [Multi-Model Consensus](/SHRINE/patterns/multi-model-consensus/#anti-patterns) |
+| Conclusions that do not follow ship | Not reading the reasoning | [Chain of Thought](/SHRINE/patterns/chain-of-thought/#anti-patterns) |
+| Bad data flows downstream | Trusting tool output without validation | [Tool Integration](/SHRINE/stack/tool-integration/#anti-patterns) |
 
 ## Delegation and Orchestration
 
-| Anti-pattern | Symptom | Fix |
+| Symptom | Anti-pattern | Fix |
 |---|---|---|
-| Delegating the architecture decision | Architecture corrected in review | [Delegation Fit](/SHRINE/patterns/delegation-fit/#anti-patterns) |
-| Delegating work faster to type than to brief | Briefing costs more than writing | [Delegation Fit](/SHRINE/patterns/delegation-fit/#anti-patterns) |
-| A brief with no non-goals | The diff grows past the task | [Delegation Fit](/SHRINE/patterns/delegation-fit/#anti-patterns) |
-| Trusting subagent summaries over artifacts | "Tests pass" with a failing exit code | [Subagent Fanout](/SHRINE/patterns/subagent-fanout/#anti-patterns), [Agent Architecture](/SHRINE/stack/agent-architecture/#anti-patterns) |
-| Parallel agents sharing a branch | Edits collide | [Subagent Fanout](/SHRINE/patterns/subagent-fanout/#anti-patterns), [Agent Architecture](/SHRINE/stack/agent-architecture/#anti-patterns) |
-| Orchestrator doing the work itself | Coordination context runs out | [Agent Architecture](/SHRINE/stack/agent-architecture/#anti-patterns) |
-| One mega-agent instead of decomposition | The prompt grows with every new task | [Agent Architecture](/SHRINE/stack/agent-architecture/#anti-patterns) |
-| No resumability | A late failure restarts the whole pipeline | [Pipeline Orchestration](/SHRINE/patterns/pipeline-orchestration/#anti-patterns) |
-| Fanout by habit | Agents spawned for work one thread finishes sooner | [Subagent Fanout](/SHRINE/patterns/subagent-fanout/#anti-patterns) |
+| Architecture corrected in review | Delegating the architecture decision | [Delegation Fit](/SHRINE/patterns/delegation-fit/#anti-patterns) |
+| Fixing output takes longer than writing it; faster to have written it by hand | Delegating work faster to type than to brief; wrong work delegated | [Delegation Fit](/SHRINE/patterns/delegation-fit/#anti-patterns), [Cause Chain](/SHRINE/patterns/correction-diagnosis/#cause-chain) |
+| The diff grows past the task | A brief with no non-goals | [Delegation Fit](/SHRINE/patterns/delegation-fit/#anti-patterns) |
+| Edits collide | Parallel agents sharing a branch | [Subagent Fanout](/SHRINE/patterns/subagent-fanout/#anti-patterns), [Agent Architecture](/SHRINE/stack/agent-architecture/#anti-patterns) |
+| Coordination context runs out | Orchestrator doing the work itself | [Agent Architecture](/SHRINE/stack/agent-architecture/#anti-patterns) |
+| The prompt grows with every new task | One mega-agent instead of decomposition | [Agent Architecture](/SHRINE/stack/agent-architecture/#anti-patterns) |
+| A late failure restarts the whole pipeline | No resumability | [Pipeline Orchestration](/SHRINE/patterns/pipeline-orchestration/#anti-patterns) |
+| Agents spawned for work one thread finishes sooner | Fanout by habit | [Subagent Fanout](/SHRINE/patterns/subagent-fanout/#anti-patterns) |
 
 ## Long Runs
 
-| Anti-pattern | Symptom | Fix |
+| Symptom | Anti-pattern | Fix |
 |---|---|---|
-| No stop condition | The run never knows it is done | [Unattended Runs](/SHRINE/patterns/unattended-runs/#anti-patterns) |
-| Uncapped retries | One request burns tokens and returns nothing | [Unattended Runs](/SHRINE/patterns/unattended-runs/#anti-patterns), [Fail Fast, Recover Smart](/SHRINE/principles/fail-fast-recover-smart/#signal-of-violation) |
-| Checking in every ten minutes | The human babysits an unattended run | [Unattended Runs](/SHRINE/patterns/unattended-runs/#anti-patterns) |
-| Status only in chat scrollback | Nobody can tell where the run stands | [Progress Breadcrumbs](/SHRINE/patterns/progress-breadcrumbs/#anti-patterns) |
-| Half-implemented feature with no note | The next session redoes or breaks it | [Context Handoff](/SHRINE/patterns/context-handoff/#anti-patterns) |
-| Agent rewrites acceptance tests | Progress file says done; behavior is not | [Context Handoff](/SHRINE/patterns/context-handoff/#anti-patterns) |
-| Failure handling added after launch | The first outage is when a fallback gets written | [Fail Fast, Recover Smart](/SHRINE/principles/fail-fast-recover-smart/#signal-of-violation) |
+| The run never knows it is done | No stop condition | [Unattended Runs](/SHRINE/patterns/unattended-runs/#anti-patterns) |
+| One request burns tokens and returns nothing | Uncapped retries | [Unattended Runs](/SHRINE/patterns/unattended-runs/#anti-patterns), [Fail Fast, Recover Smart](/SHRINE/principles/fail-fast-recover-smart/#signal-of-violation) |
+| The human babysits an unattended run | Checking in every ten minutes | [Unattended Runs](/SHRINE/patterns/unattended-runs/#anti-patterns) |
+| Nobody can tell where the run stands | Status only in chat scrollback | [Progress Breadcrumbs](/SHRINE/patterns/progress-breadcrumbs/#anti-patterns) |
+| The next session redoes or breaks it | Half-implemented feature with no note | [Context Handoff](/SHRINE/patterns/context-handoff/#anti-patterns) |
+| Progress file says done; behavior is not | Agent rewrites acceptance tests | [Context Handoff](/SHRINE/patterns/context-handoff/#anti-patterns) |
+| The first outage is when a fallback gets written | Failure handling added after launch | [Fail Fast, Recover Smart](/SHRINE/principles/fail-fast-recover-smart/#signal-of-violation) |
 
 ## Human Checkpoints
 
-| Anti-pattern | Symptom | Fix |
+| Symptom | Anti-pattern | Fix |
 |---|---|---|
-| Undefined human boundary | Sign-off depends on who ran the agent | [Human in the Loop](/SHRINE/principles/human-in-the-loop/#signal-of-violation) |
-| Rubber-stamping | Near-100% approval in seconds | [Human in the Loop](/SHRINE/principles/human-in-the-loop/#signal-of-violation), [Checkpoint Gates](/SHRINE/patterns/checkpoint-gates/#anti-patterns) |
-| Approval requested by prompt text only | Irreversible action taken unasked | [Checkpoint Gates](/SHRINE/patterns/checkpoint-gates/#anti-patterns) |
-| A card with no recommendation | Reviewer rebuilds context to decide | [Checkpoint Gates](/SHRINE/patterns/checkpoint-gates/#anti-patterns) |
-| Blocking the whole run on one decision | Work idles in the approval queue | [Checkpoint Gates](/SHRINE/patterns/checkpoint-gates/#anti-patterns), [Human in the Loop](/SHRINE/principles/human-in-the-loop/#signal-of-violation) |
-| Outward-facing actions with no approval step | External effects with no recorded approval | [Tool Integration](/SHRINE/stack/tool-integration/#anti-patterns) |
+| Sign-off depends on who ran the agent | Undefined human boundary | [Human in the Loop](/SHRINE/principles/human-in-the-loop/#signal-of-violation) |
+| Near-100% approval in seconds | Rubber-stamping | [Human in the Loop](/SHRINE/principles/human-in-the-loop/#signal-of-violation), [Checkpoint Gates](/SHRINE/patterns/checkpoint-gates/#anti-patterns) |
+| Agent took an irreversible action unasked | Approval requested by prompt text only | [Checkpoint Gates](/SHRINE/patterns/checkpoint-gates/#anti-patterns) |
+| Reviewer rebuilds context to decide | A card with no recommendation | [Checkpoint Gates](/SHRINE/patterns/checkpoint-gates/#anti-patterns) |
+| Work idles in the approval queue | Blocking the whole run on one decision | [Checkpoint Gates](/SHRINE/patterns/checkpoint-gates/#anti-patterns), [Human in the Loop](/SHRINE/principles/human-in-the-loop/#signal-of-violation) |
+| External effects with no recorded approval | Outward-facing actions with no approval step | [Tool Integration](/SHRINE/stack/tool-integration/#anti-patterns) |
 
 ## Models and Routing
 
-| Anti-pattern | Symptom | Fix |
+| Symptom | Anti-pattern | Fix |
 |---|---|---|
-| Biggest model for everything | Cost explodes on simple tasks | [Task Routing](/SHRINE/patterns/task-routing/#anti-patterns), [Model Selection](/SHRINE/stack/models/#anti-patterns) |
-| Cheapest model for everything | Quality collapses on hard tasks | [Task Routing](/SHRINE/patterns/task-routing/#anti-patterns) |
-| Routing on input length | Short, hard steps get a weak model | [Task Routing](/SHRINE/patterns/task-routing/#anti-patterns), [Step-Level Routing](/SHRINE/patterns/step-level-routing/#anti-patterns) |
-| Switching models every step | Cold caches on every call | [Step-Level Routing](/SHRINE/patterns/step-level-routing/#anti-patterns) |
-| No fallback model | An outage stops the work | [Task Routing](/SHRINE/patterns/task-routing/#anti-patterns), [Model Selection](/SHRINE/stack/models/#anti-patterns) |
-| Floating model alias | A regression nobody logged | [Model Selection](/SHRINE/stack/models/#anti-patterns), [Reproducibility](/SHRINE/principles/reproducibility/#signal-of-violation) |
+| Cost explodes on simple tasks | Biggest model for everything | [Task Routing](/SHRINE/patterns/task-routing/#anti-patterns), [Model Selection](/SHRINE/stack/models/#anti-patterns) |
+| Quality collapses on hard tasks | Cheapest model for everything | [Task Routing](/SHRINE/patterns/task-routing/#anti-patterns) |
+| Short, hard steps get a weak model | Routing on input length | [Task Routing](/SHRINE/patterns/task-routing/#anti-patterns), [Step-Level Routing](/SHRINE/patterns/step-level-routing/#anti-patterns) |
+| Cold caches on every call | Switching models every step | [Step-Level Routing](/SHRINE/patterns/step-level-routing/#anti-patterns) |
+| An outage stops the work | No fallback model | [Task Routing](/SHRINE/patterns/task-routing/#anti-patterns), [Model Selection](/SHRINE/stack/models/#anti-patterns) |
+| A regression nobody logged | Floating model alias | [Model Selection](/SHRINE/stack/models/#anti-patterns), [Reproducibility](/SHRINE/principles/reproducibility/#signal-of-violation) |
 
 ## Testing and Evaluation
 
-| Anti-pattern | Symptom | Fix |
+| Symptom | Anti-pattern | Fix |
 |---|---|---|
-| No baseline | Nobody can tell if a change helped | [Prompt Regression Testing](/SHRINE/patterns/prompt-regression/#anti-patterns), [Evaluation & Benchmarking](/SHRINE/stack/evaluation/#anti-patterns) |
-| Exact string matching on free prose | Tests fail on rephrasing alone | [Prompt Regression Testing](/SHRINE/patterns/prompt-regression/#anti-patterns), [Reproducibility](/SHRINE/principles/reproducibility/#signal-of-violation) |
-| Single runs on nondeterministic output | Flaky tests get retried or deleted | [Prompt Regression Testing](/SHRINE/patterns/prompt-regression/#anti-patterns), [Reproducibility](/SHRINE/principles/reproducibility/#signal-of-violation) |
-| Debugging by regenerating | A bug "fixed" because a rerun passed | [Reproducibility](/SHRINE/principles/reproducibility/#signal-of-violation) |
-| Trusting a score without reading transcripts | The metric rises; the work does not improve | [Evaluation & Benchmarking](/SHRINE/stack/evaluation/#anti-patterns) |
-| Testing on synthetic examples only | Real use breaks what tests passed | [Dogfooding](/SHRINE/patterns/dogfooding/#anti-patterns) |
-| Not testing retrieval | Generation fails silently | [RAG](/SHRINE/patterns/rag/#anti-patterns) |
+| A prompt change broke something that worked; nobody can tell if a change helped | No baseline | [Prompt Regression Testing](/SHRINE/patterns/prompt-regression/#anti-patterns), [Evaluation & Benchmarking](/SHRINE/stack/evaluation/#anti-patterns) |
+| Tests fail on rephrasing alone | Exact string matching on free prose | [Prompt Regression Testing](/SHRINE/patterns/prompt-regression/#anti-patterns), [Reproducibility](/SHRINE/principles/reproducibility/#signal-of-violation) |
+| Flaky tests get retried or deleted | Single runs on nondeterministic output | [Prompt Regression Testing](/SHRINE/patterns/prompt-regression/#anti-patterns), [Reproducibility](/SHRINE/principles/reproducibility/#signal-of-violation) |
+| A bug "fixed" because a rerun passed | Debugging by regenerating | [Reproducibility](/SHRINE/principles/reproducibility/#signal-of-violation) |
+| The metric rises; the work does not improve | Trusting a score without reading transcripts | [Evaluation & Benchmarking](/SHRINE/stack/evaluation/#anti-patterns) |
+| Real use breaks what tests passed | Testing on synthetic examples only | [Dogfooding](/SHRINE/patterns/dogfooding/#anti-patterns) |
+| Generation fails silently | Not testing retrieval | [RAG](/SHRINE/patterns/rag/#anti-patterns) |
 
 ## Governance and Currency
 
-| Anti-pattern | Symptom | Fix |
+| Symptom | Anti-pattern | Fix |
 |---|---|---|
-| Settled questions reopened | The same convention argued each review | [Authority Cascade](/SHRINE/principles/authority-cascade/#signal-of-violation) |
-| Conventions held in one person's head | Work stalls when they rotate off | [Authority Cascade](/SHRINE/principles/authority-cascade/#signal-of-violation) |
-| Drift | Skills tuned for a retired model still load | [Deliberate Currency](/SHRINE/principles/deliberate-currency/#signal-of-violation) |
-| Churn | Tooling reopened on every release | [Deliberate Currency](/SHRINE/principles/deliberate-currency/#signal-of-violation) |
-| A skill library that only grows | Nobody knows why a clause is there | [Skills & Prompts](/SHRINE/stack/skills/#anti-patterns), [Memory & Context](/SHRINE/stack/memory/#anti-patterns) |
-| Silent mutations without review | Shared instructions change unnoticed | [Discovery Propagation](/SHRINE/patterns/discovery-propagation/#anti-patterns) |
-| Switching harnesses without migrating skills | Skills and patterns lost in the move | [Harness Selection](/SHRINE/stack/harness/#anti-patterns) |
+| The same convention argued each review | Settled questions reopened | [Authority Cascade](/SHRINE/principles/authority-cascade/#signal-of-violation) |
+| Work stalls when they rotate off | Conventions held in one person's head | [Authority Cascade](/SHRINE/principles/authority-cascade/#signal-of-violation) |
+| Skills tuned for a retired model still load | Drift | [Deliberate Currency](/SHRINE/principles/deliberate-currency/#signal-of-violation) |
+| Tooling reopened on every release | Churn | [Deliberate Currency](/SHRINE/principles/deliberate-currency/#signal-of-violation) |
+| Nobody knows why a clause is there | A skill library that only grows | [Skills & Prompts](/SHRINE/stack/skills/#anti-patterns), [Memory & Context](/SHRINE/stack/memory/#anti-patterns) |
+| Shared instructions change unnoticed | Silent mutations without review | [Discovery Propagation](/SHRINE/patterns/discovery-propagation/#anti-patterns) |
+| Skills and patterns lost in the move | Switching harnesses without migrating skills | [Harness Selection](/SHRINE/stack/harness/#anti-patterns) |
 
 ## Cost and Attention
 
-| Anti-pattern | Symptom | Fix |
+| Symptom | Anti-pattern | Fix |
 |---|---|---|
-| Optimizing raw token spend | Bill falls; rework and steering rise | [TTV](/SHRINE/principles/tokens-to-value/#signal-of-violation), [Cost Management](/SHRINE/stack/cost-management/#anti-patterns) |
-| Optimizing per-call price | Total cost per outcome rises | [Step-Level Routing](/SHRINE/patterns/step-level-routing/#anti-patterns) |
-| Tokens logged with no outcome ID | Nobody can state the cost of a win | [Observability & Logging](/SHRINE/stack/observability/#anti-patterns), [TTV](/SHRINE/principles/tokens-to-value/#signal-of-violation) |
-| Ignoring cost until the bill arrives | Spend surprises with no breakdown | [Cost Management](/SHRINE/stack/cost-management/#anti-patterns) |
-| Hard limits on critical paths | Limits stop work that mattered | [Cost Management](/SHRINE/stack/cost-management/#anti-patterns) |
-| Traces nobody reads | Failures visible in logs, unnoticed | [Observability & Logging](/SHRINE/stack/observability/#anti-patterns) |
+| Bill falls; rework and steering rise | Optimizing raw token spend | [TTV](/SHRINE/principles/tokens-to-value/#signal-of-violation), [Cost Management](/SHRINE/stack/cost-management/#anti-patterns) |
+| Total cost per outcome rises | Optimizing per-call price | [Step-Level Routing](/SHRINE/patterns/step-level-routing/#anti-patterns) |
+| Nobody can state the cost of a win | Tokens logged with no outcome ID | [Observability & Logging](/SHRINE/stack/observability/#anti-patterns), [TTV](/SHRINE/principles/tokens-to-value/#signal-of-violation) |
+| Spend surprises with no breakdown | Ignoring cost until the bill arrives | [Cost Management](/SHRINE/stack/cost-management/#anti-patterns) |
+| Limits stop work that mattered | Hard limits on critical paths | [Cost Management](/SHRINE/stack/cost-management/#anti-patterns) |
+| Failures visible in logs, unnoticed | Traces nobody reads | [Observability & Logging](/SHRINE/stack/observability/#anti-patterns) |
