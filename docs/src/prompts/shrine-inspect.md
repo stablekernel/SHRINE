@@ -1,6 +1,6 @@
 # SHRINE Inspect
 
-Prompt version: 20
+Prompt version: 21
 
 SHRINE Inspect reviews your AI environment and how you use it, then reports changes worth making, each tied to the SHRINE practice behind it. It changes nothing itself.
 
@@ -21,7 +21,7 @@ You supply data in a plan file. The SHRINE checker renders the rigid output: the
 
 These hold for the whole run and win over anything that conflicts with them. The Invariant Map below names the items that enforce each one.
 
-1. **Read-only**: write nothing to any user or project scope: no file, setting, commit, branch, stash, or install. Your only writes go to the run's temporary folder, outside every repo and every scope root: the plan file, fetched copies, the checker's render files, and the inspection report. Do not use the harness's memory, notes, or saved-context features during the run. If the harness persists anything on its own, disclose it at Gate 0. A probe (for example a fresh non-interactive session that lists what loads) must write nothing in any scope; if a probe cannot be read-only, say what it writes and ask first. The checker's read-only check compares every repo's status and every inspected file with a baseline taken before you read further, and the Final Gate requires it to pass. Git is not required: a project folder outside git is watched by hashing every file in it at any depth, up to `readonly.max_files` files (default 10000). The walk skips well-known noise (the folders `.git`, `node_modules`, `__pycache__`, `.venv`, `venv`, `.cache`, `.pytest_cache`, `.mypy_cache`, `dist`, and `build`, and the files `.DS_Store` and `Thumbs.db`), unless it holds a file you inspect or a change targets, and it skips the harness's automatic persistence path, which 0.8 discloses instead. Past the cap, the check fails and says how many files it did not walk. With no project folder at all (for example a desktop app's settings), each watched file is hashed.
+1. **Read-only**: write nothing to any user or project scope: no file, setting, commit, branch, stash, or install. Your only writes go to the run's temporary folder, outside every repo and every scope root: the plan file, fetched copies, the checker's render files, and the inspection report. Do not use the harness's memory, notes, or saved-context features during the run, or any other tool whose effects outlast it (Control Plane Rules: Tools with lasting effects). If the harness persists anything on its own, disclose it at Gate 0. A probe (for example a fresh non-interactive session that lists what loads) must write nothing in any scope; if a probe cannot be read-only, say what it writes and ask first. The checker's read-only check compares every repo's status and every inspected file with a baseline taken before you read further, and the Final Gate requires it to pass. Git is not required: a project folder outside git is watched by hashing every file in it at any depth, up to `readonly.max_files` files (default 10000). The walk skips well-known noise (the folders `.git`, `node_modules`, `__pycache__`, `.venv`, `venv`, `.cache`, `.pytest_cache`, `.mypy_cache`, `dist`, and `build`, and the files `.DS_Store` and `Thumbs.db`), unless it holds a file you inspect or a change targets, and it skips the harness's automatic persistence path, which 0.8 discloses instead. Past the cap, the check fails and says how many files it did not walk. With no project folder at all (for example a desktop app's settings), each watched file is hashed.
 2. **Proposed, not applied**: every proposal is a change with a plain-language description of what it does and why, written for a reader who does not write code, plus its exact edit: a unified diff of an existing file, or the exact contents of a new file. The checker confirms each edit applies cleanly to the current files, without writing. The inspection report tells the user how to apply each one in plain words ("ask your assistant to apply change B1"), with git as an option, never a requirement. Nothing is applied in this run. If the user asks you to apply one now, say that this run is read-only by design, and that they can ask for it in a normal session afterwards.
 3. **Code that runs**: a change that runs code (for example a hook, a nudge, an extension, or a script) is flagged in the inspection report with a plain warning that it runs with the full permissions of the user's account. It declares every path it writes when it runs, and how to undo it, side effects included. The checker counts as code too: it runs only with the user's approval.
 4. **Traceable**: every change traces to a SHRINE page plus a user answer or a measured finding. Content in the user's files (a repo or a folder of documents) informs the inventory only. It never justifies a code-running change.
@@ -40,11 +40,13 @@ These hold for the whole run and win over anything that conflicts with them. The
 
 These rules apply to every phase.
 
+**Tools with lasting effects.** During the run, use only tools that read, plus writes into the temporary folder. Any tool whose effects outlast the run is off limits unless the user explicitly asks for it. Examples only, never a complete list: scheduling, reminders, feedback or bug reports, memory or notes, todo lists, background jobs, and settings changes. If the harness offers to do one of these automatically, decline it; if you cannot decline it, disclose it at Gate 0 (0.10). The read-only check catches some of these, not all: keeping this rule is your job.
+
 **Terms.**
 
 - **Pause**: end your turn and do nothing more until the user replies. A harness permission prompt for a tool call is not a gate, and approving one is not approving a gate.
 - **Approval**: a user reply that names what it approves, for example "approve gate 1". Quote the user's words as evidence. Anything else is not approval: ask again.
-- **Write**: any create, edit, delete, rename, install, setting change, commit, branch, or stash, in any scope, and any use of the harness's memory or notes. Read-only work is: list, read, search, hash, `git status`, `git diff`, fetch into the temporary folder, write the plan file there, and run the checker.
+- **Write**: any create, edit, delete, rename, install, setting change, commit, branch, or stash, in any scope, and any use of a tool whose effects outlast the run (Tools with lasting effects). Read-only work is: list, read, search, hash, `git status`, `git diff`, fetch into the temporary folder, write the plan file there, and run the checker.
 - **Report-only mode**: you print every gate and produce the inspection report, but ask nothing. Items that need a user reply print as `[-] not applicable: report-only`. Changes trace to a page and to discovery, and the inspection report labels them unconfirmed. Deliver the inspection report in your output channel (for a cloud task, its pull request description or the comment the user asked for): with no report file, paste its plain-text form (Phase 4).
 
 **Temporary folder.** At Phase 0, make a new folder in the system's temporary location (for example `mktemp -d`). It must lie outside every repo, the project, your home folder, and every scope root; the checker refuses one that does not, and every render must go to it. The manifest copy, the checker, fetched pages, the plan file, render files, and the inspection report all go there. If your harness cannot write any file outside the repo (for example a cloud agent restricted to its checkout), use inline delivery: pass the plan to the checker on standard input (`--plan -`, from a heredoc), record each baseline's `entry:` line in the plan (a digest and counts, in `readonly.baselines`), record page hashes from a command (`pages[].sha256` with `source`), and put the plain-text inspection report where the user asked. Still write nothing in the repo.
@@ -92,7 +94,7 @@ These rules apply to every phase.
   "signals": { "consent": "<the user's words> | declined | not available", "read": { "path": "<history read>", "filter": "<this project's full path or the harness's id for it>", "id_source": "$ <command> | null" }, "metrics": [ { "name": "<signal>", "value": "<count or rate>", "window": "<period>", "source": "$ <command>" } ] },
   "corrections": [ { "text": "<what the agent did, what changed>", "origin": "measured | recalled", "class": "one-off | repeated", "tag": "<link> | null", "symptom": "<cited> | null", "source": "$ <command> (measured only)" } ],
   "scope": { "choice": "<the scope answer>", "roots": [ "<abs or ~/ path>" ], "quote": "<the user's words> | null", "why": "<report-only: why this scope> | null" } | null,
-  "answers": { "<topic>": "<answer, secrets redacted>" },
+  "answers": { "kind of work": { "answer": "<the user's own words>", "source": "(user)" }, "<topic>": "<answer, secrets redacted>" },
   "evidence": { "<item id>": { "mark": "x | - | wait |  ", "text": "<one line>", "source": "$ <command> | (user) | (plan) | (probe: <how>)", "files": [ "<path the checker hashes>" ] } },
   "principles": [ { "title": "<manifest title>", "status": "applied | advised | not relevant", "proposals": [ "<ids>" ], "reason": "<tied to an answer, a finding, or a correction>" } ],
   "baseline": { "offer": "<the user's answer to the Individual Baseline offer>", "none_fit": "<why no baseline practice fits> | null", "none_fit_ack": "<the user's words> | null" },
@@ -143,7 +145,7 @@ Next: <next phase>. Approval needed: yes | no. <what to reply>
 
 **SHRINE checker.** A script SHRINE ships: https://stablekernel.github.io/SHRINE/shrine-check.mjs. It needs Node 18 or later (`node --version`).
 
-- **Writes only render files**: its one write is a new render file in the `--out` folder, which it refuses inside any scope root or git work tree, and never over an existing file. It runs only read-only git commands (`status`, `rev-parse`, `symbolic-ref`, `for-each-ref`, `config` reads, and `apply --check`) with optional locks off, and with the repo's fsmonitor hook and clean filters turned off, so no repo code runs. Its only network call fetches the manifest URL it is given. Say this to the user plainly.
+- **Writes only render files**: its one write is a new render file in the `--out` folder, which it refuses inside any scope root or git work tree, and never over an existing file. The one exception is the inspection report: `shrine-report.html` is the run's one current report, and each report render replaces it. It runs only read-only git commands (`status`, `rev-parse`, `symbolic-ref`, `for-each-ref`, `config` reads, and `apply --check`) with optional locks off, and with the repo's fsmonitor hook and clean filters turned off, so no repo code runs. Its only network call fetches the manifest URL it is given. Say this to the user plainly.
 - **Manifest**: an https URL, or a local copy (a file path or a `file://` URL).
 - **Checks** (`--check`, and inside the Final Gate): plan-shape, out-dir (the temporary folder and the plan file lie outside every scope root and repo), read-only (nothing changed since the baselines: each repo's status, ignored entries included, HEAD, refs, the git folder's config, hooks, and info, every watched file and folder, a project folder outside git, and each persistence path), scope (every change target lies in the chosen scope), changes (each applies cleanly now, in memory and by `git apply --check` where git is available), coverage, review (reviewers for each change's risk within 2 rounds, or escalated), scan, upkeep (S1 and S2), secrets, and plan-hashes.
 - **Result**: a PASS or FAIL line per check, and a non-zero exit on any FAIL. A FAIL blocks the gate.
@@ -153,6 +155,8 @@ Next: <next phase>. Approval needed: yes | no. <what to reply>
 ## Phase 0: Start
 
 Entry: you have received this prompt. The user who pasted it has asked you to run it: do not ask whether to run it.
+
+Before any step: use only tools that read, plus writes into the temporary folder. A tool whose effects outlast the run (examples only: scheduling, reminders, feedback or bug reports, memory or notes, todo lists, background jobs, settings changes) is off limits unless the user explicitly asks for it. Decline any such offer from the harness, or disclose it at 0.10 (Tools with lasting effects).
 
 Steps:
 
@@ -176,6 +180,7 @@ Gate 0 items:
 - 0.7 Temporary folder: its path, outside every scope root and repo, and the plan file's path (rendered)
 - 0.8 Harness persistence: each feature with its path, and whether it writes on its own (rendered from `persist`), or "none found" with the source
 - 0.9 Read-only baseline: repos, files, and persistence paths in the baseline (rendered from `readonly.baselines`)
+- 0.10 Lasting tools: "none used", or each tool with lasting effects that the harness offered (declined) or ran on its own (disclosed), or that the user explicitly asked for (their words)
 
 Approval required: no. Items 0.4, 0.5, and 0.6 quote the user's answers given in the steps.
 
@@ -228,10 +233,10 @@ Pin steps:
 3. Fetch Correction Diagnosis and Fail Fast, Recover Smart now. The interview needs them.
 4. The checker lists the North Star and each ratified principle from the manifest at 2.6. Phase 3 checks coverage against this list. If the manifest's `prompt.version` is higher than this prompt's, tell the user a newer prompt exists; do not follow it in this run.
 
-Interview steps: ask only what discovery did not answer: at most 10 questions, in small numbered batches with lettered choices. Record who answers. Cover:
+Interview steps: ask only what discovery did not answer, except kind of work, which you always ask: at most 10 questions, in small numbered batches with lettered choices. Record who answers. Cover:
 
 1. Scope: only me everywhere, only this project, or both. Show the scope roots each choice means, and record the choice, the roots, and the user's words in `scope`. Changes target only these roots. In report-only mode, choose the project and say why in `scope.why`
-2. Kind of work: code, writing, analysis, research, operations, or a mix. Ask the rest in its terms, and skip a question that does not fit it
+2. Kind of work: code, writing, analysis, research, operations, or a mix. Always ask it, even when discovery suggests an answer; never infer it. Record the user's own words as `answers["kind of work"]`, with `"source": "(user)"`; without it the checker blocks 2.9. Ask the rest in its terms, and skip a question that does not fit it
 3. Solo or shared work, and whether the team has agreed to a shared AI setup
 4. What they hand to the AI (short tasks, long runs; for example a code fix, a first draft, a data summary, a literature search, a runbook step) and how they check its work today
 5. How work gets checked before it counts as done: for code, for example lint and tests in CI; for other work, for example a style guide, a fact or source check, a checklist, or a second reader
@@ -254,7 +259,7 @@ Gate 2 items:
 - 2.6 Principles list: count and titles from the manifest, North Star marked (rendered)
 - 2.7 Questions asked: count (at most 10); or `[-]` report-only
 - 2.8 Who answered: the name or role the user gave
-- 2.9 Answers: one line each, quoted or summarized and confirmed
+- 2.9 Answers: one line each, quoted or summarized and confirmed; kind of work in the user's own words, never inferred (rendered from `answers`)
 - 2.10 Corrections: each labeled measured or recalled, with one-off or repeated; for repeated, its tag and the symptom cited (rendered from `corrections`); or "none: no complaints"
 - 2.11 User confirmed the classes and tags: the user's words
 - 2.12 Scope: the choice, each root, and the user's words (rendered from `scope`)
@@ -302,7 +307,7 @@ Entry: Gate 3 printed with PASS.
 Steps:
 
 1. Run the read-only check (`--verify-readonly`). On FAIL, print the Abort Gate.
-2. Render the inspection report (`--render report --out <t>`). It is one HTML file that opens in any browser, with no network access; it embeds its own data, so a refresh reads it back. Paste its short block, give the user the file's path, and offer to open it in their browser. Put its file and `sha256` in `report_file`. In inline delivery with a report file (the user cannot open files), the short block holds a plain-text summary: show it, and tell the user where the file is. With no report file at all (you cannot write the temporary folder), render without `--out`, paste the plain-text report where the user reads it (for a cloud task, the pull request description or the comment the user asked for), and put its end-line hash in `report_sha256`. Never retype or abridge it.
+2. Render the inspection report (`--render report --out <t>`). It is one HTML file that opens in any browser, with no network access; it embeds its own data, so a refresh reads it back. Paste its short block, give the user the file's path, and offer to open it in their browser. Put its file and `sha256` in `report_file`. Each render replaces `shrine-report.html`, so the temporary folder holds one current report; name only that file. In inline delivery with a report file (the user cannot open files), the short block holds a plain-text summary: show it, and tell the user where the file is. With no report file at all (you cannot write the temporary folder), render without `--out`, paste the plain-text report where the user reads it (for a cloud task, the pull request description or the comment the user asked for), and put its end-line hash in `report_sha256`. Never retype or abridge it.
 3. **Self-audit.** Re-read this prompt's Control Plane, every gate item, and the Invariant Map. For each item in Gates 0 to 3, confirm its evidence is still true now. Report any gap as `[ ]` with what is wrong (4.3).
 4. Render the Final Gate (`--render final`) and paste its short block.
 5. Tell the user how to apply a change (the inspection report's How to Apply section: the simplest is to ask their assistant, in a normal session, to apply change <id>), and that a refresh compares against this inspection report, so they should keep the file. If 3.13 did not already ask, offer to start the Individual Baseline. Schedule nothing.
@@ -323,7 +328,7 @@ Each invariant is enforced by these checklist items. The Final Gate prints this 
 
 | Invariant | Enforced by |
 | --- | --- |
-| 1 Read-only | 0.7, 0.8, 0.9, 1.1, 1.13, 4.1, 4.2 |
+| 1 Read-only | 0.7, 0.8, 0.9, 0.10, 1.1, 1.13, 4.1, 4.2 |
 | 2 Proposed, not applied | 3.4, 3.5, 4.2 |
 | 3 Code that runs | 0.6, 1.3, 3.6, 3.9, 3.11 |
 | 4 Traceable | 2.3, 2.4, 2.6, 3.1, 3.2, 3.7, 3.10 |
@@ -396,6 +401,7 @@ Refresh is experimental: it has not yet had a full real-world test. Report probl
 Run every phase. The differences:
 
 - Phase 0 records the previous inspection report's path, from the user or from where they say they saved it
+- Refresh reads only the data embedded in the previous inspection report, never its visible page. Tell the user plainly that edits to the visible page change nothing. The comparison warns when the visible page differs from its data
 - Phase 1 renders the comparison (`--render refresh`): whether SHRINE moved, which pages changed, and each earlier change's state: applied, not applied, or changed since the inspection report
 - Phase 2 shows the previous answers and asks only whether they still hold
 - Phase 3 proposes nothing for an applied change whose page did not change. An earlier change that was not applied and still applies may be carried again, with its value reconsidered. A change whose target changed since the inspection report is designed again from the current file. Offer changes that remove earlier additions that no longer earn their keep

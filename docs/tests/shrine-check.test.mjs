@@ -53,7 +53,7 @@ const PAGES = {
 	'Anti-patterns': { section: 'reference', status: null, body: INDEX, url: 'reference/anti-patterns/' },
 };
 // Items the agent supplies as evidence; every other item is computed by the checker.
-const EVIDENCE = ['0.1', '0.2', '0.3', '0.4', '0.5', '0.6', '1.2', '1.3', '1.4', '1.5', '1.6', '1.7', '1.8', '1.12', '2.2', '2.5', '2.7', '2.8', '2.9', '2.11', '3.3', '4.3'];
+const EVIDENCE = ['0.1', '0.2', '0.3', '0.4', '0.5', '0.6', '0.10', '1.2', '1.3', '1.4', '1.5', '1.6', '1.7', '1.8', '1.12', '2.2', '2.5', '2.7', '2.8', '2.9', '2.11', '3.3', '4.3'];
 
 // Fixture git calls ignore the machine's git config and hooks: a global hook or signing setup can add
 // seconds to every commit, and the tests must not depend on it.
@@ -120,7 +120,7 @@ function fixture() {
 	writeFileSync(join(out, 'shrine-check.mjs'), CHECKER_SRC);
 	const manifest = {
 		commit: COMMIT,
-		prompt: { version: 20, sha256: sha(PROMPT), url: 'https://stablekernel.github.io/SHRINE/inspect-prompt.md', source: null },
+		prompt: { version: 21, sha256: sha(PROMPT), url: 'https://stablekernel.github.io/SHRINE/inspect-prompt.md', source: null },
 		checker: { url: 'https://stablekernel.github.io/SHRINE/shrine-check.mjs', source: null, sha256: sha(CHECKER_SRC) },
 		pages,
 	};
@@ -163,7 +163,7 @@ function planFor(fx, planPages) {
 		scan: [{ row: 'Review and Verification / Done is claimed without running tests', evidence: 'no test step in CLAUDE.md', source: '$ grep -c test CLAUDE.md', outcome: 'proposal B1' }],
 		signals: { consent: 'declined' },
 		corrections: [{ text: 'agent said done without tests', origin: 'recalled', class: 'repeated', tag: 'verification', symptom: 'no test run before done' }],
-		answers: { delegation: 'short tasks', review: 'reads diffs' },
+		answers: { 'kind of work': { answer: 'code: a small web app', source: '(user)' }, delegation: 'short tasks', review: 'reads diffs' },
 		evidence,
 		principles: [
 			{ title: 'North Star: TTV (Tokens to Value)', status: 'applied', proposals: ['B1'], reason: 'fewer review swaps' },
@@ -286,9 +286,22 @@ test('the checker\'s invariant map equals the prompt\'s Invariant Map', () => {
 	assert.deepEqual(map, rows);
 });
 
-test('prompt version is 20, and the prompt has no em dash', () => {
-	assert.match(PROMPT, /^Prompt version: 20$/m);
+test('prompt version is 21, and the prompt has no em dash', () => {
+	assert.match(PROMPT, /^Prompt version: 21$/m);
 	assert.ok(!PROMPT.includes(EM_DASH));
+});
+
+test('prompt: tools with lasting effects are off limits at their point of use', () => {
+	const control = PROMPT.split('## Control Plane Rules')[1].split('**Terms.**')[0];
+	const phase0 = PROMPT.split('## Phase 0: Start')[1].split('Steps:')[0];
+	for (const part of [control, phase0]) {
+		assert.match(part, /use only tools that read, plus writes into the temporary folder/);
+		assert.match(part, /off limits unless the user explicitly asks for it/);
+		assert.match(part, /[Ee]xamples only/);
+		for (const t of ['scheduling', 'reminders', 'feedback or bug reports', 'memory or notes', 'todo lists', 'background jobs', 'settings changes']) assert.ok(part.includes(t), t);
+		assert.match(part, /disclose it at (Gate 0|0\.10)/);
+	}
+	assert.match(PROMPT, /^- 0\.10 Lasting tools: /m);
 });
 
 test('the Final Gate passes on a complete run with a current report', () => {
@@ -441,14 +454,17 @@ test('--plan - reads the plan from standard input, for a harness that cannot wri
 	const r = run(['--check', '--plan', '-', '--manifest', fx.manifestPath], JSON.stringify(fx.plan));
 	assert.equal(r.code, 0, r.out);
 	const rep = run(['--render', 'report', '--plan', '-', '--manifest', fx.manifestPath], JSON.stringify(fx.plan));
-	assert.match(rep.out, /^--- shrine-check 12 report \(paste verbatim\) ---$/m);
+	assert.match(rep.out, /^--- shrine-check 13 report \(paste verbatim\) ---$/m);
 	assert.match(rep.out, /^--- end report sha256:[0-9a-f]{64} ---$/m);
 });
 
 test('the checker source writes only render files and runs only read-only git commands', () => {
 	const writes = [...CHECKER_SRC.matchAll(/\b(writeFileSync|appendFileSync|mkdirSync|rmSync|unlinkSync|renameSync|copyFileSync|createWriteStream)\(/g)].map((m) => m[1]);
 	assert.deepEqual([...new Set(writes)], ['writeFileSync']);
-	for (const m of CHECKER_SRC.matchAll(/writeFileSync\([^;]+;/g)) assert.match(m[0], /flag: 'wx'/);
+	// Every write is a new file, except the one current inspection report, which a report render replaces.
+	const overwrites = [...CHECKER_SRC.matchAll(/writeFileSync\([^;]+;/g)].filter((m) => !/flag: 'wx'/.test(m[0])).map((m) => m[0]);
+	assert.deepEqual(overwrites, ["writeFileSync(pick.path, made.html, { flag: 'w' });"]);
+	assert.match(CHECKER_SRC, /const pick = \{ path: join\(dir, REPORT_FILE\) \};/);
 	assert.equal([...CHECKER_SRC.matchAll(/execFileSync\(/g)].length, 1);
 	assert.doesNotMatch(CHECKER_SRC, /(?<![.\w])(spawn|spawnSync|exec|execSync|fork)\(/);
 	const subs = [...CHECKER_SRC.matchAll(/(?:runGit\([^,]+, \[|'--no-optional-locks', )'([a-z-]+)'/g)].map((m) => m[1]);
@@ -744,7 +760,7 @@ test('report: one self-contained HTML file outside the repo with every section, 
 	const order = [...html.matchAll(/<details class="card[^"]*" id="change-([A-Z]\d+)"/g)].map((m) => m[1]);
 	assert.deepEqual(order, ['B1', 'S1', 'S2'], 'high, then medium, then low');
 	assert.match(html, /This change runs code with your account's full permissions\./);
-	for (const t of ['SHRINE practice: ', 'Known problem: Done is claimed', 'You gain', 'It costs', 'Committed or shared: reaches everyone', 'Always loaded; it prevents', 'How to check it worked', 'reverse the diff'])
+	for (const t of ['SHRINE practice: ', 'Known problem: Done is claimed', 'You gain', 'It costs', 'Committed or shared. Everyone who uses this repo.', 'Always loaded; it prevents', 'How to check it worked', 'reverse the diff'])
 		assert.ok(html.includes(t), t);
 	assert.ok(html.includes(`<code>apply change B1 from ${rep.file}</code>`));
 	assert.match(html, /By hand, a diff: open the file and make the edit it shows/);
@@ -820,7 +836,7 @@ test('report: script tags, event handlers, </script>, and <!-- in every user-con
 	for (const pr of P.principles) pr.reason = xss('reason');
 	const b1 = P.proposals[0];
 	Object.assign(b1, { title: xss('title'), plain: xss('plain'), answer: xss('answer'), group: xss('group'), model: xss('model'), row: xss('b1 row') });
-	b1.blast.reaches = xss('reaches');
+	b1.blast.reaches = xss('Reaches');
 	b1.load = { ...b1.load, miss: xss('miss'), expect: xss('expect'), verify: xss('verify') };
 	b1.tradeoff = { ...b1.tradeoff, costs: xss('costs'), saves: xss('saves'), net: xss('net') };
 	b1.changes[0].diff = `${B1_DIFF}+${xss('diff line')}\n`.replace('@@ -1,3 +1,5 @@', '@@ -1,3 +1,6 @@');
@@ -846,7 +862,7 @@ test('report: script tags, event handlers, </script>, and <!-- in every user-con
 	assert.equal(data.run.user, P.user, 'the payload round-trips exactly');
 	assert.equal(data.changes.find((c) => c.id === 'B1').files[0].body.includes(xss('diff line')), true);
 	const seen = staticText(html);
-	for (const t of ['user', 'harness', 'topic', 'answer', 'scope', 'summary', 'practice', 'advice title', 'offer', 'evidence', 'correction', 'metric', 'reason', 'title', 'plain', 'reaches', 'verify', 'costs', 'undo', 'runtime write', 'diff line'])
+	for (const t of ['user', 'harness', 'topic', 'answer', 'scope', 'summary', 'practice', 'advice title', 'offer', 'evidence', 'correction', 'metric', 'reason', 'title', 'plain', 'Reaches', 'verify', 'costs', 'undo', 'runtime write', 'diff line'])
 		assert.ok(seen.includes(xss(t).replace(/\s+/g, ' ')), `${t} shown as text`);
 });
 
@@ -1337,4 +1353,89 @@ test('every change needs a plain-language description', () => {
 	const r = check(fx);
 	assert.equal(r.code, 1);
 	assert.match(r.out, /B1\.plain required: what the change does/);
+});
+
+// ---------- real-run fixes ----------
+
+test('gate 2: kind of work is always asked: missing, inferred, or a bare string blocks 2.9', () => {
+	const fx = ready();
+	const ok = gate(fx, 2).out;
+	assert.match(item(ok, '2.9'), /^\[x\] 2\.9 /);
+	assert.match(ok, /kind of work: "code: a small web app"  \(user\)/);
+	const blocked = (value) => {
+		if (value === undefined) delete fx.plan.answers['kind of work'];
+		else fx.plan.answers['kind of work'] = value;
+		save(fx);
+		const out = gate(fx, 2).out;
+		assert.match(out, /^GATE 2 of 3: .*: BLOCKED/m);
+		return item(out, '2.9');
+	};
+	assert.match(blocked(undefined), /^\[ \] 2\.9 /);
+	assert.match(gate(fx, 2).out, /plan\.answers has no "kind of work": always ask it, never infer it/);
+	assert.match(blocked({ answer: 'Go service', source: 'inferred' }), /^\[ \] 2\.9 /);
+	assert.match(gate(fx, 2).out, /never from discovery or inference: ask it/);
+	assert.match(blocked({ answer: 'Go service', source: '(discovery)' }), /^\[ \] 2\.9 /);
+	assert.match(blocked('code'), /^\[ \] 2\.9 /);
+	delete fx.plan.answers['kind of work'];
+	fx.plan.answers.kind_of_work = { answer: 'operations runbooks', source: '(user)' };
+	save(fx);
+	assert.match(item(gate(fx, 2).out, '2.9'), /^\[x\] 2\.9 /);
+	const html = readFileSync(reportFile(fx).file, 'utf8');
+	assert.ok(embedded(html).findings.interview.some((a) => a.topic === 'kind_of_work' && a.answer === 'operations runbooks'));
+});
+
+test('report: "Who it affects" and other free text read as clean sentences', () => {
+	const fx = ready();
+	const b1 = fx.plan.proposals.find((x) => x.id === 'B1');
+	b1.blast = { committed: false, reaches: 'Not committed: .claude/ is gitignored. Reaches only this user, in this checkout.' };
+	b1.tradeoff.net = 'positive for this user.';
+	b1.load.expect = 'every session in this project.';
+	save(fx);
+	const html = readFileSync(reportFile(fx).file, 'utf8');
+	const card = /<details class="card[^"]*" id="change-B1"[\s\S]*?<\/details>/.exec(html)[0];
+	assert.ok(card.includes('Local only. Not committed: .claude/ is gitignored. Reaches only this user, in this checkout.</p>'), card);
+	assert.doesNotMatch(card, /reaches Not/);
+	const text = card.replace(/<[^>]+>/g, ' ');
+	assert.doesNotMatch(text, /\w\.\./, 'no double stop');
+	const plain = run(['--render', 'report', '--plan', fx.planPath, '--manifest', fx.manifestPath]).out;
+	assert.match(plain, /^ {2}Who it affects: Local only\. Not committed: \.claude\/ is gitignored\. Reaches only this user, in this checkout\.$/m);
+});
+
+test('report: one current file per run; a re-render replaces it and never a foreign file', () => {
+	const fx = ready();
+	const one = reportFile(fx);
+	assert.equal(one.file, join(fx.out, 'shrine-report.html'));
+	fx.plan.answers.review = 'reads every diff';
+	const two = reportFile(fx);
+	assert.equal(two.file, one.file);
+	assert.notEqual(two.sha256, one.sha256);
+	assert.equal(readdirSync(fx.out).filter((f) => f.startsWith('shrine-report')).length, 1, 'no stale report beside the current one');
+	assert.ok(readFileSync(two.file, 'utf8').includes('reads every diff'));
+	writeFileSync(one.file, '<p>not a report</p>');
+	const r = reportFile(fx).r;
+	assert.notEqual(r.code, 0);
+	assert.match(r.out + r.err, /exists and is not a SHRINE inspection report/);
+	assert.equal(readFileSync(one.file, 'utf8'), '<p>not a report</p>');
+});
+
+test('refresh: reads only the embedded data and warns when the visible page was edited', () => {
+	const fx = ready();
+	const prev = reportFile(fx).file;
+	const html = readFileSync(prev, 'utf8');
+	const fx2 = fixture();
+	fx2.plan.run = 'refresh';
+	const refresh = (text) => {
+		const p = join(fx2.base, 'prev.html');
+		writeFileSync(p, text);
+		fx2.plan.previous = { path: p, source: '(user)' };
+		save(fx2);
+		return run(['--render', 'refresh', '--plan', fx2.planPath, '--manifest', fx2.manifestPath, '--out', fx2.out]);
+	};
+	const clean = refresh(html);
+	assert.equal(clean.code, 0, clean.out + clean.err);
+	assert.match(clean.out, /refresh reads only the data embedded in the previous inspection report, never its visible page/);
+	assert.doesNotMatch(clean.out, /WARNING/);
+	const edited = refresh(html.replace('Run tests before done</', 'Run tests always</'));
+	assert.equal(edited.code, 0, edited.out + edited.err);
+	assert.match(edited.out, /WARNING: the visible page of .* differs from a re-render of its embedded data/);
 });

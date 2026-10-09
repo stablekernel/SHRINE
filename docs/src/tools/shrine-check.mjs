@@ -5,7 +5,8 @@
 //
 // It changes nothing in any user or project scope. Its one write: with --out <dir>, a render goes
 // to a new file in that folder, which must lie outside every scope root and every git work tree,
-// and never over an existing file. It reads the plan, the files the plan names, and the manifest.
+// and never over an existing file, except shrine-report.html, the one current inspection report,
+// which each report render replaces (only if it is a SHRINE report). It reads the plan, the files the plan names, and the manifest.
 // It runs only read-only git commands (status, rev-parse, symbolic-ref, for-each-ref, and
 // apply --check), with optional locks off, so even git writes nothing. Git is optional: a project
 // folder outside git is watched by hashing its files. Its only network call is fetching the
@@ -30,7 +31,7 @@ import { homedir } from 'node:os';
 import { dirname, isAbsolute, join, relative, resolve, sep } from 'node:path';
 import { fileURLToPath } from 'node:url';
 
-const VERSION = 12;
+const VERSION = 13;
 const COVERAGE = ['applied', 'advised', 'not relevant'];
 const RUNS = ['inspect', 'refresh'];
 const MODES = ['interactive', 'report-only'];
@@ -82,7 +83,7 @@ const GATES = [
 	{ n: 0, name: 'Start', approval: false, next: 'Phase 1: Discover', items: [
 		['0.1', 'Harness name and version'], ['0.2', 'Can pause'], ['0.3', 'Mode, delivery, and models'],
 		['0.4', 'Time box agreed', 'user'], ['0.5', 'Run type', 'user'], ['0.6', 'Checker'],
-		['0.7', 'Temporary folder'], ['0.8', 'Harness persistence'], ['0.9', 'Read-only baseline'] ] },
+		['0.7', 'Temporary folder'], ['0.8', 'Harness persistence'], ['0.9', 'Read-only baseline'], ['0.10', 'Lasting tools'] ] },
 	{ n: 1, name: 'Discover', approval: true, next: 'Phase 2: Pin and Interview', items: [
 		['1.1', 'Instruction files and what loads'], ['1.2', 'Higher layers'], ['1.3', 'Extension points'],
 		['1.4', 'Committed or shared versus local'], ['1.5', 'Capabilities'], ['1.6', 'Existing content'],
@@ -106,7 +107,7 @@ const FINAL_ITEMS = [['4.1', 'Read-only check'], ['4.2', 'Report'], ['4.3', 'Sel
 
 // Invariant -> enforcing items. Keep equal to the prompt's Invariant Map (a test compares them).
 const INVARIANTS = [
-	['1 Read-only', ['0.7', '0.8', '0.9', '1.1', '1.13', '4.1', '4.2']],
+	['1 Read-only', ['0.7', '0.8', '0.9', '0.10', '1.1', '1.13', '4.1', '4.2']],
 	['2 Proposed, not applied', ['3.4', '3.5', '4.2']],
 	['3 Code that runs', ['0.6', '1.3', '3.6', '3.9', '3.11']],
 	['4 Traceable', ['2.3', '2.4', '2.6', '3.1', '3.2', '3.7', '3.10']],
@@ -1286,6 +1287,14 @@ function coverageRows(plan, man) {
 	return rows;
 }
 
+// The interview answer for kind of work, under any spelling of its key ("kind of work", "kind_of_work").
+const KIND_OF_WORK = 'kind of work';
+function kindOfWork(plan) {
+	if (!isObj(plan.answers)) return null;
+	const key = Object.keys(plan.answers).find((k) => k.toLowerCase().replace(/[_-]+/g, ' ').trim() === KIND_OF_WORK);
+	return key == null ? null : { key, value: plan.answers[key] };
+}
+
 // Items the checker computes from the plan, the manifest, and the file system.
 function computed(id, ctx) {
 	const { plan, man, rp } = ctx;
@@ -1421,6 +1430,15 @@ function computed(id, ctx) {
 		case '2.6': {
 			const t = manifestPrinciples(man.data);
 			return { mark: t.length ? 'x' : ' ', lines: [`${t.length} ratified: ${t.map((x) => (x.startsWith('North Star') ? `${x} (North Star)` : x)).join('; ')}  $ shrine-check (manifest section principles, status ratified)`] };
+		}
+		case '2.9': {
+			// Kind of work is always asked, never inferred: discovery's guess is not the user's answer.
+			if (plan.mode === 'report-only') return null;
+			const k = kindOfWork(plan);
+			if (!k) return { mark: ' ', lines: [`plan.answers has no "${KIND_OF_WORK}": always ask it, never infer it, and record { "answer": "<the user's own words>", "source": "(user)" }`] };
+			if (!isObj(k.value) || !isStr(k.value.answer) || !k.value.answer.trim()) return { mark: ' ', lines: [`plan.answers["${k.key}"] must be { "answer": "<the user's own words>", "source": "(user)" }`] };
+			if (k.value.source !== '(user)') return { mark: ' ', lines: [`plan.answers["${k.key}"].source is ${quote(String(k.value.source ?? '<missing>'))}: kind of work comes from the user, never from discovery or inference: ask it`] };
+			return { mark, lines: [`${KIND_OF_WORK}: ${quote(k.value.answer)}  (user)`] };
 		}
 		case '2.10': {
 			if (!Array.isArray(plan.corrections)) return null;
@@ -1826,7 +1844,7 @@ function reportData(plan, man, ctx, reportPath) {
 				? { read: true, consent: sg.consent, path: str(sg.read?.path), filter: str(sg.read?.filter), metrics: arr(sg.metrics).filter(isObj).map((x) => ({ name: str(x.name), value: str(x.value), window: x.window ?? null, source: str(x.source) })) }
 				: { read: false, why: isObj(sg) ? str(sg.consent ?? 'not asked') : 'not asked', metrics: [] },
 			corrections: corr.map((c) => ({ text: str(c.text), origin: str(c.origin), class: str(c.class ?? 'unclassified'), tag: c.tag ?? null, symptom: c.symptom ?? null })),
-			interview: (isObj(plan.answers) ? Object.entries(plan.answers) : []).map(([k, a]) => ({ topic: k, answer: str(a) })),
+			interview: (isObj(plan.answers) ? Object.entries(plan.answers) : []).map(([k, a]) => ({ topic: k, answer: str(isObj(a) ? a.answer : a) })),
 			interview_note: ro ? 'No interview: report-only.' : 'No answers recorded.',
 		},
 		refresh: plan.run === 'refresh' ? refreshCompare(plan, man) : null,
@@ -1845,7 +1863,7 @@ function reportData(plan, man, ctx, reportPath) {
 			`Or paste the SHRINE Inspect prompt into a new session, choose refresh, and give it this file's path: ${reportPath ?? '(no report file was written)'}`,
 		],
 		prompt_page: { title: 'SHRINE Inspect', url: shrineUrl(`${base}guide/inspect/`) },
-		refresh_note: 'Keep this file where you can find it. It holds the full report as data, so a refresh can compare against it.',
+		refresh_note: 'Keep this file where you can find it. It holds the full report as data, so a refresh can compare against it. A refresh reads only that data, never the visible page: edits to the page are ignored.',
 	};
 }
 
@@ -1910,6 +1928,11 @@ ${group('Runs code', 'code', [{ key: 'yes', n: s.runs_code.yes, label: 'Runs cod
 
 const block = (title, body, cls = 'block') => `<div class="${cls}"><h4>${esc(title)}</h4>${body}</div>`;
 const p = (s, cls) => `<p${cls ? ` class="${cls}"` : ''}>${esc(s)}</p>`;
+// Free text from the plan as one sentence: its first letter capitalized and exactly one final stop.
+const sentence = (s) => {
+	const t = String(s ?? '').trim().replace(/[.\s]+$/, '');
+	return t ? `${t[0].toUpperCase()}${t.slice(1)}.` : '';
+};
 
 function preHtml(body, isDiff) {
 	const lines = String(body).replace(/\n$/, '').split('\n');
@@ -1937,9 +1960,9 @@ function cardHtml(c, d, anti) {
 		const pr = c.principles.length ? p(`Principles: ${c.principles.join(', ')}`) : '';
 		body.push(block('Why', `${p(`Traces to: ${c.traces_to}`)}<p class="why-link">SHRINE practice: ${link(c.page)}</p>${row}${pr}`));
 		const t = c.tradeoff;
-		body.push(block('Trade-off', `<div class="trade"><div><h5>You gain</h5>${p(t.saves)}</div><div><h5>It costs</h5>${p(t.costs)}</div></div>${p(`Net: ${t.net}${t.flag ? `. It trades ${t.dimensions.join(' against ')}` : ''}.`, 'net')}`));
-		body.push(block('Who it affects', p(`${c.reach.shared ? 'Committed or shared' : 'Local only'}: reaches ${c.reach.reaches}.`)));
-		body.push(block('When it loads', p(`${c.loads.always_loaded ? `Always loaded; it prevents: ${c.loads.miss ?? ''}. ` : ''}${c.loads.expect}`)));
+		body.push(block('Trade-off', `<div class="trade"><div><h5>You gain</h5>${p(t.saves)}</div><div><h5>It costs</h5>${p(t.costs)}</div></div>${p(`Net: ${sentence(t.net)}${t.flag ? ` It trades ${t.dimensions.join(' against ')}.` : ''}`, 'net')}`));
+		body.push(block('Who it affects', p(`${c.reach.shared ? 'Committed or shared' : 'Local only'}. ${sentence(c.reach.reaches)}`)));
+		body.push(block('When it loads', p(`${c.loads.always_loaded ? `Always loaded; it prevents: ${String(c.loads.miss ?? '').replace(/[.\s]+$/, '')}. ` : ''}${sentence(c.loads.expect)}`)));
 		body.push(block('How to check it worked', p(c.verify)));
 		body.push(block('How to undo it', p(c.undo)));
 		const r = c.review;
@@ -2163,7 +2186,7 @@ function reportText(d, full) {
 		out.push(`  Why: ${c.traces_to}; SHRINE page: ${c.page.title}${c.page.url ? ` (${c.page.url})` : ''}${c.row ? `; known problem: ${c.row}` : ''}${c.principles.length ? `; principles: ${c.principles.join(', ')}` : ''}`);
 		out.push(`  Group: ${c.group}`);
 		out.push(`  Trade-off: costs ${c.tradeoff.costs}; saves ${c.tradeoff.saves}; net ${c.tradeoff.net}${c.tradeoff.flag ? `; it trades ${c.tradeoff.dimensions.join(' against ')}` : ''}`);
-		out.push(`  Reaches: ${c.reach.reaches}; check: ${c.verify}; undo: ${c.undo}`);
+		out.push(`  Who it affects: ${c.reach.shared ? 'Committed or shared' : 'Local only'}. ${sentence(c.reach.reaches)}`, `  Check: ${c.verify}; undo: ${c.undo}`);
 		out.push(`  When it loads: ${c.loads.always_loaded ? `always loaded; it prevents: ${c.loads.miss ?? ''}; ` : ''}${c.loads.expect}`);
 		if (c.nudge) out.push(`  Nudge: when ${c.nudge.trigger}; ${c.nudge.advisory ? 'advisory' : 'blocking'}; at most ${c.nudge.rate_limit}; turn it off: ${c.nudge.disable}`);
 		if (c.entry) out.push(`  How you start it: ${c.entry.mechanism}: "${c.entry.invocation}"`);
@@ -2219,7 +2242,19 @@ function readPrevious(plan) {
 	if (text == null) return { error: `previous inspection report not found at ${plan.previous?.path ?? '<plan.previous.path missing>'}: ask the user where they saved it` };
 	const r = parseReportHtml(text);
 	if (r.error) return { error: `previous inspection report ${path}: ${r.error}` };
-	return { path, sha: sha(text), data: r.data };
+	return { path, sha: sha(text), data: r.data, visible: visibleState(text, r.data) };
+}
+
+// Refresh reads only the embedded data. An edit to the visible page is ignored, so say when the
+// visible page no longer matches a re-render of that data. Only this checker version can re-render it.
+function visibleState(text, data) {
+	const v = data.shrine?.checker_version;
+	if (v !== VERSION) return `not compared: written by checker version ${v}, this is version ${VERSION}`;
+	let again = null;
+	try {
+		again = reportHtml(data);
+	} catch {}
+	return again === text ? 'matches' : 'differs';
 }
 
 // Each earlier change now: applied, not applied, or changed since the inspection report. Read-only,
@@ -2247,6 +2282,7 @@ function refreshCompare(plan, man) {
 	const moved = d.shrine.commit !== md.commit;
 	const roots = isObj(plan.scope) ? arr(plan.scope.roots).filter(isStr).map((r) => realish(expandHome(r))) : [];
 	return {
+		visible: prev.visible,
 		previous: { path: prev.path, sha256: prev.sha, commit: d.shrine.commit, prompt_version: d.shrine.prompt_version ?? null, started: isStr(d.run?.started) ? d.run.started : null, changes: arr(d.changes).filter((c) => isObj(c) && !c.advice).length },
 		live_commit: md.commit,
 		moved,
@@ -2267,7 +2303,15 @@ function refreshTextLines(r) {
 		`${r.pages_changed.length} pages changed since the previous inspection report${r.pages_changed.length ? `: ${r.pages_changed.map((p) => `"${p.title}"${p.removed ? ' (removed)' : ''}`).join(', ')}` : ''}`,
 		...(r.compare ? [`compare: ${r.compare}`] : []),
 		...r.earlier.map((e) => `change ${e.id} file ${e.n} (${e.target}): ${e.status}`),
+		...visibleLines(r),
 	];
+}
+
+function visibleLines(r) {
+	const lines = ['refresh reads only the data embedded in the previous inspection report, never its visible page: an edit to the visible page changes nothing here'];
+	if (r.visible === 'differs') lines.push(`WARNING: the visible page of ${r.previous.path} differs from a re-render of its embedded data: it was edited outside the data; this refresh ignores those edits`);
+	else if (r.visible) lines.push(`visible page: ${r.visible}`);
+	return lines;
 }
 
 function refreshLines(plan, man) {
@@ -2745,6 +2789,8 @@ function outDir(opts, plan) {
 	return dir;
 }
 
+const REPORT_FILE = 'shrine-report.html';
+
 // A new file, never an existing one; an identical render reuses its file.
 function freePath(dir, slug, ext, text) {
 	const taken = new Set(readdirSync(dir));
@@ -2844,7 +2890,7 @@ async function render(opts) {
 	}
 	if (opts.render === 'refresh') {
 		const r = refreshLines(plan, man);
-		emit('refresh', r.lines, opts, plan, [`REFRESH: ${r.ok ? r.lines[1] : r.lines[0]}`, ...(r.ok ? [r.lines[3]] : [])]);
+		emit('refresh', r.lines, opts, plan, [`REFRESH: ${r.ok ? r.lines[1] : r.lines[0]}`, ...(r.ok ? [r.lines[3], ...r.lines.filter((l) => l.startsWith('refresh reads only') || l.startsWith('WARNING: the visible page'))] : [])]);
 		return r.ok ? 0 : 1;
 	}
 	ctx.verify = verifyReadonly(plan);
@@ -2852,20 +2898,15 @@ async function render(opts) {
 	if (opts.render === 'report') {
 		if (opts.out) {
 			const dir = outDir(opts, plan);
-			let pick = freePath(dir, 'shrine-report', '.html', null);
-			let made = htmlReport(plan, man, ctx, pick.path);
-			// An identical report already written keeps its file.
-			for (let n = 1; ; n++) {
-				const path = join(dir, `shrine-report-${n}.html`);
-				if (path === pick.path) break;
-				const same = htmlReport(plan, man, ctx, path);
-				if (fileSha(path) === sha(same.html)) {
-					pick = { path, fresh: false };
-					made = same;
-					break;
-				}
-			}
-			if (pick.fresh) writeFileSync(pick.path, made.html, { flag: 'wx' });
+			// One current report per run: each render replaces it, so no stale copy is left beside it.
+			// Gates keep a new file per render, since an approval names the render it was given for.
+			const pick = { path: join(dir, REPORT_FILE) };
+			const made = htmlReport(plan, man, ctx, pick.path);
+			const old = readText(pick.path);
+			if (old != null && !old.includes('id="shrine-report-data"')) throw new Error(`${pick.path} exists and is not a SHRINE inspection report: move it, then render again`);
+			const prevPath = plan.previous?.path ? realish(ctx.rp(plan.previous.path) ?? '') : null;
+			if (prevPath && prevPath === realish(pick.path)) throw new Error(`${pick.path} is the previous inspection report this refresh compares against: keep it outside the run's temporary folder`);
+			if (old !== made.html) writeFileSync(pick.path, made.html, { flag: 'w' });
 			const p = reportProblems(made.data, made.html);
 			const inline = plan.delivery === 'inline';
 			console.log([

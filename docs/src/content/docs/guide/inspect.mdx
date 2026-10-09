@@ -26,6 +26,7 @@ import prompt from '../../../prompts/shrine-inspect.md?raw';
 
 - Write to your project or your user settings: no file, setting, commit, branch, stash, or install
 - Use your harness's memory or notes during the run; any automatic persistence is disclosed up front
+- Use any tool whose effects outlast the run, for example scheduling, reminders, feedback reports, todo lists, or background jobs, unless you ask for it
 - Apply a change, even when you ask; you apply it afterwards, in a normal session
 
 Its only writes go to a temporary folder outside your work: its plan, its checklists, and the inspection report. The checker proves it: it compares every inspected file, every git repo's status, and a project folder outside git with a baseline taken at the start, and the run cannot finish while anything differs.
@@ -41,7 +42,7 @@ Its only writes go to a temporary folder outside your work: its plan, its checkl
 | --- | --- | --- |
 | 0 Start | Harness, time box, temporary folder, checker hash, persistence, and the read-only baseline | Time box, run type, and whether to run the checker |
 | 1 Discover | Instruction files and what loads, extension points, shared versus local, anti-pattern scan, session signals | Correct the inventory, then "approve gate 1" |
-| 2 Pin and Interview | SHRINE pinned to one commit, pages hash-checked, up to ten questions in the terms of your kind of work, corrections classified | Confirm the classes and tags, then "approve gate 2" |
+| 2 Pin and Interview | SHRINE pinned to one commit, pages hash-checked, up to ten questions in the terms of your kind of work (always asked, never guessed), corrections classified | Confirm the classes and tags, then "approve gate 2" |
 | 3 Design and Review | Changes designed, checked to apply, and reviewed by independent reviewers | None; you decide when you read the inspection report |
 | 4 Report | The read-only check, the inspection report, and the Final Gate | Read the inspection report |
 
@@ -54,6 +55,8 @@ One HTML file in the temporary folder. It opens in any browser, works offline, a
 
 - It reads and prints with scripts turned off; with scripts on, you can filter changes by the summary counts, switch light or dark, and copy a change
 - It holds its own data, so a refresh reads it back: keep the file
+- A refresh reads only that data, never the visible page: edits to the page change nothing
+- Each render replaces it, so the temporary folder holds one current report
 - If you cannot open files where the agent runs, the agent shows a plain-text summary in chat and tells you where the file is
 
 - **Summary**: counts, top practices, and the Individual Baseline offer
