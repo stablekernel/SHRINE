@@ -24,14 +24,14 @@
 //
 // Exit: 0 PASS (or a render that is PASS or WAITING FOR APPROVAL), 1 any FAIL or a BLOCKED
 // render, 2 usage or input error.
-import { closeSync, constants, fstatSync, lstatSync, openSync, readFileSync, readSync, readdirSync, realpathSync, statSync, writeFileSync } from 'node:fs';
+import { closeSync, constants, fstatSync, lstatSync, openSync, readFileSync, readSync, readdirSync, realpathSync, renameSync, statSync, unlinkSync, writeFileSync } from 'node:fs';
 import { execFileSync } from 'node:child_process';
 import { createHash } from 'node:crypto';
 import { homedir } from 'node:os';
 import { dirname, isAbsolute, join, relative, resolve, sep } from 'node:path';
 import { fileURLToPath } from 'node:url';
 
-const VERSION = 13;
+const VERSION = 14;
 const COVERAGE = ['applied', 'advised', 'not relevant'];
 const RUNS = ['inspect', 'refresh'];
 const MODES = ['interactive', 'report-only'];
@@ -2024,7 +2024,7 @@ function findingsHtml(d) {
 <div class="find-group"><h3>Your interview answers</h3>${qa}</div>`;
 }
 
-function sinceHtml(r, d) {
+function sinceHtml(r) {
 	if (r.error) return `<div class="warn" role="note"><strong>The previous inspection report could not be read.</strong><span>${esc(r.error)}</span></div>`;
 	const pv = r.previous;
 	const intro = `Compared with your inspection report${pv.started ? ` from ${dateText(pv.started)}` : ''} (${pv.path}). ${r.moved ? `SHRINE moved from commit ${pv.commit} to ${r.live_commit}.` : 'SHRINE has not moved.'} Prompt version ${pv.prompt_version} then, ${r.live_prompt_version} now${r.newer_prompt ? ': a newer prompt exists' : ''}.`;
@@ -2096,7 +2096,7 @@ ${d.changes.map((c) => cardHtml(c, d, anti)).join('\n')}
 <div class="section-head"><h2 id="findings-h">Findings</h2><p>What the inspection saw. ${basis('measured')} comes from a tool. ${basis('recalled')} comes from your memory. ${basis('stated')} is an interview answer.</p></div>
 ${findingsHtml(d)}
 </section>
-${d.refresh ? `<section id="since" aria-labelledby="since-h"><div class="section-head"><h2 id="since-h">Since your last inspection report</h2></div>${sinceHtml(d.refresh, d)}</section>` : ''}
+${d.refresh ? `<section id="since" aria-labelledby="since-h"><div class="section-head"><h2 id="since-h">Since your last inspection report</h2></div>${sinceHtml(d.refresh)}</section>` : ''}
 <section id="apply" aria-labelledby="apply-h">
 <div class="section-head"><h2 id="apply-h">How to apply</h2><p>Nothing changes until you choose. Apply none, some, or all.</p></div>
 <ol class="steps">${d.how_to_apply.map((x) => `<li>${esc(x)}</li>`).join('')}</ol>
@@ -2902,11 +2902,30 @@ async function render(opts) {
 			// Gates keep a new file per render, since an approval names the render it was given for.
 			const pick = { path: join(dir, REPORT_FILE) };
 			const made = htmlReport(plan, man, ctx, pick.path);
-			const old = readText(pick.path);
-			if (old != null && !old.includes('id="shrine-report-data"')) throw new Error(`${pick.path} exists and is not a SHRINE inspection report: move it, then render again`);
+			let st = null;
+			try {
+				st = lstatSync(pick.path);
+			} catch (e) {
+				if (e?.code !== 'ENOENT') throw new Error(`${pick.path} cannot be inspected (${e?.code ?? 'error'}): move it, then render again`);
+			}
+			if (st && !st.isFile()) throw new Error(`${pick.path} is not a regular file (a link, folder, or device): move it, then render again`);
+			const realDir = realpathSync(dir);
+			if (st && realpathSync(pick.path) !== join(realDir, REPORT_FILE)) throw new Error(`${pick.path} resolves outside the out folder: move it, then render again`);
+			const old = st ? readText(pick.path) : null;
+			if (old != null && parseReportHtml(old).error) throw new Error(`${pick.path} exists and is not a SHRINE inspection report: move it, then render again`);
 			const prevPath = plan.previous?.path ? realish(ctx.rp(plan.previous.path) ?? '') : null;
 			if (prevPath && prevPath === realish(pick.path)) throw new Error(`${pick.path} is the previous inspection report this refresh compares against: keep it outside the run's temporary folder`);
-			if (old !== made.html) writeFileSync(pick.path, made.html, { flag: 'w' });
+			if (old !== made.html) {
+				// Temp file in the same folder, then rename: a link at the target is replaced, never followed.
+				const tmp = join(realDir, `.${REPORT_FILE}.${process.pid}.tmp`);
+				try {
+					writeFileSync(tmp, made.html, { flag: 'wx' });
+					renameSync(tmp, join(realDir, REPORT_FILE));
+				} catch (e) {
+					try { unlinkSync(tmp); } catch {}
+					throw e;
+				}
+			}
 			const p = reportProblems(made.data, made.html);
 			const inline = plan.delivery === 'inline';
 			console.log([

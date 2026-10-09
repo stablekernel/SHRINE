@@ -120,7 +120,7 @@ function fixture() {
 	writeFileSync(join(out, 'shrine-check.mjs'), CHECKER_SRC);
 	const manifest = {
 		commit: COMMIT,
-		prompt: { version: 21, sha256: sha(PROMPT), url: 'https://stablekernel.github.io/SHRINE/inspect-prompt.md', source: null },
+		prompt: { version: 22, sha256: sha(PROMPT), url: 'https://stablekernel.github.io/SHRINE/inspect-prompt.md', source: null },
 		checker: { url: 'https://stablekernel.github.io/SHRINE/shrine-check.mjs', source: null, sha256: sha(CHECKER_SRC) },
 		pages,
 	};
@@ -286,8 +286,8 @@ test('the checker\'s invariant map equals the prompt\'s Invariant Map', () => {
 	assert.deepEqual(map, rows);
 });
 
-test('prompt version is 21, and the prompt has no em dash', () => {
-	assert.match(PROMPT, /^Prompt version: 21$/m);
+test('prompt version is 22, and the prompt has no em dash', () => {
+	assert.match(PROMPT, /^Prompt version: 22$/m);
 	assert.ok(!PROMPT.includes(EM_DASH));
 });
 
@@ -454,16 +454,17 @@ test('--plan - reads the plan from standard input, for a harness that cannot wri
 	const r = run(['--check', '--plan', '-', '--manifest', fx.manifestPath], JSON.stringify(fx.plan));
 	assert.equal(r.code, 0, r.out);
 	const rep = run(['--render', 'report', '--plan', '-', '--manifest', fx.manifestPath], JSON.stringify(fx.plan));
-	assert.match(rep.out, /^--- shrine-check 13 report \(paste verbatim\) ---$/m);
+	assert.match(rep.out, /^--- shrine-check 14 report \(paste verbatim\) ---$/m);
 	assert.match(rep.out, /^--- end report sha256:[0-9a-f]{64} ---$/m);
 });
 
 test('the checker source writes only render files and runs only read-only git commands', () => {
 	const writes = [...CHECKER_SRC.matchAll(/\b(writeFileSync|appendFileSync|mkdirSync|rmSync|unlinkSync|renameSync|copyFileSync|createWriteStream)\(/g)].map((m) => m[1]);
-	assert.deepEqual([...new Set(writes)], ['writeFileSync']);
-	// Every write is a new file, except the one current inspection report, which a report render replaces.
+	assert.deepEqual([...new Set(writes)], ['writeFileSync', 'renameSync', 'unlinkSync']);
+	// Every write is a new file. The one current report is written to a temp file, then renamed over the target.
 	const overwrites = [...CHECKER_SRC.matchAll(/writeFileSync\([^;]+;/g)].filter((m) => !/flag: 'wx'/.test(m[0])).map((m) => m[0]);
-	assert.deepEqual(overwrites, ["writeFileSync(pick.path, made.html, { flag: 'w' });"]);
+	assert.deepEqual(overwrites, []);
+	assert.deepEqual([...CHECKER_SRC.matchAll(/(?:renameSync|unlinkSync)\([^;]+;/g)].map((m) => m[0]), ['renameSync(tmp, join(realDir, REPORT_FILE));', 'unlinkSync(tmp);']);
 	assert.match(CHECKER_SRC, /const pick = \{ path: join\(dir, REPORT_FILE\) \};/);
 	assert.equal([...CHECKER_SRC.matchAll(/execFileSync\(/g)].length, 1);
 	assert.doesNotMatch(CHECKER_SRC, /(?<![.\w])(spawn|spawnSync|exec|execSync|fork)\(/);
@@ -1416,6 +1417,31 @@ test('report: one current file per run; a re-render replaces it and never a fore
 	assert.notEqual(r.code, 0);
 	assert.match(r.out + r.err, /exists and is not a SHRINE inspection report/);
 	assert.equal(readFileSync(one.file, 'utf8'), '<p>not a report</p>');
+});
+
+test('report: refuses a symlink, a directory, and a file that only mentions the data id', () => {
+	const fx = ready();
+	const target = join(fx.out, 'shrine-report.html');
+	const elsewhere = join(fx.base, 'elsewhere.html');
+	const sentinel = '<p>' + 'x'.repeat(10) + '</p>';
+	writeFileSync(elsewhere, sentinel);
+	symlinkSync(elsewhere, target);
+	let r = reportFile(fx).r;
+	assert.notEqual(r.code, 0);
+	assert.match(r.out + r.err, /not a regular file/);
+	assert.equal(readFileSync(elsewhere, 'utf8'), sentinel, 'the linked file is unchanged');
+	rmSync(target);
+	mkdirSync(target);
+	r = reportFile(fx).r;
+	assert.notEqual(r.code, 0);
+	assert.match(r.out + r.err, /not a regular file/);
+	rmSync(target, { recursive: true });
+	const foreign = 'const marker = \'id="shrine-report-data"\';\n';
+	writeFileSync(target, foreign);
+	r = reportFile(fx).r;
+	assert.notEqual(r.code, 0);
+	assert.match(r.out + r.err, /not a SHRINE inspection report/);
+	assert.equal(readFileSync(target, 'utf8'), foreign, 'the foreign file is unchanged');
 });
 
 test('refresh: reads only the embedded data and warns when the visible page was edited', () => {
