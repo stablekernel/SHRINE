@@ -5,7 +5,7 @@ import { test } from 'node:test';
 import assert from 'node:assert/strict';
 import { spawnSync } from 'node:child_process';
 import { createHash } from 'node:crypto';
-import { cpSync, existsSync, mkdtempSync, mkdirSync, readFileSync, readdirSync, realpathSync, rmSync, writeFileSync } from 'node:fs';
+import { cpSync, existsSync, mkdtempSync, mkdirSync, readFileSync, readdirSync, realpathSync, rmSync, symlinkSync, writeFileSync } from 'node:fs';
 import { tmpdir } from 'node:os';
 import { dirname, join } from 'node:path';
 import { fileURLToPath, pathToFileURL } from 'node:url';
@@ -53,7 +53,7 @@ const PAGES = {
 	'Anti-patterns': { section: 'reference', status: null, body: INDEX, url: 'reference/anti-patterns/' },
 };
 // Items the agent supplies as evidence; every other item is computed by the checker.
-const EVIDENCE = ['0.1', '0.2', '0.3', '0.4', '0.5', '0.6', '1.2', '1.3', '1.4', '1.5', '1.6', '1.7', '1.8', '1.12', '2.2', '2.5', '2.7', '2.8', '2.9', '2.11', '3.3', '4.3'];
+const EVIDENCE = ['0.1', '0.2', '0.3', '0.4', '0.5', '0.6', '0.10', '1.2', '1.3', '1.4', '1.5', '1.6', '1.7', '1.8', '1.12', '2.2', '2.5', '2.7', '2.8', '2.9', '2.11', '3.3', '4.3'];
 
 // Fixture git calls ignore the machine's git config and hooks: a global hook or signing setup can add
 // seconds to every commit, and the tests must not depend on it.
@@ -62,9 +62,9 @@ function git(cwd, ...args) {
 	return spawnSync('git', ['-c', 'user.name=t', '-c', 'user.email=t@t', '-c', 'commit.gpgsign=false', '-c', 'core.hooksPath=/dev/null', ...args], { cwd, encoding: 'utf8', env: GIT_ISOLATED });
 }
 
-function run(args, input) {
-	const r = spawnSync(process.execPath, [CHECKER, ...args], { encoding: 'utf8', input, env: { ...process.env, SHRINE_CHECK_NOW: String(NOW) } });
-	return { code: r.status, out: r.stdout, err: r.stderr };
+function run(args, input, timeout) {
+	const r = spawnSync(process.execPath, [CHECKER, ...args], { encoding: 'utf8', input, timeout, env: { ...process.env, SHRINE_CHECK_NOW: String(NOW) } });
+	return { code: r.status, out: r.stdout, err: r.stderr, signal: r.signal };
 }
 
 // A proposal's design hash, as the checker computes it: every field except its review.
@@ -120,7 +120,7 @@ function fixture() {
 	writeFileSync(join(out, 'shrine-check.mjs'), CHECKER_SRC);
 	const manifest = {
 		commit: COMMIT,
-		prompt: { version: 19, sha256: sha(PROMPT), url: 'https://stablekernel.github.io/SHRINE/inspect-prompt.md', source: null },
+		prompt: { version: 22, sha256: sha(PROMPT), url: 'https://stablekernel.github.io/SHRINE/inspect-prompt.md', source: null },
 		checker: { url: 'https://stablekernel.github.io/SHRINE/shrine-check.mjs', source: null, sha256: sha(CHECKER_SRC) },
 		pages,
 	};
@@ -163,7 +163,7 @@ function planFor(fx, planPages) {
 		scan: [{ row: 'Review and Verification / Done is claimed without running tests', evidence: 'no test step in CLAUDE.md', source: '$ grep -c test CLAUDE.md', outcome: 'proposal B1' }],
 		signals: { consent: 'declined' },
 		corrections: [{ text: 'agent said done without tests', origin: 'recalled', class: 'repeated', tag: 'verification', symptom: 'no test run before done' }],
-		answers: { delegation: 'short tasks', review: 'reads diffs' },
+		answers: { 'kind of work': { answer: 'code: a small web app', source: '(user)' }, delegation: 'short tasks', review: 'reads diffs' },
 		evidence,
 		principles: [
 			{ title: 'North Star: TTV (Tokens to Value)', status: 'applied', proposals: ['B1'], reason: 'fewer review swaps' },
@@ -286,9 +286,22 @@ test('the checker\'s invariant map equals the prompt\'s Invariant Map', () => {
 	assert.deepEqual(map, rows);
 });
 
-test('prompt version is 19, and the prompt has no em dash', () => {
-	assert.match(PROMPT, /^Prompt version: 19$/m);
+test('prompt version is 22, and the prompt has no em dash', () => {
+	assert.match(PROMPT, /^Prompt version: 22$/m);
 	assert.ok(!PROMPT.includes(EM_DASH));
+});
+
+test('prompt: tools with lasting effects are off limits at their point of use', () => {
+	const control = PROMPT.split('## Control Plane Rules')[1].split('**Terms.**')[0];
+	const phase0 = PROMPT.split('## Phase 0: Start')[1].split('Steps:')[0];
+	for (const part of [control, phase0]) {
+		assert.match(part, /use only tools that read, plus writes into the temporary folder/);
+		assert.match(part, /off limits unless the user explicitly asks for it/);
+		assert.match(part, /[Ee]xamples only/);
+		for (const t of ['scheduling', 'reminders', 'feedback or bug reports', 'memory or notes', 'todo lists', 'background jobs', 'settings changes']) assert.ok(part.includes(t), t);
+		assert.match(part, /disclose it at (Gate 0|0\.10)/);
+	}
+	assert.match(PROMPT, /^- 0\.10 Lasting tools: /m);
 });
 
 test('the Final Gate passes on a complete run with a current report', () => {
@@ -441,14 +454,18 @@ test('--plan - reads the plan from standard input, for a harness that cannot wri
 	const r = run(['--check', '--plan', '-', '--manifest', fx.manifestPath], JSON.stringify(fx.plan));
 	assert.equal(r.code, 0, r.out);
 	const rep = run(['--render', 'report', '--plan', '-', '--manifest', fx.manifestPath], JSON.stringify(fx.plan));
-	assert.match(rep.out, /^--- shrine-check 10 report \(paste verbatim\) ---$/m);
+	assert.match(rep.out, /^--- shrine-check 14 report \(paste verbatim\) ---$/m);
 	assert.match(rep.out, /^--- end report sha256:[0-9a-f]{64} ---$/m);
 });
 
 test('the checker source writes only render files and runs only read-only git commands', () => {
 	const writes = [...CHECKER_SRC.matchAll(/\b(writeFileSync|appendFileSync|mkdirSync|rmSync|unlinkSync|renameSync|copyFileSync|createWriteStream)\(/g)].map((m) => m[1]);
-	assert.deepEqual([...new Set(writes)], ['writeFileSync']);
-	for (const m of CHECKER_SRC.matchAll(/writeFileSync\([^;]+;/g)) assert.match(m[0], /flag: 'wx'/);
+	assert.deepEqual([...new Set(writes)], ['writeFileSync', 'renameSync', 'unlinkSync']);
+	// Every write is a new file. The one current report is written to a temp file, then renamed over the target.
+	const overwrites = [...CHECKER_SRC.matchAll(/writeFileSync\([^;]+;/g)].filter((m) => !/flag: 'wx'/.test(m[0])).map((m) => m[0]);
+	assert.deepEqual(overwrites, []);
+	assert.deepEqual([...CHECKER_SRC.matchAll(/(?:renameSync|unlinkSync)\([^;]+;/g)].map((m) => m[0]), ['renameSync(tmp, join(realDir, REPORT_FILE));', 'unlinkSync(tmp);']);
+	assert.match(CHECKER_SRC, /const pick = \{ path: join\(dir, REPORT_FILE\) \};/);
 	assert.equal([...CHECKER_SRC.matchAll(/execFileSync\(/g)].length, 1);
 	assert.doesNotMatch(CHECKER_SRC, /(?<![.\w])(spawn|spawnSync|exec|execSync|fork)\(/);
 	const subs = [...CHECKER_SRC.matchAll(/(?:runGit\([^,]+, \[|'--no-optional-locks', )'([a-z-]+)'/g)].map((m) => m[1]);
@@ -478,7 +495,9 @@ test('changes: a hunk at another line applies, and the inspection report carries
 	save(fx);
 	assert.match(check(fx).out, /PASS changes/);
 	const rep = reportFile(fx);
-	assert.match(readFileSync(rep.file, 'utf8'), /^@@ -1,3 \+1,5 @@$/m);
+	const b1 = embedded(readFileSync(rep.file, 'utf8')).changes.find((c) => c.id === 'B1');
+	assert.match(b1.files[0].body, /^@@ -1,3 \+1,5 @@$/m);
+	assert.match(readFileSync(rep.file, 'utf8'), /<span class="hunk">@@ -1,3 \+1,5 @@\n<\/span>/);
 });
 
 test('changes: header counts, two files in one diff, and <redacted> context fail with the rule named', () => {
@@ -717,38 +736,186 @@ test('file delivery: the next gate blocks until the previous gate\'s render is r
 
 // ---------- the inspection report ----------
 
-test('report: one markdown file outside the repo with every section, changes grouped and ordered by value', () => {
+// The report's embedded data, and its static text with tags removed (what a reader sees with scripts off).
+const DATA_BLOCK = /<script type="application\/json" id="shrine-report-data">([\s\S]*?)<\/script>/;
+const embedded = (html) => JSON.parse(DATA_BLOCK.exec(html)[1]);
+const unescape = (s) => s.replace(/&lt;/g, '<').replace(/&gt;/g, '>').replace(/&quot;/g, '"').replace(/&#39;/g, "'").replace(/&amp;/g, '&');
+const staticText = (html) => unescape(html.replace(/<script[\s\S]*?<\/script>/g, '').replace(/<style[\s\S]*?<\/style>/g, '').replace(/<[^>]+>/g, ' ')).replace(/\s+/g, ' ');
+const b64sha = (s) => createHash('sha256').update(s).digest('base64');
+
+test('report: one self-contained HTML file outside the repo with every section, ordered by value', () => {
 	const fx = ready();
 	const rep = reportFile(fx);
 	assert.equal(rep.r.code, 0, rep.r.out);
 	assert.match(rep.r.out, /^REPORT: complete; 3 changes; read-only check PASS$/m);
-	assert.ok(rep.file.startsWith(fx.out));
-	const text = readFileSync(rep.file, 'utf8');
-	const heads = [...text.matchAll(/^## (.+)$/gm)].map((m) => m[1]);
-	assert.deepEqual(heads, ['Summary', 'Principle Coverage', 'Findings', 'Changes', 'How to Apply', 'How to Refresh', 'Report Data']);
-	assert.match(text, /This run changed nothing\. Read-only check: PASS/);
-	assert.match(text, /^\| \[Deliberate Currency\]\(https:\/\/stablekernel\.github\.io\/SHRINE\/principles\/deliberate-currency\/\) \| applied \| S1, S2 \|/m);
-	assert.ok(text.indexOf('#### Change S1') < text.indexOf('#### Change S2'), 'medium before low');
-	assert.ok(text.indexOf('### Verification') < text.indexOf('### SHRINE upkeep'), 'the group with a high-value patch first');
-	assert.match(text, /> \*\*Runs code\.\*\* This change runs code with your account's full permissions/);
-	for (const f of ['SHRINE page: \\[Verification Loops\\]', 'Anti-pattern row: Done is claimed', 'Trade-off:', 'Blast radius: committed or shared; reaches everyone', 'Loads: always loaded; prevents', 'Verify after applying:', 'Undo: reverse the diff'])
-		assert.match(text, new RegExp(f));
-	assert.ok(text.includes(`apply change B1 from ${rep.file}`));
-	assert.match(text, /^- What it does: Adds one line to the project rules/m);
-	assert.match(text, /^- By hand, a diff: open the file and make the edit it shows/m);
-	assert.match(text, /^```diff$/m);
-	const data = JSON.parse(/```json\n([\s\S]*?)\n```/.exec(text)[1]);
-	assert.equal(data.commit, COMMIT);
-	assert.deepEqual(data.patches.map((p) => p.id), ['B1', 'S1', 'S2']);
+	assert.match(rep.r.out, /opens in any browser/);
+	assert.ok(rep.file.startsWith(fx.out) && rep.file.endsWith('.html'), rep.file);
+	const html = readFileSync(rep.file, 'utf8');
+	assert.equal(sha(html), rep.sha256);
+	assert.match(html, /^<!doctype html>\n<html lang="en">/);
+	assert.match(html, /<title>Your SHRINE inspection report<\/title>/);
+	const heads = [...html.matchAll(/<h2 id="([a-z]+)-h">([^<]+)<\/h2>/g)].map((m) => m[2]);
+	assert.deepEqual(heads, ['Summary', 'Changes worth making', 'Principle coverage', 'Findings', 'How to apply', 'How to refresh']);
+	assert.match(html, /<strong>This inspection changed nothing\.<\/strong>/);
+	assert.match(html, /<a href="https:\/\/stablekernel\.github\.io\/SHRINE\/principles\/deliberate-currency\/" rel="noopener noreferrer" target="_blank">Deliberate Currency<\/a><\/span><span class="status s-applied">/);
+	const order = [...html.matchAll(/<details class="card[^"]*" id="change-([A-Z]\d+)"/g)].map((m) => m[1]);
+	assert.deepEqual(order, ['B1', 'S1', 'S2'], 'high, then medium, then low');
+	assert.match(html, /This change runs code with your account's full permissions\./);
+	for (const t of ['SHRINE practice: ', 'Known problem: Done is claimed', 'You gain', 'It costs', 'Committed or shared. Everyone who uses this repo.', 'Always loaded; it prevents', 'How to check it worked', 'reverse the diff'])
+		assert.ok(html.includes(t), t);
+	assert.ok(html.includes(`<code>apply change B1 from ${rep.file}</code>`));
+	assert.match(html, /By hand, a diff: open the file and make the edit it shows/);
+	const data = embedded(html);
+	assert.equal(data.kind, 'shrine-inspect-report');
+	assert.equal(data.schema, 1);
+	assert.equal(data.shrine.commit, COMMIT);
+	assert.deepEqual(data.changes.map((c) => c.id), ['B1', 'S1', 'S2']);
+	assert.match(html, new RegExp(`<meta name="shrine-report-data-sha256" content="${sha(DATA_BLOCK.exec(html)[1])}">`));
+});
+
+test('report: the summary counts are the filters, and every card starts open, with scripts on or off', () => {
+	const fx = ready();
+	const html = readFileSync(reportFile(fx).file, 'utf8');
+	const picks = [...html.matchAll(/<button type="button" class="pick" data-filter="(\w+)" data-key="([\w-]+)" disabled><span class="n">(\d+)<\/span>/g)].map((m) => `${m[1]}:${m[2]}=${m[3]}`);
+	assert.deepEqual(picks, ['value:high=1', 'value:medium=1', 'value:low=1', 'reach:only-you=2', 'reach:shared=1', 'code:yes=1', 'code:no=2']);
+	assert.doesNotMatch(html, /class="chip"/, 'no separate chip row');
+	const cards = [...html.matchAll(/<details class="card[^"]*" id="change-[^"]+"( open)?>/g)];
+	assert.equal(cards.length, 3);
+	assert.ok(cards.every((m) => m[1] === ' open'));
+	assert.equal((html.match(/<details /g) || []).length, cards.length, 'every details is a card, and every card is open');
+	assert.doesNotMatch(html, /if \(i > 0\) c\.open = false/, 'the script does not collapse cards on load');
+	assert.match(html, /<li data-value="low" data-reach="only-you" data-code="yes">/);
+});
+
+test('report: the page reads with scripts off: every section and every change is in the static HTML', () => {
+	const fx = ready();
+	const html = readFileSync(reportFile(fx).file, 'utf8');
+	const text = staticText(html);
+	const data = embedded(html);
+	for (const c of data.changes) {
+		for (const s of [c.title, c.plain, c.traces_to, c.verify, c.undo, c.ask]) assert.ok(text.includes(s.replace(/\s+/g, ' ')), `${c.id}: ${s}`);
+		for (const f of c.files) for (const l of f.body.split('\n').filter((x) => x.trim())) assert.ok(text.includes(l.trim().replace(/\s+/g, ' ')), `${c.id} file line: ${l}`);
+	}
+	for (const p of data.principles) assert.ok(text.includes(p.reason), p.reason);
+	for (const s of [...data.how_to_apply, ...data.how_to_refresh, data.findings.scan[0].evidence, 'tester', 'delegation', 'short tasks']) assert.ok(text.includes(s), s);
+	// The only hidden parts are controls a script adds or reveals.
+	const hidden = [...html.matchAll(/<(\w+)[^>]*\shidden(?=[\s>])[^>]*>/g)].map((m) => m[0]);
+	assert.deepEqual(hidden.map((x) => /id="(\w+)"/.exec(x)[1]), ['theme', 'empty']);
+});
+
+test('report: no external request: links are https SHRINE pages or in-page anchors; a foreign URL stays text', () => {
+	const fx = ready();
+	const man = JSON.parse(readFileSync(fx.manifestPath, 'utf8'));
+	man.pages.find((p) => p.title === 'Verification Loops').url = 'https://evil.example/track?x=1';
+	writeFileSync(fx.manifestPath, JSON.stringify(man));
+	const html = readFileSync(reportFile(fx).file, 'utf8');
+	const urls = [...html.matchAll(/\s(?:href|src|action|srcset|poster|data)\s*=\s*"([^"]*)"/gi)].map((m) => m[1]);
+	assert.ok(urls.length > 5);
+	for (const u of urls) assert.ok(u.startsWith('#') || u.startsWith('https://stablekernel.github.io/SHRINE/'), u);
+	assert.doesNotMatch(html, /\ssrc\s*=/i);
+	assert.doesNotMatch(html, /url\(|@import|evil\.example\/track/);
+	assert.match(html, /SHRINE practice: Verification Loops</);
+	const csp = /<meta http-equiv="Content-Security-Policy" content="([^"]+)">/.exec(html)[1];
+	const style = /<style>([\s\S]*?)<\/style>/.exec(html)[1];
+	const script = /<script>([\s\S]*?)<\/script>/.exec(html)[1];
+	assert.equal(csp, `default-src 'none'; style-src 'sha256-${b64sha(style)}'; script-src 'sha256-${b64sha(script)}'; base-uri 'none'; form-action 'none'`);
+});
+
+const XSS = ['<script>alert(1)</script>', '<img src=x onerror=alert(2)>', '" onmouseover="alert(3)" x="', "' onfocus='alert(4)", '</script><script>alert(5)</script>', '<!-- open comment', '<svg onload=alert(6)>', 'javascript:alert(7)'];
+const xss = (tag) => `${tag} ${XSS.join(' ')}`;
+
+test('report: script tags, event handlers, </script>, and <!-- in every user-controlled field render inert', () => {
+	const fx = ready();
+	const P = fx.plan;
+	Object.assign(P, { user: xss('user'), answered_by: xss('answered_by'), answers: { [xss('topic')]: xss('answer') }, harness: { name: xss('harness'), version: xss('version') } });
+	P.scope.choice = xss('scope');
+	P.report = { summary: xss('summary'), top_practices: [{ practice: xss('practice'), page: 'Verification Loops' }], advice: [{ title: xss('advice title'), plain: xss('advice plain'), page: xss('advice page'), value: 'low' }] };
+	P.baseline.offer = xss('offer');
+	P.scan[0] = { ...P.scan[0], row: xss('row'), evidence: xss('evidence'), source: `$ ${xss('source')}`, outcome: 'advice' };
+	P.corrections[0] = { ...P.corrections[0], text: xss('correction'), tag: xss('tag'), symptom: xss('symptom') };
+	P.signals = { consent: xss('consent'), read: { path: xss('read path'), filter: xss('filter') }, metrics: [{ name: xss('metric'), value: xss('value'), window: xss('window'), source: `$ ${xss('metric source')}` }] };
+	for (const pr of P.principles) pr.reason = xss('reason');
+	const b1 = P.proposals[0];
+	Object.assign(b1, { title: xss('title'), plain: xss('plain'), answer: xss('answer'), group: xss('group'), model: xss('model'), row: xss('b1 row') });
+	b1.blast.reaches = xss('Reaches');
+	b1.load = { ...b1.load, miss: xss('miss'), expect: xss('expect'), verify: xss('verify') };
+	b1.tradeoff = { ...b1.tradeoff, costs: xss('costs'), saves: xss('saves'), net: xss('net') };
+	b1.changes[0].diff = `${B1_DIFF}+${xss('diff line')}\n`.replace('@@ -1,3 +1,5 @@', '@@ -1,3 +1,6 @@');
+	const s2 = P.proposals[2];
+	s2.undo = xss('undo');
+	s2.runtime_writes = [xss('runtime write')];
+	reviewed(b1, 2);
+	reviewed(s2, 2, { undo: true });
+	const html = readFileSync(reportFile(fx).file, 'utf8');
+	assert.equal([...html.matchAll(/<script\b/gi)].length, 2, 'only the data block and the page script');
+	assert.equal([...html.matchAll(/<\/script/gi)].length, 2);
+	assert.doesNotMatch(html, /<!--/);
+	assert.doesNotMatch(html, /<(img|iframe|object|embed|link|base|form|meta http-equiv="refresh")\b/i);
+	assert.doesNotMatch(html.replace(/<style>[\s\S]*?<\/style>/, ''), /<svg[^>]*\sonload/i);
+	// No tag carries an event handler attribute, and no attribute value breaks out of its quotes.
+	for (const tag of html.replace(DATA_BLOCK, '').matchAll(/<[a-zA-Z][^>]*>/g)) {
+		assert.doesNotMatch(tag[0], /\son[a-z]+\s*=/i, tag[0]);
+		assert.doesNotMatch(tag[0], /alert\(/, tag[0]);
+	}
+	const block = DATA_BLOCK.exec(html)[1];
+	assert.doesNotMatch(block, /[<>]/, 'the data block holds no angle bracket');
+	const data = JSON.parse(block);
+	assert.equal(data.run.user, P.user, 'the payload round-trips exactly');
+	assert.equal(data.changes.find((c) => c.id === 'B1').files[0].body.includes(xss('diff line')), true);
+	const seen = staticText(html);
+	for (const t of ['user', 'harness', 'topic', 'answer', 'scope', 'summary', 'practice', 'advice title', 'offer', 'evidence', 'correction', 'metric', 'reason', 'title', 'plain', 'Reaches', 'verify', 'costs', 'undo', 'runtime write', 'diff line'])
+		assert.ok(seen.includes(xss(t).replace(/\s+/g, ' ')), `${t} shown as text`);
 });
 
 test('report: each diff in the inspection report applies with git apply --check from the folder it names', () => {
 	const fx = ready();
-	const text = readFileSync(reportFile(fx).file, 'utf8');
-	const m = /`(\/[^`]+)`, a diff to apply from `([^`]+)`:\n\n<!-- shrine-change B1 1 -->\n(`{3,})diff\n([\s\S]*?)\n\3\n/.exec(text);
-	assert.ok(m, 'B1 diff block');
-	const r = spawnSync('git', ['apply', '--check', '-'], { cwd: m[2], input: `${m[4]}\n`, encoding: 'utf8' });
+	const b1 = embedded(readFileSync(reportFile(fx).file, 'utf8')).changes.find((c) => c.id === 'B1');
+	const f = b1.files[0];
+	assert.equal(f.kind, 'diff');
+	const r = spawnSync('git', ['apply', '--check', '-'], { cwd: f.root, input: f.body, encoding: 'utf8' });
 	assert.equal(r.status, 0, r.stderr);
+});
+
+test('report: the same plan renders byte-identical files', () => {
+	const fx = ready();
+	const one = reportFile(fx);
+	const first = readFileSync(one.file);
+	rmSync(one.file);
+	const two = reportFile(fx);
+	assert.equal(two.file, one.file);
+	assert.ok(first.equals(readFileSync(two.file)), 'byte-identical');
+	assert.doesNotMatch(first.toString(), /Math\.random|Date\.now|new Date\(\)/);
+	const again = reportFile(fx);
+	assert.equal(again.file, one.file, 'an identical report keeps its file');
+});
+
+test('report: advice says "Nothing to apply" and has no request to copy', () => {
+	const fx = ready();
+	fx.plan.report.advice = [{ title: 'Review long drafts in two passes', plain: 'Read the outline first, then the details.', page: 'Verification Loops', value: 'high', shared: true }];
+	const html = readFileSync(reportFile(fx).file, 'utf8');
+	const card = /<details class="card advice" id="change-A1" open>[\s\S]*?<\/details>/.exec(html)[0];
+	assert.match(card, /Advice only/);
+	assert.match(card, /Nothing to apply\./);
+	assert.doesNotMatch(card, /class="ask"|id="file-/);
+	const a1 = embedded(html).changes[0];
+	assert.equal(a1.id, 'A1');
+	assert.equal(a1.ask, undefined);
+	fx.plan.report.advice = [{ title: 'x' }];
+	save(fx);
+	assert.match(check(fx).out, /plan\.report\.advice entries need title, plain, page, and value/);
+});
+
+test('report: inline delivery with a report file shows a plain-text summary and where the file is', () => {
+	const fx = ready();
+	fx.plan.delivery = 'inline';
+	fx.plan.delivery_reason = 'the user cannot open files here';
+	save(fx);
+	const r = run(['--render', 'report', '--plan', fx.planPath, '--manifest', fx.manifestPath, '--out', fx.out]);
+	assert.equal(r.code, 0, r.out);
+	const file = /^report file: (.+)$/m.exec(r.out)[1];
+	assert.match(r.out, /^Inline delivery: show the user this plain-text summary, and tell them where the file is\.$/m);
+	assert.ok(r.out.includes(`Report file: ${file} (one HTML file; it opens in any browser)`));
+	assert.match(r.out, /^- B1 \(high value\): Run tests before done\./m);
 });
 
 test('report: a plan edit after the inspection report blocks 4.2 until it is rendered again; unfilled lines block', () => {
@@ -763,7 +930,50 @@ test('report: a plan edit after the inspection report blocks 4.2 until it is ren
 	save(fx);
 	const r = run(['--render', 'report', '--plan', fx.planPath, '--manifest', fx.manifestPath, '--out', fx.out]);
 	assert.equal(r.code, 1);
-	assert.match(r.out, /report line not filled: - Top practices: <missing/);
+	assert.match(r.out, /report line not filled: summary\.top_practices\[0\]\.text: <missing: plan\.report\.top_practices>/);
+});
+
+test('report: the full plain text carries every per-change field the HTML shows', () => {
+	const fx = ready();
+	fx.plan.proposals[0].nudge = { row: 'Review and Verification / Done is claimed without running tests', trigger: 'you claim done without tests', advisory: true, rate_limit: 'once a session', disable: 'delete the hook' };
+	fx.plan.proposals[0].principles = ['Fail Fast, Recover Smart'];
+	save(fx);
+	const text = run(['--render', 'report', '--plan', fx.planPath, '--manifest', fx.manifestPath]).out;
+	const file = reportFile(fx).file;
+	const html = readFileSync(file, 'utf8');
+	const shown = html.replace(/<(script|style|head)\b[\s\S]*?<\/\1>/g, '').replace(/<[^>]+>/g, '').replace(/&lt;/g, '<').replace(/&gt;/g, '>').replace(/&quot;/g, '"').replace(/&#39;/g, "'").replace(/&amp;/g, '&');
+	const data = embedded(html);
+	assert.ok(data.changes.some((c) => c.nudge) && data.changes.some((c) => c.entry), 'the fixture has a nudge and an entry');
+	const leaves = (o, path, out) => {
+		if (typeof o === 'string') out.push([path, o]);
+		else if (Array.isArray(o)) o.forEach((v, i) => leaves(v, `${path}[${i}]`, out));
+		else if (o && typeof o === 'object') for (const [k, v] of Object.entries(o)) leaves(v, `${path}.${k}`, out);
+		return out;
+	};
+	let n = 0;
+	for (const c of data.changes)
+		for (const [path, s] of leaves(c, c.id, [])) {
+			// The plain text has no report file, so a line that names the HTML file differs by design.
+			if (!s || !shown.includes(s) || s.includes(file)) continue;
+			n++;
+			// The plain text indents a file's exact contents by four spaces.
+			const indented = s.replace(/\n$/, '').split('\n').map((l) => `    ${l}`).join('\n');
+			assert.ok(text.includes(s) || text.includes(indented), `${path} is in the HTML but not in the plain text: ${s}`);
+		}
+	assert.ok(n > 30, `checked ${n} fields`);
+	for (const label of ['When it loads', 'Nudge', 'How you start it']) assert.match(text, new RegExp(`^  ${label}: `, 'm'));
+});
+
+test('report: inline delivery with no file fails 4.2 on an unfilled line even when the hash matches', () => {
+	const fx = ready();
+	fx.plan.report = {};
+	save(fx);
+	const r = run(['--render', 'report', '--plan', fx.planPath, '--manifest', fx.manifestPath]);
+	fx.plan.report_sha256 = /^--- end report sha256:([0-9a-f]{64}) ---$/m.exec(r.out)[1];
+	save(fx);
+	const f = run(['--render', 'final', '--plan', fx.planPath, '--manifest', fx.manifestPath]);
+	assert.match(item(f.out, '4.2'), /^\[ \] 4\.2 /);
+	assert.match(f.out, /report line not filled: summary\.top_practices\[0\]\.text/);
 });
 
 test('report-only: user items render [-], changes are unconfirmed, and the offer goes in the inspection report', () => {
@@ -780,7 +990,7 @@ test('report-only: user items render [-], changes are unconfirmed, and the offer
 	assert.match(item(gate(fx, 2).out, '2.12'), /^\[x\] 2\.12 .*report-only: cloud task/);
 	const rep = run(['--render', 'report', '--plan', fx.planPath, '--manifest', fx.manifestPath]);
 	assert.match(rep.out, /mode: report-only \(no user answers: every change is unconfirmed\)/);
-	assert.match(rep.out, /Individual Baseline: start it so the next refresh compares/);
+	assert.match(rep.out, /Individual Baseline: start it, so the next refresh compares/);
 });
 
 // ---------- refresh ----------
@@ -796,6 +1006,7 @@ test('refresh: compares with the previous inspection report: SHRINE moved, pages
 	writeFileSync(fx2.manifestPath, JSON.stringify(man));
 	fx2.plan.run = 'refresh';
 	fx2.plan.previous = { path: prev, source: '(user)' };
+	fx2.plan.scope.roots.push(fx.proj);
 	save(fx2);
 	const r = run(['--render', 'refresh', '--plan', fx2.planPath, '--manifest', fx2.manifestPath]);
 	assert.equal(r.code, 0, r.out + r.err);
@@ -807,6 +1018,93 @@ test('refresh: compares with the previous inspection report: SHRINE moved, pages
 	fx2.plan.previous.path = join(fx2.out, 'nope.md');
 	save(fx2);
 	assert.match(item(gate(fx2, 1).out, '1.11'), /^\[ \] 1\.11 .*ask the user where they saved it/);
+});
+
+test('refresh: an edited, foreign, Markdown, or other-schema report is refused with the reason', () => {
+	const fx = ready();
+	const prev = reportFile(fx).file;
+	const html = readFileSync(prev, 'utf8');
+	const block = DATA_BLOCK.exec(html)[1];
+	const fx2 = fixture();
+	fx2.plan.run = 'refresh';
+	const tryFile = (name, text) => {
+		const p = join(fx2.base, name);
+		writeFileSync(p, text);
+		fx2.plan.previous = { path: p, source: '(user)' };
+		save(fx2);
+		return item(gate(fx2, 1).out, '1.11');
+	};
+	const tampered = html.replace(block, block.replace(COMMIT, 'f'.repeat(40)));
+	assert.match(tryFile('tampered.html', tampered), /^\[ \] 1\.11 .*the file changed after SHRINE wrote it\. The hash catches accidental edits and damage; it is not tamper-proofing: anyone can recompute it/);
+	assert.match(tryFile('foreign.html', '<!doctype html><title>Report</title><p>hello</p>'), /^\[ \] 1\.11 .*not a SHRINE inspection report: it has no SHRINE report data/);
+	assert.match(tryFile('old.md', '# Your SHRINE inspection report\n\n## Report Data\n\n```json\n{}\n```\n'), /^\[ \] 1\.11 .*a Markdown inspection report from an earlier SHRINE version/);
+	const other = block.replace('"schema": 1', '"schema": 9');
+	const reHashed = html.replace(block, other).replace(/(<meta name="shrine-report-data-sha256" content=")[0-9a-f]{64}/, `$1${sha(other)}`);
+	assert.match(tryFile('schema.html', reHashed), /^\[ \] 1\.11 .*schema 9; this checker reads schema 1/);
+	const foreignKind = block.replace('"kind": "shrine-inspect-report"', '"kind": "something-else"');
+	assert.match(tryFile('kind.html', html.replace(block, foreignKind).replace(/(<meta name="shrine-report-data-sha256" content=")[0-9a-f]{64}/, `$1${sha(foreignKind)}`)), /^\[ \] 1\.11 .*is not a SHRINE inspection report/);
+	const twice = html.replace('</body>', `<script type="application/json" id="shrine-report-data">${block}</script></body>`);
+	assert.match(tryFile('twice.html', twice), /^\[ \] 1\.11 .*more than one report data block/);
+	assert.match(tryFile('ok.html', html), /^\[x\] 1\.11 /);
+});
+
+// A previous report is untrusted input: rewrite its data and re-record the hash, as anyone can.
+function rewriteReport(html, mutate) {
+	const data = embedded(html);
+	mutate(data);
+	const json = JSON.stringify(data, null, 1).replace(/[<>&]/g, (c) => `\\u${c.charCodeAt(0).toString(16).padStart(4, '0')}`);
+	return html.replace(DATA_BLOCK, () => `<script type="application/json" id="shrine-report-data">${json}</script>`).replace(/(<meta name="shrine-report-data-sha256" content=")[0-9a-f]{64}/, `$1${sha(json)}`);
+}
+
+test('refresh: reads earlier targets only as bounded regular files inside the current scope', () => {
+	const fx = ready();
+	const html = readFileSync(reportFile(fx).file, 'utf8');
+	const fx2 = fixture();
+	const secret = join(fx2.base, 'secret.txt');
+	writeFileSync(secret, 'guess\n');
+	symlinkSync(secret, join(fx2.proj, 'link.txt'));
+	writeFileSync(join(fx2.proj, 'big.txt'), Buffer.alloc(5 * 1024 * 1024 + 1, 120));
+	assert.equal(spawnSync('mkfifo', [join(fx2.proj, 'pipe')]).status, 0);
+	const targets = [secret, join(fx2.proj, 'link.txt'), join(fx2.proj, 'big.txt'), join(fx2.proj, 'pipe'), '/dev/zero', join(fx2.proj, 'CLAUDE.md')];
+	const prev = join(fx2.base, 'prev.html');
+	writeFileSync(prev, rewriteReport(html, (d) => {
+		d.changes.find((c) => c.id === 'B1').files = targets.map((target, i) => ({ n: i + 1, target, root: fx2.proj, kind: 'new', body: i === 5 ? CLAUDE_MD : 'guess\n', problems: [] }));
+	}));
+	fx2.plan.run = 'refresh';
+	fx2.plan.previous = { path: prev, source: '(user)' };
+	fx2.plan.scope.roots.push('/dev');
+	save(fx2);
+	const r = run(['--render', 'refresh', '--plan', fx2.planPath, '--manifest', fx2.manifestPath], undefined, 20000);
+	assert.equal(r.signal, null, 'the checker hung on a device or FIFO');
+	assert.equal(r.code, 0, r.out + r.err);
+	const line = (n) => r.out.split('\n').find((l) => l.includes(`change B1 file ${n} `)) ?? '';
+	assert.match(line(1), /: not checked \(outside scope\)$/, 'an out-of-scope target is not read');
+	assert.match(line(2), /: not checked \(outside scope\)$/, 'a symlink out of scope is not followed');
+	assert.match(line(3), /: not checked \(larger than 5242880 bytes\)$/, 'an oversize file is skipped');
+	assert.match(line(4), /: not checked \(not a regular file\)$/, 'a FIFO is not read');
+	assert.match(line(5), /: not checked \(not a regular file\)$/, 'a device is not read');
+	assert.match(line(6), /: applied$/, 'a regular file in scope is read');
+	fx2.plan.previous.path = '/dev/zero';
+	save(fx2);
+	const z = run(['--render', 'gate', '--gate', '1', '--plan', fx2.planPath, '--manifest', fx2.manifestPath], undefined, 20000);
+	assert.equal(z.signal, null, 'the checker hung reading the previous report');
+	assert.match(item(z.out, '1.11'), /^\[ \] 1\.11 .*not a regular file/);
+});
+
+test('refresh: the new report carries the comparison as a Since section', () => {
+	const fx = ready();
+	const prev = reportFile(fx).file;
+	const fx2 = fixture();
+	baseline(fx2);
+	fx2.plan.run = 'refresh';
+	fx2.plan.previous = { path: prev, source: '(user)' };
+	fx2.plan.scope.roots.push(fx.proj);
+	const html = readFileSync(reportFile(fx2).file, 'utf8');
+	assert.match(html, /<h2 id="since-h">Since your last inspection report<\/h2>/);
+	assert.match(html, /<a href="#since">/);
+	assert.match(html, /SHRINE has not moved\./);
+	assert.match(html, /<span class="state st-not-applied">not applied<\/span><span><strong>B1: Run tests before done<\/strong>/);
+	assert.equal(embedded(html).refresh.earlier.length, 3);
 });
 
 // ---------- review findings: escalation, reviewers, read-only edges ----------
@@ -969,8 +1267,8 @@ test('no git: diffs are still checked to apply, and the inspection report explai
 	const fx = noGit();
 	assert.match(check(fx).out, /^PASS changes:/m);
 	const text = readFileSync(reportFile(fx).file, 'utf8');
-	assert.match(text, /^- To apply: ask your assistant, "apply change B1 from /m);
-	assert.match(text, /Lines that start with `\+` are added/);
+	assert.match(text, /<code>apply change B1 from \//);
+	assert.match(text, /Lines that start with \+ are added/);
 });
 
 test('no git: the walk has no depth limit, so a real file deep in a docs folder is caught', () => {
@@ -1056,4 +1354,114 @@ test('every change needs a plain-language description', () => {
 	const r = check(fx);
 	assert.equal(r.code, 1);
 	assert.match(r.out, /B1\.plain required: what the change does/);
+});
+
+// ---------- real-run fixes ----------
+
+test('gate 2: kind of work is always asked: missing, inferred, or a bare string blocks 2.9', () => {
+	const fx = ready();
+	const ok = gate(fx, 2).out;
+	assert.match(item(ok, '2.9'), /^\[x\] 2\.9 /);
+	assert.match(ok, /kind of work: "code: a small web app"  \(user\)/);
+	const blocked = (value) => {
+		if (value === undefined) delete fx.plan.answers['kind of work'];
+		else fx.plan.answers['kind of work'] = value;
+		save(fx);
+		const out = gate(fx, 2).out;
+		assert.match(out, /^GATE 2 of 3: .*: BLOCKED/m);
+		return item(out, '2.9');
+	};
+	assert.match(blocked(undefined), /^\[ \] 2\.9 /);
+	assert.match(gate(fx, 2).out, /plan\.answers has no "kind of work": always ask it, never infer it/);
+	assert.match(blocked({ answer: 'Go service', source: 'inferred' }), /^\[ \] 2\.9 /);
+	assert.match(gate(fx, 2).out, /never from discovery or inference: ask it/);
+	assert.match(blocked({ answer: 'Go service', source: '(discovery)' }), /^\[ \] 2\.9 /);
+	assert.match(blocked('code'), /^\[ \] 2\.9 /);
+	delete fx.plan.answers['kind of work'];
+	fx.plan.answers.kind_of_work = { answer: 'operations runbooks', source: '(user)' };
+	save(fx);
+	assert.match(item(gate(fx, 2).out, '2.9'), /^\[x\] 2\.9 /);
+	const html = readFileSync(reportFile(fx).file, 'utf8');
+	assert.ok(embedded(html).findings.interview.some((a) => a.topic === 'kind_of_work' && a.answer === 'operations runbooks'));
+});
+
+test('report: "Who it affects" and other free text read as clean sentences', () => {
+	const fx = ready();
+	const b1 = fx.plan.proposals.find((x) => x.id === 'B1');
+	b1.blast = { committed: false, reaches: 'Not committed: .claude/ is gitignored. Reaches only this user, in this checkout.' };
+	b1.tradeoff.net = 'positive for this user.';
+	b1.load.expect = 'every session in this project.';
+	save(fx);
+	const html = readFileSync(reportFile(fx).file, 'utf8');
+	const card = /<details class="card[^"]*" id="change-B1"[\s\S]*?<\/details>/.exec(html)[0];
+	assert.ok(card.includes('Local only. Not committed: .claude/ is gitignored. Reaches only this user, in this checkout.</p>'), card);
+	assert.doesNotMatch(card, /reaches Not/);
+	const text = card.replace(/<[^>]+>/g, ' ');
+	assert.doesNotMatch(text, /\w\.\./, 'no double stop');
+	const plain = run(['--render', 'report', '--plan', fx.planPath, '--manifest', fx.manifestPath]).out;
+	assert.match(plain, /^ {2}Who it affects: Local only\. Not committed: \.claude\/ is gitignored\. Reaches only this user, in this checkout\.$/m);
+});
+
+test('report: one current file per run; a re-render replaces it and never a foreign file', () => {
+	const fx = ready();
+	const one = reportFile(fx);
+	assert.equal(one.file, join(fx.out, 'shrine-report.html'));
+	fx.plan.answers.review = 'reads every diff';
+	const two = reportFile(fx);
+	assert.equal(two.file, one.file);
+	assert.notEqual(two.sha256, one.sha256);
+	assert.equal(readdirSync(fx.out).filter((f) => f.startsWith('shrine-report')).length, 1, 'no stale report beside the current one');
+	assert.ok(readFileSync(two.file, 'utf8').includes('reads every diff'));
+	writeFileSync(one.file, '<p>not a report</p>');
+	const r = reportFile(fx).r;
+	assert.notEqual(r.code, 0);
+	assert.match(r.out + r.err, /exists and is not a SHRINE inspection report/);
+	assert.equal(readFileSync(one.file, 'utf8'), '<p>not a report</p>');
+});
+
+test('report: refuses a symlink, a directory, and a file that only mentions the data id', () => {
+	const fx = ready();
+	const target = join(fx.out, 'shrine-report.html');
+	const elsewhere = join(fx.base, 'elsewhere.html');
+	const sentinel = '<p>' + 'x'.repeat(10) + '</p>';
+	writeFileSync(elsewhere, sentinel);
+	symlinkSync(elsewhere, target);
+	let r = reportFile(fx).r;
+	assert.notEqual(r.code, 0);
+	assert.match(r.out + r.err, /not a regular file/);
+	assert.equal(readFileSync(elsewhere, 'utf8'), sentinel, 'the linked file is unchanged');
+	rmSync(target);
+	mkdirSync(target);
+	r = reportFile(fx).r;
+	assert.notEqual(r.code, 0);
+	assert.match(r.out + r.err, /not a regular file/);
+	rmSync(target, { recursive: true });
+	const foreign = 'const marker = \'id="shrine-report-data"\';\n';
+	writeFileSync(target, foreign);
+	r = reportFile(fx).r;
+	assert.notEqual(r.code, 0);
+	assert.match(r.out + r.err, /not a SHRINE inspection report/);
+	assert.equal(readFileSync(target, 'utf8'), foreign, 'the foreign file is unchanged');
+});
+
+test('refresh: reads only the embedded data and warns when the visible page was edited', () => {
+	const fx = ready();
+	const prev = reportFile(fx).file;
+	const html = readFileSync(prev, 'utf8');
+	const fx2 = fixture();
+	fx2.plan.run = 'refresh';
+	const refresh = (text) => {
+		const p = join(fx2.base, 'prev.html');
+		writeFileSync(p, text);
+		fx2.plan.previous = { path: p, source: '(user)' };
+		save(fx2);
+		return run(['--render', 'refresh', '--plan', fx2.planPath, '--manifest', fx2.manifestPath, '--out', fx2.out]);
+	};
+	const clean = refresh(html);
+	assert.equal(clean.code, 0, clean.out + clean.err);
+	assert.match(clean.out, /refresh reads only the data embedded in the previous inspection report, never its visible page/);
+	assert.doesNotMatch(clean.out, /WARNING/);
+	const edited = refresh(html.replace('Run tests before done</', 'Run tests always</'));
+	assert.equal(edited.code, 0, edited.out + edited.err);
+	assert.match(edited.out, /WARNING: the visible page of .* differs from a re-render of its embedded data/);
 });

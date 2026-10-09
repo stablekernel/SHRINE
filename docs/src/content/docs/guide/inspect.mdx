@@ -26,6 +26,7 @@ import prompt from '../../../prompts/shrine-inspect.md?raw';
 
 - Write to your project or your user settings: no file, setting, commit, branch, stash, or install
 - Use your harness's memory or notes during the run; any automatic persistence is disclosed up front
+- Use any tool whose effects outlast the run, for example scheduling, reminders, feedback reports, todo lists, or background jobs, unless you ask for it
 - Apply a change, even when you ask; you apply it afterwards, in a normal session
 
 Its only writes go to a temporary folder outside your work: its plan, its checklists, and the inspection report. The checker proves it: it compares every inspected file, every git repo's status, and a project folder outside git with a baseline taken at the start, and the run cannot finish while anything differs.
@@ -41,7 +42,7 @@ Its only writes go to a temporary folder outside your work: its plan, its checkl
 | --- | --- | --- |
 | 0 Start | Harness, time box, temporary folder, checker hash, persistence, and the read-only baseline | Time box, run type, and whether to run the checker |
 | 1 Discover | Instruction files and what loads, extension points, shared versus local, anti-pattern scan, session signals | Correct the inventory, then "approve gate 1" |
-| 2 Pin and Interview | SHRINE pinned to one commit, pages hash-checked, up to ten questions in the terms of your kind of work, corrections classified | Confirm the classes and tags, then "approve gate 2" |
+| 2 Pin and Interview | SHRINE pinned to one commit, pages hash-checked, up to ten questions in the terms of your kind of work (always asked, never guessed), corrections classified | Confirm the classes and tags, then "approve gate 2" |
 | 3 Design and Review | Changes designed, checked to apply, and reviewed by independent reviewers | None; you decide when you read the inspection report |
 | 4 Report | The read-only check, the inspection report, and the Final Gate | Read the inspection report |
 
@@ -50,12 +51,18 @@ Its only writes go to a temporary folder outside your work: its plan, its checkl
 
 ## The Inspection Report
 
-One markdown file in the temporary folder. The agent shows its path and offers to display it.
+One HTML file in the temporary folder. It opens in any browser, works offline, and loads nothing from the network. The agent shows its path and offers to open it.
+
+- It reads and prints with scripts turned off; with scripts on, you can filter changes by the summary counts, switch light or dark, and copy a change
+- It holds its own data, so a refresh reads it back: keep the file
+- A refresh reads only that data, never the visible page: edits to the page change nothing
+- Each render replaces it, so the temporary folder holds one current report
+- If you cannot open files where the agent runs, the agent shows a plain-text summary in chat and tells you where the file is
 
 - **Summary**: counts, top practices, and the Individual Baseline offer
 - **Principle coverage**: the North Star and each ratified principle, applied, advised, or not relevant, with a reason
 - **Findings**: the anti-pattern scan, session signals, and your interview answers and corrections
-- **Changes**, grouped and ordered by value, each with:
+- **Changes**, ordered by value, each with:
   - what it does, in plain words
   - how to apply it: ask your assistant to apply change B1
   - its SHRINE page and anti-pattern row
@@ -65,7 +72,9 @@ One markdown file in the temporary folder. The agent shows its path and offers t
   - how to undo it; for a diff, reverse it
   - the exact edit: a diff of an existing file, or the contents of a new file
 - **How to apply**: ask your assistant to apply a change, make the edit by hand, or, if you use git, `git apply` a diff
-- **How to refresh**: run the refresh entry, or paste the prompt again and give it this inspection report
+- **Advice**: practices to try with nothing to apply, marked "Advice only"
+- **Since your last inspection report** (a refresh only): whether SHRINE moved, which pages changed, and which earlier changes you applied
+- **How to refresh**: run the refresh entry, or paste the prompt again and give it this file's path
 
 A change that runs code (a hook, a nudge, an extension, a script) carries a prominent warning: it runs with your account's full permissions. Read it before you apply it.
 
@@ -81,7 +90,7 @@ A change that runs code (a hook, a nudge, an extension, a script) carries a prom
 
 4. Correct the agent's inventory, then answer the interview
 
-5. Read the inspection report; keep it, because a refresh compares against it
+5. Open the inspection report in your browser; keep the file, because a refresh compares against it
 
 6. Later, in a normal session, apply the changes you want
 
@@ -130,7 +139,7 @@ Every inspection report carries two upkeep changes. You choose whether to apply 
 - **SHRINE refresh** (S1): an entry you trigger by name, for example a command, a skill, an instruction line, or anything else your harness offers; it fetches the current prompt, checks its hash, and, with your yes, runs it as a refresh against your last inspection report
 - **Staleness check** (S2): compares the commit pinned in the change with the live manifest; when SHRINE moves, it tells you in one line; it changes nothing, and its cost is stated
 - A refresh shows whether SHRINE moved, which pages changed, and whether each earlier change is applied, not applied, or changed since
-- Without S1, paste the prompt again, choose refresh, and give it your last inspection report's path
+- Without S1, paste the prompt again, choose refresh, and give it your last inspection report's path (its `.html` file)
 - Refresh is experimental: it has not yet had a full real-world test. Report problems as GitHub issues.
 
 ## Cloud Agents
@@ -139,7 +148,7 @@ A cloud agent, such as one that runs on pull requests or on a schedule, cannot p
 
 - If it can write a temporary folder outside its checkout, it uses one, as on your machine
 - If it cannot, it passes its plan to the checker on standard input and writes nothing at all
-- Either way, the inspection report goes where you asked for it, for example the pull request description or a comment
+- Either way, the inspection report goes where you asked for it, for example the pull request description or a comment; with no file to write, that is its plain-text form
 - Its changes are unconfirmed: it had no interview answers
 
 ## Related
