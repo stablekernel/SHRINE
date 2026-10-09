@@ -5,7 +5,7 @@ import { test } from 'node:test';
 import assert from 'node:assert/strict';
 import { spawnSync } from 'node:child_process';
 import { createHash } from 'node:crypto';
-import { cpSync, existsSync, mkdtempSync, mkdirSync, readFileSync, readdirSync, realpathSync, rmSync, writeFileSync } from 'node:fs';
+import { cpSync, existsSync, mkdtempSync, mkdirSync, readFileSync, readdirSync, realpathSync, rmSync, symlinkSync, writeFileSync } from 'node:fs';
 import { tmpdir } from 'node:os';
 import { dirname, join } from 'node:path';
 import { fileURLToPath, pathToFileURL } from 'node:url';
@@ -62,9 +62,9 @@ function git(cwd, ...args) {
 	return spawnSync('git', ['-c', 'user.name=t', '-c', 'user.email=t@t', '-c', 'commit.gpgsign=false', '-c', 'core.hooksPath=/dev/null', ...args], { cwd, encoding: 'utf8', env: GIT_ISOLATED });
 }
 
-function run(args, input) {
-	const r = spawnSync(process.execPath, [CHECKER, ...args], { encoding: 'utf8', input, env: { ...process.env, SHRINE_CHECK_NOW: String(NOW) } });
-	return { code: r.status, out: r.stdout, err: r.stderr };
+function run(args, input, timeout) {
+	const r = spawnSync(process.execPath, [CHECKER, ...args], { encoding: 'utf8', input, timeout, env: { ...process.env, SHRINE_CHECK_NOW: String(NOW) } });
+	return { code: r.status, out: r.stdout, err: r.stderr, signal: r.signal };
 }
 
 // A proposal's design hash, as the checker computes it: every field except its review.
@@ -441,7 +441,7 @@ test('--plan - reads the plan from standard input, for a harness that cannot wri
 	const r = run(['--check', '--plan', '-', '--manifest', fx.manifestPath], JSON.stringify(fx.plan));
 	assert.equal(r.code, 0, r.out);
 	const rep = run(['--render', 'report', '--plan', '-', '--manifest', fx.manifestPath], JSON.stringify(fx.plan));
-	assert.match(rep.out, /^--- shrine-check 11 report \(paste verbatim\) ---$/m);
+	assert.match(rep.out, /^--- shrine-check 12 report \(paste verbatim\) ---$/m);
 	assert.match(rep.out, /^--- end report sha256:[0-9a-f]{64} ---$/m);
 });
 
@@ -916,6 +916,49 @@ test('report: a plan edit after the inspection report blocks 4.2 until it is ren
 	assert.match(r.out, /report line not filled: summary\.top_practices\[0\]\.text: <missing: plan\.report\.top_practices>/);
 });
 
+test('report: the full plain text carries every per-change field the HTML shows', () => {
+	const fx = ready();
+	fx.plan.proposals[0].nudge = { row: 'Review and Verification / Done is claimed without running tests', trigger: 'you claim done without tests', advisory: true, rate_limit: 'once a session', disable: 'delete the hook' };
+	fx.plan.proposals[0].principles = ['Fail Fast, Recover Smart'];
+	save(fx);
+	const text = run(['--render', 'report', '--plan', fx.planPath, '--manifest', fx.manifestPath]).out;
+	const file = reportFile(fx).file;
+	const html = readFileSync(file, 'utf8');
+	const shown = html.replace(/<(script|style|head)\b[\s\S]*?<\/\1>/g, '').replace(/<[^>]+>/g, '').replace(/&lt;/g, '<').replace(/&gt;/g, '>').replace(/&quot;/g, '"').replace(/&#39;/g, "'").replace(/&amp;/g, '&');
+	const data = embedded(html);
+	assert.ok(data.changes.some((c) => c.nudge) && data.changes.some((c) => c.entry), 'the fixture has a nudge and an entry');
+	const leaves = (o, path, out) => {
+		if (typeof o === 'string') out.push([path, o]);
+		else if (Array.isArray(o)) o.forEach((v, i) => leaves(v, `${path}[${i}]`, out));
+		else if (o && typeof o === 'object') for (const [k, v] of Object.entries(o)) leaves(v, `${path}.${k}`, out);
+		return out;
+	};
+	let n = 0;
+	for (const c of data.changes)
+		for (const [path, s] of leaves(c, c.id, [])) {
+			// The plain text has no report file, so a line that names the HTML file differs by design.
+			if (!s || !shown.includes(s) || s.includes(file)) continue;
+			n++;
+			// The plain text indents a file's exact contents by four spaces.
+			const indented = s.replace(/\n$/, '').split('\n').map((l) => `    ${l}`).join('\n');
+			assert.ok(text.includes(s) || text.includes(indented), `${path} is in the HTML but not in the plain text: ${s}`);
+		}
+	assert.ok(n > 30, `checked ${n} fields`);
+	for (const label of ['When it loads', 'Nudge', 'How you start it']) assert.match(text, new RegExp(`^  ${label}: `, 'm'));
+});
+
+test('report: inline delivery with no file fails 4.2 on an unfilled line even when the hash matches', () => {
+	const fx = ready();
+	fx.plan.report = {};
+	save(fx);
+	const r = run(['--render', 'report', '--plan', fx.planPath, '--manifest', fx.manifestPath]);
+	fx.plan.report_sha256 = /^--- end report sha256:([0-9a-f]{64}) ---$/m.exec(r.out)[1];
+	save(fx);
+	const f = run(['--render', 'final', '--plan', fx.planPath, '--manifest', fx.manifestPath]);
+	assert.match(item(f.out, '4.2'), /^\[ \] 4\.2 /);
+	assert.match(f.out, /report line not filled: summary\.top_practices\[0\]\.text/);
+});
+
 test('report-only: user items render [-], changes are unconfirmed, and the offer goes in the inspection report', () => {
 	const fx = ready();
 	fx.plan.mode = 'report-only';
@@ -946,6 +989,7 @@ test('refresh: compares with the previous inspection report: SHRINE moved, pages
 	writeFileSync(fx2.manifestPath, JSON.stringify(man));
 	fx2.plan.run = 'refresh';
 	fx2.plan.previous = { path: prev, source: '(user)' };
+	fx2.plan.scope.roots.push(fx.proj);
 	save(fx2);
 	const r = run(['--render', 'refresh', '--plan', fx2.planPath, '--manifest', fx2.manifestPath]);
 	assert.equal(r.code, 0, r.out + r.err);
@@ -959,7 +1003,7 @@ test('refresh: compares with the previous inspection report: SHRINE moved, pages
 	assert.match(item(gate(fx2, 1).out, '1.11'), /^\[ \] 1\.11 .*ask the user where they saved it/);
 });
 
-test('refresh: a tampered, foreign, Markdown, or other-schema report is refused with the reason', () => {
+test('refresh: an edited, foreign, Markdown, or other-schema report is refused with the reason', () => {
 	const fx = ready();
 	const prev = reportFile(fx).file;
 	const html = readFileSync(prev, 'utf8');
@@ -974,7 +1018,7 @@ test('refresh: a tampered, foreign, Markdown, or other-schema report is refused 
 		return item(gate(fx2, 1).out, '1.11');
 	};
 	const tampered = html.replace(block, block.replace(COMMIT, 'f'.repeat(40)));
-	assert.match(tryFile('tampered.html', tampered), /^\[ \] 1\.11 .*the file was edited after SHRINE wrote it/);
+	assert.match(tryFile('tampered.html', tampered), /^\[ \] 1\.11 .*the file changed after SHRINE wrote it\. The hash catches accidental edits and damage; it is not tamper-proofing: anyone can recompute it/);
 	assert.match(tryFile('foreign.html', '<!doctype html><title>Report</title><p>hello</p>'), /^\[ \] 1\.11 .*not a SHRINE inspection report: it has no SHRINE report data/);
 	assert.match(tryFile('old.md', '# Your SHRINE inspection report\n\n## Report Data\n\n```json\n{}\n```\n'), /^\[ \] 1\.11 .*a Markdown inspection report from an earlier SHRINE version/);
 	const other = block.replace('"schema": 1', '"schema": 9');
@@ -987,6 +1031,49 @@ test('refresh: a tampered, foreign, Markdown, or other-schema report is refused 
 	assert.match(tryFile('ok.html', html), /^\[x\] 1\.11 /);
 });
 
+// A previous report is untrusted input: rewrite its data and re-record the hash, as anyone can.
+function rewriteReport(html, mutate) {
+	const data = embedded(html);
+	mutate(data);
+	const json = JSON.stringify(data, null, 1).replace(/[<>&]/g, (c) => `\\u${c.charCodeAt(0).toString(16).padStart(4, '0')}`);
+	return html.replace(DATA_BLOCK, () => `<script type="application/json" id="shrine-report-data">${json}</script>`).replace(/(<meta name="shrine-report-data-sha256" content=")[0-9a-f]{64}/, `$1${sha(json)}`);
+}
+
+test('refresh: reads earlier targets only as bounded regular files inside the current scope', () => {
+	const fx = ready();
+	const html = readFileSync(reportFile(fx).file, 'utf8');
+	const fx2 = fixture();
+	const secret = join(fx2.base, 'secret.txt');
+	writeFileSync(secret, 'guess\n');
+	symlinkSync(secret, join(fx2.proj, 'link.txt'));
+	writeFileSync(join(fx2.proj, 'big.txt'), Buffer.alloc(5 * 1024 * 1024 + 1, 120));
+	assert.equal(spawnSync('mkfifo', [join(fx2.proj, 'pipe')]).status, 0);
+	const targets = [secret, join(fx2.proj, 'link.txt'), join(fx2.proj, 'big.txt'), join(fx2.proj, 'pipe'), '/dev/zero', join(fx2.proj, 'CLAUDE.md')];
+	const prev = join(fx2.base, 'prev.html');
+	writeFileSync(prev, rewriteReport(html, (d) => {
+		d.changes.find((c) => c.id === 'B1').files = targets.map((target, i) => ({ n: i + 1, target, root: fx2.proj, kind: 'new', body: i === 5 ? CLAUDE_MD : 'guess\n', problems: [] }));
+	}));
+	fx2.plan.run = 'refresh';
+	fx2.plan.previous = { path: prev, source: '(user)' };
+	fx2.plan.scope.roots.push('/dev');
+	save(fx2);
+	const r = run(['--render', 'refresh', '--plan', fx2.planPath, '--manifest', fx2.manifestPath], undefined, 20000);
+	assert.equal(r.signal, null, 'the checker hung on a device or FIFO');
+	assert.equal(r.code, 0, r.out + r.err);
+	const line = (n) => r.out.split('\n').find((l) => l.includes(`change B1 file ${n} `)) ?? '';
+	assert.match(line(1), /: not checked \(outside scope\)$/, 'an out-of-scope target is not read');
+	assert.match(line(2), /: not checked \(outside scope\)$/, 'a symlink out of scope is not followed');
+	assert.match(line(3), /: not checked \(larger than 5242880 bytes\)$/, 'an oversize file is skipped');
+	assert.match(line(4), /: not checked \(not a regular file\)$/, 'a FIFO is not read');
+	assert.match(line(5), /: not checked \(not a regular file\)$/, 'a device is not read');
+	assert.match(line(6), /: applied$/, 'a regular file in scope is read');
+	fx2.plan.previous.path = '/dev/zero';
+	save(fx2);
+	const z = run(['--render', 'gate', '--gate', '1', '--plan', fx2.planPath, '--manifest', fx2.manifestPath], undefined, 20000);
+	assert.equal(z.signal, null, 'the checker hung reading the previous report');
+	assert.match(item(z.out, '1.11'), /^\[ \] 1\.11 .*not a regular file/);
+});
+
 test('refresh: the new report carries the comparison as a Since section', () => {
 	const fx = ready();
 	const prev = reportFile(fx).file;
@@ -994,6 +1081,7 @@ test('refresh: the new report carries the comparison as a Since section', () => 
 	baseline(fx2);
 	fx2.plan.run = 'refresh';
 	fx2.plan.previous = { path: prev, source: '(user)' };
+	fx2.plan.scope.roots.push(fx.proj);
 	const html = readFileSync(reportFile(fx2).file, 'utf8');
 	assert.match(html, /<h2 id="since-h">Since your last inspection report<\/h2>/);
 	assert.match(html, /<a href="#since">/);

@@ -23,14 +23,14 @@
 //
 // Exit: 0 PASS (or a render that is PASS or WAITING FOR APPROVAL), 1 any FAIL or a BLOCKED
 // render, 2 usage or input error.
-import { readFileSync, readdirSync, realpathSync, statSync, writeFileSync } from 'node:fs';
+import { closeSync, constants, fstatSync, lstatSync, openSync, readFileSync, readSync, readdirSync, realpathSync, statSync, writeFileSync } from 'node:fs';
 import { execFileSync } from 'node:child_process';
 import { createHash } from 'node:crypto';
 import { homedir } from 'node:os';
 import { dirname, isAbsolute, join, relative, resolve, sep } from 'node:path';
 import { fileURLToPath } from 'node:url';
 
-const VERSION = 11;
+const VERSION = 12;
 const COVERAGE = ['applied', 'advised', 'not relevant'];
 const RUNS = ['inspect', 'refresh'];
 const MODES = ['interactive', 'report-only'];
@@ -213,6 +213,49 @@ function realish(p) {
 }
 
 const under = (p, roots) => roots.some((r) => p === r || p.startsWith(r.endsWith(sep) ? r : r + sep));
+
+// Read a file named by untrusted input: a regular file only (never a device, FIFO, or socket), at
+// most HASH_MAX bytes, opened without blocking or following a final link. Returns { text } (null
+// when absent or unreadable) or { skip } with the reason it was not read.
+function readBounded(path) {
+	let st;
+	try {
+		st = lstatSync(path);
+	} catch {
+		return { text: null };
+	}
+	if (st.isSymbolicLink()) return { skip: 'a symbolic link' };
+	if (!st.isFile()) return { skip: 'not a regular file' };
+	if (st.size > HASH_MAX) return { skip: `larger than ${HASH_MAX} bytes` };
+	let fd = null;
+	try {
+		fd = openSync(path, constants.O_RDONLY | (constants.O_NOFOLLOW ?? 0) | (constants.O_NONBLOCK ?? 0));
+		const fst = fstatSync(fd);
+		if (!fst.isFile()) return { skip: 'not a regular file' };
+		if (fst.size > HASH_MAX) return { skip: `larger than ${HASH_MAX} bytes` };
+		const buf = Buffer.alloc(fst.size);
+		let got = 0;
+		while (got < buf.length) {
+			const n = readSync(fd, buf, got, buf.length - got, got);
+			if (!n) break;
+			got += n;
+		}
+		return { text: buf.subarray(0, got).toString('utf8') };
+	} catch {
+		return { text: null };
+	} finally {
+		if (fd != null) closeSync(fd);
+	}
+}
+
+// A target named in a previous report, read only when its real path lies under the current plan's
+// scope roots. The report is input anyone can edit, so it must not probe or hang on other files.
+function readInScope(target, roots) {
+	if (!isStr(target) || !isAbsolute(target)) return { skip: 'outside scope' };
+	const real = realish(target);
+	if (!under(real, roots)) return { skip: 'outside scope' };
+	return readBounded(real);
+}
 
 async function loadManifest(src) {
 	let text;
@@ -2117,11 +2160,15 @@ function reportText(d, full) {
 		if (c.runs_code) out.push(`  Runs code with your account's full permissions. Read it before you apply it. It writes, when it runs: ${c.runtime_writes.join(', ') || 'nothing'}.`);
 		out.push(`  To apply: ask your assistant, "${c.ask}"`);
 		if (!full) continue;
-		out.push(`  Why: ${c.traces_to}; SHRINE page: ${c.page.title}${c.row ? `; known problem: ${c.row}` : ''}`);
-		out.push(`  Trade-off: costs ${c.tradeoff.costs}; saves ${c.tradeoff.saves}; net ${c.tradeoff.net}`);
+		out.push(`  Why: ${c.traces_to}; SHRINE page: ${c.page.title}${c.page.url ? ` (${c.page.url})` : ''}${c.row ? `; known problem: ${c.row}` : ''}${c.principles.length ? `; principles: ${c.principles.join(', ')}` : ''}`);
+		out.push(`  Group: ${c.group}`);
+		out.push(`  Trade-off: costs ${c.tradeoff.costs}; saves ${c.tradeoff.saves}; net ${c.tradeoff.net}${c.tradeoff.flag ? `; it trades ${c.tradeoff.dimensions.join(' against ')}` : ''}`);
 		out.push(`  Reaches: ${c.reach.reaches}; check: ${c.verify}; undo: ${c.undo}`);
+		out.push(`  When it loads: ${c.loads.always_loaded ? `always loaded; it prevents: ${c.loads.miss ?? ''}; ` : ''}${c.loads.expect}`);
+		if (c.nudge) out.push(`  Nudge: when ${c.nudge.trigger}; ${c.nudge.advisory ? 'advisory' : 'blocking'}; at most ${c.nudge.rate_limit}; turn it off: ${c.nudge.disable}`);
+		if (c.entry) out.push(`  How you start it: ${c.entry.mechanism}: "${c.entry.invocation}"`);
 		const r = c.review;
-		out.push(`  Review: risk ${r.risk}; ${r.self_only ? `self only (${r.self_only})` : `${r.reviewers} reviewers of this design`}; ${r.rounds} rounds${r.escalated ? `; escalated to you: ${r.escalated}` : ''}`);
+		out.push(`  Review: risk ${r.risk}; designed by ${r.designed_by}; ${r.self_only ? `self only (${r.self_only})` : `${r.reviewers} reviewers of this design`}; ${r.rounds} rounds${r.escalated ? `; escalated to you: ${r.escalated}` : ''}`);
 		for (const f of c.files) {
 			if (f.problems.length) {
 				out.push(`  File ${f.n}: ${f.target}: DOES NOT APPLY: ${f.problems.join('; ')}`);
@@ -2150,7 +2197,7 @@ function parseReportHtml(text) {
 	const metas = [...text.matchAll(/<meta name="shrine-report-data-sha256" content="([0-9a-f]{64})">/g)];
 	if (metas.length !== 1) return { error: 'it has no recorded report data hash: it is not a SHRINE inspection report' };
 	const got = sha(blocks[0][1]);
-	if (got !== metas[0][1]) return { error: `its report data ${h(got)} != recorded ${h(metas[0][1])}: the file was edited after SHRINE wrote it` };
+	if (got !== metas[0][1]) return { error: `its report data ${h(got)} != recorded ${h(metas[0][1])}: the file changed after SHRINE wrote it. The hash catches accidental edits and damage; it is not tamper-proofing: anyone can recompute it` };
 	let data = null;
 	try {
 		data = JSON.parse(blocks[0][1]);
@@ -2166,17 +2213,22 @@ function parseReportHtml(text) {
 function readPrevious(plan) {
 	const rp = planResolver(plan);
 	const path = rp(plan.previous?.path ?? '');
-	const text = path ? readText(path) : null;
+	const got = path ? readBounded(realish(path)) : { text: null };
+	if (got.skip) return { error: `previous inspection report ${path}: ${got.skip}: give the path of the HTML inspection report file` };
+	const text = got.text;
 	if (text == null) return { error: `previous inspection report not found at ${plan.previous?.path ?? '<plan.previous.path missing>'}: ask the user where they saved it` };
 	const r = parseReportHtml(text);
 	if (r.error) return { error: `previous inspection report ${path}: ${r.error}` };
 	return { path, sha: sha(text), data: r.data };
 }
 
-// Each earlier change now: applied, not applied, or changed since the inspection report. Read-only.
-function patchStatus(f) {
+// Each earlier change now: applied, not applied, or changed since the inspection report. Read-only,
+// and only inside the current scope roots: see readInScope.
+function patchStatus(f, roots) {
 	if (!isStr(f.target) || !isStr(f.body)) return 'not readable from the inspection report';
-	const now = fileState(f.target) === 'absent' ? null : readText(f.target);
+	const got = readInScope(f.target, roots);
+	if (got.skip) return `not checked (${got.skip})`;
+	const now = got.text;
 	if (f.kind === 'new') return now == null ? 'not applied' : now === f.body ? 'applied' : 'changed since the inspection report';
 	const pd = parseDiff(f.body);
 	if (pd.error) return `unreadable: ${pd.error}`;
@@ -2193,6 +2245,7 @@ function refreshCompare(plan, man) {
 	const md = man.data;
 	const live = new Map(arr(md.pages).filter(isObj).map((p) => [p.title, p]));
 	const moved = d.shrine.commit !== md.commit;
+	const roots = isObj(plan.scope) ? arr(plan.scope.roots).filter(isStr).map((r) => realish(expandHome(r))) : [];
 	return {
 		previous: { path: prev.path, sha256: prev.sha, commit: d.shrine.commit, prompt_version: d.shrine.prompt_version ?? null, started: isStr(d.run?.started) ? d.run.started : null, changes: arr(d.changes).filter((c) => isObj(c) && !c.advice).length },
 		live_commit: md.commit,
@@ -2201,7 +2254,7 @@ function refreshCompare(plan, man) {
 		newer_prompt: md.prompt?.version > d.shrine.prompt_version,
 		pages_changed: arr(d.shrine.pages).filter(isObj).filter((p) => live.get(p.title)?.sha256 !== p.sha256).map((p) => ({ title: String(p.title), url: shrineUrl(live.get(p.title)?.url), removed: !live.has(p.title) })),
 		compare: moved ? `https://github.com/stablekernel/SHRINE/compare/${d.shrine.commit}...${md.commit}` : null,
-		earlier: arr(d.changes).filter((c) => isObj(c) && !c.advice).flatMap((c) => arr(c.files).filter(isObj).map((f) => ({ id: String(c.id), title: String(c.title ?? ''), n: f.n, target: String(f.target ?? ''), status: patchStatus(f) }))),
+		earlier: arr(d.changes).filter((c) => isObj(c) && !c.advice).flatMap((c) => arr(c.files).filter(isObj).map((f) => ({ id: String(c.id), title: String(c.title ?? ''), n: f.n, target: String(f.target ?? ''), status: patchStatus(f, roots) }))),
 	};
 }
 
@@ -2586,8 +2639,6 @@ const REPORT_JS = String.raw`
 
 // ---------- the Final Gate ----------
 
-// The plain-text report, as inline delivery prints it with no report file.
-const inlineReport = (plan, man, ctx) => reportText(reportData(plan, man, ctx, null), true);
 const htmlReport = (plan, man, ctx, path) => {
 	const data = reportData(plan, man, ctx, path);
 	const html = reportHtml(data);
@@ -2600,8 +2651,12 @@ function reportFileItem(ctx, man) {
 	const lines = [];
 	if (!isObj(r) && plan.delivery === 'inline') {
 		if (!HEX64.test(plan.report_sha256 ?? '')) return { mark: ' ', lines: ['plan.report_sha256 missing: render the inspection report (with --out when you can write the temporary folder, and record report_file), or inline, paste it where the user asked, and record its end-line hash'] };
-		const ok = sha(inlineReport(plan, man, ctx)) === plan.report_sha256;
-		return { mark: ok ? 'x' : ' ', lines: [ok ? `report rendered inline ${h(plan.report_sha256)}, current with the plan  $ shrine-check --render report` : 'the plan changed since the inline report: render it again and record the new hash'] };
+		const data = reportData(plan, man, ctx, null);
+		const text = reportText(data, true);
+		if (sha(text) !== plan.report_sha256) return { mark: ' ', lines: ['the plan changed since the inline report: render it again and record the new hash'] };
+		const probs = reportProblems(data, text);
+		if (probs.length) return { mark: ' ', lines: probs };
+		return { mark: 'x', lines: [`report rendered inline ${h(plan.report_sha256)}, current with the plan, every line filled  $ shrine-check --render report`] };
 	}
 	if (!isObj(r) || !isStr(r.file)) return { mark: ' ', lines: ['plan.report_file missing: run --render report --out <t>, show the short block, and record its file and sha256'] };
 	const path = ctx.rp(r.file);
