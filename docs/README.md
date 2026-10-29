@@ -11,7 +11,9 @@ cd docs
 npm ci
 npm run dev      # http://localhost:4321/SHRINE/
 npm run build    # output in docs/dist/
-npm test         # checker tests (Node built-in runner); CI runs them before the build
+npm test         # checker and generator tests (Node built-in runner); CI runs them before the build
+npm run gen:skill    # regenerate skills/agentic-power-user/SKILL.md after a principle or pattern change
+npm run check:skill  # fail if the committed skill is stale; CI runs it on every PR
 ```
 
 ## Layout
@@ -19,6 +21,7 @@ npm test         # checker tests (Node built-in runner); CI runs them before the
 - Pages: `src/content/docs/` (`principles/`, `patterns/`, `stack/`, `reference/`)
 - Sidebar: `astro.config.mjs`; add principle, pattern, and stack pages there (`reference/` autogenerates)
 - Internal links: absolute with the base, such as `/SHRINE/patterns/overview/`
+- Generated skill: `scripts/gen-skill.mjs` writes `../skills/agentic-power-user/SKILL.md` from ratified principle and pattern pages (tests in `tests/`)
 - Inspect prompt: `src/prompts/shrine-inspect.md`; its read-only checker: `src/tools/shrine-check.mjs` (tests in `tests/`)
 
 ## Contributing
@@ -28,3 +31,4 @@ npm test         # checker tests (Node built-in runner); CI runs them before the
 - Write terse bullets; no em dashes
 - Stack slot definitions and selection criteria stay product-agnostic ([FAQ](https://stablekernel.github.io/SHRINE/faq/))
 - `npm run build` must pass before you open a PR
+- A principle or pattern change also commits the regenerated skill (`npm run gen:skill`)
