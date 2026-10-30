@@ -1,0 +1,11 @@
+{
+  "mcpServers": {
+    "harness-interview": {
+      "url": "https://FUNCTION_URL_PLACEHOLDER",
+      "auth": {
+        "type": "oauth",
+        "provider": "google"
+      }
+    }
+  }
+}
