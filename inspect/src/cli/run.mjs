@@ -136,10 +136,11 @@ export async function continueRun(folder, ctx, io) {
   const display = (p) => displayPath(p, ctx.home);
   const excludedIds = state.own ? [state.own.id] : [];
 
-  // Phase: history (only after Gate A says yes). Repo HEADs are taken first so
-  // the verify step can tell whether one moved during the scan.
+  // Phase: history (only after Gate A says yes). Setup files and repo HEADs are
+  // read first so the verify step sees a config write or HEAD move during the scan.
+  const setup = collectSetup({ home: ctx.home, projects, now: ctx.now });
   const { heads } = baselineOf([], projects.map((p) => p.root));
-  const history = historyConsented ? await scanHistory({ listing, excludedIds, display }) : null;
+  const history = historyConsented ? await scanHistory({ listing, excludedIds, display, onProgress: io.onScanProgress }) : null;
   const usage = history && !history.unsupported && history.sessions.length > 0 ? history.usage : null;
 
   const run = {
@@ -154,8 +155,7 @@ export async function continueRun(folder, ctx, io) {
   const catalogue = loadBundledCatalogue();
   const shrine = { commit: catalogue.shrine.commit, manifest_sha: null, fetched_at: null };
 
-  // Phase: scan (setup, config probes).
-  const setup = collectSetup({ home: ctx.home, projects, now: ctx.now });
+  // Phase: scan (config probes over the setup read before history).
   const probes = runConfigProbes(setup);
   if (!folder.isDone('scan')) {
     folder.writeJson('scan.json', {

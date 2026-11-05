@@ -169,3 +169,23 @@ test('a resumed run reads only the files itemized at Gate A, with the same own-s
   assert.deepEqual(json(dir, 'verify.json').excluded_session_ids, [], 'Gate A reported no own session');
   h.cleanup();
 });
+
+test('a config write during the history scan is reported as changed by others', async () => {
+  const h = homeWithHistory();
+  const state = mkdtempSync(join(tmpdir(), 'si-st-'));
+  const target = join(h.home, '.claude', 'CLAUDE.md');
+  let wrote = false;
+  const stdout = sink();
+  const stderr = sink();
+  const env = { ...process.env, HOME: h.home, SHRINE_INSPECT_STATE_DIR: join(state, 'state'), SHRINE_INSPECT_CACHE_DIR: join(state, 'cache'), SHRINE_INSPECT_NOW: FIXED_NOW, SHRINE_INSPECT_TEMP_PATTERNS: '["^/nowhere/"]' };
+  const onScanProgress = () => {
+    if (!wrote) writeFileSync(target, `${readFileSync(target, 'utf8')}\nedited during the scan\n`);
+    wrote = true;
+  };
+  const code = await main(['run', '--tier', 'T0'], { env, home: h.home, stdin: tty('history'), stdout, stderr, onScanProgress });
+  assert.equal(code, 0, stderr.text());
+  assert.ok(wrote, 'the scan reported progress');
+  const v = json(runDir(state), 'verify.json');
+  assert.ok(v.changed_by_others.some((c) => c.path.endsWith('.claude/CLAUDE.md') && c.change === 'modified'), JSON.stringify(v.changed_by_others));
+  h.cleanup();
+});
