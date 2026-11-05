@@ -105,7 +105,9 @@ export async function continueRun(folder, ctx, io) {
   const catalogue = loadBundledCatalogue();
   const shrine = { commit: catalogue.shrine.commit, manifest_sha: null, fetched_at: null };
 
-  // Phase: scan (setup, config probes).
+  // Phase: scan (setup, config probes). Repo HEADs are taken first so the verify
+  // step can tell whether one moved during the scan.
+  const { heads } = baselineOf([], projects.map((p) => p.root));
   const setup = collectSetup({ home: ctx.home, projects, now: ctx.now });
   const probes = runConfigProbes(setup);
   if (!folder.isDone('scan')) {
@@ -178,7 +180,7 @@ export async function continueRun(folder, ctx, io) {
 
   // Phase: verify (runtime hash check of every file opened, before the report so
   // a failure shows as the integrity banner).
-  const verify = verifyRun(baselineOf(setup.items, projects.map((p) => p.root)), spyLog());
+  const verify = verifyRun({ ...baselineOf(setup.items), heads }, spyLog());
   findings.integrity = { ok: verify.ok, changed_paths: verify.changed_paths.map((p) => displayPath(p, ctx.home)) };
   folder.writeJson('verify.json', { schema_version: 1, run_id: state.run_id, ...verify, changed_paths: findings.integrity.changed_paths, changed_by_others: verify.changed_by_others.map((c) => ({ ...c, path: displayPath(c.path, ctx.home) })) });
   folder.markDone('verify');
