@@ -3,7 +3,7 @@ import assert from 'node:assert/strict';
 import { mkdirSync, mkdtempSync, symlinkSync, writeFileSync } from 'node:fs';
 import { tmpdir } from 'node:os';
 import { join } from 'node:path';
-import { inventory } from '../../../src/adapters/claude-code/inventory.mjs';
+import { inventory, nestedInstructionFiles } from '../../../src/adapters/claude-code/inventory.mjs';
 
 function home(links) {
   const h = mkdtempSync(join(tmpdir(), 'si-loop-'));
@@ -39,4 +39,17 @@ test('a symlink to an ancestor folder is not walked', { timeout: 5000 }, () => {
   writeFileSync(join(h, '.claude', 'agents', 'z.md'), 'agent\n');
   symlinkSync('..', join(h, '.claude', 'rules', 'up'));
   assert.equal(rules(h).length, 2);
+});
+
+test('nested CLAUDE.md search does not follow a folder link out of the repo', { timeout: 5000 }, () => {
+  const t = mkdtempSync(join(tmpdir(), 'si-nested-'));
+  const repo = join(t, 'repo');
+  mkdirSync(join(repo, '.git'), { recursive: true });
+  mkdirSync(join(repo, 'api'));
+  writeFileSync(join(repo, 'api', 'CLAUDE.md'), 'api\n');
+  mkdirSync(join(t, 'outside', 'private'), { recursive: true });
+  writeFileSync(join(t, 'outside', 'private', 'CLAUDE.md'), 'private\n');
+  symlinkSync('../outside', join(repo, 'linked'));
+  symlinkSync('api', join(repo, 'api-again'));
+  assert.deepEqual(nestedInstructionFiles(repo, join(t, 'home')), [join(repo, 'api', 'CLAUDE.md')]);
 });
