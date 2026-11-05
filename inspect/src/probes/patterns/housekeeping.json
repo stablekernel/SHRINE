@@ -1,7 +1,7 @@
 {
-  "version": 1,
-  "note": "First-prompt prefixes of sdk-cli sessions that are tool housekeeping (for example a tool analyzing a finished session). Compared with startsWith on the first user message; nothing else of the prompt is kept. Any other sdk-cli session is spawned work.",
-  "prefixes": ["Analyze this conversation and determine:"],
-  "positive": ["Analyze this conversation and determine: 1. the goal"],
-  "negative": ["Write scribe notes for the review", "analyze this conversation and determine: lowercase is a different prompt"]
+  "version": 2,
+  "note": "First-prompt prefixes of sdk-cli sessions that are tool housekeeping (for example a tool analyzing a finished session, or a judge call this tool spawned). Compared with startsWith on the first user message; nothing else of the prompt is kept. Any other sdk-cli session is spawned work.",
+  "prefixes": ["Analyze this conversation and determine:", "SHRINE inspect judge v1:"],
+  "positive": ["Analyze this conversation and determine: 1. the goal", "SHRINE inspect judge v1: Episode Classifier."],
+  "negative": ["Write scribe notes for the review", "analyze this conversation and determine: lowercase is a different prompt", "shrine inspect judge v1: lowercase is a different prompt", "Please run the SHRINE inspect judge v1: later"]
 }

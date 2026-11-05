@@ -13,6 +13,11 @@ const WRITE_TOOLS = new Set(['Edit', 'Write', 'MultiEdit', 'NotebookEdit']);
 const MAX_HUMAN = 1000;
 const MAX_ASSISTANT = 600;
 const MAX_COMMAND = 2000;
+// Detail reads (T1 evidence packs): longer human turns, the opening of each
+// reply, and the loaded instruction files.
+const DETAIL_HUMAN = 1200;
+const DETAIL_ASSISTANT_HEAD = 400;
+const DETAIL_CONFIG = 32000;
 
 // Cut copies are flattened, so a short cut never pins the long string it came from.
 const own = (s) => JSON.parse(JSON.stringify(s));
@@ -116,7 +121,10 @@ function onLine(o, inSubagentFile, acc) {
     if (!sub && m.model !== '<synthetic>' && o.isApiErrorMessage !== true) acc.answered = true;
     for (const b of Array.isArray(m.content) ? m.content : []) {
       if (b?.type === 'text' && typeof b.text === 'string' && b.text.trim()) {
-        acc.timeline.push({ t, kind: 'assistant_text', text: tail(b.text.trim(), MAX_ASSISTANT), sub });
+        const ev = { t, kind: 'assistant_text', text: tail(b.text.trim(), MAX_ASSISTANT), sub };
+        // Detail reads (T1 evidence packs only) keep the opening of the reply too.
+        if (acc.detail) ev.head = head(b.text.trim(), DETAIL_ASSISTANT_HEAD);
+        acc.timeline.push(ev);
       } else if (b?.type === 'tool_use') {
         const input = b.input && typeof b.input === 'object' ? b.input : {};
         const name = str(b.name) ?? 'unknown';
@@ -157,8 +165,17 @@ function onLine(o, inSubagentFile, acc) {
       acc.answered = false;
       acc.interruptedSince = false;
       acc.turns++;
-      acc.timeline.push({ t, kind: 'human', text: head(c.text.trim(), MAX_HUMAN), queued: c.queued, uuid: str(o.uuid), sub });
+      acc.timeline.push({ t, kind: 'human', text: head(c.text.trim(), acc.detail ? DETAIL_HUMAN : MAX_HUMAN), queued: c.queued, uuid: str(o.uuid), sub });
     }
+    return;
+  }
+  // Detail reads only: the instruction files the harness loaded for this session
+  // (the live config snapshot, spec 10), scrubbed and cut like any other text.
+  if (acc.detail && o.type === 'attachment' && o.attachment?.type === 'instructions' && !sub) {
+    const files = (Array.isArray(o.attachment.files) ? o.attachment.files : [])
+      .filter((f) => typeof f?.path === 'string' && typeof f?.content === 'string')
+      .map((f) => ({ path: f.path, type: str(f.type), content: head(f.content, DETAIL_CONFIG) }));
+    if (files.length) acc.timeline.push({ t, kind: 'instructions', files, sub });
     return;
   }
   if (o.type === 'system' && o.subtype === 'compact_boundary' && !sub) {
@@ -174,8 +191,9 @@ function onLine(o, inSubagentFile, acc) {
 // {session, timeline, files, dedupe} where files lists per-file stats ({path,
 // kind, corrupt, unknown_types}) and dedupe = {resent, copied_lines,
 // copied_messages, only_copies}.
-export async function readSession(meta, { seen = null } = {}) {
-  const acc = { lastT: null, start: null, end: null, requests: new Map(), models: new Set(), timeline: [], turns: 0, interrupts: 0, compactions: 0, toolCalls: 0, seen, own: new Set(), newLines: 0, copied: { lines: 0, messages: 0 }, resent: 0, lastHumanKey: null, answered: false, interruptedSince: false };
+// detail: keep reply openings and instruction snapshots (T1 evidence packs only).
+export async function readSession(meta, { seen = null, detail = false } = {}) {
+  const acc = { detail, lastT: null, start: null, end: null, requests: new Map(), models: new Set(), timeline: [], turns: 0, interrupts: 0, compactions: 0, toolCalls: 0, seen, own: new Set(), newLines: 0, copied: { lines: 0, messages: 0 }, resent: 0, lastHumanKey: null, answered: false, interruptedSince: false };
   const files = [];
   const main = await readSessionFile(meta.path, (o) => onLine(o, false, acc));
   files.push({ path: meta.path, ...main });
