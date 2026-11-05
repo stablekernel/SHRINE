@@ -29,6 +29,16 @@ const head = (s, n) => {
 };
 const keyOf = (name, input) => createHash('sha1').update(`${name}\u0000${JSON.stringify(input ?? null)}`).digest('hex').slice(0, 16);
 
+// The shas a `git commit` result prints ("[branch abc1234] subject"), from its
+// head only. Only the hex ids are kept, never the result text; the linker uses
+// them to tell which session made which commit.
+const SHA_HEAD = 2048;
+const SHA_LINE = /^\[[^\]\n]*\s([0-9a-f]{7,40})\]/gm;
+function commitShas(content) {
+  const text = typeof content === 'string' ? content : Array.isArray(content) ? content.map((c) => (typeof c?.text === 'string' ? c.text : '')).join('\n') : '';
+  return [...text.slice(0, SHA_HEAD).matchAll(SHA_LINE)].map((m) => own(m[1]));
+}
+
 function onLine(o, inSubagentFile, acc) {
   // Older versions wrote some subagent lines inline in the main file.
   const sub = inSubagentFile || o.isSidechain === true;
@@ -74,7 +84,7 @@ function onLine(o, inSubagentFile, acc) {
   }
   if (o.type === 'user') {
     for (const b of Array.isArray(o.message.content) ? o.message.content : []) {
-      if (b?.type === 'tool_result') acc.timeline.push({ t, kind: 'tool_result', id: b.tool_use_id ?? null, error: b.is_error === true, sub });
+      if (b?.type === 'tool_result') acc.timeline.push({ t, kind: 'tool_result', id: b.tool_use_id ?? null, error: b.is_error === true, shas: commitShas(b.content), sub });
     }
     const c = classifyUser(o, { subagent: sub });
     if (c.interrupt) {

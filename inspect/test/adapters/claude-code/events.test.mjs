@@ -100,3 +100,18 @@ test('a malformed timestamp (number, object, or unparsable string) never becomes
   assert.equal(session.end, at(4));
   for (const e of timeline) assert.ok(e.t == null || (typeof e.t === 'string' && !Number.isNaN(Date.parse(e.t))), JSON.stringify(e.t));
 });
+
+test('a tool result keeps only the commit shas git printed, never its text', async () => {
+  const p = join(dir, 's-sha.jsonl');
+  write(p, [
+    user(0, 'commit it', { promptSource: 'typed' }),
+    asst(1, 'r1', [{ type: 'tool_use', id: 't1', name: 'Bash', input: { command: 'git commit -m x' } }]),
+    user(2, [{ type: 'tool_result', tool_use_id: 't1', content: '[feat/x (root-commit) 1a2b3c4] add parser\n 1 file changed' }]),
+    asst(3, 'r2', [{ type: 'tool_use', id: 't2', name: 'Bash', input: { command: 'git commit -m y' } }]),
+    user(4, [{ type: 'tool_result', tool_use_id: 't2', content: [{ type: 'text', text: '[main 9f8e7d6c] next\n' }] }]),
+  ]);
+  const { timeline } = await readSession({ id: 's-sha', path: p, project: 'app' });
+  const results = timeline.filter((e) => e.kind === 'tool_result');
+  assert.deepEqual(results.map((e) => e.shas), [['1a2b3c4'], ['9f8e7d6c']]);
+  assert.ok(results.every((e) => !('text' in e) && !('content' in e)));
+});

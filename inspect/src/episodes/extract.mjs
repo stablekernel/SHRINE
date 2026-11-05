@@ -52,6 +52,8 @@ export function extractEpisodes(session, timeline, { idleMinutes = 30 } = {}) {
     compactions: 0,
     touched: new Set(),
     committed: false,
+    // Shas the session's own commit results printed: the linker's best evidence.
+    commit_refs: [],
     calls: [],
     humans: [],
     last_text: '',
@@ -105,6 +107,7 @@ export function extractEpisodes(session, timeline, { idleMinutes = 30 } = {}) {
       const k = pendingCommit.get(e.id);
       if (k && !e.error) {
         cur.committed = true;
+        cur.commit_refs.push(...(e.shas ?? []));
         cur.closed_by = k;
       }
       pendingCommit.delete(e.id);

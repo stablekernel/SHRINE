@@ -24,7 +24,7 @@ const COMMIT_SLACK_MS = 2 * 60000;
 // repo never pushes the output past the spawn buffer.
 export function repoCommits(root, { since, until }) {
   const range = ['--all', '--no-merges', `--since=@${Math.floor(since / 1000)}`, `--until=@${Math.ceil(until / 1000)}`];
-  const out = gitOut(['log', ...range, '--no-renames', '--name-only', `--format=${RS}%H${US}%ct${US}%s${US}`], root);
+  const out = gitOut(['log', ...range, '--no-renames', '--name-only', `--format=${RS}%H${US}%ct${US}%ae${US}%s${US}`], root);
   if (!out) return [];
   const reverts = new Map();
   const rv = gitOut(['log', ...range, '--grep=This reverts commit', `--format=${RS}%H${US}%b`], root) ?? '';
@@ -36,10 +36,10 @@ export function repoCommits(root, { since, until }) {
     .split(RS)
     .filter(Boolean)
     .map((rec) => {
-      const [sha, ct, subject, names] = rec.split(US);
+      const [sha, ct, author, subject, names] = rec.split(US);
       const id = sha.trim();
       const files = (names ?? '').split('\n').map((f) => f.trim()).filter(Boolean);
-      return { sha: id, t: Number(ct) * 1000, subject: (subject ?? '').trim(), body: reverts.get(id) ?? '', files };
+      return { sha: id, t: Number(ct) * 1000, author: (author ?? '').trim().toLowerCase(), subject: (subject ?? '').trim(), body: reverts.get(id) ?? '', files };
     });
 }
 
@@ -69,19 +69,20 @@ export function linkEpisodes(episodes, commitsByRepo, { windowHours = 72 } = {})
     }
     return lo;
   };
-  // Pass 1: each episode's own commits, and which session made each commit.
-  const ownOf = new Map();
+  // Pass 1: each commit has at most one owner episode, and which session made it.
+  const ownOf = new Map(episodes.map((ep) => [ep, []]));
   const sessionOfCommit = new Map();
   const sessionEnd = new Map();
-  for (const ep of episodes) {
-    const { s, e } = ms(ep);
-    const commits = commitsByRepo.get(ep.repo) ?? [];
-    const own = ep.committed ? commits.filter((c) => c.t >= s - 1000 && c.t <= e + COMMIT_SLACK_MS) : [];
-    ownOf.set(ep, own);
-    for (const c of own) sessionOfCommit.set(c.sha, ep.session_id);
-    sessionEnd.set(ep.session_id, Math.max(sessionEnd.get(ep.session_id) ?? 0, e));
+  const unattributed = [];
+  for (const ep of episodes) sessionEnd.set(ep.session_id, Math.max(sessionEnd.get(ep.session_id) ?? 0, ms(ep).e));
+  for (const [repo, commits] of commitsByRepo) {
+    for (const [c, ep] of attribute(commits, episodes.filter((x) => x.repo === repo && x.committed), ms, unattributed)) {
+      ownOf.get(ep).push(c);
+      sessionOfCommit.set(c.sha, ep.session_id);
+    }
   }
-  return episodes.map((ep) => {
+  for (const own of ownOf.values()) own.sort((a, b) => b.t - a.t);
+  const out = episodes.map((ep) => {
     const { e } = ms(ep);
     const commits = commitsByRepo.get(ep.repo) ?? [];
     const own = ownOf.get(ep);
@@ -129,4 +130,62 @@ export function linkEpisodes(episodes, commitsByRepo, { windowHours = 72 } = {})
       iteration_commits: iteration,
     };
   });
+  // Commits inside two or more equally tight windows: owned by no episode.
+  out.unattributed = unattributed;
+  return out;
+}
+
+// Map(commit -> owner episode). A repo root collects every worktree and every
+// fetched ref, so a time window alone over-claims. Order of evidence:
+// 1. the sha the session's own commit command printed (commit_refs);
+// 2. else, when the sessions printed any shas, only commits by those authors;
+//    episodes that printed shas claim nothing more by window;
+// 3. else the tightest window holding the commit; a tie is unattributed.
+function attribute(commits, eps, ms, unattributed) {
+  const owner = new Map();
+  if (!eps.length || !commits.length) return owner;
+  const byPrefix = new Map();
+  for (const ep of eps) {
+    for (const ref of ep.commit_refs ?? []) {
+      const k = ref.slice(0, 7);
+      if (!byPrefix.has(k)) byPrefix.set(k, []);
+      byPrefix.get(k).push({ ep, ref });
+    }
+  }
+  const authors = new Set();
+  for (const c of commits) {
+    const hit = (byPrefix.get(c.sha.slice(0, 7)) ?? []).find((x) => c.sha.startsWith(x.ref));
+    if (!hit) continue;
+    owner.set(c, hit.ep);
+    if (c.author) authors.add(c.author);
+  }
+  const sorted = [...commits].sort((a, b) => a.t - b.t);
+  const firstAtOrAfter = (x) => {
+    let lo = 0;
+    let hi = sorted.length;
+    while (lo < hi) {
+      const mid = (lo + hi) >> 1;
+      if (sorted[mid].t < x) lo = mid + 1;
+      else hi = mid;
+    }
+    return lo;
+  };
+  const candidates = new Map();
+  for (const ep of eps) {
+    if (ep.commit_refs?.length) continue;
+    const { s, e } = ms(ep);
+    for (let i = firstAtOrAfter(s - 1000); i < sorted.length && sorted[i].t <= e + COMMIT_SLACK_MS; i++) {
+      const c = sorted[i];
+      if (owner.has(c) || (authors.size && !authors.has(c.author))) continue;
+      if (!candidates.has(c)) candidates.set(c, []);
+      candidates.get(c).push({ ep, span: e - s });
+    }
+  }
+  for (const [c, list] of candidates) {
+    const min = Math.min(...list.map((x) => x.span));
+    const tight = list.filter((x) => x.span === min);
+    if (tight.length === 1) owner.set(c, tight[0].ep);
+    else unattributed.push(c.sha);
+  }
+  return owner;
 }

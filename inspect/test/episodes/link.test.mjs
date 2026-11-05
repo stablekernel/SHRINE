@@ -2,7 +2,10 @@ import { test } from 'node:test';
 import assert from 'node:assert/strict';
 import { repoCommits, linkEpisodes } from '../../src/episodes/link.mjs';
 import { resetSpy, spyLog } from '../../src/io/fsread.mjs';
-import { makeRepo } from '../synth/repos.mjs';
+import { execFileSync } from 'node:child_process';
+import { writeFileSync } from 'node:fs';
+import { join } from 'node:path';
+import { fixtureGitEnv, makeRepo } from '../synth/repos.mjs';
 
 const H = 3600000;
 const T0 = Date.parse('2026-10-20T10:00:00Z');
@@ -98,6 +101,55 @@ test('soft links scale: 20000 episodes link in under 2 seconds', () => {
   const out = linkEpisodes(eps, new Map());
   assert.ok(Date.now() - t < 2000, `${Date.now() - t} ms`);
   assert.ok(out[0].downstream.length > 0);
+});
+
+// A teammate commit on another ref, as a fetch leaves it.
+function teammateCommit(r, date, subject, file) {
+  const env = { ...fixtureGitEnv(date), GIT_AUTHOR_EMAIL: 'mate@fixture.example', GIT_COMMITTER_EMAIL: 'mate@fixture.example' };
+  const run = (args) => execFileSync('git', args, { cwd: r.root, encoding: 'utf8', env }).trim();
+  run(['checkout', '-q', '-b', 'mate']);
+  writeFileSync(join(r.root, file), `${subject}\n`);
+  run(['add', '-A']);
+  run(['commit', '-q', '-m', subject]);
+  const sha = run(['rev-parse', 'HEAD']);
+  run(['checkout', '-q', 'main']);
+  return sha;
+}
+
+test('overlapping sessions on one repo each own only their commits; a teammate commit is nobody\'s; one revert marks one episode', () => {
+  const r = makeRepo();
+  r.commit(iso(T0 - H), 'base', { 'base.txt': 'v0' });
+  const a = r.commit(iso(T0 + 10 * 60000), 'feat: a', { 'a.txt': 'a1' });
+  const mate = teammateCommit(r, iso(T0 + 15 * 60000), 'feat: mate', 'm.txt');
+  const b = r.commit(iso(T0 + 20 * 60000), 'feat: b', { 'b.txt': 'b1' });
+  const rv = r.revert(iso(T0 + 5 * H), a);
+  const commits = repoCommits(r.root, { since: T0 - 2 * H, until: T0 + 80 * H });
+  assert.ok(commits.some((c) => c.sha === mate), 'the teammate commit is in the log');
+  const e1 = ep('e1', T0, T0 + 30 * 60000, { repo: r.root, committed: true, session_id: 's1', commit_refs: [a.slice(0, 7)] });
+  const e2 = ep('e2', T0 + 5 * 60000, T0 + 35 * 60000, { repo: r.root, committed: true, session_id: 's2', commit_refs: [b.slice(0, 7)] });
+  const [o1, o2] = linkEpisodes([e1, e2], new Map([[r.root, commits]]));
+  assert.deepEqual(o1.commits, [a]);
+  assert.deepEqual(o2.commits, [b]);
+  assert.equal(o1.rework, true);
+  assert.equal(o2.rework, false, 'the revert names only e1\'s commit');
+  assert.deepEqual(o1.downstream.filter((d) => d.kind === 'revert').map((d) => d.ref), [rv]);
+  r.cleanup();
+});
+
+test('without session evidence a commit goes to the tightest window; a tie leaves it unattributed', () => {
+  const r = makeRepo();
+  const c = r.commit(iso(T0 + 10 * 60000), 'feat: c', { 'c.txt': 'c1' });
+  const commits = repoCommits(r.root, { since: T0 - H, until: T0 + H });
+  const wide = ep('wide', T0, T0 + 50 * 60000, { repo: r.root, committed: true, session_id: 's1' });
+  const tight = ep('tight', T0 + 5 * 60000, T0 + 15 * 60000, { repo: r.root, committed: true, session_id: 's2' });
+  const [w, t] = linkEpisodes([wide, tight], new Map([[r.root, commits]]));
+  assert.deepEqual(w.commits, []);
+  assert.deepEqual(t.commits, [c]);
+  const twin = ep('twin', T0, T0 + 50 * 60000, { repo: r.root, committed: true, session_id: 's3' });
+  const out = linkEpisodes([wide, twin], new Map([[r.root, commits]]));
+  assert.deepEqual(out.map((o) => o.commits), [[], []]);
+  assert.deepEqual(out.unattributed, [c]);
+  r.cleanup();
 });
 
 test('rule v3: later-session fix over 1 hour is a candidate; same session or under 1 hour is iteration; no commit, no follow-up', () => {

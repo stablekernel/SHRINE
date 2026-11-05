@@ -95,3 +95,13 @@ test('the episode timeline sorts by full time across midnight and labels UTC', a
   const tl = episodeTimeline(ep, { done_claim: false, tested: false });
   assert.deepEqual(tl.map((e) => `${e.t} ${e.label_scrubbed}`), ['23:50 UTC Prompt', '00:10 UTC Commit']);
 });
+
+test('a successful commit keeps the shas its result printed as commit_refs', () => {
+  const tl = timelineOf([[0, 'human'], [1, 'bash', 'git commit -m x'], [2, 'ok']]);
+  tl[2].shas = ['1a2b3c4'];
+  const [e] = extractEpisodes({ id: 's', project: 'p' }, tl);
+  assert.deepEqual(e.commit_refs, ['1a2b3c4']);
+  const failed = timelineOf([[0, 'human'], [1, 'bash', 'git commit -m x'], [2, 'err']]);
+  failed[2].shas = ['1a2b3c4'];
+  assert.deepEqual(extractEpisodes({ id: 's', project: 'p' }, failed)[0].commit_refs, []);
+});
