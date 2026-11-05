@@ -54,6 +54,33 @@ test('print shows the content of every appendix section', async ({ page }) => {
   }
 });
 
+// Printing from a dark theme must still put dark text on white paper.
+for (const via of ['color scheme', 'theme toggle']) {
+  test(`print from dark ${via}: text keeps contrast on white paper`, async ({ page }) => {
+    await open(page, MOCK_HTML, { theme: via === 'color scheme' ? 'dark' : 'light' });
+    if (via === 'theme toggle') await page.locator('[data-theme-choice="dark"]').click();
+    await page.emulateMedia({ media: 'print' });
+    const low = await page.evaluate(() => {
+      const lum = (c) => {
+        const [r, g, b] = c.match(/[\d.]+/g).slice(0, 3).map((v) => {
+          const s = Number(v) / 255;
+          return s <= 0.03928 ? s / 12.92 : ((s + 0.055) / 1.055) ** 2.4;
+        });
+        return 0.2126 * r + 0.7152 * g + 0.0722 * b;
+      };
+      const out = [];
+      for (const sel of ['.head h1', '.chip', '.depth', '.tldr li', '.lead', '.blk li', '.ev', '.quote', '.foot', '.report']) {
+        const cs = getComputedStyle(document.querySelector(sel));
+        const ratio = 1.05 / (lum(cs.color) + 0.05);
+        if (ratio < 4.5) out.push(`${sel} ${cs.color} ${ratio.toFixed(2)}`);
+        if (cs.backgroundColor !== 'rgba(0, 0, 0, 0)' && lum(cs.backgroundColor) < 0.8) out.push(`${sel} bg ${cs.backgroundColor}`);
+      }
+      return out;
+    });
+    expect(low).toEqual([]);
+  });
+}
+
 test('with scripts off the inert tab bar is hidden and every finding shows', async ({ browser }) => {
   const ctx = await browser.newContext({ javaScriptEnabled: false });
   const page = await ctx.newPage();

@@ -181,6 +181,15 @@ table.cov tbody:first-of-type tr.grp th { padding-top: var(--s1); }
 }
 @media (prefers-reduced-motion: reduce) { * { transition: none !important; scroll-behavior: auto !important; } }
 @media print {
+  /* Paper is white: print with the light tokens whatever the screen theme. */
+  :root, :root[data-theme] {
+    --bg: #f8fafc; --bg2: #f1f5f9; --surface: #ffffff; --line: #e2e8f0;
+    --text: #0f172a; --text2: #1e293b; --muted: #475569;
+    --accent: #0d9488; --accent-text: #0f766e; --accent-low: #ccfbf1; --on-accent: #ffffff; --btn: #0f766e;
+    --good: #0f766e; --good-bg: #ccfbf1; --warn: #9a4a07; --warn-bg: #fef3c7;
+    --neutral: #475569; --bad: #b4412f; --bad-bg: #fde8e4;
+    color-scheme: light;
+  }
   body { background: #fff; color: #000; }
   .chrome, .tabs, .list, .btn { display: none !important; }
   .report { border: 0; }
