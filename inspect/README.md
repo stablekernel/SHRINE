@@ -20,6 +20,7 @@ Recorded, not fixed; `test/scrub/known-limits.test.mjs` pins each one, so a chan
 
 - Share-safe may over-mask words near a path or document name: `Read ~/work/api Then Stop` gives `Read ~/<path>/<file>`
 - In free text, a path followed by a parenthesis can swallow the next word: `~/work/api (git timed out)` gives `~/<path>/<file> timed out)`
+- A lowercase name part of 4 characters or fewer after a dot is kept as an extension: `acme.corp` gives `<file>.corp`
 
 ## Develop
 
