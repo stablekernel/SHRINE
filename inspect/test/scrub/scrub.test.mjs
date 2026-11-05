@@ -441,6 +441,21 @@ test('free text masks whole document names: parentheses and long word runs', () 
   for (const s of ['Read ~/.claude/settings.json and CLAUDE.md', 'Run npm test; see README.md; v1.2.3 shipped.', 'Move the rule into CLAUDE.md files']) assert.equal(mask(s, k), s);
 });
 
+test('scp remotes on host aliases with no TLD are masked', () => {
+  const k = buildIdentifiers({ home: '/Users/gavin' });
+  const cases = {
+    'git@github-work:acme/secret.git': '<email>:<path>/<file>.git',
+    'origin git@gitlab-initech:acme/payroll.git (fetch)': 'origin <email>:<path>/<file>.git (fetch)',
+    'deploy@buildbox:srv/initech': '<email>:<path>/<file>',
+    'gavin@buildbox:22/srv/initech': '<email>:22/<path>/<file>',
+  };
+  for (const [input, want] of Object.entries(cases)) {
+    assert.equal(mask(input, k), want, JSON.stringify(input));
+    assert.doesNotMatch(JSON.stringify(maskDeep({ rule: input }, k)), /acme|secret|initech|payroll|buildbox|gavin|github-work/i, input);
+  }
+  for (const s of ['ping me@work: tomorrow', 'user@host:8080', 'a@b: c']) assert.equal(mask(s, k), s);
+});
+
 test('round-9 free-text rules run in linear time on adversarial runs', () => {
   const k = buildIdentifiers({ home: '/Users/bob' });
   const units = ['<host>/?a ', '<host>/a#', '<host>/a/', '[:', '[fe80::1', 'a://', 'a://b@', 'a://b', 'é@', 'é.é@é', 'a@b:', 'a@b-c:', 'A b ', 'A (b) ', 'A b.docx', '(a).', 'a  b ', 'a:b@c:d '];

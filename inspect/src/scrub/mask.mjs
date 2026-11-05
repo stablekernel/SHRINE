@@ -43,6 +43,11 @@ const IPV6 = /\[(?=[0-9A-Fa-f.]{0,45}:)[0-9A-Fa-f:.]{2,45}(?:%[\w.-]{1,32})?\]/g
 // A URL's user and host ("ssh://deploy@buildbox:22/x", "s3://initech-bucket/x"): a
 // host with no TLD or a user name can name a client. Placeholders stay.
 const URL_AUTH = /(?<![\p{L}\p{N}+.-])([A-Za-z][A-Za-z0-9+.-]{0,15}:\/\/)(?:(<[\w-]{1,32}>|[^\s/?#@[\]<>]{1,64})@)?(<[\w-]{1,32}>|[^\s/?#:@[\]<>]{1,253})/gu;
+// An scp remote on a host alias with no TLD ("git@github-work:acme/app.git",
+// "deploy@buildbox:22/srv/x"): user@alias then a colon and a path (not a port alone).
+// It reads as an email, so REMOTE_PATH masks the path after it. Not after "://",
+// where URL_AUTH has already masked user and host.
+const SCP_ALIAS = /(?<![\p{L}\p{N}\p{M}._%+/-])(?:<[\w-]{1,32}>|[A-Za-z0-9._%+-]{1,64})@(?:<[\w-]{1,32}>|[A-Za-z0-9](?:[A-Za-z0-9.-]{0,252}))(?=:(?:\d{1,5}\/|[^\s\d\\/:]))/gu;
 const urlAuth = (_m, scheme, user, host) => `${scheme}${user ? `${user.startsWith('<') ? user : '<user>'}@` : ''}${host.startsWith('<') ? host : '<host>'}`;
 // A query or fragment after a masked host and its path: values name clients
 // ("?client=Initech"). The run ends at whitespace, plus capitalized words after it
@@ -230,6 +235,7 @@ export function mask(text, known) {
   out = out.replace(HOST, (m, at, s) => (TOOL_NAMES.some((n) => s.startsWith(n, at)) ? m : '<host>'));
   out = out.replace(IPV6, '<ip>');
   out = out.replace(URL_AUTH, urlAuth);
+  out = out.replace(SCP_ALIAS, '<email>');
   out = out.replace(REMOTE_PATH, remotePath);
   out = out.replace(QUERY, query);
   out = out.replace(UNC_PATH, otherPath);
