@@ -7,6 +7,7 @@ import { join } from 'node:path';
 import { Readable } from 'node:stream';
 import { encodeProjectPath } from '../../src/adapters/claude-code/projects.mjs';
 import { main } from '../../src/cli/main.mjs';
+import { setGitVersion } from '../../src/io/git.mjs';
 import { makeHome, FIXED_NOW } from '../synth/home.mjs';
 import { addHistory, addSession, PRESETS } from '../synth/history.mjs';
 
@@ -196,12 +197,15 @@ test('a lazy fetch during a setup git run is reported, not baked into the baseli
   const h = homeWithHistory();
   const state = mkdtempSync(join(tmpdir(), 'si-st-'));
   // Test-only git wrapper: a setup date lookup (log --format=%cI) drops a promisor pack,
-  // standing in for a partial clone fetching objects on demand.
+  // standing in for a partial clone fetching objects on demand. Verify blames only a
+  // partial clone, so the repo is marked as one, on a git that reads it safely.
+  execFileSync('git', ['config', 'remote.origin.promisor', 'true'], { cwd: h.repo });
   const realGit = execFileSync('sh', ['-c', 'command -v git'], { encoding: 'utf8' }).trim();
   const bin = mkdtempSync(join(tmpdir(), 'si-bin-'));
   writeFileSync(join(bin, 'git'), `#!/bin/sh\ncase "$*" in *%cI*) d=$("${realGit}" rev-parse --git-common-dir 2>/dev/null) && [ -n "$d" ] && touch "$d/objects/pack/pack-lazy$$.promisor";; esac\nexec "${realGit}" "$@"\n`, { mode: 0o755 });
   const path = process.env.PATH;
   process.env.PATH = `${bin}:${path}`;
+  setGitVersion([2, 45, 1]);
   try {
     const r = await inproc(['run', '--tier', 'T0'], h, state, tty('history'));
     assert.equal(r.code, 5, r.stderr);
@@ -210,6 +214,7 @@ test('a lazy fetch during a setup git run is reported, not baked into the baseli
     assert.ok(v.changed_paths.some((p) => p.endsWith('.git')), JSON.stringify(v));
   } finally {
     process.env.PATH = path;
+    setGitVersion(undefined);
     h.cleanup();
   }
 });
