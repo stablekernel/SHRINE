@@ -2,7 +2,7 @@ import { test } from 'node:test';
 import assert from 'node:assert/strict';
 import { readFileSync } from 'node:fs';
 import { fileURLToPath } from 'node:url';
-import { renderReport, shareSafeFindings, PREVIEW_LABEL } from '../../src/render/report.mjs';
+import { renderReport, shareSafeFindings, PREVIEW_LABEL, SAFE_MASK_NOTE } from '../../src/render/report.mjs';
 import { buildIdentifiers } from '../../src/scrub/mask.mjs';
 import { score } from '../../src/scorer/score.mjs';
 import { copy } from '../../src/copy/templates.mjs';
@@ -135,6 +135,14 @@ test('integrity failure renders a red banner naming paths', () => {
   const bad = structuredClone(mock);
   bad.integrity = { ok: false, changed_paths: ['~/.claude/settings.json'] };
   assert.match(renderReport(bad), /role="alert"><b>Integrity check failed\.<\/b>[^<]*<code class="mono">~\/\.claude\/settings\.json/);
+});
+
+test('only the share-safe footer says masking may hide extra words', () => {
+  const foot = (html) => html.match(/<footer class="foot">[\s\S]*?<\/footer>/)[0];
+  assert.equal(SAFE_MASK_NOTE, 'The share-safe copy may mask extra words, to keep names out.');
+  const known = buildIdentifiers({ osUser: 'jdoe', home: '/home/jdoe' });
+  assert.ok(foot(renderReport(shareSafeFindings(structuredClone(mock), known, pivots), { shareSafe: true })).includes(SAFE_MASK_NOTE), 'share-safe footer');
+  assert.ok(!renderReport(mock).includes(SAFE_MASK_NOTE), 'not in the full report');
 });
 
 test('the footer claims nothing was changed only when the integrity check passed', () => {

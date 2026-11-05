@@ -11,6 +11,8 @@ const asset = (name) => readText(fileURLToPath(new URL(`./assets/${name}`, impor
 export const TIER_NAMES = { T0: 'Scan only', T1: 'Pulse', T2: 'Standard', T3: 'Deep' };
 export const PREVIEW_LABEL = 'Preview only. To share, use the share-safe file.';
 const FOOTER_NOTE = 'Generated on your machine by your own AI tool. Secrets scrubbed.';
+// Masking errs wide (a document name also hides the words before it), so say so.
+export const SAFE_MASK_NOTE = 'The share-safe copy may mask extra words, to keep names out.';
 const EVENT_LABEL = { Prompt: 'Prompt', Correction: 'Correction', 'Done claim': 'Done claim', Commit: 'Commit' };
 
 const esc = (s) =>
@@ -302,11 +304,11 @@ function appendix(d) {
   ].join('')}</section>`;
 }
 
-function footer(d) {
+function footer(d, shareSafe) {
   const bar = d.tier === 'T0' ? 'Findings need a deterministic check plus a cited SHRINE entry.' : 'Findings need 3 episodes or 20% of a stratum, plus one mechanical anchor.';
   const seed = d.run.seed != null ? `<span>Seed ${esc(d.run.seed)}</span>` : '';
   const claim = d.integrity?.ok === false ? 'Integrity check failed: see the alert at the top.' : 'Read-only review. Nothing in your setup was changed.';
-  return `<footer class="foot"><span>${claim}</span><span>${bar}</span><span>SHRINE commit <code class="mono">${esc(d.shrine.commit.slice(0, 12))}</code></span>${seed}<span>${FOOTER_NOTE}</span></footer>`;
+  return `<footer class="foot"><span>${claim}</span><span>${bar}</span><span>SHRINE commit <code class="mono">${esc(d.shrine.commit.slice(0, 12))}</code></span>${seed}<span>${FOOTER_NOTE}</span>${shareSafe ? `<span>${SAFE_MASK_NOTE}</span>` : ''}</footer>`;
 }
 
 // ---- page --------------------------------------------------------------------
@@ -322,7 +324,7 @@ export function renderReport(findings, { shareSafe = false } = {}) {
   const previewBtn = shareSafe ? '' : `<button type="button" id="preview-safe" aria-pressed="false">${PREVIEW_LABEL}</button>`;
   const chrome = `<div class="chrome"><span>shrine-inspect ${esc(d.run.tool_version)}</span><div class="controls"><div class="toggle" role="group" aria-label="Theme"><button type="button" data-theme-choice="system" aria-pressed="true">System</button><button type="button" data-theme-choice="light" aria-pressed="false">Light</button><button type="button" data-theme-choice="dark" aria-pressed="false">Dark</button></div>${previewBtn ? `<div class="toggle">${previewBtn}</div>` : ''}</div></div>`;
   const data = JSON.stringify(d).replace(/</g, '\\u003c');
-  const body = `${integrity}${banner}${chrome}<article class="report">${header(d)}${runLimits(d)}${depth(d)}${tldr(d, empty)}${coverage(d, empty)}${explorer(d, empty)}${checkedClear(d)}${appendix(d)}${footer(d)}</article>`;
+  const body = `${integrity}${banner}${chrome}<article class="report">${header(d)}${runLimits(d)}${depth(d)}${tldr(d, empty)}${coverage(d, empty)}${explorer(d, empty)}${checkedClear(d)}${appendix(d)}${footer(d, shareSafe)}</article>`;
   return `<!doctype html>
 <html lang="en">
 <head>
