@@ -202,6 +202,21 @@ test('free-text paths mask folders with punctuation and non-ASCII letters', () =
   for (const [input, want] of Object.entries(cases)) assert.equal(mask(input, k), want, input);
 });
 
+test('a name part that only looks like an extension is masked with the name', () => {
+  const k = buildIdentifiers({ osUser: 'bob', home: '/Users/bob' });
+  const cases = {
+    'see /Users/bob/Clients/Initech.Corp now': 'see ~/<path>/<file> now',
+    'see /srv/x/Initech.Corp/plan.md': 'see <path>/<file>.md',
+    'see /srv/x/Acme.Hooli': 'see <path>/<file>',
+    'see /srv/x/Plan.DOCX and /srv/x/a.PDF': 'see <path>/<file>.DOCX and <path>/<file>.PDF',
+    'see /srv/x/notes.md and /srv/x/run.py': 'see <path>/<file>.md and <path>/<file>.py',
+  };
+  for (const [input, want] of Object.entries(cases)) assert.equal(mask(input, k), want, input);
+  assert.equal(maskBase('Initech.Corp'), '<file>');
+  assert.equal(maskBase('Report.Pdf'), '<file>.Pdf');
+  assert.equal(maskBase('data.json'), '<file>.json');
+});
+
 test('free-text home replacement only matches the home at a path boundary', () => {
   const k = buildIdentifiers({ osUser: 'gavin', home: '/Users/gavin' });
   const cases = {

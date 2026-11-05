@@ -100,6 +100,8 @@ const collapse = (dirs) => {
 const TOOL_FILES = new Set(['CLAUDE.md', 'CLAUDE.local.md', 'AGENTS.md', 'MEMORY.md', 'SKILL.md', 'settings.json', 'settings.local.json', '.mcp.json', 'installed_plugins.json']);
 const TOOL_NAMES = [...TOOL_FILES];
 const LONG_EXTS = new Set(['jsonl', 'jsonc', 'markdown', 'numbers', 'pages', 'ipynb', 'swift', 'scala', 'xhtml', 'local', 'example', 'sample', 'backup', 'patch', 'plist', 'proto', 'graphql', 'vue', 'svelte', 'astro']);
+const SHORT_EXTS = new Set(['md', 'mdx', 'txt', 'rtf', 'doc', 'docx', 'odt', 'pdf', 'xls', 'xlsx', 'xlsm', 'ods', 'csv', 'tsv', 'ppt', 'pptx', 'odp', 'key', 'eml', 'msg', 'json', 'yml', 'yaml', 'toml', 'ini', 'cfg', 'conf', 'xml', 'html', 'htm', 'css', 'js', 'mjs', 'cjs', 'ts', 'tsx', 'jsx', 'py', 'rb', 'go', 'rs', 'java', 'kt', 'c', 'h', 'cpp', 'hpp', 'cs', 'php', 'sh', 'bash', 'zsh', 'ps1', 'bat', 'sql', 'png', 'jpg', 'jpeg', 'gif', 'svg', 'webp', 'bmp', 'ico', 'tif', 'tiff', 'heic', 'mp3', 'mp4', 'mov', 'wav', 'zip', 'tar', 'gz', 'tgz', 'bz2', 'xz', '7z', 'rar', 'dmg', 'pkg', 'log', 'env', 'lock', 'tmp', 'bak', 'lua', 'pl', 'r', 'm']);
+const keepsExt = (e) => SHORT_EXTS.has(e.toLowerCase()) || LONG_EXTS.has(e.toLowerCase()) || /^[a-z0-9]{1,4}$/.test(e);
 const SESSION_FILE =/^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}\.jsonl$/i;
 export function maskBase(base) {
   // A sentence's closing period is not part of the name. A loop, not /(\.*)$/,
@@ -111,8 +113,9 @@ export function maskBase(base) {
   const tail = s.slice(end);
   if (!name || TOOL_FILES.has(name) || SESSION_FILE.test(name) || /^<[\w-]+>$/.test(name)) return base;
   const ext = /\.([A-Za-z0-9]{1,8})$/.exec(name.slice(1));
-  // A long extension can be a name (".env.initech"); only known long ones stay.
-  if (ext && ext[1].length > 4 && !LONG_EXTS.has(ext[1].toLowerCase())) ext[1] = null;
+  // An extension can be part of a name (".env.initech", "Initech.Corp"): only known
+  // ones stay, and short all-lowercase ones, as file extensions are written.
+  if (ext && !keepsExt(ext[1])) ext[1] = null;
   return `${ext?.[1] ? `<file>.${ext[1]}` : '<file>'}${tail}`;
 }
 // The words after a file name are part of it only when it has no extension; a run
