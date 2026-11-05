@@ -1,0 +1,27 @@
+{
+  "version": 1,
+  "config": {
+    "stale_days": 180,
+    "oversized_bytes": 40960,
+    "review_days": 90,
+    "short_retention_days": 30,
+    "duplicate_line_min_chars": 12
+  },
+  "blanket": {
+    "shell_tools": ["Bash"],
+    "write_tools": ["Write", "Edit", "MultiEdit", "NotebookEdit"],
+    "blanket_scopes": ["", "*", "**", ":*", "/**", "./**", "**/*"],
+    "modes": ["bypassPermissions", "acceptEdits", "auto"]
+  },
+  "severity": {
+    "config": {
+      "blanket_permissions": "high",
+      "stale_instructions": "medium",
+      "oversized_instructions": "medium",
+      "default": "low"
+    }
+  },
+  "confidence": { "config": 0.9, "label_high": 0.75, "label_medium": 0.5 },
+  "minutes_to_apply": { "habit": 5, "instruction": 10, "config": 10, "skill": 30, "hook": 30, "gate": 60 },
+  "start_with_max_minutes": 30
+}
