@@ -124,10 +124,13 @@
       "url": "https://stablekernel.github.io/SHRINE/principles/deliberate-currency/",
       "signals_of_violation": [
         {
-          "entry_id": "deliberate-currency.sov.drift",
+          "entry_id": "deliberate-currency.sov.stale",
           "text": "Drift: skills tuned against a retired model still load, and nobody can say who owns them",
           "anchor": "signal-of-violation",
-          "line": 47
+          "line": 47,
+          "also_ids": [
+            "deliberate-currency.sov.owner"
+          ]
         },
         {
           "entry_id": "principles/deliberate-currency#8375a97a21",
@@ -3125,8 +3128,19 @@
     }
   ],
   "entries": {
-    "deliberate-currency.sov.drift": {
-      "entry_id": "deliberate-currency.sov.drift",
+    "deliberate-currency.sov.stale": {
+      "entry_id": "deliberate-currency.sov.stale",
+      "page_id": "principles/deliberate-currency",
+      "anchor": "signal-of-violation",
+      "title": "Deliberate Currency",
+      "section": "principle",
+      "status": "ratified",
+      "url": "https://stablekernel.github.io/SHRINE/principles/deliberate-currency/#signal-of-violation",
+      "url_pinned": "https://github.com/stablekernel/SHRINE/blob/71e82a0e6f729e88c7e40040310fd33068c067f3/docs/src/content/docs/principles/deliberate-currency.md#L47",
+      "quote": "Drift: skills tuned against a retired model still load, and nobody can say who owns them"
+    },
+    "deliberate-currency.sov.owner": {
+      "entry_id": "deliberate-currency.sov.owner",
       "page_id": "principles/deliberate-currency",
       "anchor": "signal-of-violation",
       "title": "Deliberate Currency",

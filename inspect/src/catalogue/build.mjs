@@ -107,6 +107,7 @@ export function buildCatalogue({ docsDir, entryIds, commit } = {}) {
     ...stack.flatMap((p) => p.anti_patterns.map((e) => ({ page: p, e }))),
   ];
   const entries = {};
+  const seen = new Set();
   for (const [entryId, spec] of Object.entries(ids)) {
     const hits = pool.filter(
       ({ page, e }) => page.id === spec.page_id && e.anchor === spec.anchor && normalize(e.text).startsWith(spec.match),
@@ -115,7 +116,12 @@ export function buildCatalogue({ docsDir, entryIds, commit } = {}) {
       throw new Error(`entry id ${entryId} resolves to ${hits.length} entries (${spec.page_id}#${spec.anchor} "${spec.match}")`);
     }
     const { page, e } = hits[0];
-    e.entry_id = entryId;
+    // Several stable ids may name one entry (one per probe kind); the first wins the list slot.
+    if (seen.has(e)) (e.also_ids ??= []).push(entryId);
+    else {
+      e.entry_id = entryId;
+      seen.add(e);
+    }
     entries[entryId] = {
       entry_id: entryId,
       page_id: page.id,

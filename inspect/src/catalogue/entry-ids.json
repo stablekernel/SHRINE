@@ -1,5 +1,10 @@
 {
-  "deliberate-currency.sov.drift": {
+  "deliberate-currency.sov.stale": {
+    "page_id": "principles/deliberate-currency",
+    "anchor": "signal-of-violation",
+    "match": "drift: skills tuned against a retired model"
+  },
+  "deliberate-currency.sov.owner": {
     "page_id": "principles/deliberate-currency",
     "anchor": "signal-of-violation",
     "match": "drift: skills tuned against a retired model"
