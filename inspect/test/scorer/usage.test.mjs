@@ -166,3 +166,25 @@ test('config strip: auto-memory counts its own project; an import outside any ro
   assert.equal(strip(kinds[1]).sessions_since, 2, 'imported by /w/b only');
   assert.equal(strip(kinds[2]).sessions_since, null, 'loaded nowhere known: no figure');
 });
+
+test('config strip: sessions since compares instants, not ISO text with mixed offsets', () => {
+  const kinds = Object.keys(K.kinds);
+  // The change is 2026-10-05T15:00Z (git %cI gives a local offset); the session started 3 hours before it.
+  const f = score({
+    run,
+    shrine: { commit: catalogue.shrine.commit, manifest_sha: null, fetched_at: null },
+    probes: [{ kind: kinds[0], entry_id: K.kinds[kinds[0]].entry_ids[0], see_also: [], hit: true, items: [{ path: '/w/a/CLAUDE.md', date: '2026-10-05T10:00:00-05:00', date_source: 'git' }], metric: {} }],
+    structure: [],
+    catalogue,
+    pivots,
+    copy,
+    home: '/home/u',
+    history: { consented: true, read: true, sessions: 2 },
+    sessionStarts: [
+      { start: '2026-10-05T12:00:00Z', root: '/w/a' },
+      { start: '2026-10-05T16:00:00Z', root: '/w/a' },
+    ],
+    projectScopes: [{ root: '/w/a', memory_dirs: [], loaded: [] }],
+  });
+  assert.equal(f.findings.find((x) => x.kind === kinds[0]).config_strip.sessions_since, 1);
+});

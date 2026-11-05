@@ -168,7 +168,10 @@ function sessionsSince(item, sessions, scopes, home, userLoaded) {
     roots = new Set([holder, ...scopes.filter((s) => (s.loaded ?? []).includes(item.path)).map((s) => s.root)].filter(Boolean));
     if (!roots.size) return null;
   }
-  return sessions.filter((s) => s.start >= item.date && (!roots || roots.has(s.root))).length;
+  // Compare instants: git %cI carries a local offset, session starts are UTC.
+  const since = Date.parse(item.date);
+  if (Number.isNaN(since)) return null;
+  return sessions.filter((s) => Date.parse(s.start) >= since && (!roots || roots.has(s.root))).length;
 }
 
 export function score({ run, shrine, probes, structure, catalogue, pivots, copy, inventoryCounts = {}, home = null, history = { consented: false, read: false, sessions: null }, usage = null, usageKinds = {}, sessionStarts = null, projectScopes = [], userLoaded = [], thresholds = THRESHOLDS, tier = 'T0' }) {
