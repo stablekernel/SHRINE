@@ -78,7 +78,7 @@ test('mock-density fixture is spec legal and matches the mock layout density', (
   assert.deepEqual(validateFindings(f).errors, []);
   assert.equal(f.findings.filter((x) => x.tab === 'amplify').length, 4);
   assert.equal(f.findings.filter((x) => x.tab === 'working').length, 3);
-  assert.equal(f.coverage.length, 8);
+  assert.equal(f.coverage.filter((c) => c.working + c.amplify > 0).length, 7);
   assert.equal(f.headline.tldr.length, 3);
   for (const x of f.findings.filter((y) => y.tab === 'working')) assert.equal(x.praise_class, 'structure');
   for (const x of f.findings.filter((y) => y.praise_class === 'structure')) assert.notEqual(x.confidence.label, 'high');

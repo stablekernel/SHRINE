@@ -110,13 +110,16 @@ test('configured holds presence-only items and working stays empty', () => {
   assert.equal(out.headline.counts.working, 0);
 });
 
-test('coverage counts by coverage_key: 7 principles plus patterns and stack', () => {
+test('coverage counts by coverage_key: 7 principles, then each pattern and stack page, grouped', () => {
   const out = run(hitsOf('stale_instructions', 'no_owner_or_review', 'stack_gap'));
-  assert.equal(out.coverage.length, 8);
-  assert.ok(!out.coverage.some((c) => c.key === 'tokens-to-value'));
+  const groups = (g) => out.coverage.filter((c) => c.group === g);
+  assert.equal(groups('principles').length, 7);
+  assert.equal(groups('patterns').length, catalogue.patterns.filter((p) => !p.id.endsWith('/overview')).length);
+  assert.equal(groups('stack').length, catalogue.stack.filter((p) => !p.id.endsWith('/overview')).length);
+  assert.ok(!out.coverage.some((c) => c.key === 'tokens-to-value' || c.key.endsWith('/overview')));
   const by = Object.fromEntries(out.coverage.map((c) => [c.key, c.amplify]));
   assert.equal(by['deliberate-currency'], 2);
-  assert.equal(by.patterns_and_stack, 1);
+  assert.equal(by['stack/harness'], 1, 'a stack-only citation counts under its own stack page');
 });
 
 test('see_also entries join shrine_refs and a principle among them sets coverage_key', () => {

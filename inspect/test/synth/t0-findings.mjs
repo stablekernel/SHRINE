@@ -19,7 +19,7 @@ export function t0BadSetupFindings() {
     { kind: 'blanket_permissions', hit: true, items: [{ path: `${home}/.claude/settings.json`, rule: 'Bash', reason: 'blanket shell allow' }, { path: `${home}/.claude/settings.json`, rule: 'Write', reason: 'blanket write allow' }, { path: `${home}/.claude/settings.json`, rule: 'defaultMode: bypassPermissions', reason: 'bypass or auto-approve default mode' }], metric: { count: 3 } },
     { kind: 'stack_gap', hit: true, items: [{ missing: 'hooks' }, { missing: 'skills' }, { missing: 'memory' }], metric: { hooks: 0, skills: 0, memory: 0, missing: ['hooks', 'skills', 'memory'] } },
     { kind: 'short_retention', hit: true, items: [], metric: { days: 30, source: 'default', threshold_days: 30 } },
-  ].map((p) => ({ ...p, entry_id: K.kinds[p.kind].entry_ids[0] }));
+  ].map((p) => ({ ...p, entry_id: K.kinds[p.kind].entry_ids[0], see_also: K.kinds[p.kind].entry_ids.slice(1) }));
   const structure = Object.keys(K.structure).map((check) => ({ check, entry_id: K.structure[check].entry_ids[0], applicable: check !== 'repo_layout', pass: check === 'instruction_layers', items: [] }));
   return score({
     run: {

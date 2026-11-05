@@ -72,6 +72,7 @@
       "key": "authority-cascade",
       "title": "Authority Cascade",
       "icon": "layers",
+      "group": "principles",
       "working": 1,
       "amplify": 0
     },
@@ -79,6 +80,7 @@
       "key": "human-in-the-loop",
       "title": "Human in the Loop",
       "icon": "hand",
+      "group": "principles",
       "working": 0,
       "amplify": 1
     },
@@ -86,6 +88,7 @@
       "key": "problem-before-prescription",
       "title": "Problem Before Prescription",
       "icon": "compass",
+      "group": "principles",
       "working": 0,
       "amplify": 1
     },
@@ -93,6 +96,7 @@
       "key": "consistency-as-leverage",
       "title": "Consistency as Leverage",
       "icon": "grid",
+      "group": "principles",
       "working": 1,
       "amplify": 0
     },
@@ -100,6 +104,7 @@
       "key": "fail-fast-recover-smart",
       "title": "Fail Fast, Recover Smart",
       "icon": "loop",
+      "group": "principles",
       "working": 0,
       "amplify": 1
     },
@@ -107,6 +112,7 @@
       "key": "reproducibility",
       "title": "Reproducibility",
       "icon": "repeat",
+      "group": "principles",
       "working": 0,
       "amplify": 0
     },
@@ -114,15 +120,289 @@
       "key": "deliberate-currency",
       "title": "Deliberate Currency",
       "icon": "clock",
+      "group": "principles",
       "working": 1,
       "amplify": 0
     },
     {
-      "key": "patterns_and_stack",
-      "title": "Patterns and stack",
+      "key": "patterns/adversarial-review",
+      "title": "Adversarial Review",
+      "icon": "book",
+      "group": "patterns",
+      "working": 0,
+      "amplify": 0
+    },
+    {
+      "key": "patterns/chain-of-thought",
+      "title": "Chain of Thought",
+      "icon": "book",
+      "group": "patterns",
+      "working": 0,
+      "amplify": 0
+    },
+    {
+      "key": "patterns/checkpoint-gates",
+      "title": "Checkpoint Gates",
+      "icon": "book",
+      "group": "patterns",
+      "working": 0,
+      "amplify": 0
+    },
+    {
+      "key": "patterns/context-handoff",
+      "title": "Context Handoff",
+      "icon": "book",
+      "group": "patterns",
+      "working": 0,
+      "amplify": 0
+    },
+    {
+      "key": "patterns/correction-diagnosis",
+      "title": "Correction Diagnosis",
+      "icon": "book",
+      "group": "patterns",
+      "working": 0,
+      "amplify": 0
+    },
+    {
+      "key": "patterns/delegation-fit",
+      "title": "Delegation Fit",
+      "icon": "book",
+      "group": "patterns",
+      "working": 0,
+      "amplify": 0
+    },
+    {
+      "key": "patterns/discovery-propagation",
+      "title": "Discovery Propagation",
+      "icon": "book",
+      "group": "patterns",
+      "working": 0,
+      "amplify": 0
+    },
+    {
+      "key": "patterns/dogfooding",
+      "title": "Dogfooding",
+      "icon": "book",
+      "group": "patterns",
+      "working": 0,
+      "amplify": 0
+    },
+    {
+      "key": "patterns/few-shot-examples",
+      "title": "Few-Shot Examples",
+      "icon": "book",
+      "group": "patterns",
+      "working": 0,
+      "amplify": 0
+    },
+    {
+      "key": "patterns/iterative-refinement",
+      "title": "Iterative Refinement",
+      "icon": "book",
+      "group": "patterns",
+      "working": 0,
+      "amplify": 0
+    },
+    {
+      "key": "patterns/mechanical-scaffolding",
+      "title": "Mechanical Scaffolding",
+      "icon": "book",
+      "group": "patterns",
+      "working": 0,
+      "amplify": 0
+    },
+    {
+      "key": "patterns/multi-model-consensus",
+      "title": "Multi-Model Consensus",
+      "icon": "book",
+      "group": "patterns",
+      "working": 0,
+      "amplify": 0
+    },
+    {
+      "key": "patterns/pipeline-orchestration",
+      "title": "Pipeline Orchestration",
+      "icon": "book",
+      "group": "patterns",
+      "working": 0,
+      "amplify": 0
+    },
+    {
+      "key": "patterns/progress-breadcrumbs",
+      "title": "Progress Breadcrumbs",
+      "icon": "book",
+      "group": "patterns",
+      "working": 0,
+      "amplify": 0
+    },
+    {
+      "key": "patterns/prompt-regression",
+      "title": "Prompt Regression Testing",
+      "icon": "book",
+      "group": "patterns",
+      "working": 0,
+      "amplify": 0
+    },
+    {
+      "key": "patterns/rag",
+      "title": "RAG (Retrieval-Augmented Generation)",
+      "icon": "book",
+      "group": "patterns",
+      "working": 0,
+      "amplify": 0
+    },
+    {
+      "key": "patterns/reviewable-output",
+      "title": "Reviewable Output",
+      "icon": "book",
+      "group": "patterns",
+      "working": 0,
+      "amplify": 0
+    },
+    {
+      "key": "patterns/self-critique",
+      "title": "Self-Critique",
+      "icon": "book",
+      "group": "patterns",
+      "working": 0,
+      "amplify": 0
+    },
+    {
+      "key": "patterns/spec-then-build",
+      "title": "Spec, Then Build",
+      "icon": "book",
+      "group": "patterns",
+      "working": 0,
+      "amplify": 0
+    },
+    {
+      "key": "patterns/step-level-routing",
+      "title": "Step-Level Routing",
+      "icon": "book",
+      "group": "patterns",
+      "working": 0,
+      "amplify": 0
+    },
+    {
+      "key": "patterns/structured-output",
+      "title": "Structured Output",
+      "icon": "book",
+      "group": "patterns",
+      "working": 0,
+      "amplify": 0
+    },
+    {
+      "key": "patterns/subagent-fanout",
+      "title": "Subagent Fanout",
+      "icon": "book",
+      "group": "patterns",
+      "working": 0,
+      "amplify": 0
+    },
+    {
+      "key": "patterns/task-routing",
+      "title": "Task Routing",
+      "icon": "book",
+      "group": "patterns",
+      "working": 0,
+      "amplify": 0
+    },
+    {
+      "key": "patterns/unattended-runs",
+      "title": "Unattended Runs",
+      "icon": "book",
+      "group": "patterns",
+      "working": 0,
+      "amplify": 0
+    },
+    {
+      "key": "patterns/verification-loops",
+      "title": "Verification Loops",
+      "icon": "book",
+      "group": "patterns",
+      "working": 0,
+      "amplify": 0
+    },
+    {
+      "key": "stack/agent-architecture",
+      "title": "Agent Architecture & Orchestration",
       "icon": "wrench",
+      "group": "stack",
+      "working": 0,
+      "amplify": 0
+    },
+    {
+      "key": "stack/cost-management",
+      "title": "Cost Management",
+      "icon": "wrench",
+      "group": "stack",
+      "working": 0,
+      "amplify": 0
+    },
+    {
+      "key": "stack/evaluation",
+      "title": "Evaluation & Benchmarking",
+      "icon": "wrench",
+      "group": "stack",
+      "working": 0,
+      "amplify": 0
+    },
+    {
+      "key": "stack/harness",
+      "title": "Harness Selection",
+      "icon": "wrench",
+      "group": "stack",
+      "working": 0,
+      "amplify": 0
+    },
+    {
+      "key": "stack/memory",
+      "title": "Memory & Context Management",
+      "icon": "wrench",
+      "group": "stack",
       "working": 0,
       "amplify": 1
+    },
+    {
+      "key": "stack/models",
+      "title": "Model Selection & Routing",
+      "icon": "wrench",
+      "group": "stack",
+      "working": 0,
+      "amplify": 0
+    },
+    {
+      "key": "stack/observability",
+      "title": "Observability & Logging",
+      "icon": "wrench",
+      "group": "stack",
+      "working": 0,
+      "amplify": 0
+    },
+    {
+      "key": "stack/repository-context",
+      "title": "Repository Context",
+      "icon": "wrench",
+      "group": "stack",
+      "working": 0,
+      "amplify": 0
+    },
+    {
+      "key": "stack/skills",
+      "title": "Skills & Prompts",
+      "icon": "wrench",
+      "group": "stack",
+      "working": 0,
+      "amplify": 0
+    },
+    {
+      "key": "stack/tool-integration",
+      "title": "Tool Integration",
+      "icon": "wrench",
+      "group": "stack",
+      "working": 0,
+      "amplify": 0
     }
   ],
   "attribution_stack": {
@@ -616,7 +896,7 @@
         }
       ],
       "owner_label": "Owner: Setup",
-      "coverage_key": "patterns_and_stack",
+      "coverage_key": "stack/memory",
       "config_strip": {
         "mtime": "2026-10-30",
         "last_git_change": "2026-10-30",
@@ -984,7 +1264,7 @@
         }
       ],
       "owner_label": "Owner: Setup",
-      "coverage_key": "patterns_and_stack",
+      "coverage_key": "stack/memory",
       "config_strip": {
         "mtime": "2026-10-30",
         "last_git_change": "2026-10-30",

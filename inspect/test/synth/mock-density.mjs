@@ -1,11 +1,12 @@
 // Generates test/fixtures/findings/mock-density.json: a spec-legal findings.json
-// with the approved mock's layout density (4 amplify, 3 working, 8 coverage rows,
+// with the approved mock's layout density (4 amplify, 3 working, 7 tripped coverage areas,
 // 3 TLDR lines, 4-event timelines, 3 why, 3 problem, 3 benefits). Only data the
 // spec can produce: no CI events, no outcome numbers, structure praise capped at medium.
 // Usage: node test/synth/mock-density.mjs
 import { writeFileSync } from 'node:fs';
 import { fileURLToPath } from 'node:url';
 import { readFileSync } from 'node:fs';
+import { coverageAreas } from '../../src/scorer/score.mjs';
 
 const cat = JSON.parse(readFileSync(fileURLToPath(new URL('../../src/catalogue/catalogue.json', import.meta.url)), 'utf8'));
 const pageRef = (pageId, section = 'principle') => {
@@ -207,7 +208,7 @@ const amplify = [
     ],
     shrine_refs: [mapped('memory.ap.instruction-file-grows')],
     owner_label: 'Owner: Setup',
-    coverage_key: 'patterns_and_stack',
+    coverage_key: 'stack/memory',
     config_strip: { mtime: '2026-10-30', last_git_change: '2026-10-30', sessions_since: 12 },
   }),
 ];
@@ -246,23 +247,11 @@ const working = [
   }),
 );
 
-const COV = [
-  ['authority-cascade', 'Authority Cascade', 'layers'],
-  ['human-in-the-loop', 'Human in the Loop', 'hand'],
-  ['problem-before-prescription', 'Problem Before Prescription', 'compass'],
-  ['consistency-as-leverage', 'Consistency as Leverage', 'grid'],
-  ['fail-fast-recover-smart', 'Fail Fast, Recover Smart', 'loop'],
-  ['reproducibility', 'Reproducibility', 'repeat'],
-  ['deliberate-currency', 'Deliberate Currency', 'clock'],
-  ['patterns_and_stack', 'Patterns and stack', 'wrench'],
-];
 const all = [...amplify, ...working];
-const coverage = COV.map(([key, title, icon]) => ({
-  key,
-  title,
-  icon,
-  working: all.filter((f) => f.tab === 'working' && f.coverage_key === key).length,
-  amplify: all.filter((f) => f.tab === 'amplify' && f.coverage_key === key).length,
+const coverage = coverageAreas(cat).map((c) => ({
+  ...c,
+  working: all.filter((f) => f.tab === 'working' && f.coverage_key === c.key).length,
+  amplify: all.filter((f) => f.tab === 'amplify' && f.coverage_key === c.key).length,
 }));
 
 const out = {
@@ -301,7 +290,7 @@ const out = {
       title: 'Compactions cluster in long sessions',
       short: '3 compactions in 2 sessions',
       confidence: conf(0.45, 'below the evidence bar'),
-      coverage_key: 'patterns_and_stack',
+      coverage_key: 'stack/memory',
     }),
   ],
   checked_clear: [

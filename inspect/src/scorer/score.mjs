@@ -9,8 +9,9 @@ export const TOOL_VERSION = '0.1.0';
 const SEV_RANK = { high: 3, medium: 2, low: 1 };
 const KIND_ORDER = ['blanket_permissions', 'stale_instructions', 'oversized_instructions', 'no_owner_or_review', 'stack_gap', 'short_retention'];
 
-// Coverage rows: 7 ratified principles (North Star excluded; it frames cost) plus
-// one "Patterns and stack" row, in the docs' deliberate order.
+// Coverage areas: 7 ratified principles (North Star excluded; it frames cost) in
+// the docs' deliberate order, then every pattern page, then every stack page. The
+// report shows only areas with a finding, grouped by `group`.
 export const COVERAGE = [
   ['authority-cascade', 'layers'],
   ['human-in-the-loop', 'hand'],
@@ -37,9 +38,27 @@ function ref(catalogue, entryId) {
   return { entry_id: e.entry_id, page_id: e.page_id, anchor: e.anchor, title: e.title, section: e.section, status: e.status, url: e.url, url_pinned: e.url_pinned, quote: e.quote };
 }
 
+// A principle ref wins (key is its slug); else the first pattern or stack page.
 function coverageKey(refs) {
   const p = refs.find((r) => r.section === 'principle' && r.page_id !== 'principles/tokens-to-value');
-  return p ? p.page_id.split('/')[1] : 'patterns_and_stack';
+  if (p) return p.page_id.split('/')[1];
+  const other = refs.find((r) => r.section === 'pattern' || r.section === 'stack');
+  return other ? other.page_id : 'unmapped';
+}
+
+const AREA_GROUPS = [
+  ['patterns', 'book'],
+  ['stack', 'wrench'],
+];
+
+export function coverageAreas(catalogue) {
+  const title = (id) => catalogue.principles.find((p) => p.id === `principles/${id}`)?.title ?? id;
+  return [
+    ...COVERAGE.map(([key, icon]) => ({ key, title: title(key), icon, group: 'principles' })),
+    ...AREA_GROUPS.flatMap(([group, icon]) =>
+      (catalogue[group] ?? []).filter((p) => !p.id.endsWith('/overview')).map((p) => ({ key: p.id, title: p.title, icon, group })),
+    ),
+  ];
 }
 
 function evidenceOf(p, home) {
@@ -144,8 +163,7 @@ export function score({ run, shrine, probes, structure, catalogue, pivots, copy,
   const pick = eligible ?? amplify[0];
   const start_with = pick ? { finding_id: pick.id, action: pick.pivot.action, minutes_to_apply: pick.pivot.minutes_to_apply, framed: Boolean(eligible) } : null;
 
-  const principleTitle = (id) => catalogue.principles.find((p) => p.id === `principles/${id}`)?.title ?? id;
-  const coverage = [...COVERAGE.map(([key, icon]) => ({ key, title: principleTitle(key), icon })), { key: 'patterns_and_stack', title: 'Patterns and stack', icon: 'wrench' }].map(
+  const coverage = coverageAreas(catalogue).map(
     (c) => ({
       ...c,
       working: working.filter((f) => f.coverage_key === c.key).length,
