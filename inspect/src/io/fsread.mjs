@@ -83,6 +83,16 @@ export function stat(path) {
   }
 }
 
+// Resolved path with symlinks followed, or null.
+export function realpath(path) {
+  record({ op: 'stat', path, mode: 'r' });
+  try {
+    return fs.realpathSync(path);
+  } catch {
+    return null;
+  }
+}
+
 export function exists(path) {
   return stat(path) !== null;
 }

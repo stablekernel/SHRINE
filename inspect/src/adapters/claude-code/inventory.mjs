@@ -3,7 +3,7 @@
 // agents, commands, and servers count with source "plugin". The tool's own skill
 // is excluded so it never hides a stack gap.
 import { dirname, join, relative } from 'node:path';
-import { exists, isDir, list, readBytes, sha256, stat } from '../../io/fsread.mjs';
+import { exists, isDir, list, readBytes, realpath, sha256, stat } from '../../io/fsread.mjs';
 import { claudeHomeOf } from './detect.mjs';
 import { encodeProjectPath } from './projects.mjs';
 import { resolveImports } from './always-loaded.mjs';
@@ -16,7 +16,8 @@ export function managedSettingsPath(platform = process.platform) {
   return '/etc/claude-code/managed-settings.json';
 }
 
-const SKIP_DIRS = new Set(['node_modules', '.git', '.worktrees', 'dist', 'build', 'vendor', 'target', '.venv', 'venv']);
+const MAX_DEPTH = 8;
+const SKIP_DIRS =new Set(['node_modules', '.git', '.worktrees', 'dist', 'build', 'vendor', 'target', '.venv', 'venv']);
 
 export function inventory({ home, projects = [], managedPath = managedSettingsPath() }) {
   const claudeHome = claudeHomeOf(home);
@@ -87,11 +88,23 @@ export function inventory({ home, projects = [], managedPath = managedSettingsPa
       else if (on === false) enabledPlugins.delete(name);
     }
   };
-  const addMarkdownDir = (dir, kind, layer, source, loaded_by, { recursive = false } = {}) => {
+  // Symlinked folders are walked once: never into a folder already walked, one
+  // inside a walked tree, or an ancestor of the root (a cycle). Depth is capped.
+  const addMarkdownDir = (dir, kind, layer, source, loaded_by, { recursive = false } = {}, walk = null) => {
+    const real = realpath(dir);
+    if (!real) return;
+    const w = walk ?? { root: real, visited: new Set(), depth: 0 };
+    if (w.visited.has(real) || w.depth > MAX_DEPTH) return;
+    w.visited.add(real);
     for (const e of list(dir)) {
       const p = join(dir, e.name);
-      if (e.dir && recursive) addMarkdownDir(p, kind, layer, source, loaded_by, { recursive });
-      else if (!e.dir && e.name.endsWith('.md')) addFile(p, kind, layer, source, loaded_by);
+      if (e.dir && recursive) {
+        const r = realpath(p);
+        const linked = r !== join(real, e.name);
+        const inside = (t) => r === t || r.startsWith(`${t}/`);
+        if (!r || (linked && ([...w.visited].some(inside) || w.root.startsWith(`${r}/`)))) continue;
+        addMarkdownDir(p, kind, layer, source, loaded_by, { recursive }, { ...w, depth: w.depth + 1 });
+      } else if (!e.dir && e.name.endsWith('.md')) addFile(p, kind, layer, source, loaded_by);
     }
   };
   const addSkills = (dir, layer, source, loaded_by) => {
