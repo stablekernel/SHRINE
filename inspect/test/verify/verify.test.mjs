@@ -56,3 +56,17 @@ test('a non-allowlisted spawn in the spy log fails verification', () => {
   const { base } = setup();
   assert.equal(verifyRun(base, [{ op: 'spawn', cmd: 'sh', args: [] }]).ok, false);
 });
+
+test('a repo HEAD that moves after the baseline shows as HEAD moved, by others', async () => {
+  const { execFileSync } = await import('node:child_process');
+  const repo = mkdtempSync(join(tmpdir(), 'si-verify-repo-'));
+  const env = { ...process.env, GIT_AUTHOR_NAME: 't', GIT_AUTHOR_EMAIL: 't@x', GIT_COMMITTER_NAME: 't', GIT_COMMITTER_EMAIL: 't@x' };
+  const g = (...a) => execFileSync('git', a, { cwd: repo, env, stdio: 'ignore' });
+  g('init', '-q');
+  g('commit', '-q', '--allow-empty', '-m', 'one');
+  const { heads } = baselineOf([], [repo]);
+  g('commit', '-q', '--allow-empty', '-m', 'two');
+  const r = verifyRun({ files: [], heads }, []);
+  assert.equal(r.ok, true);
+  assert.deepEqual(r.changed_by_others.map((c) => c.change), ['HEAD moved']);
+});

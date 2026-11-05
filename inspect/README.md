@@ -9,7 +9,7 @@ Status: pre-release (SP1). Install and docs cutover arrive in SP3; until then th
 - `node bin/shrine-inspect.mjs run --tier T0 --no-history`
 - Without `--no-history`, the run pauses at Gate A (exit 3) until you answer in your own terminal: `node bin/shrine-inspect.mjs approve <run> A <no-history|history>`
 - Gate A `history` is recorded as consent; this version still reads setup only
-- Output: one run folder under the state dir with `state.json`, `scan.json`, `facts.json`, `findings.json`, `verify.json`, `report.html`, `report.share-safe.html`, `spy.jsonl`, and a `<phase>.done` marker per phase
+- Output: one run folder under the state dir with `state.json`, `scan.json`, `facts.json`, `findings.json`, `verify.json`, `report.html`, `report.share-safe.html`, `spy.jsonl`, `gate.json` when a gate paused the run, and a `<phase>.done` marker per phase
 - `node bin/shrine-inspect.mjs purge` deletes the state and cache dirs, only if this tool created them
 - Exit codes: 0 ok, 1 internal, 2 usage, 3 gate waiting, 4 unsupported format (reserved, not raised yet), 5 integrity failure
 
