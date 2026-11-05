@@ -124,7 +124,7 @@ test('config strip: sessions since counts only sessions where that config was li
     home: '/home/u',
     history: { consented: true, read: true, sessions: 3 },
     sessionStarts: sessions,
-    projectScopes: ['/w/a', '/w/b', '/w/c'].map((root) => ({ root, memory_dir: `/home/u/.claude/projects/${root.replace(/\//g, '-')}/memory`, loaded: [] })),
+    projectScopes: ['/w/a', '/w/b', '/w/c'].map((root) => ({ root, memory_dirs: [`/home/u/.claude/projects/${root.replace(/\//g, '-')}/memory`], loaded: [] })),
   });
   const strip = (k) => f.findings.find((x) => x.kind === k).config_strip;
   assert.equal(strip(kinds[0]).sessions_since, 1, 'project config: that project only');
@@ -157,8 +157,8 @@ test('config strip: auto-memory counts its own project; an import outside any ro
     history: { consented: true, read: true, sessions: 3 },
     sessionStarts: sessions,
     projectScopes: [
-      { root: '/w/a', memory_dir: '/home/u/.claude/projects/-w-a/memory', loaded: [] },
-      { root: '/w/b', memory_dir: '/home/u/.claude/projects/-w-b/memory', loaded: ['/home/u/notes/shared.md'] },
+      { root: '/w/a', memory_dirs: ['/home/u/.claude/projects/-w-a/memory'], loaded: [] },
+      { root: '/w/b', memory_dirs: ['/home/u/.claude/projects/-w-b/memory'], loaded: ['/home/u/notes/shared.md'] },
     ],
   });
   const strip = (k) => f.findings.find((x) => x.kind === k).config_strip;

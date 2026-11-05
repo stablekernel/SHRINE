@@ -1,9 +1,11 @@
 import { test } from 'node:test';
 import assert from 'node:assert/strict';
-import { mkdtempSync, readFileSync, readdirSync } from 'node:fs';
-import { tmpdir } from 'node:os';
+import { execFileSync } from 'node:child_process';
+import { mkdirSync, mkdtempSync, readFileSync, readdirSync, utimesSync, writeFileSync } from 'node:fs';
+import { devNull, tmpdir } from 'node:os';
 import { join } from 'node:path';
 import { Readable } from 'node:stream';
+import { encodeProjectPath } from '../../src/adapters/claude-code/projects.mjs';
 import { main } from '../../src/cli/main.mjs';
 import { makeHome, FIXED_NOW } from '../synth/home.mjs';
 import { addHistory, addSession, PRESETS } from '../synth/history.mjs';
@@ -112,6 +114,31 @@ test('the driving session is left out: --session-id, else the newest growing fil
   const ids = json(dir2, 'facts.json').sessions.map((s) => s.id);
   assert.ok(!ids.includes(flagged));
   assert.ok(ids.includes('live-session-0001'), 'with --session-id, the growing file is scanned');
+  h.cleanup();
+});
+
+test('sessions-since for a memory folder of a session cwd below the root counts that project only', async () => {
+  const h = makeHome('good', { sessionMtime: new Date(NOW - 25 * DAY) });
+  const sub = join(h.repo, 'pkg');
+  const other = join(h.tmp, 'work', 'other');
+  mkdirSync(sub, { recursive: true });
+  mkdirSync(other, { recursive: true });
+  execFileSync('git', ['init', '-q'], { cwd: other, env: { ...process.env, GIT_CONFIG_GLOBAL: devNull } });
+  addHistory(h, 'clean', { nowMs: NOW, cwd: sub, prefix: 'aaaa', count: 3 });
+  addHistory(h, 'clean', { nowMs: NOW, cwd: other, prefix: 'bbbb', count: 12 });
+  const mem = join(h.claudeHome, 'projects', encodeProjectPath(sub), 'memory');
+  mkdirSync(mem, { recursive: true });
+  writeFileSync(join(mem, 'MEMORY.md'), '# mem\n- some rule that is long enough to count here\n');
+  const old = new Date(NOW - 300 * DAY);
+  utimesSync(join(mem, 'MEMORY.md'), old, old);
+  const state = mkdtempSync(join(tmpdir(), 'si-st-'));
+  const r = await inproc(['run', '--tier', 'T0'], h, state, tty('history'));
+  assert.equal(r.code, 0, r.stderr);
+  const f = json(runDir(state), 'findings.json');
+  assert.equal(f.history.sessions, 15);
+  const hit = [...f.findings, ...f.worth_a_look].find((x) => x.items?.[0]?.path?.endsWith('/memory/MEMORY.md'));
+  assert.ok(hit, 'the stale memory file is reported');
+  assert.equal(hit.config_strip.sessions_since, 3, 'only sessions of the project that loads that memory folder');
   h.cleanup();
 });
 

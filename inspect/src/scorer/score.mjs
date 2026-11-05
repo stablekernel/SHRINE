@@ -154,12 +154,12 @@ const usageThresholds = (t) => ({
 // user-global file counts all; any other file counts the project that holds it
 // plus the projects whose always-loaded chain imports it. null when history was
 // not read, the change date is unknown, or no project is known to load the file.
-// sessions: [{start, root}]; scopes: [{root, memory_dir, loaded: [paths]}];
+// sessions: [{start, root}]; scopes: [{root, memory_dirs: [one per session cwd], loaded: [paths]}];
 // userLoaded: paths every session loads (the user chain and its imports).
 function sessionsSince(item, sessions, scopes, home, userLoaded) {
   if (!sessions || !item.date) return null;
   const under = (p, dir) => p === dir || p.startsWith(`${dir}/`);
-  const memory = scopes.find((s) => s.memory_dir && under(item.path, s.memory_dir));
+  const memory = scopes.find((s) => (s.memory_dirs ?? []).some((d) => under(item.path, d)));
   let roots = null;
   if (memory) roots = new Set([memory.root]);
   else if (userLoaded.includes(item.path) || (home && (under(item.path, `${home}/.claude`) || item.path === `${home}/.claude.json`))) roots = null;

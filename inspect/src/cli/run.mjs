@@ -218,7 +218,7 @@ export async function continueRun(folder, ctx, io) {
     sessionStarts: usage ? history.sessions.map((s) => ({ start: s.start, root: history.roots.get(s.id) })) : null,
     projectScopes: projects.map((p) => ({
       root: p.root,
-      memory_dir: join(claudeHome, 'projects', encodeProjectPath(p.root), 'memory'),
+      memory_dirs: [...new Set([p.root, ...(p.cwds ?? [])])].map((cwd) => join(claudeHome, 'projects', encodeProjectPath(cwd), 'memory')),
       loaded: (setup.always_loaded.by_project.find((b) => b.project === p.root)?.files ?? []).map((f) => f.path),
     })),
     userLoaded: setup.always_loaded.user_files.map((f) => f.path),
