@@ -105,6 +105,16 @@ test('rework lines use episodes with linked commits as N and show unlinked commi
   assert.match(control, /episodes with linked commits/);
 });
 
+test('rework and subagent lines name N and give no percentage of zero', () => {
+  const none = usageLines({ ...SAMPLE_USAGE, counts: { ...SAMPLE_USAGE.counts, linked_commits: 0, rework: 0, possible_fix: 0, subagent_share: 0, attributable_tokens: 0 } }).join('\n');
+  assert.doesNotMatch(none, /0 of 0|\(0%/);
+  assert.match(none, /Rework \(named reverts\) within 72 hours: no episode has a linked commit, so there is nothing to count\./);
+  assert.match(none, /Subagent share of attributable tokens: n\/a, no attributable tokens\./);
+  const some = usageLines({ ...SAMPLE_USAGE, counts: { ...SAMPLE_USAGE.counts, linked_commits: 3, rework: 1, subagent_share: 0.25, attributable_tokens: 12000 } }).join('\n');
+  assert.match(some, /1 of 3 episodes with linked commits \(33%, a small sample under 15 episodes\)\./);
+  assert.match(some, /Subagent share of attributable tokens: 25% of 12,000 tokens\./);
+});
+
 test('control sentence labels a small flagged group and drops an empty one', () => {
   const dwt = (flagged) => ({ ...SAMPLE_PROBES.done_without_test, control: { flagged, rest: { hits: 2, n: 40, rate: 0.05 }, diff_points: 0 } });
   const one = copy.finding('done_without_test', dwt({ hits: 1, n: 1, rate: 1 })).why.join(' ');

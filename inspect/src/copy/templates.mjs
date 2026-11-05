@@ -164,7 +164,7 @@ export function usageLines(u) {
   const lines = [
     `${c.sessions} ${pl(c.sessions, 'session')} reviewed, ${c.episodes} ${pl(c.episodes, 'episode')}`,
     `${c.human_turns} human ${pl(c.human_turns, 'turn')}, ${c.interrupts} ${pl(c.interrupts, 'interrupt')}, ${c.compactions} ${pl(c.compactions, 'compaction')}`,
-    `Subagent share of attributable tokens: ${pctOf(c.subagent_share)}`,
+    c.attributable_tokens ? `Subagent share of attributable tokens: ${pctOf(c.subagent_share)} of ${c.attributable_tokens.toLocaleString('en-US')} tokens.` : 'Subagent share of attributable tokens: n/a, no attributable tokens.',
     `Correction candidates: ${c.correction_candidates} human ${pl(c.correction_candidates, 'turn')}. Count only, not judged.`,
     `Identical tool-call retries: ${c.retries} of ${c.tool_calls} tool ${pl(c.tool_calls, 'call')} (${c.retries_per_100} per 100 tool calls). Count only: polling and re-reads look the same.`,
   ];
@@ -176,8 +176,10 @@ export function usageLines(u) {
   if (c.possible_rework != null) {
     const n = c.linked_commits ?? 0;
     const small = n < THRESHOLDS.usage.small_n_episodes ? `, a small sample under ${THRESHOLDS.usage.small_n_episodes} episodes` : '';
-    lines.push(`Rework (named reverts) within ${THRESHOLDS.history.link_hours} hours: ${c.rework} of ${n} ${pl(n, 'episode')} with linked commits (${pctOf(n ? c.rework / n : 0)}${small})`);
-    if (c.possible_fix != null) lines.push(`Possible rework (later-session fix): ${c.possible_fix} of ${n} ${pl(n, 'episode')} with linked commits had a fix commit on the same files from a later session, at least 1 hour after. Candidate count only.`);
+    lines.push(n
+      ? `Rework (named reverts) within ${THRESHOLDS.history.link_hours} hours: ${c.rework} of ${n} ${pl(n, 'episode')} with linked commits (${pctOf(c.rework / n)}${small}).`
+      : `Rework (named reverts) within ${THRESHOLDS.history.link_hours} hours: no episode has a linked commit, so there is nothing to count.`);
+    if (n && c.possible_fix != null) lines.push(`Possible rework (later-session fix): ${c.possible_fix} of ${n} ${pl(n, 'episode')} with linked commits had a fix commit on the same files from a later session, at least 1 hour after. Candidate count only.`);
     if (c.committed_unlinked) lines.push(`Unlinked commits: ${c.committed_unlinked} ${pl(c.committed_unlinked, 'episode')} ran a commit command with no commit found in git, left out of rework counts.`);
     lines.push(`Possible rework (file overlap): ${c.possible_rework} of ${c.episodes} ${pl(c.episodes, 'episode')} had a changed file touched again within ${THRESHOLDS.history.link_hours} hours. Candidate count only.`);
     if (c.iteration_commits != null) lines.push(`Iteration commits: ${c.iteration_commits} fix ${pl(c.iteration_commits, 'commit')} in the same session or within 1 hour. Normal iteration, not rework.`);
@@ -275,7 +277,7 @@ export const SAMPLE_PROBES = {
 };
 
 export const SAMPLE_USAGE = {
-  counts: { sessions: 66, episodes: 136, committed: 60, linked_commits: 60, committed_unlinked: 0, rework: 2, possible_fix: 7, iteration_commits: 85, possible_rework: 48, human_turns: 1171, interrupts: 22, compactions: 3, tool_calls: 5200, retries: 61, retries_per_100: 1.2, subagent_share: 0.452, correction_candidates: 40, done_claims: 12, done_without_test: 4 },
+  counts: { sessions: 66, episodes: 136, committed: 60, linked_commits: 60, committed_unlinked: 0, rework: 2, possible_fix: 7, iteration_commits: 85, possible_rework: 48, human_turns: 1171, interrupts: 22, compactions: 3, tool_calls: 5200, retries: 61, retries_per_100: 1.2, subagent_share: 0.452, attributable_tokens: 18400000, correction_candidates: 40, done_claims: 12, done_without_test: 4 },
   kinds: [{ kind: 'done_without_test', ship: 'appendix', metric: { flagged: 4, claims: 12, rate: 0.33, threshold: 0.3 }, control: SAMPLE_PROBES.done_without_test.control }],
   automation: { housekeeping: 987, spawned: 120, spawned_linked: 100, spawned_parents: 14, unattributed: 20, total: 1172, share: 0.842 },
   limited: true,

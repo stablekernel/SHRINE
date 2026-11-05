@@ -71,7 +71,11 @@ test('planted: recall of the 3 planted kinds is 80% or more; usage stays in the 
   assert.ok(u.lines.some((l) => /^Identical tool-call retries: \d+ of \d+ tool calls/.test(l)));
   assert.ok(u.lines.some((l) => /^Done claims with no test or check run before them/.test(l)));
   assert.match(r.read('report.html'), /Usage from session history/);
-  for (const re of [/^Rework \(named reverts\) within 72 hours: \d+ of \d+ episodes? with linked commits/, /^Possible rework \(later-session fix\)/, /^Possible rework \(file overlap\)/, /^Iteration commits: /]) {
+  // With no linked commits the rework line says so and the later-session fix line is left out.
+  const linked = u.counts.linked_commits > 0;
+  const rework = linked ? [/^Rework \(named reverts\) within 72 hours: \d+ of \d+ episodes? with linked commits/, /^Possible rework \(later-session fix\)/] : [/^Rework \(named reverts\) within 72 hours: no episode has a linked commit/];
+  if (!linked) assert.ok(!u.lines.some((l) => /0 of 0|^Possible rework \(later-session fix\)/.test(l)), u.lines.join('\n'));
+  for (const re of [...rework, /^Possible rework \(file overlap\)/, /^Iteration commits: /]) {
     assert.ok(u.lines.some((l) => re.test(l)), String(re));
   }
   h.cleanup();
