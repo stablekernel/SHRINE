@@ -295,12 +295,13 @@ test('sdk-cli sessions: housekeeping counted, spawned work linked as byproducts 
   const r = await runWithHistory(h);
   assert.equal(r.code, 0, r.stderr);
   assert.deepEqual(r.findings.findings, []);
-  assert.deepEqual(r.findings.usage.automation, { housekeeping: 5, spawned: 4, total: 23, share: 0.217, spawned_linked: 3, spawned_parents: 3, unattributed: 1 });
+  assert.deepEqual(r.findings.usage.automation, { housekeeping: 5, spawned: 4, total: 18, share: 0.278, spawned_linked: 3, spawned_parents: 3, unattributed: 1 });
   const lines = r.findings.usage.lines;
-  assert.ok(lines.includes('Housekeeping automation left out: 5 of 23 sessions (22%)'));
+  assert.ok(lines.includes('Housekeeping automation left out: 5 of 18 sessions (28%)'));
   assert.ok(lines.includes('Spawned automation: 3 sessions linked to 3 of your sessions as byproducts, not judged'));
   assert.ok(lines.includes('Unattributed automation: 1 session with no parent session found, not read'));
   assert.equal(r.findings.usage.counts.sessions, 13, '12 clean plus the interactive session in the housekeeping folder');
+  assert.equal(r.findings.usage.automation.total, r.findings.usage.automation.housekeeping + r.findings.usage.counts.sessions, 'housekeeping denominator = reviewed + left out');
   assert.equal(r.facts.sessions.filter((s) => s.byproducts > 0).length, 3);
   const streamed = r.spy.filter((e) => e.stream).map((e) => e.path);
   assert.ok(streamed.length >= 13, `${streamed.length} session logs streamed`);

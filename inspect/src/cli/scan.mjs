@@ -2,7 +2,7 @@
 // Gate A says yes: reads the consented session logs by streaming, normalizes
 // events, cuts episodes, links git outcomes, and runs the usage probes. Nothing
 // here calls a model or opens a socket.
-import { linkSpawned, sessionInventory } from '../adapters/claude-code/projects.mjs';
+import { housekeepingShare, linkSpawned, sessionInventory } from '../adapters/claude-code/projects.mjs';
 import { excludeSessions } from '../adapters/claude-code/sessions.mjs';
 import { readSession } from '../adapters/claude-code/events.mjs';
 import { extractEpisodes } from '../episodes/extract.mjs';
@@ -96,7 +96,8 @@ export async function scanHistory({ listing, excludedIds = [], display = (p) => 
   // Spawned sdk-cli work: a byproduct of the parent session, never judged.
   const spawn = linkSpawned(inv.spawned, sessions.map((x) => ({ id: x.id, root: roots.get(x.id), start: x.start, end: x.end })));
   for (const x of sessions) x.byproducts = spawn.parents.get(x.id) ?? 0;
-  const automation = { ...inv.automation, spawned_linked: spawn.linked, spawned_parents: spawn.parents.size, unattributed: spawn.unattributed };
+  // Reviewed = sessions actually read (own and unreadable ones left out).
+  const automation = { ...inv.automation, ...housekeepingShare(inv.automation.housekeeping, sessions.length), spawned_linked: spawn.linked, spawned_parents: spawn.parents.size, unattributed: spawn.unattributed };
   const linked = linkEpisodes(episodes, commitsByRepo, { windowHours: t.history.link_hours });
   const probes = runUsageProbes({ sessions, episodes: linked, t });
   const rule = historyRule({ consented: true, sessions: sessions.length }, t);

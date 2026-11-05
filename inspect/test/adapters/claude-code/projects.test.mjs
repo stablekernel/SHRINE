@@ -6,6 +6,7 @@ import { tmpdir } from 'node:os';
 import { join } from 'node:path';
 import { listProjects, encodeProjectPath, sessionInventory, linkSpawned } from '../../../src/adapters/claude-code/projects.mjs';
 import { resetSpy, spyLog } from '../../../src/io/fsread.mjs';
+import { scanHistory } from '../../../src/cli/scan.mjs';
 
 const NOW = Date.parse('2026-11-04T12:00:00Z');
 const DAY = 86400000;
@@ -140,7 +141,7 @@ test('after consent every file is re-checked: housekeeping counted, spawned link
   const inv = sessionInventory(listing);
   assert.deepEqual(inv.sessions.map((s) => s.id).sort(), ['botHuman', 'human1', 'human2']);
   assert.equal(inv.sessions.find((s) => s.id === 'botHuman').project, 'bot');
-  assert.deepEqual(inv.automation, { housekeeping: 2, spawned: 1, total: 6, share: 0.333 });
+  assert.deepEqual(inv.automation, { housekeeping: 2, total: 5, share: 0.4, spawned: 1 }, "total is the 3 reviewed plus the 2 left out; spawned is not in it");
   assert.deepEqual(inv.spawned.map((s) => s.id), ['spawn1']);
   assert.equal(inv.sessions.find((s) => s.id === 'human2').subagent_files.length, 1);
   assert.equal(inv.harness_version, '2.1.318');
@@ -156,7 +157,7 @@ test('temp folders: after consent only their sdk-cli files are classified; spawn
   const inv = sessionInventory(listing);
   assert.deepEqual(inv.sessions, [], 'interactive temp sessions stay unread');
   assert.deepEqual(inv.spawned.map((s) => [s.id, s.temp]), [['tmpScribe', true]]);
-  assert.deepEqual(inv.automation, { housekeeping: 1, spawned: 1, total: 2, share: 0.5 });
+  assert.deepEqual(inv.automation, { housekeeping: 1, total: 1, share: 1, spawned: 1 }, "no session reviewed here, so only the housekeeping one is in the total");
   const r = linkSpawned([{ id: 'x', root: tmpRoot, temp: true, start: '2026-11-01T10:40:00Z' }], [{ id: 'p', root: '/w/r', start: '2026-11-01T10:00:00Z', end: '2026-11-01T11:00:00Z' }]);
   assert.equal(r.linked, 1);
 });
@@ -204,4 +205,27 @@ test('a cwd inside a git submodule resolves to the submodule work tree', async (
   const sub = join(sup, 'vendor', 'lib');
   assert.equal(repoRoot(sub), sub);
   assert.equal(repoRoot(sup), sup);
+});
+
+test('housekeeping denominator counts only reviewed sessions plus housekeeping: own, unreadable, and spawned files are left out', async () => {
+  const repo = join(work, 'den');
+  mkdirSync(repo);
+  const ok = (id, ageDays) => {
+    const f = session(home, repo, { id, ageDays });
+    const ts = new Date(NOW - ageDays * DAY).toISOString();
+    const line = (type, message) => JSON.stringify({ type, cwd: repo, entrypoint: 'cli', sessionId: id, version: '2.1.318', timestamp: ts, message });
+    writeFileSync(f, `${line('user', { role: 'user', content: 'Fix the parser.' })}\n${line('assistant', { role: 'assistant', content: [{ type: 'text', text: 'Done.' }] })}\n`);
+    utimesSync(f, (NOW - ageDays * DAY) / 1000, (NOW - ageDays * DAY) / 1000);
+  };
+  ok('read1', 4);
+  ok('read2', 3);
+  ok('own', 1);
+  session(home, repo, { id: 'unreadable', ageDays: 2 });
+  session(home, repo, { id: 'spawn1', entrypoint: 'sdk-cli', prompt: 'Write scribe notes', ageDays: 2 });
+  session(home, repo, { id: 'hk1', entrypoint: 'sdk-cli', prompt: HK, ageDays: 2 });
+  const listing = listProjects({ claudeHome: home, now: NOW, windowDays: 30, tempPatterns: TEMP });
+  const r = await scanHistory({ listing, excludedIds: ['own'] });
+  assert.deepEqual(r.sessions.map((s) => s.id).sort(), ['read1', 'read2']);
+  const a = r.usage.automation;
+  assert.deepEqual([a.housekeeping, a.total, a.share, a.spawned], [1, 3, 0.333, 1], 'total = 2 reviewed + 1 left out');
 });

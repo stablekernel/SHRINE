@@ -140,6 +140,14 @@ export function subagentFiles(sessionPath) {
     .map((e) => ({ path: join(dir, e.name), bytes: stat(join(dir, e.name))?.size ?? 0 }));
 }
 
+// The housekeeping line reads "h of total sessions": total is the sessions
+// reviewed plus the housekeeping ones left out, so it matches the reviewed count.
+// Spawned sessions and files with no repo root are neither, and are not counted.
+export function housekeepingShare(housekeeping, reviewed) {
+  const total = housekeeping + reviewed;
+  return { housekeeping, total, share: total ? Math.round((housekeeping / total) * 1000) / 1000 : 0 };
+}
+
 // After Gate A consent: classifies every session file in scope, plus every file
 // in folders excluded as automation (a mixed folder keeps its interactive
 // sessions). Only interactive sessions are returned for reading.
@@ -147,7 +155,6 @@ export function sessionInventory(listing) {
   const sessions = [];
   const spawned = [];
   let housekeeping = 0;
-  let total = 0;
   const roots = new Map();
   const rootOf = (cwd) => {
     if (!roots.has(cwd)) roots.set(cwd, repoRoot(cwd));
@@ -162,7 +169,6 @@ export function sessionInventory(listing) {
   ];
   for (const g of groups) {
     for (const f of g.files) {
-      total++;
       const meta = sampleMeta(f.path, { consented: true });
       const id = basename(f.path, '.jsonl');
       const root = g.project?.root ?? (meta ? rootOf(meta.cwd) : null);
@@ -174,10 +180,7 @@ export function sessionInventory(listing) {
         spawned.push({ id, root, temp: Boolean(g.temp), start: meta.start ?? new Date(f.mtime).toISOString() });
         continue;
       }
-      if (g.temp) {
-        total--;
-        continue;
-      }
+      if (g.temp) continue;
       if (!root) continue;
       sessions.push({
         id,
@@ -197,7 +200,7 @@ export function sessionInventory(listing) {
   return {
     sessions,
     spawned,
-    automation: { housekeeping, spawned: spawned.length, total, share: total ? Math.round((housekeeping / total) * 1000) / 1000 : 0 },
+    automation: { ...housekeepingShare(housekeeping, sessions.length), spawned: spawned.length },
     harness_version: newest?.version ?? null,
     from: iso(sessions[0]?.mtime),
     to: iso(sessions.at(-1)?.mtime),
