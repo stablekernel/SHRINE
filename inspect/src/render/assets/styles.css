@@ -95,6 +95,7 @@ table.cov th[scope='row'] { width: 44%; }
 .legend li { display: grid; grid-template-columns: 12px 1fr auto; gap: 10px; align-items: center; }
 .legend i { width: 12px; height: 12px; border-radius: 3px; display: block; }
 .tabs { display: flex; gap: var(--s1); border-bottom: 1px solid var(--line); margin-bottom: var(--s4); flex-wrap: wrap; }
+.tabs[hidden] { display: none; }
 .tab { background: none; border: 0; border-bottom: 2px solid transparent; margin-bottom: -1px; padding: 10px var(--s4); font: inherit; font-size: var(--f-md); color: var(--muted); cursor: pointer; display: flex; gap: var(--s2); align-items: center; }
 .tab[aria-selected='true'] { color: var(--text); border-color: var(--accent); font-weight: 600; }
 .tab .n { font-size: var(--f-xs); font-weight: 600; padding: 1px var(--s2); border-radius: 999px; }
@@ -172,5 +173,6 @@ table.cov th[scope='row'] { width: 44%; }
   .explore { display: block; }
   .detail { break-inside: avoid; break-before: page; border-color: #999; }
   details > *:not(summary) { display: block; }
+  details::details-content { content-visibility: visible; display: block; }
   section { break-inside: avoid-page; }
 }

@@ -39,6 +39,37 @@ test('mock density, print', async ({ page }) => {
   expect(hidden).toBe(0);
 });
 
+test('print shows the content of every appendix section', async ({ page }) => {
+  await open(page, MOCK_HTML, { theme: 'light' });
+  await page.emulateMedia({ media: 'print' });
+  const sections = page.locator('.appendix details');
+  expect(await sections.count()).toBeGreaterThan(0);
+  for (const d of await sections.all()) {
+    const body = d.locator(':scope > :not(summary)').first();
+    expect(await body.evaluate((el) => el.getBoundingClientRect().height)).toBeGreaterThan(0);
+  }
+});
+
+test('with scripts off the inert tab bar is hidden and every finding shows', async ({ browser }) => {
+  const ctx = await browser.newContext({ javaScriptEnabled: false });
+  const page = await ctx.newPage();
+  await open(page, MOCK_HTML, { theme: 'light' });
+  await expect(page.locator('[role="tablist"]')).toBeHidden();
+  expect(await page.locator('.detail:not(:visible)').count()).toBe(0);
+  await ctx.close();
+});
+
+test('picking a finding focuses its detail heading and brings it into view at 375px', async ({ page }) => {
+  await open(page, MOCK_HTML, { theme: 'dark', width: 375, height: 800 });
+  const btn = page.locator('#panel-amplify .f-btn').nth(1);
+  const id = await btn.getAttribute('data-target');
+  await btn.click();
+  await expect(page.locator(`[id="${id}-t"]`)).toBeFocused();
+  const top = await page.locator(`[id="${id}"]`).evaluate((el) => el.getBoundingClientRect().top);
+  expect(top).toBeGreaterThanOrEqual(0);
+  expect(top).toBeLessThan(800);
+});
+
 test('mock density, 375px: no horizontal scroll', async ({ page }) => {
   await open(page, MOCK_HTML, { theme: 'dark', width: 375, height: 800 });
   const overflow = await page.evaluate(() => document.documentElement.scrollWidth - document.documentElement.clientWidth);
