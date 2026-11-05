@@ -43,6 +43,15 @@ export function collectSetup({ home, projects, now }) {
   };
 }
 
+// Every path segment between host and repo name (nested groups, Azure org and
+// project); host-less local remotes give none.
+export function remoteOrgs(url) {
+  const m = url.match(/^[a-z][a-z0-9+.-]*:\/\/[^/]+\/(.+)$/i) ?? url.match(/^[^/:\s]+@[^/:\s]+:(.+)$/);
+  if (!m) return [];
+  const segs = m[1].split('/').filter(Boolean);
+  return segs.slice(0, -1).filter((s) => s !== '_git' && s !== 'v3');
+}
+
 // Known identifiers for share-safe masking (spec 7): OS user, home, git authors,
 // project and repo names, org names from remotes (read from .git/config, read-only).
 export function knownIdentifiers({ home, projects }) {
@@ -56,7 +65,7 @@ export function knownIdentifiers({ home, projects }) {
     }
     const cfg = join(p.root, '.git', 'config');
     if (exists(cfg)) {
-      for (const m of readText(cfg).matchAll(/url\s*=\s*(?:\S+[:/])([^/\s]+)\/[^/\s]+?(?:\.git)?\s*$/gm)) orgs.push(m[1]);
+      for (const m of readText(cfg).matchAll(/^\s*url\s*=\s*(\S+)\s*$/gm)) orgs.push(...remoteOrgs(m[1]));
     }
   }
   let osUser = null;

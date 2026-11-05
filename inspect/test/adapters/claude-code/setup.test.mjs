@@ -132,3 +132,13 @@ test('imports resolve relative, home, and nested paths once, ignoring code and e
   const text = 'See @extra.md and @~/x.md\n`@not-this.md`\nmail me@host.com\n```\n@fenced.md\n```\n';
   assert.deepEqual(resolveImports(text, '/a/b', '/h'), ['/a/b/extra.md', '/h/x.md']);
 });
+
+test('org names from remotes take every path segment between host and repo', async () => {
+  const { remoteOrgs } = await import('../../../src/adapters/claude-code/setup.mjs');
+  assert.deepEqual(remoteOrgs('git@gitlab.com:topgroup/sub/repo.git'), ['topgroup', 'sub']);
+  assert.deepEqual(remoteOrgs('https://dev.azure.com/acmeorg/proj/_git/repo'), ['acmeorg', 'proj']);
+  assert.deepEqual(remoteOrgs('git@ssh.dev.azure.com:v3/acmeorg/proj/repo'), ['acmeorg', 'proj']);
+  assert.deepEqual(remoteOrgs('https://ci@github.com:443/acme-corp/shop-api.git'), ['acme-corp']);
+  assert.deepEqual(remoteOrgs('ssh://git@host.example/a/b/c/repo'), ['a', 'b', 'c']);
+  assert.deepEqual(remoteOrgs('/srv/git/repo.git'), []);
+});
