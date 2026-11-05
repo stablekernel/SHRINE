@@ -16,12 +16,11 @@ test('share-safe report masks client-named basenames; local report keeps them', 
   const old = new Date(Date.parse(FIXED_NOW) - 400 * 86400000);
   const mem = join(h.claudeHome, 'projects', encodeProjectPath(h.repo), 'memory');
   mkdirSync(mem, { recursive: true });
-  writeFileSync(join(mem, 'MEMORY.md'), '- [x](initechpayroll-contract-terms.md)\n');
-  writeFileSync(join(mem, 'initechpayroll-contract-terms.md'), 'terms\n');
-  utimesSync(join(mem, 'initechpayroll-contract-terms.md'), old, old);
-  mkdirSync(join(h.claudeHome, 'commands'), { recursive: true });
-  writeFileSync(join(h.claudeHome, 'commands', 'globex-release.md'), 'run release\n');
-  utimesSync(join(h.claudeHome, 'commands', 'globex-release.md'), old, old);
+  writeFileSync(join(mem, 'MEMORY.md'), '- [x](initechpayroll-contract-terms.md)\n- [y](globex-release.md)\n');
+  for (const f of ['initechpayroll-contract-terms.md', 'globex-release.md']) {
+    writeFileSync(join(mem, f), 'notes\n');
+    utimesSync(join(mem, f), old, old);
+  }
   writeFileSync(join(h.repo, 'CLAUDE.md'), `${readFileSync(join(h.repo, 'CLAUDE.md'), 'utf8')}\n@docs/hooli-onboarding.md\n`);
   mkdirSync(join(h.repo, 'docs'), { recursive: true });
   writeFileSync(join(h.repo, 'docs', 'hooli-onboarding.md'), 'x\n');
@@ -42,8 +41,8 @@ test('share-safe report masks client-named basenames; local report keeps them', 
   const local = readFileSync(s.report, 'utf8');
   const safe = readFileSync(join(s.run_dir, 'report.share-safe.html'), 'utf8');
 
-  // The local report still names the files: the stale probe found them.
-  for (const w of ['initechpayroll']) assert.ok(local.includes(w), `local report keeps ${w}`);
+  // The local report names every planted file, so each share-safe check below can fail.
+  for (const w of CLIENTS) assert.ok(local.includes(w), `local report keeps ${w}`);
   for (const w of CLIENTS) {
     const i = safe.indexOf(w);
     assert.equal(i, -1, `${w} leaked: ${safe.slice(Math.max(0, i - 60), i + 40)}`);
