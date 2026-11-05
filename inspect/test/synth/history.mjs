@@ -67,6 +67,10 @@ export function addSession(h, { id, cwd = h.repo, startMs, script, mtime, ...res
   return file;
 }
 
+// In a `committing` session: human turn at +1 min, the commit tool call ends at
+// +1 min 50 s, so a real commit at +1 min 45 s sits inside the episode.
+export const COMMIT_AT_MS = 105000;
+
 const DAY = 86400000;
 const sid = (prefix, i) => `${prefix}0000-0000-4000-8000-${String(i).padStart(12, '0')}`;
 
@@ -88,6 +92,9 @@ export const PRESETS = {
     ['edit', `src/p${i}.js`],
     ['text', 'The parser is now fixed.'],
   ],
+  // One edit and one commit; pair with real fixture commits made at COMMIT_AT_MS
+  // after the session start (inside the episode).
+  committing: (i) => [['human', `Change the parser, step ${i}.`], ['edit', 'src/parser.js'], ['bash', `git commit -qm "parser step ${i}"`]],
   // sdk-cli presets: tool housekeeping, and work spawned by a skill.
   housekeeping: () => [['human', 'Analyze this conversation and determine: the goal and outcome.'], ['text', 'Goal: refactor.']],
   spawned: (i) => [['human', `Write scribe notes for session ${i}.`], ['text', 'Notes written.']],

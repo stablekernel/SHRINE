@@ -10,7 +10,8 @@ import { join, relative } from 'node:path';
 import { Readable } from 'node:stream';
 import { main } from '../../src/cli/main.mjs';
 import { makeHome, FIXED_NOW } from '../synth/home.mjs';
-import { addHistory } from '../synth/history.mjs';
+import { addHistory, addSession, COMMIT_AT_MS, PRESETS } from '../synth/history.mjs';
+import { openRepo } from '../synth/repos.mjs';
 import { encodeProjectPath } from '../../src/adapters/claude-code/projects.mjs';
 
 const NOW = Date.parse(FIXED_NOW);
@@ -73,6 +74,32 @@ test('planted: recall of the 3 planted kinds is 80% or more; usage stays in the 
   for (const re of [/^Rework \(named reverts\) within 72 hours: \d+ of \d+ committing/, /^Possible rework \(later-session fix\)/, /^Possible rework \(file overlap\)/, /^Iteration commits: /]) {
     assert.ok(u.lines.some((l) => re.test(l)), String(re));
   }
+  h.cleanup();
+});
+
+test('rework from real commits: a named revert in a later session is rework; a later-session fix is a candidate', async () => {
+  const h = home('good', 'clean');
+  const repo = openRepo(h.repo);
+  const iso = (ms) => new Date(ms).toISOString();
+  const H = 3600000;
+  const T = NOW - 10 * DAY;
+  const id = (n) => `abab0000-0000-4000-8000-00000000000${n}`;
+  repo.commit(iso(T - H), 'base', { 'src/parser.js': 'v0', 'src/lexer.js': 'v0' });
+  // S1 makes the commit; S2 reverts it by name 3 hours later; S3 fixes the same file 5 hours later.
+  addSession(h, { id: id(1), startMs: T, script: PRESETS.committing(1) });
+  const made = repo.commit(iso(T + COMMIT_AT_MS), 'feat: parser step 1', { 'src/parser.js': 'v1', 'src/lexer.js': 'v1' });
+  addSession(h, { id: id(2), startMs: T + 3 * H, script: [['human', 'Undo the parser step.'], ['bash', `git revert --no-edit ${made.slice(0, 7)}`]] });
+  repo.revert(iso(T + 3 * H + COMMIT_AT_MS), made);
+  addSession(h, { id: id(3), startMs: T + 5 * H, script: PRESETS.committing(3) });
+  repo.commit(iso(T + 5 * H + COMMIT_AT_MS), 'fix: parser empty input', { 'src/parser.js': 'v2' });
+  const r = await runWithHistory(h);
+  assert.equal(r.code, 0, r.stderr);
+  const c = r.findings.usage.counts;
+  assert.ok(c.committed >= 2, `committed ${c.committed}`);
+  assert.ok(c.rework >= 1, `rework ${c.rework}`);
+  assert.ok(c.possible_fix >= 1, `possible_fix ${c.possible_fix}`);
+  const ep = r.facts.episodes.find((e) => e.commits.includes(made));
+  assert.equal(ep.stratum.outcome, 'rework');
   h.cleanup();
 });
 
