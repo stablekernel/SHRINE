@@ -287,3 +287,26 @@ test('read order: earliest first line, then earliest created, then oldest modifi
   assert.deepEqual(ids([{ id: 'b', start: at, birth: 0, mtime: 900 }, { id: 'a', start: at, birth: 0, mtime: 300 }]), ['a', 'b']);
   assert.deepEqual(ids([{ id: 'late', start: '2026-10-02T00:00:00Z', birth: 1 }, { id: 'early', start: at, birth: 5 }, { id: 'none', start: null, birth: 0 }]), ['early', 'late', 'none']);
 });
+
+test('a resumed run keeps the Gate B line it showed, in gate-b.json, the terminal, and --json', async () => {
+  const { context, continueRun, findRun } = await import('../../src/cli/run.mjs');
+  const h = homeWithHistory();
+  const state = mkdtempSync(join(tmpdir(), 'si-st-'));
+  const first = await inproc(['run', '--tier', 'T0', '--json'], h, state, tty('history'));
+  assert.equal(first.code, 0, first.stderr);
+  const dir = runDir(state);
+  const saved = { ...json(dir, 'gate-b.json'), line: 'Do you need more than a scan yet? Saved line.' };
+  writeFileSync(join(dir, 'gate-b.json'), JSON.stringify(saved));
+  // A new session arrives before the resume; the line shown first still stands.
+  addSession(h, { id: 'cccc0000-0000-4000-8000-000000000001', startMs: NOW - DAY, script: PRESETS.clean(99) });
+  const env = { ...process.env, HOME: h.home, SHRINE_INSPECT_STATE_DIR: join(state, 'state'), SHRINE_INSPECT_CACHE_DIR: join(state, 'cache'), SHRINE_INSPECT_NOW: FIXED_NOW, SHRINE_INSPECT_TEMP_PATTERNS: '["^/nowhere/"]' };
+  for (const asJson of [true, false]) {
+    const out = sink();
+    const io = { env, home: h.home, stdin: { isTTY: false }, stdout: out, stderr: sink(), json: asJson };
+    const r = await continueRun(findRun(join(state, 'state'), json(dir, 'state.json').run_id), context(io), io);
+    assert.equal(r.summary.gate_b.line, saved.line);
+    if (!asJson) assert.match(out.text(), /^Gate B: Do you need more than a scan yet\? Saved line\.\n/);
+  }
+  assert.deepEqual(json(dir, 'gate-b.json'), saved);
+  h.cleanup();
+});

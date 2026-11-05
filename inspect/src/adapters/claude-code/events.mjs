@@ -216,7 +216,8 @@ export async function readSession(meta, { seen = null } = {}) {
     subagents: (meta.subagent_files ?? []).length,
     version: main.version ?? meta.version ?? null,
   };
-  if (seen) for (const u of acc.own) seen.add(u);
+  // Only a session that is counted can own lines; an unusable file leaves them to the next.
+  if (seen && main.kind === 'session') for (const u of acc.own) seen.add(u);
   const dedupe = { resent: acc.resent, copied_lines: acc.copied.lines, copied_messages: acc.copied.messages, only_copies: acc.copied.lines > 0 && acc.newLines === 0 };
   return { session, timeline, files, kind: main.kind, dedupe };
 }

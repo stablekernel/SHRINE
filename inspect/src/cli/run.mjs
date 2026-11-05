@@ -153,8 +153,8 @@ export async function continueRun(folder, ctx, io) {
   if (!shown) {
     folder.writeJson('gate-b.json', gateB);
     folder.markDone('gate_b');
-    if (!io.json) io.stdout.write(`Gate B: ${gateB.line}\n`);
   }
+  if (!io.json) io.stdout.write(`Gate B: ${gateB.line}\n`);
 
   const run = {
     id: state.run_id,

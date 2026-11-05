@@ -140,3 +140,15 @@ test('a message with an image is never a resend; a copy of a resend is not count
   const copy = await readSession({ id: 'c', path: file(prefix), project: 'app' }, { seen });
   assert.equal(copy.dedupe.copied_messages, 1);
 });
+
+test('known limit: lines with no uuid are never matched as copies; an unusable file owns no lines', async () => {
+  const seen = new Set();
+  const bare = (min, text) => { const l = human(min, text); delete l.uuid; return l; };
+  await readSession({ id: 'a', path: file([bare(0, 'Plan it.')]), project: 'app' }, { seen });
+  const b = await readSession({ id: 'b', path: file([bare(0, 'Plan it.')]), project: 'app' }, { seen });
+  assert.equal(b.session.turns, 1);
+  const broken = file([{ type: 'user', uuid: 'z1', message: { role: 'user', content: 'no timestamp or session' } }]);
+  const r = await readSession({ id: 'bad', path: broken, project: 'app' }, { seen });
+  assert.equal(r.kind, 'core_missing');
+  assert.ok(!seen.has('z1'), 'an unusable file leaves its uuids unclaimed');
+});
