@@ -46,6 +46,7 @@ svg.i { width: 16px; height: 16px; flex: none; vertical-align: -3px; }
 .toggle button[aria-pressed='true'] { background: var(--accent-low); color: var(--accent-text); }
 .report { background: var(--bg); border: 1px solid var(--line); border-radius: 16px; overflow: hidden; }
 .integrity { background: var(--bad-bg); color: var(--text); border: 1px solid var(--bad); border-radius: 12px; padding: var(--s3) var(--s4); margin-bottom: var(--s4); }
+.integrity code { overflow-wrap: anywhere; }
 .safe-banner { background: var(--accent-low); color: var(--text); border-radius: 12px; padding: var(--s2) var(--s4); margin-bottom: var(--s4); font-size: var(--f-sm); }
 .head { padding: var(--s6) var(--s8) var(--s4); border-bottom: 1px solid var(--line); }
 .head h1 { margin: 0; font-size: var(--f-xl); line-height: 1.25; letter-spacing: -0.015em; text-wrap: balance; }

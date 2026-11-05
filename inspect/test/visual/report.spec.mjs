@@ -119,6 +119,22 @@ test('mock density, 375px: no horizontal scroll', async ({ page }) => {
   await expect(page).toHaveScreenshot('mock-375.png', { fullPage: true });
 });
 
+// A failed integrity check names the changed paths; a lazy-fetch pack path has no
+// break points and must wrap inside the alert at phone width (WCAG 1.4.10).
+test('390px: the integrity alert wraps a long pack path inside its box', async ({ page }) => {
+  const m = structuredClone(mock);
+  m.integrity = { ok: false, changed_paths: [`/Users/someone/src/a-long-repository-name/.git/objects/pack/pack-${'c'.repeat(40)}.promisor`] };
+  await open(page, renderReport(m), { theme: 'light', width: 390, height: 800 });
+  const overflow = await page.evaluate(() => document.documentElement.scrollWidth - document.documentElement.clientWidth);
+  expect(overflow).toBeLessThanOrEqual(0);
+  const spill = await page.evaluate(() => {
+    const box = document.querySelector('.integrity').getBoundingClientRect();
+    return [...document.querySelectorAll('.integrity code')].filter((c) => c.getBoundingClientRect().right > box.right + 0.5).length;
+  });
+  expect(spill).toBe(0);
+  await expect(page.locator('.integrity')).toHaveScreenshot('integrity-390.png');
+});
+
 // Long citation titles and evidence paths: the widest content a finding carries.
 function longContentHtml() {
   const m = structuredClone(mock);
