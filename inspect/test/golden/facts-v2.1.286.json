@@ -1,0 +1,84 @@
+{
+  "session": {
+    "id": "s-286",
+    "project": "app",
+    "start": "2026-10-20T09:01:00.000Z",
+    "end": "2026-10-20T10:44:03.000Z",
+    "turns": 5,
+    "tokens": {
+      "in": 52000,
+      "out": 13000,
+      "cache_read": 260000
+    },
+    "models": [
+      "claude-test-1"
+    ],
+    "subagent_share": 0,
+    "compactions": 0,
+    "interrupts": 1,
+    "tool_calls": 8,
+    "subagents": 0,
+    "version": "2.1.286"
+  },
+  "episodes": [
+    {
+      "id": "e-4be81370b1e9",
+      "terminal": "commit",
+      "start": "2026-10-20T09:01:00.000Z",
+      "end": "2026-10-20T09:07:08.000Z",
+      "human_turns": 3,
+      "assistant_turns": 8,
+      "interrupts": 1,
+      "tokens": 40000,
+      "subagents": 0,
+      "compactions": 0,
+      "touched_files": [
+        "/w/app/src/p1.js"
+      ],
+      "flags": {
+        "done_claim": false,
+        "tested": false,
+        "done_without_test": false,
+        "corrections": 1,
+        "retries": 1,
+        "tool_calls": 5
+      }
+    },
+    {
+      "id": "e-9c4beba0d617",
+      "terminal": "session_end",
+      "start": "2026-10-20T09:52:08.000Z",
+      "end": "2026-10-20T10:44:03.000Z",
+      "human_turns": 2,
+      "assistant_turns": 5,
+      "interrupts": 0,
+      "tokens": 25000,
+      "subagents": 0,
+      "compactions": 0,
+      "touched_files": [
+        "/w/app/CHANGELOG.md",
+        "/w/app/README.md"
+      ],
+      "flags": {
+        "done_claim": true,
+        "tested": true,
+        "done_without_test": false,
+        "corrections": 0,
+        "retries": 0,
+        "tool_calls": 3
+      }
+    }
+  ],
+  "files": [
+    {
+      "kind": "session",
+      "lines": 48,
+      "parsed": 28,
+      "skipped_by_sniff": 20,
+      "corrupt": 0,
+      "core_missing": 0,
+      "unknown_types": {},
+      "version": "2.1.286"
+    }
+  ]
+}
