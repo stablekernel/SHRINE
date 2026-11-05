@@ -47,20 +47,34 @@ function recencyOf(start, from, to) {
 // listing: listProjects(); excludedIds: own session ids. display: path scrubber.
 export async function scanHistory({ listing, excludedIds = [], display = (p) => p, t = THRESHOLDS, onProgress = () => {} }) {
   const inv = sessionInventory(listing);
-  const metas = excludeSessions(inv.sessions, excludedIds);
+  // Oldest file first (then id), so a forked session's copied lines are dropped
+  // from the copy, not from the session it was copied from, in a stable order.
+  const metas = excludeSessions(inv.sessions, excludedIds).sort((a, b) => (a.mtime ?? 0) - (b.mtime ?? 0) || (a.id < b.id ? -1 : a.id > b.id ? 1 : 0));
   const sessions = [];
   const episodes = [];
   const skipped = [];
   const roots = new Map();
+  const seen = new Set();
+  const dedupe = { resent_messages: 0, forked_sessions: 0, copied_messages: 0, forked_sessions_dropped: 0 };
   let readable = 0;
   for (const [i, meta] of metas.entries()) {
-    const r = await readSession(meta);
+    const r = await readSession(meta, { seen });
     for (const f of r.files) {
       if (f.kind === 'unreadable' || f.kind === 'core_missing') skipped.push({ path_scrubbed: display(f.path), reason: f.kind === 'unreadable' ? 'could not be read' : 'core keys missing' });
     }
     onProgress(i + 1, metas.length);
     if (r.kind !== 'session') continue;
     readable++;
+    dedupe.resent_messages += r.dedupe.resent;
+    if (r.dedupe.copied_lines) {
+      dedupe.forked_sessions++;
+      dedupe.copied_messages += r.dedupe.copied_messages;
+    }
+    // A fork with nothing of its own is not a session: every line was a copy.
+    if (r.dedupe.only_copies) {
+      dedupe.forked_sessions_dropped++;
+      continue;
+    }
     sessions.push(r.session);
     roots.set(r.session.id, meta.root);
     for (const ep of extractEpisodes(r.session, r.timeline, { idleMinutes: t.history.idle_minutes })) episodes.push({ ...ep, repo: meta.root });
@@ -99,11 +113,13 @@ export async function scanHistory({ listing, excludedIds = [], display = (p) => 
   // Reviewed = sessions actually read (own and unreadable ones left out).
   const automation = { ...inv.automation, ...housekeepingShare(inv.automation.housekeeping, sessions.length), spawned_linked: spawn.linked, spawned_parents: spawn.parents.size, unattributed: spawn.unattributed };
   const linked = linkEpisodes(episodes, commitsByRepo, { windowHours: t.history.link_hours });
-  const probes = runUsageProbes({ sessions, episodes: linked, t });
+  const probes = runUsageProbes({ sessions, episodes: linked, dedupe, t });
   const rule = historyRule({ consented: true, sessions: sessions.length }, t);
 
   const from = sessions.length ? minOf(sessions.map((s) => Date.parse(s.start))) : 0;
   const to = sessions.length ? maxOf(sessions.map((s) => Date.parse(s.end))) : 0;
+  // Gate B "do you need it yet": counts after resends and forks are dropped.
+  const need = { consented: true, rule, sessions: sessions.length, human_messages: probes.counts.human_turns, span_days: sessions.length ? Math.max(1, Math.ceil((to - from) / (24 * HOUR))) : 0 };
   const factsEpisodes = linked.map((e) => {
     const flags = probes.flags.get(e.id);
     return {
@@ -145,6 +161,7 @@ export async function scanHistory({ listing, excludedIds = [], display = (p) => 
     // partial clones skipped, and each repo where git log failed, with why.
     git_unread: unread,
     unsupported: metas.length > 0 && readable === 0 && skipped.length > 0,
+    need,
     usage: { ...probes, rule, automation, excluded_own: excludedIds.length > 0 && inv.sessions.length !== metas.length },
   };
 }

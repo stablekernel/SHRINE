@@ -104,6 +104,9 @@ function usageFindings({ usage, catalogue, pivots, copy, t, kindsMap }) {
       { kind: 'mechanical', locator: 'session history', metric: `${k.metric.flagged} of ${k.metric.claims} done claims had no prior test or check` },
       { kind: 'mechanical', locator: 'control', metric: k.control && ctl.status === 'ok' ? `rework within ${t.history.link_hours} hours: ${Math.round(k.control.flagged.rate * 100)}% of ${k.control.flagged.n} flagged episodes, ${Math.round(k.control.rest.rate * 100)}% of ${k.control.rest.n} other episodes` : 'no control baseline' },
     ];
+    // A rate over a sample one project dominates says so next to the rate.
+    const dom = copy.dominanceLine?.(usage.counts);
+    if (dom) evidence.push({ kind: 'mechanical', locator: 'sample', metric: dom });
     out.push({
       id,
       kind: k.kind,
@@ -145,6 +148,7 @@ const usageThresholds = (t) => ({
   retries_per_100_tool_calls: t.usage.retry_loops.per_100,
   control_min_episodes: t.usage.control_min_episodes,
   limited_history_sessions: t.history.limited_sessions,
+  one_project_warning_pct: Math.round(t.usage.dominant_project_share * 100),
   idle_cut_minutes: t.history.idle_minutes,
   rework_link_hours: t.history.link_hours,
 });

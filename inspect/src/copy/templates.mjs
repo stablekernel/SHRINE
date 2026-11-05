@@ -158,38 +158,77 @@ function controlSentence(c) {
 }
 
 // Appendix lines for the usage counts block. Every regex-based count says it is a count only.
+// True when one project holds more than the threshold share of episodes.
+export const dominated = (c) => c?.top_project_share != null && c.top_project_share > THRESHOLDS.usage.dominant_project_share;
+
+// The usage-section line for a sample one project dominates, or null.
+export function dominanceLine(c) {
+  if (!dominated(c)) return null;
+  if (c.projects === 1) return `One project: all ${c.episodes} ${pl(c.episodes, 'episode')} come from 1 project, so every rate here describes that project only.`;
+  return `One project dominates: ${c.top_project_episodes} of ${c.episodes} ${pl(c.episodes, 'episode')} (${pctOf(c.top_project_share)}) come from 1 of ${c.projects} projects, so every rate here mostly describes that project.`;
+}
+
+// What the scan dropped before counting, or null when nothing was dropped.
+export function dedupeLine(c) {
+  const r = c?.resent_messages ?? 0;
+  const f = c?.forked_sessions ?? 0;
+  if (!r && !f) return null;
+  const parts = [];
+  if (r) parts.push(`${r} resent ${pl(r, 'message')} (the same text sent again after an interrupt or an unanswered send)`);
+  if (f) {
+    const k = c.forked_sessions_dropped ?? 0;
+    const left = k ? `; ${k} of ${f} ${pl(f, 'session')} had nothing new and ${k === 1 ? 'was' : 'were'} left out` : '';
+    parts.push(`${c.copied_messages ?? 0} copied ${pl(c.copied_messages ?? 0, 'message')} in ${f} forked or resumed ${pl(f, 'session')} (history copied from an earlier session${left})`);
+  }
+  return `Dropped before counting: ${parts.join(', and ')}.`;
+}
+
+// The "do you need it yet" line shown at Gate B, before a depth is chosen. need:
+// {consented, rule, sessions, human_messages, span_days}; rule is historyRule().
+export function needLine(need) {
+  const q = 'Do you need more than a scan yet?';
+  if (!need?.consented) return `${q} Unknown: session history was not read.`;
+  if (need.rule === 'setup_only') return `${q} Unknown: no session in the window could be used.`;
+  const what = `${need.sessions} ${pl(need.sessions, 'session')} and ${need.human_messages} of your ${pl(need.human_messages, 'message')} over ${need.span_days} ${pl(need.span_days, 'day')}`;
+  if (need.rule === 'limited') return `${q} Not yet: ${what} is limited history, under ${THRESHOLDS.history.limited_sessions} sessions, so a scan is all it supports.`;
+  return `${q} Maybe: ${what} is enough history for a deeper look; this version offers the scan only.`;
+}
+
 export function usageLines(u) {
   if (!u) return [];
   const c = u.counts;
+  // Every rate below gets a short note when one project dominates the sample.
+  const dep = dominated(c) ? ` Mostly 1 project: ${pctOf(c.top_project_share)} of episodes.` : '';
   const lines = [
     `${c.sessions} ${pl(c.sessions, 'session')} reviewed, ${c.episodes} ${pl(c.episodes, 'episode')}`,
-    `${c.human_turns} human ${pl(c.human_turns, 'turn')}, ${c.interrupts} ${pl(c.interrupts, 'interrupt')}, ${c.compactions} ${pl(c.compactions, 'compaction')}`,
-    c.attributable_tokens ? `Subagent share of attributable tokens: ${pctOf(c.subagent_share)} of ${c.attributable_tokens.toLocaleString('en-US')} tokens.` : 'Subagent share of attributable tokens: n/a, no attributable tokens.',
-    `Correction candidates: ${c.correction_candidates} human ${pl(c.correction_candidates, 'turn')}. Count only, not judged.`,
+    ...[dominanceLine(c)].filter(Boolean),
+    `${c.human_turns} human ${pl(c.human_turns, 'message')}, ${c.interrupts} ${pl(c.interrupts, 'interrupt')}, ${c.compactions} ${pl(c.compactions, 'compaction')}`,
+    c.attributable_tokens ? `Subagent share of attributable tokens: ${pctOf(c.subagent_share)} of ${c.attributable_tokens.toLocaleString('en-US')} tokens.${dep}` : 'Subagent share of attributable tokens: n/a, no attributable tokens.',
+    `Correction candidates: ${c.correction_candidates} human ${pl(c.correction_candidates, 'message')}, each counted once however many cues it holds. Count only, not judged.`,
     c.tool_calls
-      ? `Identical tool-call retries: ${c.retries} of ${c.tool_calls} tool ${pl(c.tool_calls, 'call')} (${c.retries_per_100} per 100 tool calls). Count only: polling and re-reads look the same.`
+      ? `Identical tool-call retries: ${c.retries} of ${c.tool_calls} tool ${pl(c.tool_calls, 'call')} (${c.retries_per_100} per 100 tool calls). Count only: polling and re-reads look the same.${dep}`
       : 'Identical tool-call retries: n/a, no tool calls.',
   ];
   const dwt = u.kinds?.find((k) => k.kind === 'done_without_test');
   if (dwt && dwt.ship === 'appendix') {
     lines.push(dwt.metric.claims
-      ? `Done claims with no test or check run before them: ${dwt.metric.flagged} of ${dwt.metric.claims} ${pl(dwt.metric.claims, 'claim')}. Count only: the claim pattern is not precise enough for a finding.`
+      ? `Done claims with no test or check run before them: ${dwt.metric.flagged} of ${dwt.metric.claims} ${pl(dwt.metric.claims, 'claim')}. Count only: the claim pattern is not precise enough for a finding.${dep}`
       : 'Done claims with no test or check run before them: n/a, no done claims.');
-    if (dwt.metric.flagged > 0) lines.push(controlSentence(dwt.control));
+    if (dwt.metric.flagged > 0) lines.push(`${controlSentence(dwt.control)}${dwt.control?.flagged?.n && dwt.control.rest.n >= THRESHOLDS.usage.control_min_episodes ? dep : ''}`);
   }
   if (c.possible_rework != null) {
     const n = c.linked_commits ?? 0;
     const small = n < THRESHOLDS.usage.small_n_episodes ? `, a small sample under ${THRESHOLDS.usage.small_n_episodes} episodes` : '';
     lines.push(n
-      ? `Rework (named reverts) within ${THRESHOLDS.history.link_hours} hours: ${c.rework} of ${n} ${pl(n, 'episode')} with linked commits (${pctOf(c.rework / n)}${small}).`
+      ? `Rework (named reverts) within ${THRESHOLDS.history.link_hours} hours: ${c.rework} of ${n} ${pl(n, 'episode')} with linked commits (${pctOf(c.rework / n)}${small}).${dep}`
       : c.history_unread
         ? `Rework (named reverts) within ${THRESHOLDS.history.link_hours} hours: n/a, no episode in a repo with git history read has a linked commit.`
         : `Rework (named reverts) within ${THRESHOLDS.history.link_hours} hours: no episode has a linked commit, so there is nothing to count.`);
-    if (n && c.possible_fix != null) lines.push(`Possible rework (later-session fix): ${c.possible_fix} of ${n} ${pl(n, 'episode')} with linked commits had a fix commit on the same files from a later session, at least 1 hour after. Candidate count only.`);
+    if (n && c.possible_fix != null) lines.push(`Possible rework (later-session fix): ${c.possible_fix} of ${n} ${pl(n, 'episode')} with linked commits had a fix commit on the same files from a later session, at least 1 hour after. Candidate count only.${dep}`);
     if (c.committed_unlinked) lines.push(`Unlinked commits: ${c.committed_unlinked} ${pl(c.committed_unlinked, 'episode')} ran a commit command with no commit found in git, left out of rework counts.`);
     if (c.history_unread) lines.push(`History not read: ${c.history_unread} ${pl(c.history_unread, 'episode')} ran a commit command in a repo whose git history was not read, left out of rework and commit-link counts.`);
     lines.push(c.episodes
-      ? `Possible rework (file overlap): ${c.possible_rework} of ${c.episodes} ${pl(c.episodes, 'episode')} had a changed file touched again within ${THRESHOLDS.history.link_hours} hours. Candidate count only.`
+      ? `Possible rework (file overlap): ${c.possible_rework} of ${c.episodes} ${pl(c.episodes, 'episode')} had a changed file touched again within ${THRESHOLDS.history.link_hours} hours. Candidate count only.${dep}`
       : 'Possible rework (file overlap): n/a, no episodes.');
     if (c.iteration_commits != null) lines.push(`Iteration commits: ${c.iteration_commits} fix ${pl(c.iteration_commits, 'commit')} in the same session or within 1 hour. Normal iteration, not rework.`);
   }
@@ -199,6 +238,8 @@ export function usageLines(u) {
     if (a.spawned_linked) lines.push(`Spawned automation: ${a.spawned_linked} ${pl(a.spawned_linked, 'session')} linked to ${a.spawned_parents} of your sessions as byproducts, not judged`);
     if (a.unattributed) lines.push(`Unattributed automation: ${a.unattributed} ${pl(a.unattributed, 'session')} with no parent session found, not read`);
   }
+  const dropped = dedupeLine(c);
+  if (dropped) lines.push(dropped);
   if (u.limited) lines.push(`Limited history: ${c.sessions} ${pl(c.sessions, 'session')}, fewer than ${THRESHOLDS.history.limited_sessions} sessions, so these counts may not reflect usual work.`);
   if (u.excluded_own) lines.push('The session driving this run was left out.');
   return lines;
@@ -268,6 +309,8 @@ export const copy = {
   },
   unknowable: () => [...UNKNOWABLE],
   usageLines: (u) => usageLines(u),
+  needLine: (n) => needLine(n),
+  dominanceLine: (c) => dominanceLine(c),
   notes: HISTORY_NOTES,
 };
 
@@ -286,7 +329,7 @@ export const SAMPLE_PROBES = {
 };
 
 export const SAMPLE_USAGE = {
-  counts: { sessions: 66, episodes: 136, committed: 60, linked_commits: 60, committed_unlinked: 0, rework: 2, possible_fix: 7, iteration_commits: 85, possible_rework: 48, human_turns: 1171, interrupts: 22, compactions: 3, tool_calls: 5200, retries: 61, retries_per_100: 1.2, subagent_share: 0.452, attributable_tokens: 18400000, correction_candidates: 40, done_claims: 12, done_without_test: 4 },
+  counts: { sessions: 66, episodes: 136, committed: 60, linked_commits: 60, committed_unlinked: 0, rework: 2, possible_fix: 7, iteration_commits: 85, possible_rework: 48, human_turns: 1171, interrupts: 22, compactions: 3, tool_calls: 5200, retries: 61, retries_per_100: 1.2, subagent_share: 0.452, attributable_tokens: 18400000, correction_candidates: 40, done_claims: 12, done_without_test: 4, resent_messages: 9, forked_sessions: 3, copied_messages: 41, forked_sessions_dropped: 1, projects: 4, top_project_episodes: 98, top_project_share: 0.721 },
   kinds: [{ kind: 'done_without_test', ship: 'appendix', metric: { flagged: 4, claims: 12, rate: 0.33, threshold: 0.3 }, control: SAMPLE_PROBES.done_without_test.control }],
   automation: { housekeeping: 987, spawned: 120, spawned_linked: 100, spawned_parents: 14, unattributed: 20, total: 1172, share: 0.842 },
   limited: true,
@@ -302,6 +345,13 @@ export function sampleCopy() {
     empty: [0, 1, 2].flatMap((notPassed) => [false, true].map((historyRead) => emptyStates({ checks: 10, notPassed, historyRead }))),
     usage: usageLines(SAMPLE_USAGE),
     usage_no_control: usageLines({ ...SAMPLE_USAGE, kinds: [{ ...SAMPLE_USAGE.kinds[0], control: { flagged: { hits: 1, n: 4, rate: 0.25 }, rest: { hits: 0, n: 3, rate: 0 }, diff_points: 25 } }] }),
+    usage_one_project: usageLines({ ...SAMPLE_USAGE, counts: { ...SAMPLE_USAGE.counts, projects: 1, top_project_episodes: 136, top_project_share: 1, resent_messages: 1, forked_sessions: 1, copied_messages: 1, forked_sessions_dropped: 0 } }),
+    need: [
+      { consented: false },
+      { consented: true, rule: 'setup_only', sessions: 0, human_messages: 0, span_days: 0 },
+      { consented: true, rule: 'limited', sessions: 1, human_messages: 1, span_days: 1 },
+      { consented: true, rule: 'probe', sessions: 66, human_messages: 1171, span_days: 30 },
+    ].map(needLine),
     notes: HISTORY_NOTES,
   };
 }

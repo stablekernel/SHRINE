@@ -69,7 +69,21 @@ const reworkOf = (eps) => ({ hits: eps.filter((e) => e.rework).length, n: eps.le
 const linked = (e) => (e.commits ?? []).length > 0;
 const readLinked = (e) => !e.history_unread && linked(e);
 
-export function runUsageProbes({ sessions, episodes, t = THRESHOLDS }) {
+// Share of episodes in the project (repo root) holding the most. A rate over a
+// sample one project dominates mostly describes that project.
+export function topProject(episodes) {
+  const by = new Map();
+  for (const e of episodes) {
+    const k = e.repo ?? e.project ?? null;
+    by.set(k, (by.get(k) ?? 0) + 1);
+  }
+  let top = 0;
+  for (const n of by.values()) if (n > top) top = n;
+  return { projects: by.size, episodes: top, share: episodes.length ? Math.round((top / episodes.length) * 1000) / 1000 : null };
+}
+
+// dedupe: what the scan dropped before counting (resent messages, forked sessions).
+export function runUsageProbes({ sessions, episodes, dedupe = null, t = THRESHOLDS }) {
   const u = t.usage;
   const flags = new Map(episodes.map((e) => [e.id, e.flags ?? episodeFlags(e)]));
   const sum = (f) => [...flags.values()].reduce((n, x) => n + f(x), 0);
@@ -78,7 +92,12 @@ export function runUsageProbes({ sessions, episodes, t = THRESHOLDS }) {
   const toolCalls = sum((x) => x.tool_calls);
   const retries = sum((x) => x.retries);
   const read = episodes.filter((e) => !e.history_unread);
+  const top = topProject(episodes);
   const counts = {
+    ...(dedupe ?? {}),
+    projects: top.projects,
+    top_project_episodes: top.episodes,
+    top_project_share: top.share,
     sessions: sessions.length,
     episodes: episodes.length,
     human_turns: sessions.reduce((n, s) => n + s.turns, 0),
