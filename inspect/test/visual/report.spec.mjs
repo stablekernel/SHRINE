@@ -390,6 +390,27 @@ for (const [name, html] of Object.entries(LIMIT_VARIANTS)) {
   }
 }
 
+// Fails until the base PR's styles.css fix for .detail width at 375px lands.
+test.fixme('history report at 375px: every finding detail stays inside .report', async ({ page }) => {
+  await open(page, T0_HIST_HTML, { theme: 'light', width: 375, height: 800 });
+  // .report{overflow:hidden} hides document overflow, so measure each open detail.
+  const right = (sel) => page.locator(sel).first().evaluate((el) => el.getBoundingClientRect().right);
+  const reportRight = await right('.report');
+  let checked = 0;
+  for (const tab of ['amplify', 'working']) {
+    const btns = page.locator(`#panel-${tab} .f-btn`);
+    const n = await btns.count();
+    for (let i = 0; i < n; i++) {
+      if (await page.locator(`#tab-${tab}`).isVisible()) await page.locator(`#tab-${tab}`).click();
+      const id = await btns.nth(i).getAttribute('data-target');
+      await btns.nth(i).click();
+      expect(await right(`[id="${id}"]`), id).toBeLessThanOrEqual(reportRight);
+      checked++;
+    }
+  }
+  expect(checked).toBeGreaterThan(0);
+});
+
 test('history report at 375px: no horizontal scroll, usage block readable in print', async ({ page }) => {
   await open(page, T0_HIST_HTML, { theme: 'light', width: 375, height: 800 });
   const overflow = await page.evaluate(() => document.documentElement.scrollWidth - document.documentElement.clientWidth);
