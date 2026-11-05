@@ -86,6 +86,46 @@ test('the linker runs only allowlisted read-only git', () => {
   r.cleanup();
 });
 
+test('a git log that fails is a distinct failure, never an empty commit list', async () => {
+  const { resetGitTimeouts, setGitVersion } = await import('../../src/io/git.mjs');
+  const { setSpawnTimeout } = await import('../../src/io/proc.mjs');
+  const { mkdtempSync, chmodSync, rmSync } = await import('node:fs');
+  const { tmpdir } = await import('node:os');
+  const r = makeRepo();
+  r.commit(iso(T0), 'one');
+  const bin = mkdtempSync(join(tmpdir(), 'si-fakegit-'));
+  const path = process.env.PATH;
+  const fake = (code, msg) => {
+    writeFileSync(join(bin, 'git'), `#!/bin/sh\necho "${msg}" >&2\nexit ${code}\n`);
+    chmodSync(join(bin, 'git'), 0o755);
+  };
+  setGitVersion([2, 50, 1]);
+  try {
+    process.env.PATH = `${bin}:${path}`;
+    fake(128, `fatal: detected dubious ownership in repository at '${r.root}'`);
+    assert.deepEqual(repoCommits(r.root, { since: T0 - H, until: T0 + H }), { failed: 'not owned' });
+    fake(1, 'fatal: bad object');
+    assert.deepEqual(repoCommits(r.root, { since: T0 - H, until: T0 + H }), { failed: 'failed' });
+    fake(128, 'fatal: not a git repository (or any of the parent directories): .git');
+    assert.deepEqual(repoCommits(r.root, { since: T0 - H, until: T0 + H }), [], 'not a repo: no history to read');
+    writeFileSync(join(bin, 'git'), '#!/bin/sh\nsleep 5\n');
+    setSpawnTimeout(300);
+    try {
+      assert.deepEqual(repoCommits(r.root, { since: T0 - H, until: T0 + H }), { failed: 'timed out' });
+    } finally {
+      setSpawnTimeout();
+      resetGitTimeouts();
+    }
+    process.env.PATH = path;
+    assert.equal(repoCommits(r.root, { since: T0 - H, until: T0 + H }).length, 1, 'a normal repo is unchanged');
+  } finally {
+    process.env.PATH = path;
+    setGitVersion(undefined);
+    rmSync(bin, { recursive: true, force: true });
+    r.cleanup();
+  }
+});
+
 test('the file-list log turns off rename detection, so a partial clone never fetches blobs', () => {
   const r = makeRepo();
   r.commit(iso(T0), 'one', { 'a.js': 'v1' });

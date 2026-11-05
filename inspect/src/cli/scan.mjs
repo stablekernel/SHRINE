@@ -6,7 +6,7 @@ import { linkSpawned, sessionInventory } from '../adapters/claude-code/projects.
 import { excludeSessions } from '../adapters/claude-code/sessions.mjs';
 import { readSession } from '../adapters/claude-code/events.mjs';
 import { extractEpisodes } from '../episodes/extract.mjs';
-import { historyReadable } from '../io/git.mjs';
+import { gitTimeouts, historyReadable } from '../io/git.mjs';
 import { linkEpisodes, repoCommits } from '../episodes/link.mjs';
 import { runUsageProbes } from '../probes/usage.mjs';
 import { historyRule } from '../scorer/stats.mjs';
@@ -67,18 +67,36 @@ export async function scanHistory({ listing, excludedIds = [], display = (p) => 
   }
 
   // Git outcome links, one log per repo over the episode span plus the link window.
-  // A repo whose history is skipped (partial clone, unsafe git) has no commits to
-  // link: its episodes are marked so the usage counts leave them out.
+  // A repo whose history is skipped (partial clone, unsafe git) or whose git log
+  // failed (timed out, refused, non-zero exit) has no commits to link: its
+  // episodes are marked so the usage counts leave them out.
   const commitsByRepo = new Map();
+  const unread = { skipped_episodes: 0, failed: [] };
+  const hung = new Set(gitTimeouts());
+  const markUnread = (root) => {
+    let n = 0;
+    for (const e of episodes) {
+      if (e.repo !== root) continue;
+      e.history_unread = true;
+      if (e.committed) n++;
+    }
+    return n;
+  };
   for (const root of new Set(episodes.filter((e) => e.committed).map((e) => e.repo))) {
+    if (hung.has(root)) {
+      unread.failed.push({ path_scrubbed: display(root), reason: 'timed out', episodes: markUnread(root) });
+      continue;
+    }
     if (!historyReadable(root)) {
-      for (const e of episodes) if (e.repo === root) e.history_unread = true;
+      unread.skipped_episodes += markUnread(root);
       continue;
     }
     const mine = episodes.filter((e) => e.repo === root);
     const since = minOf(mine.map((e) => Date.parse(e.start)));
     const until = maxOf(mine.map((e) => Date.parse(e.end))) + t.history.link_hours * HOUR;
-    commitsByRepo.set(root, repoCommits(root, { since, until }));
+    const commits = repoCommits(root, { since, until });
+    if (Array.isArray(commits)) commitsByRepo.set(root, commits);
+    else unread.failed.push({ path_scrubbed: display(root), reason: commits.failed, episodes: markUnread(root) });
   }
   // Spawned sdk-cli work: a byproduct of the parent session, never judged.
   const spawn = linkSpawned(inv.spawned, sessions.map((x) => ({ id: x.id, root: roots.get(x.id), start: x.start, end: x.end })));
@@ -127,6 +145,9 @@ export async function scanHistory({ listing, excludedIds = [], display = (p) => 
     roots,
     episodes: factsEpisodes,
     skipped_files: skipped,
+    // Repos whose commit history was not read: committed-episode counts for
+    // partial clones skipped, and each repo where git log failed, with why.
+    git_unread: unread,
     unsupported: metas.length > 0 && readable === 0 && skipped.length > 0,
     usage: { ...probes, rule, automation, excluded_own: excludedIds.length > 0 && inv.sessions.length !== metas.length },
   };

@@ -9,7 +9,8 @@
 // - possible rework (file overlap): a later episode touching the same file. A
 //   candidate count.
 // Amended commits leave history, so they are never counted.
-import { gitOut } from '../io/git.mjs';
+import { git } from '../io/git.mjs';
+import { isDir } from '../io/fsread.mjs';
 
 const RS = '\x1e';
 const US = '\x1f';
@@ -18,16 +19,41 @@ const MAX_LINKS = 5;
 // Commits up to this long after the episode's last event still belong to it.
 const COMMIT_SLACK_MS = 2 * 60000;
 
+// Why a git log run gave no history: null when it worked or the folder has no
+// history to read (gone, or not a repo); else 'timed out', 'not owned' (git
+// refused a repo another user owns), or 'failed' (any other non-zero exit).
+function logFailure(r, root) {
+  if (r.ok) return null;
+  if (r.timedOut) return 'timed out';
+  if (!isDir(root) || /not a git repository/i.test(r.stderr)) return null;
+  return /dubious ownership/i.test(r.stderr) ? 'not owned' : 'failed';
+}
+
 // Commits on any ref with commit time in [since, until] (ms). Empty when the
-// folder is gone or not a repo.
+// folder is gone or not a repo. When git ran and failed, { failed: reason } (see
+// logFailure): that is history not read, never "no commits".
 // Bodies are read only for revert commits (a second, filtered log), so a busy
 // repo never pushes the output past the spawn buffer.
 export function repoCommits(root, { since, until }) {
   const range = ['--all', '--no-merges', `--since=@${Math.floor(since / 1000)}`, `--until=@${Math.ceil(until / 1000)}`];
-  const out = gitOut(['log', ...range, '--no-renames', '--name-only', `--format=${RS}%H${US}%ct${US}%ae${US}%s${US}`], root);
+  const log = (args) => {
+    try {
+      return git(['log', ...range, ...args], { cwd: root });
+    } catch (e) {
+      if (e.code === 'E_GIT_DENIED') throw e;
+      return { ok: false, stdout: '', stderr: String(e.message ?? e) };
+    }
+  };
+  const r = log(['--no-renames', '--name-only', `--format=${RS}%H${US}%ct${US}%ae${US}%s${US}`]);
+  const failed = logFailure(r, root);
+  if (failed) return { failed };
+  const out = r.ok ? r.stdout.trim() : '';
   if (!out) return [];
   const reverts = new Map();
-  const rv = gitOut(['log', ...range, '--grep=This reverts commit', `--format=${RS}%H${US}%b`], root) ?? '';
+  const rr = log(['--grep=This reverts commit', `--format=${RS}%H${US}%b`]);
+  const rvFailed = logFailure(rr, root);
+  if (rvFailed) return { failed: rvFailed };
+  const rv = rr.ok ? rr.stdout.trim() : '';
   for (const rec of rv.split(RS).filter(Boolean)) {
     const [sha, body] = rec.split(US);
     reverts.set(sha.trim(), body ?? '');

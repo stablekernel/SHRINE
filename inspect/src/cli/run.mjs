@@ -241,7 +241,7 @@ export async function continueRun(folder, ctx, io) {
   const noHistory = projects.filter((p) => !isHung(p.root) && !isRefused(p.root) && !historyReadable(p.root)).length;
   if (noHistory) {
     const v = gitVersion()?.join('.') ?? 'unknown';
-    const left = usage?.counts.history_unread ?? 0;
+    const left = usage ? history.git_unread.skipped_episodes : 0;
     const eps = left ? ` Rework and commit links there were not counted: ${left} ${left === 1 ? 'episode' : 'episodes'} with a commit command left out.` : '';
     limits.push(`Git history was not read in ${noHistory === 1 ? '1 repo' : `${noHistory} repos`}: a partial clone, and git ${v} can fetch missing objects while reading it. Git dates there were not used, and the stale-file and review-date checks skip those files. Commit authors there are not read; the names and emails your git config files set, with every file they include, are still masked. Git ${firstSafeGit(gitVersion())} or later reads them safely.${eps}`);
     findings.git_history_skipped = noHistory;
@@ -263,6 +263,15 @@ export async function continueRun(folder, ctx, io) {
   const unreadCfg = ids.unread_configs.length;
   if (unreadCfg) {
     limits.push(`${unreadCfg === 1 ? '1 git config file was' : `${unreadCfg} git config files were`} not read in full (not a regular file, unreadable, or over 1 MiB). Names and emails set there, past that point, are not masked in the share-safe copy.`);
+  }
+  // Repos where git log ran and failed: history not read, never "no commits".
+  const failedLogs = usage ? history.git_unread.failed : [];
+  if (failedLogs.length) {
+    const why = { 'timed out': 'git timed out', 'not owned': 'git refused it: the repo is owned by another user', failed: 'git log failed' };
+    const named = failedLogs.map((f) => `${f.path_scrubbed} (${why[f.reason]})`).join('; ');
+    const left = failedLogs.reduce((n, f) => n + f.episodes, 0);
+    const eps = left ? ` Rework and commit links there were not counted: ${left} ${left === 1 ? 'episode' : 'episodes'} with a commit command left out.` : '';
+    limits.push(`Git could not read commit history in ${failedLogs.length === 1 ? '1 repo' : `${failedLogs.length} repos`}: ${named}.${eps}`);
   }
   if (limits.length) {
     findings.run_limits = limits;

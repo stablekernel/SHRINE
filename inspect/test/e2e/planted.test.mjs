@@ -4,7 +4,8 @@
 import { test } from 'node:test';
 import assert from 'node:assert/strict';
 import { createHash } from 'node:crypto';
-import { lstatSync, mkdtempSync, readFileSync, readdirSync, writeFileSync } from 'node:fs';
+import { execFileSync } from 'node:child_process';
+import { chmodSync, lstatSync, mkdtempSync, readFileSync, readdirSync, realpathSync, rmSync, writeFileSync } from 'node:fs';
 import { tmpdir } from 'node:os';
 import { join, relative } from 'node:path';
 import { Readable } from 'node:stream';
@@ -140,6 +141,51 @@ test('a repo whose git history is skipped is left out of commit counts and named
     assert.ok(r.findings.notes.some((n) => /Git history was not read in 1 repo.*Rework and commit links there were not counted: 3 episodes with a commit command left out\./.test(n)), r.findings.notes.join('\n'));
   } finally {
     setGitVersion(undefined);
+    r2.cleanup();
+    h.cleanup();
+  }
+});
+
+test('a repo where git log fails is history not read, not unlinked commits, and the note names it', async () => {
+  const h = home('good', 'clean');
+  const r2 = makeRepo();
+  const iso = (ms) => new Date(ms).toISOString();
+  const T = NOW - 10 * DAY;
+  r2.commit(iso(T - 3600000), 'base', { 'src/parser.js': 'v0' });
+  const made = [1, 2].map((i) => {
+    addSession(h, { id: `adad0000-0000-4000-8000-00000000000${i}`, cwd: r2.root, startMs: T + i * DAY, script: PRESETS.committing(i) });
+    return r2.commit(iso(T + i * DAY + COMMIT_AT_MS), `parser step ${i}`, { [`src/p${i}.js`]: `v${i}` });
+  });
+  r2.revert(iso(T + DAY + 3 * 3600000), made[0]);
+  // A git that refuses this one repo the way git does for a repo another user owns.
+  const bin = mkdtempSync(join(tmpdir(), 'si-fakegit-'));
+  const real = execFileSync('sh', ['-c', 'command -v git'], { encoding: 'utf8' }).trim();
+  const target = realpathSync(r2.root);
+  writeFileSync(join(bin, 'git'), `#!/bin/sh\ncase " $* " in *" log "*) if [ "$(pwd -P)" = '${target}' ]; then echo "fatal: detected dubious ownership in repository at '${target}'" >&2; exit 128; fi;; esac\nexec '${real}' "$@"\n`);
+  chmodSync(join(bin, 'git'), 0o755);
+  const path = process.env.PATH;
+  try {
+    const base = (await runWithHistory(h)).findings.usage.counts;
+    assert.equal(base.linked_commits, 2);
+    assert.equal(base.rework, 1);
+    assert.equal(base.history_unread, 0);
+    process.env.PATH = `${bin}:${path}`;
+    const r = await runWithHistory(h);
+    assert.equal(r.code, 0, r.stderr);
+    const c = r.findings.usage.counts;
+    assert.equal(c.committed_unlinked, base.committed_unlinked, 'a refused repo is not unlinked commits');
+    assert.equal(c.linked_commits, 0);
+    assert.equal(c.rework, 0);
+    assert.equal(c.history_unread, 2);
+    assert.match(r.findings.usage.lines.join('\n'), /History not read: 2 episodes ran a commit command/);
+    const note = r.findings.run_limits.find((n) => n.startsWith('Git could not read commit history in 1 repo'));
+    assert.ok(note, r.findings.run_limits.join('\n'));
+    assert.match(note, /repo \(git refused it: the repo is owned by another user\)\. Rework and commit links there were not counted: 2 episodes with a commit command left out\./);
+    assert.ok(!r.findings.run_limits.some((n) => n.startsWith('Git history was not read')), 'not reported as a partial clone');
+    assert.ok(r.findings.notes.includes(note));
+  } finally {
+    process.env.PATH = path;
+    rmSync(bin, { recursive: true, force: true });
     r2.cleanup();
     h.cleanup();
   }
