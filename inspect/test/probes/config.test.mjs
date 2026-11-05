@@ -23,6 +23,7 @@ function setup(over = {}) {
     items: [
       instr('/h/.claude/CLAUDE.md'),
       instr('/r/a/CLAUDE.md', { layer: 'project', text: 'Owner: team\nReviewed: 2026-10-01\n- project rule' }),
+      { path: '/h/.claude/settings.json', kind: 'settings', source: 'user', layer: 'user', loaded_by: 'harness' },
       { path: '/h/.claude/settings.json#hooks.PostToolUse[0]', kind: 'hook', source: 'user', layer: 'user', loaded_by: 'settings' },
       { path: '/h/.claude/skills/x/SKILL.md', kind: 'skill', source: 'user', layer: 'user', loaded_by: 'on-demand' },
       { path: '/h/.claude/projects/-r-a/memory/MEMORY.md', kind: 'memory', source: 'user', layer: 'user', loaded_by: 'auto-memory', text: 'x', last_change: { date: daysAgo(3), source: 'mtime' }, mtime: daysAgo(3) },
@@ -178,9 +179,37 @@ test('probes over instruction or memory files are not applicable when there are 
     stale_instructions: false,
     oversized_instructions: false,
     no_owner_or_review: false,
-    blanket_permissions: true,
+    blanket_permissions: false,
     stack_gap: true,
     short_retention: true,
   });
   assert.ok(runConfigProbes(setup()).probes.every((p) => p.applicable), 'a full setup runs every probe');
+});
+
+test('permission checks are not applicable without a readable settings file', () => {
+  const settings = setup().items.find((i) => i.kind === 'settings');
+  assert.ok(settings, 'the base setup has a settings file');
+  const without = (extra = []) => setup({ items: [...setup().items.filter((i) => i.kind !== 'settings'), ...extra] });
+  const cases = {
+    'no settings file': without(),
+    'settings file that does not parse': without([{ ...settings, parse_error: true }]),
+    'only a plugin hooks file': without([{ ...settings, path: '/h/.claude/plugins/cache/m/p/1/hooks/hooks.json', source: 'plugin' }]),
+  };
+  for (const [name, s] of Object.entries(cases)) {
+    assert.equal(probe(s, 'blanket_permissions').applicable, false, name);
+    assert.equal(check(s, 'permissions_scoped').applicable, false, name);
+  }
+  assert.equal(probe(setup(), 'blanket_permissions').applicable, true);
+  assert.equal(check(setup(), 'permissions_scoped').applicable, true);
+  // A blanket rule found anywhere still counts, whatever the file list says.
+  const hit = without();
+  hit.permissions = { ...hit.permissions, allow: [{ rule: 'Bash', path: 'p' }] };
+  assert.equal(probe(hit, 'blanket_permissions').applicable, true);
+  assert.equal(probe(hit, 'blanket_permissions').hit, true);
+});
+
+test('repo_layout is not applicable when no repo has any layout file', () => {
+  const s = setup({ repos: [{ root: '/r/a', layout: [] }, { root: '/r/b', layout: [] }] });
+  assert.equal(check(s, 'repo_layout').applicable, false);
+  assert.equal(check(setup(), 'repo_layout').applicable, true);
 });

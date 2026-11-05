@@ -89,7 +89,10 @@ function blanket(s, t) {
   if (mode && b.modes.includes(mode.value)) items.push({ path: mode.path, rule: `defaultMode: ${mode.value}`, reason: 'bypass or auto-approve default mode' });
   const skip = s.permissions.skipDangerousModePermissionPrompt;
   if (skip?.value === true) items.push({ path: skip.path, rule: 'skipDangerousModePermissionPrompt: true', reason: 'dangerous-mode prompt skipped' });
-  return { hit: items.length > 0, items, metric: { count: items.length } };
+  // With no readable settings file there are no permissions to judge: not run,
+  // never reported clear. A plugin hooks.json carries no permissions.
+  const files = s.items.filter((i) => i.kind === 'settings' && i.source !== 'plugin' && !i.parse_error);
+  return { applicable: files.length > 0 || items.length > 0, hit: items.length > 0, items, metric: { count: items.length } };
 }
 
 function stackGap(s) {
@@ -138,7 +141,8 @@ function layoutCheck(s) {
   const repos = s.repos ?? [];
   const key = (r) => [...new Set(r.layout)].sort().join('|');
   const groups = new Set(repos.map(key));
-  return { applicable: repos.length >= 2, pass: groups.size <= 1, items: repos.map((r) => ({ root: r.root, layout: [...new Set(r.layout)].sort() })) };
+  // Repos with no layout files at all agree vacuously: nothing to compare.
+  return { applicable: repos.length >= 2 && repos.some((r) => r.layout.length > 0), pass: groups.size <= 1, items: repos.map((r) => ({ root: r.root, layout: [...new Set(r.layout)].sort() })) };
 }
 
 function reviewedCheck(s, t) {
@@ -161,13 +165,13 @@ export function runConfigProbes(setup, t = THRESHOLDS) {
     stack_gap: stackGap(setup),
     short_retention: shortRetention(setup, t),
   };
-  // A probe with nothing to look at (no instruction or memory files) did not run:
+  // A probe with nothing to look at (no instruction, memory, or settings files) did not run:
   // it is never reported clear and never marks its area checked.
   const probes = Object.entries(raw).map(([kind, r]) => ({ kind, entry_id: entry(kind), see_also: seeAlso(kind), applicable: r.applicable ?? true, hit: r.hit, items: r.items, metric: r.metric }));
   const checks = {
     instruction_layers: layersCheck(setup, t),
     repo_layout: layoutCheck(setup),
-    permissions_scoped: { applicable: true, pass: !raw.blanket_permissions.hit, items: raw.blanket_permissions.items },
+    permissions_scoped: { applicable: raw.blanket_permissions.applicable, pass: !raw.blanket_permissions.hit, items: raw.blanket_permissions.items },
     instructions_reviewed: reviewedCheck(setup, t),
   };
   const structure = Object.entries(checks).map(([check, r]) => ({ check, entry_id: structureEntry(check), applicable: r.applicable, pass: r.pass, items: r.items }));
