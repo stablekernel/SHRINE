@@ -84,3 +84,20 @@ test('maskDeep masks a finding anchor, which is a user file path', () => {
   const out = maskDeep({ anchor: '~/.claude/projects/-Users-jdoe-src-acme-corp-shop-api/memory/MEMORY.md' }, ids);
   assert.ok(!/jdoe|acme|shop/.test(out.anchor), out.anchor);
 });
+
+test('scrub runs in linear time on adversarial key-like runs', () => {
+  for (const unit of ['token-', 'a-token', 'password_', 'secret-key-', 'x-']) {
+    const s = unit.repeat(Math.ceil(20000 / unit.length)) + '=' + 'v'.repeat(20);
+    const t = performance.now();
+    scrubSecrets(s);
+    const ms = performance.now() - t;
+    assert.ok(ms < 50, `${unit}: ${ms.toFixed(0)}ms`);
+  }
+});
+
+test('assignment scrub still catches keys inside longer names', () => {
+  const v = 'Q'.repeat(6) + '7'.repeat(6);
+  for (const s of [`MY_API_KEY=${v}`, `"db-password": "${v}"`, `x.auth_token:${v}`, `GITHUB_TOKEN=${v}`]) {
+    assert.ok(!scrubSecrets(s).includes(v), s);
+  }
+});

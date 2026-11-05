@@ -3,10 +3,18 @@
 
 const R = (kind) => `[REDACTED:${kind}]`;
 
+// Linear time: a key starts only at a name boundary, is at most 128 chars, and a
+// bounded lookahead checks it holds a keyword, so long runs cannot backtrack.
+const KEYWORD = '(?:password|passwd|pwd|secret|api[_-]?key|access[_-]?key|auth[_-]?token|token|credential)';
+const ASSIGNMENT = new RegExp(
+  `(?<![\\w-])(?=[\\w-]{0,64}?${KEYWORD})([\\w-]{1,128})(?![\\w-])(["']?\\s{0,8}[:=]\\s{0,8}["']?)(?![\\w-]{0,64}?(?:password|secret|key|token)[\\w-]{0,64}\\s{0,8}[:=])([^\\s"',;]{8,})`,
+  'gi',
+);
+
 const RULES = [
   ['private-key', /-----BEGIN [A-Z0-9 ]*PRIVATE KEY-----[\s\S]*?(-----END [A-Z0-9 ]*PRIVATE KEY-----|$)/g, () => R('private-key')],
   ['connection-string', /\b(postgres(?:ql)?|mysql|mariadb|mongodb(?:\+srv)?|redis|rediss|amqps?|mssql|sqlserver):\/\/[^\s'"<>]+/gi, () => R('connection-string')],
-  ['url-credentials', /\b([a-z][a-z0-9+.-]*:\/\/)[^\s/:@'"]+:[^\s/@'"]+@/gi, (_m, scheme) => `${scheme}${R('credentials')}@`],
+  ['url-credentials', /(?<![a-z0-9+.-])([a-z][a-z0-9+.-]{0,31}:\/\/)[^\s/:@'"]+:[^\s/@'"]+@/gi, (_m, scheme) => `${scheme}${R('credentials')}@`],
   ['anthropic', /\bsk-ant-[A-Za-z0-9_-]{16,}/g, () => R('api-key')],
   ['openai', /\bsk-(?:proj-|svcacct-)?[A-Za-z0-9_-]{20,}/g, () => R('api-key')],
   ['aws-access', /\b(?:AKIA|ASIA|AGPA|AIDA|AROA)[0-9A-Z]{16}\b/g, () => R('aws-key')],
@@ -16,17 +24,14 @@ const RULES = [
   ['stripe', /\b(?:sk|rk|pk)_(?:live|test)_[0-9A-Za-z]{16,}/g, () => R('api-key')],
   ['jwt', /\beyJ[A-Za-z0-9_-]{8,}\.[A-Za-z0-9_-]{8,}\.[A-Za-z0-9_-]{8,}/g, () => R('jwt')],
   ['bearer', /\b(Bearer|Token|Basic)\s+[A-Za-z0-9._~+/=-]{16,}/g, (_m, word) => `${word} ${R('token')}`],
-  [
-    'assignment',
-    /\b([A-Za-z0-9_-]*(?:password|passwd|pwd|secret|api[_-]?key|access[_-]?key|auth[_-]?token|token|credential)s?[A-Za-z0-9_-]*)(["']?\s*[:=]\s*["']?)(?![A-Za-z0-9_-]*(?:password|secret|key|token)[A-Za-z0-9_-]*\s*[:=])([^\s"',;]{8,})/gi,
-    (_m, key, sep) => `${key}${sep}${R('secret')}`,
-  ],
+  ['assignment', ASSIGNMENT, (_m, key, sep) => `${key}${sep}${R('secret')}`],
 ];
 
 export function scrubSecrets(text) {
   if (typeof text !== 'string' || text === '') return text;
   let out = text;
-  for (const [, re, fn] of RULES) out = out.replace(re, fn);
+  const assigns = /[:=]/.test(out);
+  for (const [name, re, fn] of RULES) if (name !== 'assignment' || assigns) out = out.replace(re, fn);
   return out;
 }
 
