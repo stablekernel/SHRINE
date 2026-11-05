@@ -67,6 +67,7 @@ export function rateDifference(flagged, rest) {
 // sessions: facts sessions; episodes: extract + link output (with .rework).
 const reworkOf = (eps) => ({ hits: eps.filter((e) => e.rework).length, n: eps.length });
 const linked = (e) => (e.commits ?? []).length > 0;
+const readLinked = (e) => !e.history_unread && linked(e);
 
 export function runUsageProbes({ sessions, episodes, t = THRESHOLDS }) {
   const u = t.usage;
@@ -76,6 +77,7 @@ export function runUsageProbes({ sessions, episodes, t = THRESHOLDS }) {
   const subTok = sessions.reduce((n, s) => n + s.subagent_share * (s.tokens.in + s.tokens.out), 0);
   const toolCalls = sum((x) => x.tool_calls);
   const retries = sum((x) => x.retries);
+  const read = episodes.filter((e) => !e.history_unread);
   const counts = {
     sessions: sessions.length,
     episodes: episodes.length,
@@ -92,12 +94,15 @@ export function runUsageProbes({ sessions, episodes, t = THRESHOLDS }) {
     attributable_tokens: attrib,
     committed: episodes.filter((e) => e.committed).length,
     // Rework N: only episodes whose commits were found in git can show rework.
-    linked_commits: episodes.filter(linked).length,
-    committed_unlinked: episodes.filter((e) => e.committed && !linked(e)).length,
-    rework: episodes.filter((e) => e.rework).length,
+    // Episodes in a repo whose git history was not read are left out of every
+    // commit-based count and counted apart.
+    linked_commits: read.filter(linked).length,
+    committed_unlinked: read.filter((e) => e.committed && !linked(e)).length,
+    history_unread: episodes.filter((e) => e.committed && e.history_unread).length,
+    rework: read.filter((e) => e.rework).length,
     possible_rework: episodes.filter((e) => e.possible_rework).length,
-    possible_fix: episodes.filter((e) => e.possible_fix).length,
-    iteration_commits: new Set(episodes.flatMap((e) => e.iteration_commits ?? [])).size,
+    possible_fix: read.filter((e) => e.possible_fix).length,
+    iteration_commits: new Set(read.flatMap((e) => e.iteration_commits ?? [])).size,
   };
 
   const flagged = episodes.filter((e) => flags.get(e.id).done_without_test);
@@ -111,7 +116,7 @@ export function runUsageProbes({ sessions, episodes, t = THRESHOLDS }) {
     applicable: rate !== null,
     hit: rate !== null && rate > u.done_without_test.rate,
     metric: { flagged: flagged.length, claims: counts.done_claims, rate, threshold: u.done_without_test.rate },
-    control: rateDifference(reworkOf(flagged.filter(linked)), reworkOf(rest.filter(linked))),
+    control: rateDifference(reworkOf(flagged.filter(readLinked)), reworkOf(rest.filter(readLinked))),
     tokens: flagged.reduce((n, e) => n + e.tokens, 0),
     episode_ids: flagged.map((e) => e.id),
   };

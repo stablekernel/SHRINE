@@ -11,7 +11,8 @@ import { Readable } from 'node:stream';
 import { main } from '../../src/cli/main.mjs';
 import { makeHome, FIXED_NOW } from '../synth/home.mjs';
 import { addHistory, addSession, COMMIT_AT_MS, PRESETS } from '../synth/history.mjs';
-import { openRepo } from '../synth/repos.mjs';
+import { makeRepo, openRepo } from '../synth/repos.mjs';
+import { setGitVersion } from '../../src/io/git.mjs';
 import { encodeProjectPath } from '../../src/adapters/claude-code/projects.mjs';
 
 const NOW = Date.parse(FIXED_NOW);
@@ -105,6 +106,43 @@ test('rework from real commits: a named revert in a later session is rework; a l
   const ep = r.facts.episodes.find((e) => e.commits.includes(made));
   assert.equal(ep.stratum.outcome, 'rework');
   h.cleanup();
+});
+
+test('a repo whose git history is skipped is left out of commit counts and named in the note', async () => {
+  const h = home('good', 'clean');
+  const r2 = makeRepo();
+  const iso = (ms) => new Date(ms).toISOString();
+  const T = NOW - 10 * DAY;
+  r2.commit(iso(T - 3600000), 'base', { 'src/parser.js': 'v0' });
+  const made = [1, 2, 3].map((i) => {
+    addSession(h, { id: `acac0000-0000-4000-8000-00000000000${i}`, cwd: r2.root, startMs: T + i * DAY, script: PRESETS.committing(i) });
+    return r2.commit(iso(T + i * DAY + COMMIT_AT_MS), `parser step ${i}`, { [`src/p${i}.js`]: `v${i}` });
+  });
+  r2.revert(iso(T + DAY + 3 * 3600000), made[0]);
+  try {
+    const base = (await runWithHistory(h)).findings.usage.counts;
+    assert.equal(base.linked_commits, 3);
+    assert.equal(base.rework, 1);
+    assert.equal(base.history_unread, 0);
+    r2.git(['config', 'remote.origin.promisor', 'true']);
+    r2.git(['config', 'extensions.partialclone', 'origin']);
+    setGitVersion([2, 40, 0]);
+    const r = await runWithHistory(h);
+    assert.equal(r.code, 0, r.stderr);
+    const c = r.findings.usage.counts;
+    assert.equal(c.committed_unlinked, base.committed_unlinked, 'skipped episodes are not unlinked commits');
+    assert.equal(c.linked_commits, 0);
+    assert.equal(c.rework, 0);
+    assert.equal(c.history_unread, 3);
+    const lines = r.findings.usage.lines.join('\n');
+    assert.match(lines, /History not read: 3 episodes ran a commit command in a repo whose git history was not read, left out of rework and commit-link counts\./);
+    assert.match(lines, /Rework \(named reverts\) within 72 hours: n\/a, no episode in a repo with git history read has a linked commit\./);
+    assert.ok(r.findings.notes.some((n) => /Git history was not read in 1 repo.*Rework and commit links there were not counted: 3 episodes with a commit command left out\./.test(n)), r.findings.notes.join('\n'));
+  } finally {
+    setGitVersion(undefined);
+    r2.cleanup();
+    h.cleanup();
+  }
 });
 
 for (const preset of ['clean', 'expert']) {

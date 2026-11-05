@@ -96,6 +96,18 @@ test('rework N is episodes with linked commits; the control compares linked epis
   assert.deepEqual(dwt.control.rest, { hits: 0, n: 1, rate: 0 }, 'other episodes with linked commits');
 });
 
+test('episodes in a repo whose git history was not read are left out of commit counts and counted apart', () => {
+  const read = [ep('a', { rework: true }), ep('b', { committed: true }), ep('d', { commits: ['beef01'] }), ep('g', { test: true, commits: ['beef02'] })];
+  const unread = [ep('x', { committed: true }), ep('y', { committed: true }), ep('z', { test: true })].map((e) => ({ ...e, history_unread: true, possible_fix: true, iteration_commits: ['s9'] }));
+  const only = runUsageProbes({ sessions: [], episodes: read });
+  const both = runUsageProbes({ sessions: [], episodes: [...read, ...unread] });
+  for (const k of ['linked_commits', 'committed_unlinked', 'rework', 'possible_fix', 'iteration_commits']) assert.equal(both.counts[k], only.counts[k], k);
+  assert.equal(only.counts.history_unread, 0);
+  assert.equal(both.counts.history_unread, 2, 'episodes that ran a commit command');
+  const ctl = (r) => r.kinds.find((k) => k.kind === 'done_without_test').control;
+  assert.deepEqual(ctl(both), ctl(only));
+});
+
 test('rate difference keeps N for both groups', () => {
   assert.deepEqual(rateDifference({ hits: 3, n: 10 }, { hits: 1, n: 20 }), { flagged: { hits: 3, n: 10, rate: 0.3 }, rest: { hits: 1, n: 20, rate: 0.05 }, diff_points: 25 });
   assert.equal(rateDifference({ hits: 0, n: 0 }, { hits: 0, n: 0 }).diff_points, null, 'no episodes: no difference, not 0');

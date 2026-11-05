@@ -182,9 +182,12 @@ export function usageLines(u) {
     const small = n < THRESHOLDS.usage.small_n_episodes ? `, a small sample under ${THRESHOLDS.usage.small_n_episodes} episodes` : '';
     lines.push(n
       ? `Rework (named reverts) within ${THRESHOLDS.history.link_hours} hours: ${c.rework} of ${n} ${pl(n, 'episode')} with linked commits (${pctOf(c.rework / n)}${small}).`
-      : `Rework (named reverts) within ${THRESHOLDS.history.link_hours} hours: no episode has a linked commit, so there is nothing to count.`);
+      : c.history_unread
+        ? `Rework (named reverts) within ${THRESHOLDS.history.link_hours} hours: n/a, no episode in a repo with git history read has a linked commit.`
+        : `Rework (named reverts) within ${THRESHOLDS.history.link_hours} hours: no episode has a linked commit, so there is nothing to count.`);
     if (n && c.possible_fix != null) lines.push(`Possible rework (later-session fix): ${c.possible_fix} of ${n} ${pl(n, 'episode')} with linked commits had a fix commit on the same files from a later session, at least 1 hour after. Candidate count only.`);
     if (c.committed_unlinked) lines.push(`Unlinked commits: ${c.committed_unlinked} ${pl(c.committed_unlinked, 'episode')} ran a commit command with no commit found in git, left out of rework counts.`);
+    if (c.history_unread) lines.push(`History not read: ${c.history_unread} ${pl(c.history_unread, 'episode')} ran a commit command in a repo whose git history was not read, left out of rework and commit-link counts.`);
     lines.push(c.episodes
       ? `Possible rework (file overlap): ${c.possible_rework} of ${c.episodes} ${pl(c.episodes, 'episode')} had a changed file touched again within ${THRESHOLDS.history.link_hours} hours. Candidate count only.`
       : 'Possible rework (file overlap): n/a, no episodes.');

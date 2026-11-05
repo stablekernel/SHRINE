@@ -115,6 +115,16 @@ test('rework and subagent lines name N and give no percentage of zero', () => {
   assert.match(some, /Subagent share of attributable tokens: 25% of 12,000 tokens\./);
 });
 
+test('history-not-read episodes get their own line and no unlinked or nothing-to-count wording', () => {
+  const lines = usageLines({ ...SAMPLE_USAGE, counts: { ...SAMPLE_USAGE.counts, linked_commits: 0, committed_unlinked: 12, history_unread: 3, rework: 0, possible_fix: 0 } }).join('\n');
+  assert.match(lines, /Rework \(named reverts\) within 72 hours: n\/a, no episode in a repo with git history read has a linked commit\./);
+  assert.match(lines, /Unlinked commits: 12 episodes/);
+  assert.match(lines, /History not read: 3 episodes ran a commit command in a repo whose git history was not read, left out of rework and commit-link counts\./);
+  const one = usageLines({ ...SAMPLE_USAGE, counts: { ...SAMPLE_USAGE.counts, history_unread: 1 } }).join('\n');
+  assert.match(one, /History not read: 1 episode ran/);
+  assert.doesNotMatch(usageLines(SAMPLE_USAGE).join('\n'), /History not read/);
+});
+
 test('control sentence labels a small flagged group and drops an empty one', () => {
   const dwt = (flagged) => ({ ...SAMPLE_PROBES.done_without_test, control: { flagged, rest: { hits: 2, n: 40, rate: 0.05 }, diff_points: 0 } });
   const one = copy.finding('done_without_test', dwt({ hits: 1, n: 1, rate: 1 })).why.join(' ');
