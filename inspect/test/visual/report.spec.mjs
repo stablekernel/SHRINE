@@ -171,6 +171,46 @@ test('375px: timeline text stays readable and scrolls inside its own box', async
   expect(r.violations.map((v) => v.id)).toEqual([]);
 });
 
+test('content is about 80% of the viewport on desktop, full-bleed on phones', async ({ page }) => {
+  for (const width of [1024, 1280, 1440]) {
+    await open(page, MOCK_HTML, { theme: 'dark', width });
+    const w = await page.locator('.report').evaluate((el) => el.getBoundingClientRect().width);
+    expect(w / width, `${width}px`).toBeGreaterThan(0.75);
+    expect(w / width, `${width}px`).toBeLessThan(0.85);
+  }
+  await open(page, MOCK_HTML, { theme: 'dark', width: 375 });
+  expect(await page.locator('.report').evaluate((el) => el.getBoundingClientRect().width)).toBe(375 - 32);
+});
+
+test('labels never wrap or spill on desktop widths', async ({ page }) => {
+  for (const width of [1024, 1280, 1440]) {
+    await open(page, LONG_HTML, { theme: 'dark', width });
+    const bad = await page.evaluate(() => {
+      // Distinct text line bottoms, ignoring small offsets from mixed font sizes.
+      const lines = (el) => {
+        const ys = [];
+        const w = document.createTreeWalker(el, NodeFilter.SHOW_TEXT);
+        for (let n = w.nextNode(); n; n = w.nextNode()) {
+          if (!n.textContent.trim()) continue;
+          const r = document.createRange();
+          r.selectNodeContents(n);
+          for (const x of r.getClientRects()) ys.push(x.bottom);
+        }
+        ys.sort((a, b) => a - b);
+        return 1 + ys.filter((y, i) => i && y - ys[i - 1] > 10).length;
+      };
+      const out = [];
+      for (const el of document.querySelectorAll('.chip, .tag, table.cov th, .benefit b, .tab, .legend li, .ba figcaption, .status, .depth b, .ref small')) {
+        if (!el.getClientRects().length) continue;
+        const box = el.closest('.detail, section, .head, .depth').getBoundingClientRect();
+        if (lines(el) > 1 || el.scrollWidth > el.clientWidth + 1 || el.getBoundingClientRect().right > box.right + 0.5) out.push(`${el.className || el.tagName}: ${el.textContent.trim().slice(0, 40)}`);
+      }
+      return out;
+    });
+    expect(bad, `${width}px`).toEqual([]);
+  }
+});
+
 test('T0 fixture, light', async ({ page }) => {
   await open(page, T0_HTML, { theme: 'light' });
   await expect(page).toHaveScreenshot('t0-light.png', { fullPage: true });
