@@ -54,6 +54,14 @@ test('print shows the content of every appendix section', async ({ page }) => {
   }
 });
 
+// A whole section kept on one page leaves page 1 half blank before the coverage map.
+test('print lets sections flow across pages', async ({ page }) => {
+  await open(page, MOCK_HTML, { theme: 'light' });
+  await page.emulateMedia({ media: 'print' });
+  const held = await page.evaluate(() => [...document.querySelectorAll('section')].filter((s) => getComputedStyle(s).breakInside !== 'auto').map((s) => s.getAttribute('aria-labelledby')));
+  expect(held).toEqual([]);
+});
+
 // Printing from a dark theme must still put dark text on white paper.
 for (const via of ['color scheme', 'theme toggle']) {
   test(`print from dark ${via}: text keeps contrast on white paper`, async ({ page }) => {

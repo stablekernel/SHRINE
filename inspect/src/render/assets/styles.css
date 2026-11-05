@@ -202,7 +202,10 @@ table.cov tbody:first-of-type tr.grp th { padding-top: var(--s1); }
   .explore { display: block; }
   .tl-scroll { overflow: visible; }
   .detail { break-inside: avoid; break-before: page; border-color: #999; }
+  .details > .detail:first-child { break-before: auto; }
   details > *:not(summary) { display: block; }
   details::details-content { content-visibility: visible; display: block; }
-  section { break-inside: avoid-page; }
+  /* Tall sections flow across pages; only small blocks stay whole. */
+  .start, .attr, table.cov tbody, .clear li, .ba figure, .benefit div { break-inside: avoid; }
+  h2, h3, h4 { break-after: avoid; }
 }
