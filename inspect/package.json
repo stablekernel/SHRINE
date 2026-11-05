@@ -1,0 +1,24 @@
+{
+  "name": "shrine-inspect",
+  "version": "0.1.0",
+  "description": "Health check of an AI coding setup against the SHRINE docs. Local, read-only, no network.",
+  "type": "module",
+  "private": true,
+  "engines": {
+    "node": ">=20"
+  },
+  "bin": {
+    "shrine-inspect": "bin/shrine-inspect.mjs"
+  },
+  "scripts": {
+    "test": "node scripts/test.mjs",
+    "lint": "node scripts/lint-readonly.mjs && node scripts/lint-copy.mjs && node scripts/lint-network.mjs",
+    "test:visual": "playwright test -c playwright.config.mjs",
+    "build:catalogue": "node scripts/build-catalogue.mjs"
+  },
+  "devDependencies": {
+    "@axe-core/playwright": "4.14.0",
+    "@playwright/test": "1.64.1",
+    "playwright": "1.64.1"
+  }
+}

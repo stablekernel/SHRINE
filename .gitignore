@@ -4,3 +4,6 @@ docs/.astro/
 .DS_Store
 .worktrees/
 node-compile-cache/
+inspect/node_modules/
+inspect/test-results/
+inspect/playwright-report/
