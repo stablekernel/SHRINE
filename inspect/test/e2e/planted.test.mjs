@@ -141,6 +141,7 @@ test('sdk-cli sessions: housekeeping counted, spawned work linked as byproducts 
   assert.equal(r.findings.usage.counts.sessions, 13, '12 clean plus the interactive session in the housekeeping folder');
   assert.equal(r.facts.sessions.filter((s) => s.byproducts > 0).length, 3);
   const streamed = r.spy.filter((e) => e.stream).map((e) => e.path);
+  assert.ok(streamed.length >= 13, `${streamed.length} session logs streamed`);
   assert.ok(!streamed.some((p) => /\/(bbbb|cccc|eeee|ffff)/.test(p)), 'sdk-cli sessions are never read in full');
   h.cleanup();
 });
@@ -155,6 +156,7 @@ test('zero model calls: the spawn log holds only allowlisted git; home tree byte
   assert.ok(spawns.length > 0);
   for (const s of spawns) assert.equal(s.cmd, 'git', `non-git spawn ${s.cmd}`);
   assert.ok(r.spy.filter((e) => e.stream).length >= 12, 'session logs were streamed');
+  assert.ok(r.spy.some((e) => e.op === 'open'), 'file opens were logged');
   assert.ok(r.spy.every((e) => e.op !== 'open' || e.mode === 'r'));
   assert.equal(JSON.parse(r.read('verify.json')).ok, true);
   const safe = r.read('report.share-safe.html');

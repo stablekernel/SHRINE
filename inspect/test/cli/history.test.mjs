@@ -104,7 +104,9 @@ test('the driving session is left out: --session-id, else the newest growing fil
   assert.match(r.stderr, /Left out: session live-ses/);
   const dir = runDir(state);
   assert.deepEqual(json(dir, 'verify.json').excluded_session_ids, ['live-session-0001']);
-  assert.ok(!json(dir, 'facts.json').sessions.some((s) => s.id === 'live-session-0001'));
+  const sessions = json(dir, 'facts.json').sessions;
+  assert.ok(sessions.length > 0, 'other sessions were read');
+  assert.ok(!sessions.some((s) => s.id === 'live-session-0001'));
 
   const state2 = mkdtempSync(join(tmpdir(), 'si-st-'));
   const flagged = 'aaaa0000-0000-4000-8000-000000000003';

@@ -168,7 +168,7 @@ export async function continueRun(folder, ctx, io) {
       retention: ret,
       probes: probes.probes.map((p) => ({ kind: p.kind, entry_id: p.entry_id, hit: p.hit, metric: p.metric })),
       structure: probes.structure.map((s) => ({ check: s.check, applicable: s.applicable, pass: s.pass })),
-      history: { consented: historyConsented, ...itemized, rule: usage?.rule ?? (historyConsented ? 'setup_only' : null), usage_kinds: usage ? usage.kinds.map((k) => ({ kind: k.kind, ship: k.ship, hit: k.hit, metric: k.metric })) : [] },
+      history: { consented: historyConsented, ...itemized, rule: usage?.rule ?? (historyConsented ? 'setup_only' : null), usage_kinds: usage ? usage.kinds.map((k) => ({ kind: k.kind, ship: k.ship, applicable: k.applicable, hit: k.hit, metric: k.metric })) : [] },
       tier_proposal: tierProposal(),
     });
     folder.markDone('scan');

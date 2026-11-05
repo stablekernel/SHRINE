@@ -9,6 +9,7 @@ for (const [name, fn, list] of [
   ['correction-cue', isCorrectionCue, PATTERNS.correction],
 ]) {
   test(`${name}: every positive fixture matches, no negative does`, () => {
+    assert.ok(list.positive.length > 0 && list.negative.length > 0);
     for (const p of list.positive) assert.ok(fn(p), `positive: ${p}`);
     for (const n of list.negative) assert.ok(!fn(n), `negative: ${n}`);
   });
@@ -97,7 +98,7 @@ test('rework N is episodes with linked commits; the control compares linked epis
 
 test('rate difference keeps N for both groups', () => {
   assert.deepEqual(rateDifference({ hits: 3, n: 10 }, { hits: 1, n: 20 }), { flagged: { hits: 3, n: 10, rate: 0.3 }, rest: { hits: 1, n: 20, rate: 0.05 }, diff_points: 25 });
-  assert.equal(rateDifference({ hits: 0, n: 0 }, { hits: 0, n: 0 }).diff_points, 0);
+  assert.equal(rateDifference({ hits: 0, n: 0 }, { hits: 0, n: 0 }).diff_points, null, 'no episodes: no difference, not 0');
 });
 
 test('iteration commits are counted once per commit, however many episodes they follow', () => {

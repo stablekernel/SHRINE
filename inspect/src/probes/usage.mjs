@@ -53,13 +53,15 @@ export function episodeFlags(ep) {
   return { done_claim: claim, tested, done_without_test: claim && !tested, corrections, retries: countRetries(ep.calls), tool_calls: ep.calls.length };
 }
 
-const pct = (a, b) => (b ? a / b : 0);
+// A rate over nothing is not 0: it is null (not applicable).
+const pct = (a, b) => (b ? a / b : null);
+const per = (a, b, scale) => (b ? Math.round((a / b) * scale * 10) / 10 : null);
 
 // Rate of an outcome in flagged vs other episodes, with N for both groups.
 export function rateDifference(flagged, rest) {
   const fr = pct(flagged.hits, flagged.n);
   const rr = pct(rest.hits, rest.n);
-  return { flagged: { ...flagged, rate: fr }, rest: { ...rest, rate: rr }, diff_points: Math.round((fr - rr) * 1000) / 10 };
+  return { flagged: { ...flagged, rate: fr }, rest: { ...rest, rate: rr }, diff_points: fr === null || rr === null ? null : Math.round((fr - rr) * 1000) / 10 };
 }
 
 // sessions: facts sessions; episodes: extract + link output (with .rework).
@@ -82,8 +84,8 @@ export function runUsageProbes({ sessions, episodes, t = THRESHOLDS }) {
     compactions: sessions.reduce((n, s) => n + s.compactions, 0),
     tool_calls: toolCalls,
     retries,
-    retries_per_100: Math.round(pct(retries, toolCalls) * 1000) / 10,
-    subagent_share: attrib ? Math.round((subTok / attrib) * 1000) / 1000 : 0,
+    retries_per_100: per(retries, toolCalls, 100),
+    subagent_share: attrib ? Math.round((subTok / attrib) * 1000) / 1000 : null,
     correction_candidates: sum((x) => x.corrections),
     done_claims: sum((x) => (x.done_claim ? 1 : 0)),
     done_without_test: sum((x) => (x.done_without_test ? 1 : 0)),
@@ -100,12 +102,14 @@ export function runUsageProbes({ sessions, episodes, t = THRESHOLDS }) {
 
   const flagged = episodes.filter((e) => flags.get(e.id).done_without_test);
   const rest = episodes.filter((e) => !flags.get(e.id).done_without_test);
+  // A kind with nothing to measure (no claims, no tool calls) is not applicable, never clear.
   const rate = pct(flagged.length, counts.done_claims);
   const dwt = {
     kind: 'done_without_test',
     lens: 'usage',
     ship: u.done_without_test.ship,
-    hit: counts.done_claims > 0 && rate > u.done_without_test.rate,
+    applicable: rate !== null,
+    hit: rate !== null && rate > u.done_without_test.rate,
     metric: { flagged: flagged.length, claims: counts.done_claims, rate, threshold: u.done_without_test.rate },
     control: rateDifference(reworkOf(flagged.filter(linked)), reworkOf(rest.filter(linked))),
     tokens: flagged.reduce((n, e) => n + e.tokens, 0),
@@ -115,7 +119,8 @@ export function runUsageProbes({ sessions, episodes, t = THRESHOLDS }) {
     kind: 'retry_loops',
     lens: 'usage',
     ship: u.retry_loops.ship,
-    hit: counts.retries_per_100 > u.retry_loops.per_100,
+    applicable: counts.retries_per_100 !== null,
+    hit: counts.retries_per_100 !== null && counts.retries_per_100 > u.retry_loops.per_100,
     metric: { per_100: counts.retries_per_100, threshold: u.retry_loops.per_100, retries, tool_calls: toolCalls },
     control: null,
     tokens: 0,

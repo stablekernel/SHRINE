@@ -26,6 +26,7 @@ export function timelineOf(rows) {
 }
 
 test('labelled segmentation set: boundary agreement at or over 80%', () => {
+  assert.ok(labelled.cases.length > 0);
   let agree = 0;
   for (const c of labelled.cases) {
     const got = extractEpisodes({ id: 's', project: 'p' }, timelineOf(c.rows)).map((e) => e.terminal);
@@ -37,12 +38,14 @@ test('labelled segmentation set: boundary agreement at or over 80%', () => {
 });
 
 test('every labelled case agrees (synthetic set; regressions show here first)', () => {
+  assert.ok(labelled.cases.length > 0);
   for (const c of labelled.cases) {
     assert.deepEqual(extractEpisodes({ id: 's', project: 'p' }, timelineOf(c.rows)).map((e) => e.terminal), c.expect, c.name);
   }
 });
 
 test('commit pattern list: positives match, negatives do not', () => {
+  assert.ok(COMMIT.positive.length > 0 && COMMIT.negative.length > 0);
   for (const p of COMMIT.positive) assert.ok(commitKind(p), p);
   for (const n of COMMIT.negative) assert.equal(commitKind(n), null, n);
 });

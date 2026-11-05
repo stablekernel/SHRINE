@@ -5,6 +5,8 @@
 // control: rateDifference() output. Returns the control verdict.
 export function controlTest(control, { minN, points }) {
   if (!control) return { status: 'none', beats: false, diff_points: null };
+  // No flagged episode with linked commits: nothing to compare, whatever the rest shows.
+  if (!control.flagged.n) return { status: 'no_flagged_baseline', beats: false, diff_points: null };
   if (control.rest.n < minN) return { status: 'no_control_baseline', beats: false, diff_points: control.diff_points };
   return { status: 'ok', beats: control.diff_points >= points, diff_points: control.diff_points };
 }

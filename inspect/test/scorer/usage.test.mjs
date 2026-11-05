@@ -8,6 +8,7 @@ import { copy, SAMPLE_USAGE } from '../../src/copy/templates.mjs';
 import { THRESHOLDS } from '../../src/probes/config.mjs';
 import { validateFindings } from '../../src/schema/findings.mjs';
 import { copyProblemsDeep } from '../../src/copy/rules.mjs';
+import { rateDifference, runUsageProbes } from '../../src/probes/usage.mjs';
 
 const load = (rel) => JSON.parse(readFileSync(fileURLToPath(new URL(rel, import.meta.url)), 'utf8'));
 const catalogue = load('../../src/catalogue/catalogue.json');
@@ -99,6 +100,33 @@ test('thin window: under 10 sessions gives counts only and a limited-history not
   assert.equal(f.findings.length, 0);
   assert.match(f.notes.join(' '), /Limited history/);
   assert.equal(f.usage.limited, true);
+});
+
+test('empty input: with no episodes, tool calls, or tokens every usage kind is not applicable and no rate is printed', () => {
+  const sessions = [{ turns: 0, interrupts: 0, compactions: 0, tokens: { in: 0, out: 0, cache_read: 0 }, subagent_share: 0 }];
+  const usage = { ...runUsageProbes({ sessions, episodes: [] }), rule: 'probe', automation: null };
+  assert.ok(usage.kinds.length > 0);
+  for (const k of usage.kinds) {
+    assert.equal(k.applicable, false, k.kind);
+    assert.equal(k.hit, false, k.kind);
+  }
+  assert.equal(usage.kinds.find((k) => k.kind === 'done_without_test').metric.rate, null);
+  assert.equal(usage.kinds.find((k) => k.kind === 'retry_loops').metric.per_100, null);
+  assert.equal(usage.counts.retries_per_100, null);
+  assert.equal(usage.counts.subagent_share, null);
+  const f = base(usage);
+  assert.deepEqual(validateFindings(f).errors, []);
+  assert.ok(f.usage.lines.length > 0);
+  assert.deepEqual(f.usage.kinds.map((k) => k.applicable), [false, false]);
+  const text = f.usage.lines.join('\n');
+  assert.ok(!/\b0 of 0\b|per 100|\d%/.test(text), text);
+});
+
+test('control with no flagged linked episode is not a comparison, whatever the other group', () => {
+  const c = rateDifference({ hits: 0, n: 0 }, { hits: 3, n: 30 });
+  assert.equal(c.flagged.rate, null);
+  assert.equal(c.diff_points, null);
+  assert.deepEqual(controlTest(c, { minN: 15, points: 10 }), { status: 'no_flagged_baseline', beats: false, diff_points: null });
 });
 
 test('config strip: sessions since counts only sessions where that config was live, and is hidden with no date', () => {

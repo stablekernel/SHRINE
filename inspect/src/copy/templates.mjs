@@ -166,11 +166,15 @@ export function usageLines(u) {
     `${c.human_turns} human ${pl(c.human_turns, 'turn')}, ${c.interrupts} ${pl(c.interrupts, 'interrupt')}, ${c.compactions} ${pl(c.compactions, 'compaction')}`,
     c.attributable_tokens ? `Subagent share of attributable tokens: ${pctOf(c.subagent_share)} of ${c.attributable_tokens.toLocaleString('en-US')} tokens.` : 'Subagent share of attributable tokens: n/a, no attributable tokens.',
     `Correction candidates: ${c.correction_candidates} human ${pl(c.correction_candidates, 'turn')}. Count only, not judged.`,
-    `Identical tool-call retries: ${c.retries} of ${c.tool_calls} tool ${pl(c.tool_calls, 'call')} (${c.retries_per_100} per 100 tool calls). Count only: polling and re-reads look the same.`,
+    c.tool_calls
+      ? `Identical tool-call retries: ${c.retries} of ${c.tool_calls} tool ${pl(c.tool_calls, 'call')} (${c.retries_per_100} per 100 tool calls). Count only: polling and re-reads look the same.`
+      : 'Identical tool-call retries: n/a, no tool calls.',
   ];
   const dwt = u.kinds?.find((k) => k.kind === 'done_without_test');
   if (dwt && dwt.ship === 'appendix') {
-    lines.push(`Done claims with no test or check run before them: ${dwt.metric.flagged} of ${dwt.metric.claims} ${pl(dwt.metric.claims, 'claim')}. Count only: the claim pattern is not precise enough for a finding.`);
+    lines.push(dwt.metric.claims
+      ? `Done claims with no test or check run before them: ${dwt.metric.flagged} of ${dwt.metric.claims} ${pl(dwt.metric.claims, 'claim')}. Count only: the claim pattern is not precise enough for a finding.`
+      : 'Done claims with no test or check run before them: n/a, no done claims.');
     if (dwt.metric.flagged > 0) lines.push(controlSentence(dwt.control));
   }
   if (c.possible_rework != null) {
@@ -181,7 +185,9 @@ export function usageLines(u) {
       : `Rework (named reverts) within ${THRESHOLDS.history.link_hours} hours: no episode has a linked commit, so there is nothing to count.`);
     if (n && c.possible_fix != null) lines.push(`Possible rework (later-session fix): ${c.possible_fix} of ${n} ${pl(n, 'episode')} with linked commits had a fix commit on the same files from a later session, at least 1 hour after. Candidate count only.`);
     if (c.committed_unlinked) lines.push(`Unlinked commits: ${c.committed_unlinked} ${pl(c.committed_unlinked, 'episode')} ran a commit command with no commit found in git, left out of rework counts.`);
-    lines.push(`Possible rework (file overlap): ${c.possible_rework} of ${c.episodes} ${pl(c.episodes, 'episode')} had a changed file touched again within ${THRESHOLDS.history.link_hours} hours. Candidate count only.`);
+    lines.push(c.episodes
+      ? `Possible rework (file overlap): ${c.possible_rework} of ${c.episodes} ${pl(c.episodes, 'episode')} had a changed file touched again within ${THRESHOLDS.history.link_hours} hours. Candidate count only.`
+      : 'Possible rework (file overlap): n/a, no episodes.');
     if (c.iteration_commits != null) lines.push(`Iteration commits: ${c.iteration_commits} fix ${pl(c.iteration_commits, 'commit')} in the same session or within 1 hour. Normal iteration, not rework.`);
   }
   const a = u.automation;

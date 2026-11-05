@@ -9,6 +9,11 @@ import { readSession } from '../../../src/adapters/claude-code/events.mjs';
 
 const variants = JSON.parse(readFileSync(fileURLToPath(new URL('../../fixtures/sessions/human-turn/variants.json', import.meta.url)), 'utf8'));
 
+test('human-turn variants: the fixture is not empty and every case expects something', () => {
+  assert.ok(variants.length > 0);
+  for (const v of variants) assert.ok(Object.keys(v.expect ?? {}).length > 0, v.name);
+});
+
 for (const v of variants) {
   test(`human turn: ${v.name}`, () => {
     const r = classifyUser(v.line, { subagent: v.subagent === true });
@@ -98,6 +103,7 @@ test('a malformed timestamp (number, object, or unparsable string) never becomes
   const { session, timeline } = await readSession({ id: 's6', path: p, project: 'app' });
   assert.equal(session.start, at(1));
   assert.equal(session.end, at(4));
+  assert.ok(timeline.length >= 4, `timeline has ${timeline.length} events`);
   for (const e of timeline) assert.ok(e.t == null || (typeof e.t === 'string' && !Number.isNaN(Date.parse(e.t))), JSON.stringify(e.t));
 });
 

@@ -339,6 +339,6 @@ export function score({ run, shrine, probes, structure, catalogue, pivots, copy,
     notes: !history.consented ? ['history not read'] : usage?.rule === 'limited' ? [copy.notes.limited] : !usage ? [copy.notes.none] : [],
     thresholds: { version: t.version, ...t.config, ...(usage ? usageThresholds(t) : {}) },
     history,
-    ...(usage ? { usage: { counts: usage.counts, kinds: usage.kinds.map(({ kind, ship, hit, metric, control }) => ({ kind, ship, hit, metric, control })), automation: usage.automation, limited: usage.rule === 'limited', excluded_own: Boolean(usage.excluded_own), lines: copy.usageLines({ ...usage, limited: usage.rule === 'limited' }) } } : {}),
+    ...(usage ? { usage: { counts: usage.counts, kinds: usage.kinds.map(({ kind, ship, applicable, hit, metric, control }) => ({ kind, ship, applicable, hit, metric, control })), automation: usage.automation, limited: usage.rule === 'limited', excluded_own: Boolean(usage.excluded_own), lines: copy.usageLines({ ...usage, limited: usage.rule === 'limited' }) } } : {}),
   };
 }
