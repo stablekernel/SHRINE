@@ -226,8 +226,9 @@ function configStrip(f) {
   const parts = [];
   if (c.mtime) parts.push(`Last change ${formatDate(c.mtime)}`);
   if (c.last_git_change) parts.push(`last git commit ${formatDate(c.last_git_change)}`);
-  parts.push(c.sessions_since == null ? 'sessions since: history not read' : `${pl(c.sessions_since, 'session')} since`);
-  return `<p class="ev">${esc(parts.join('; '))}</p>`;
+  // With no change date there is no "since" to count from.
+  if (c.mtime) parts.push(c.sessions_since == null ? 'sessions since: history not read' : `${pl(c.sessions_since, 'session')} since`);
+  return parts.length ? `<p class="ev">${esc(parts.join('; '))}</p>` : '';
 }
 
 function detail(f, tab, empty) {

@@ -215,7 +215,8 @@ export async function continueRun(folder, ctx, io) {
     history: { consented: historyConsented, read: Boolean(usage), sessions: usage ? usage.counts.sessions : null },
     usage,
     usageKinds: KINDS.usage_kinds,
-    sessionStarts: usage ? history.sessions.map((s) => s.start) : null,
+    sessionStarts: usage ? history.sessions.map((s) => ({ start: s.start, root: history.roots.get(s.id) })) : null,
+    projectRoots: projects.map((p) => p.root),
     inventoryCounts: {
       hooks: counts('hook'),
       skills: counts('skill'),

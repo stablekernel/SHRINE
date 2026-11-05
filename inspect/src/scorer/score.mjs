@@ -149,7 +149,19 @@ const usageThresholds = (t) => ({
   rework_link_hours: t.history.link_hours,
 });
 
-export function score({ run, shrine, probes, structure, catalogue, pivots, copy, inventoryCounts = {}, home = null, history = { consented: false, read: false, sessions: null }, usage = null, usageKinds = {}, sessionStarts = null, thresholds = THRESHOLDS, tier = 'T0' }) {
+// Sessions started on or after the config's last change, where that config was
+// live: a file inside a project root counts that project's sessions; a user-global
+// file counts all. null when history was not read or the change date is unknown.
+// sessions: [{start, root}]; roots: project roots.
+function sessionsSince(item, sessions, roots, home) {
+  if (!sessions || !item.date) return null;
+  const under = (p, dir) => p === dir || p.startsWith(`${dir}/`);
+  const userGlobal = home && (under(item.path, `${home}/.claude`) || item.path === `${home}/.claude.json`);
+  const root = userGlobal ? null : roots.filter((r) => under(item.path, r)).sort((a, b) => b.length - a.length)[0];
+  return sessions.filter((s) => s.start >= item.date && (!root || s.root === root)).length;
+}
+
+export function score({ run, shrine, probes, structure, catalogue, pivots, copy, inventoryCounts = {}, home = null, history = { consented: false, read: false, sessions: null }, usage = null, usageKinds = {}, sessionStarts = null, projectRoots = [], thresholds = THRESHOLDS, tier = 'T0' }) {
   const t = thresholds;
   const findings = [];
   const dropped = [];
@@ -218,7 +230,7 @@ export function score({ run, shrine, probes, structure, catalogue, pivots, copy,
       timeline_gap: null,
       coverage_key: coverageKey(refs),
       items: p.items.map((i) => (i.path ? { ...i, path: displayPath(i.path, home) } : i)),
-      config_strip: first ? { mtime: first.date ?? null, last_git_change: first.date_source === 'git' ? first.date : null, sessions_since: sessionStarts && first.date ? sessionStarts.filter((s) => s >= first.date).length : history.sessions } : null,
+      config_strip: first ? { mtime: first.date ?? null, last_git_change: first.date_source === 'git' ? first.date : null, sessions_since: sessionsSince(first, sessionStarts, projectRoots, home) } : null,
     });
   }
 

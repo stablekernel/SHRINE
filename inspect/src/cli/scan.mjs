@@ -117,6 +117,7 @@ export async function scanHistory({ listing, excludedIds = [], display = (p) => 
   return {
     inventory: inv,
     sessions,
+    roots,
     episodes: factsEpisodes,
     skipped_files: skipped,
     unsupported: metas.length > 0 && readable === 0 && skipped.length > 0,

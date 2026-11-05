@@ -100,3 +100,35 @@ test('thin window: under 10 sessions gives counts only and a limited-history not
   assert.match(f.notes.join(' '), /Limited history/);
   assert.equal(f.usage.limited, true);
 });
+
+test('config strip: sessions since counts only sessions where that config was live, and is hidden with no date', () => {
+  const kinds = Object.keys(K.kinds);
+  const probe = (kind, item) => ({ kind, entry_id: K.kinds[kind].entry_ids[0], see_also: [], hit: true, items: [item], metric: {} });
+  const sessions = [
+    { start: '2026-10-05T10:00:00Z', root: '/w/a' },
+    { start: '2026-10-06T10:00:00Z', root: '/w/b' },
+    { start: '2026-09-01T10:00:00Z', root: '/w/a' },
+  ];
+  const f = score({
+    run,
+    shrine: { commit: catalogue.shrine.commit, manifest_sha: null, fetched_at: null },
+    probes: [
+      probe(kinds[0], { path: '/w/a/CLAUDE.md', date: '2026-10-01', date_source: 'git' }),
+      probe(kinds[1], { path: '/home/u/.claude/settings.json', date: '2026-10-01', date_source: 'git' }),
+      probe(kinds[2], { path: '/w/c/.claude/settings.json', date: null, date_source: 'none' }),
+    ],
+    structure: [],
+    catalogue,
+    pivots,
+    copy,
+    home: '/home/u',
+    history: { consented: true, read: true, sessions: 3 },
+    sessionStarts: sessions,
+    projectRoots: ['/w/a', '/w/b', '/w/c'],
+  });
+  const strip = (k) => f.findings.find((x) => x.kind === k).config_strip;
+  assert.equal(strip(kinds[0]).sessions_since, 1, 'project config: that project only');
+  assert.equal(strip(kinds[1]).sessions_since, 2, 'user-global config: every project');
+  assert.equal(strip(kinds[2]).sessions_since, null, 'no date: no figure');
+  assert.deepEqual(validateFindings(f).errors, []);
+});
