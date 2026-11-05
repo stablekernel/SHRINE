@@ -44,9 +44,11 @@ export function repoRoot(cwd) {
     // --path-format needs git 2.31; older git echoes it back, so resolve here.
     const out = gitOut(['rev-parse', '--git-common-dir'], cwd);
     const common = out && !out.includes('\n') ? resolve(cwd, out) : null;
-    if (common) return basename(common) === '.git' ? dirname(common) : common;
+    if (common && basename(common) === '.git') return dirname(common);
+    // Submodules keep their git dir under <super>/.git/modules; use the work tree.
     const top = gitOut(['rev-parse', '--show-toplevel'], cwd);
     if (top) return top;
+    if (common) return common;
     return wt ? wt[1] : cwd;
   }
   return wt ? wt[1] : cwd;

@@ -123,3 +123,19 @@ test('spy log proves only one file per folder was opened, and no content kept', 
   assert.ok(!JSON.stringify(r).includes('SECRET'));
   assert.equal(r.projects[0].sessions, 2);
 });
+
+test('a cwd inside a git submodule resolves to the submodule work tree', async () => {
+  const { repoRoot } = await import('../../../src/adapters/claude-code/projects.mjs');
+  const base = realpathSync(mkdtempSync(join(tmpdir(), 'si-sub-')));
+  const lib = join(base, 'lib');
+  const sup = join(base, 'super');
+  for (const r of [lib, sup]) {
+    mkdirSync(r);
+    sh(r, 'init', '-q');
+    sh(r, 'commit', '-q', '--allow-empty', '-m', 'x');
+  }
+  sh(sup, '-c', 'protocol.file.allow=always', 'submodule', '-q', 'add', lib, 'vendor/lib');
+  const sub = join(sup, 'vendor', 'lib');
+  assert.equal(repoRoot(sub), sub);
+  assert.equal(repoRoot(sup), sup);
+});
