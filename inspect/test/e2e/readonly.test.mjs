@@ -27,6 +27,14 @@ function treeHash(root) {
   return h.digest('hex');
 }
 
+test('fixture repo has git auto-maintenance off, so no detached git races the tree hash', () => {
+  const h = makeHome('good');
+  const get = (k) => spawnSync('git', ['config', '--get', k], { cwd: h.repo, encoding: 'utf8' }).stdout.trim();
+  assert.equal(get('maintenance.auto'), 'false');
+  assert.equal(get('gc.auto'), '0');
+  h.cleanup();
+});
+
 for (const fixture of ['good', 'bad', 'plugin']) {
   test(`${fixture}: spy log shows no write outside the run folder, only read-only git; home byte-identical`, () => {
     const h = makeHome(fixture);
