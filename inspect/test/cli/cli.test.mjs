@@ -9,7 +9,7 @@ import { fileURLToPath } from 'node:url';
 import { main } from '../../src/cli/main.mjs';
 import { setGitTestEnv, setGitVersion } from '../../src/io/git.mjs';
 import { diffRuns } from '../../src/diff/previous.mjs';
-import { makeHome, FIXED_NOW } from '../synth/home.mjs';
+import { makeHome, FIXED_NOW, REFUSE_ALL_REPOS } from '../synth/home.mjs';
 
 const BIN = fileURLToPath(new URL('../../bin/shrine-inspect.mjs', import.meta.url));
 const TEMP = JSON.stringify(['^/nowhere/']);
@@ -228,7 +228,7 @@ test('a git config include over 1 MiB is noted as a run limit and the run still 
 test('a repo git refuses to read (another owner) shows as a run limit, not a partial clone', async () => {
   const h = makeHome('good');
   const state = mkdtempSync(join(tmpdir(), 'si-state-'));
-  setGitTestEnv({ GIT_TEST_ASSUME_DIFFERENT_OWNER: '1' });
+  setGitTestEnv(REFUSE_ALL_REPOS);
   setGitVersion([2, 44, 0]);
   try {
     const r = await inproc(['run', '--tier', 'T0', '--no-history', '--json'], h, state);

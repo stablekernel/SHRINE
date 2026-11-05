@@ -1,7 +1,7 @@
 import { test, beforeEach } from 'node:test';
 import assert from 'node:assert/strict';
 import { join } from 'node:path';
-import { makeHome } from '../../synth/home.mjs';
+import { makeHome, REFUSE_ALL_REPOS } from '../../synth/home.mjs';
 import { detect } from '../../../src/adapters/claude-code/detect.mjs';
 import { mkdirSync, writeFileSync } from 'node:fs';
 import { inventory, nestedInstructionFiles } from '../../../src/adapters/claude-code/inventory.mjs';
@@ -210,7 +210,7 @@ test('a repo git refuses to read gives unknown dates, not file times', async () 
     const control = collectSetup({ home: h.home, projects: h.projects, now: Date.now() });
     assert.equal(repoFile(control).last_change.source, 'git', 'control: a readable repo gives a git date');
     resetGitTimeouts();
-    setGitTestEnv({ GIT_TEST_ASSUME_DIFFERENT_OWNER: '1' });
+    setGitTestEnv(REFUSE_ALL_REPOS);
     const s = collectSetup({ home: h.home, projects: h.projects, now: Date.now() });
     assert.equal(repoFile(s).last_change.git_skipped, true, JSON.stringify(repoFile(s).last_change));
     assert.deepEqual(gitRefusals(), [h.repo]);

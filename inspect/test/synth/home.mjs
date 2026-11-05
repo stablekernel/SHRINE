@@ -10,6 +10,11 @@ import { fileURLToPath } from 'node:url';
 import { encodeProjectPath } from '../../src/adapters/claude-code/projects.mjs';
 
 export const FIXED_NOW = '2026-11-04T12:00:00.000Z';
+
+// Test-only git env that makes git refuse every repo as if another user owned it.
+// The host's global and system config are dropped too: a safe.directory=* there
+// (CI runner images set one) would otherwise let git read the repo anyway.
+export const REFUSE_ALL_REPOS = { GIT_TEST_ASSUME_DIFFERENT_OWNER: '1', GIT_CONFIG_GLOBAL: devNull, GIT_CONFIG_NOSYSTEM: '1' };
 const FIXTURES = fileURLToPath(new URL('../fixtures/home/', import.meta.url));
 const OLD = new Date('2025-01-15T09:00:00Z');
 
