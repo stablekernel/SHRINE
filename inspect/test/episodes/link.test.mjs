@@ -86,6 +86,46 @@ test('the linker runs only allowlisted read-only git', () => {
   r.cleanup();
 });
 
+// The scan relies on this: it has no hung-repo check of its own.
+test('after one git timeout in a repo, git() skips that repo and repoCommits reports it timed out, with no spawn', async () => {
+  const { git, resetGitTimeouts, setGitVersion } = await import('../../src/io/git.mjs');
+  const { setSpawnTimeout } = await import('../../src/io/proc.mjs');
+  const { mkdirSync, mkdtempSync, chmodSync, rmSync, realpathSync } = await import('node:fs');
+  const { tmpdir } = await import('node:os');
+  const r = makeRepo();
+  r.commit(iso(T0), 'one');
+  mkdirSync(join(r.root, 'sub'));
+  // A git that hangs only in this repo; the global-config probe runs real git.
+  const bin = mkdtempSync(join(tmpdir(), 'si-fakegit-'));
+  const real = execFileSync('sh', ['-c', 'command -v git'], { encoding: 'utf8' }).trim();
+  const target = realpathSync(r.root);
+  writeFileSync(join(bin, 'git'), `#!/bin/sh\ncase "$(pwd -P)" in '${target}'|'${target}'/*) exec sleep 5;; esac\nexec '${real}' "$@"\n`);
+  chmodSync(join(bin, 'git'), 0o755);
+  const path = process.env.PATH;
+  resetGitTimeouts();
+  setGitVersion([2, 50, 1]);
+  setSpawnTimeout(300);
+  try {
+    process.env.PATH = `${bin}:${path}`;
+    const first = git(['rev-parse', 'HEAD'], { cwd: r.root });
+    assert.equal(first.timedOut, true);
+    assert.equal(first.skipped, undefined, 'the first run really spawned');
+    resetSpy();
+    const second = git(['rev-parse', 'HEAD'], { cwd: join(r.root, 'sub') });
+    assert.equal(second.timedOut, true);
+    assert.equal(second.skipped, true);
+    assert.deepEqual(repoCommits(r.root, { since: T0 - H, until: T0 + H }), { failed: 'timed out' });
+    assert.deepEqual(spyLog().filter((e) => e.op === 'spawn'), [], 'no git spawn in a repo that timed out');
+  } finally {
+    process.env.PATH = path;
+    setSpawnTimeout();
+    resetGitTimeouts();
+    setGitVersion(undefined);
+    rmSync(bin, { recursive: true, force: true });
+    r.cleanup();
+  }
+});
+
 test('a git log that fails is a distinct failure, never an empty commit list', async () => {
   const { resetGitTimeouts, setGitVersion } = await import('../../src/io/git.mjs');
   const { setSpawnTimeout } = await import('../../src/io/proc.mjs');
