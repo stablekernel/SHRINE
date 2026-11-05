@@ -80,7 +80,9 @@ function depth(d) {
   const parts = [];
   if (d.tier !== 'T0') parts.push(`${pl(d.reviewers, 'reviewer')}, ${pl(Math.round(d.minutes_elapsed), 'minute')}`);
   if (!d.history?.consented) parts.push('history not read');
-  else if (d.tier === 'T0') parts.push('setup, repos, and local session logs parsed by code');
+  else if (d.tier === 'T0' && d.history.read) parts.push('setup, repos, and local session logs parsed by code');
+  else if (d.tier === 'T0') parts.push('setup and repos; no session log could be used');
+  if (d.usage?.limited) parts.push('limited history');
   return `<div class="depth" role="note"><span class="meter" role="img" aria-label="Depth: ${esc(label)}">${meter}</span><span><b>${esc(label)}</b></span>${parts.map((p) => `<span>${esc(p)}</span>`).join('')}</div>`;
 }
 
@@ -297,6 +299,7 @@ function appendix(d) {
   return `<section aria-labelledby="app-h" class="appendix"><h2 id="app-h">Appendix</h2>${[
     blk(`Worth a look (${d.worth_a_look.length})`, ul(d.worth_a_look.map((f) => `<span id="${esc(f.id)}">${esc(f.title)}: ${esc(f.short)} (${esc(f.confidence.basis)})</span>`))),
     blk(`Configured, not praised (${d.configured.length})`, ul(d.configured.map((c) => `${esc(c.item)}: ${c.count}${c.detail ? `, ${esc(c.detail)}` : ''}`))),
+    d.usage ? blk('Usage from session history', `<p class="ev">Counts parsed by code from local session logs. Pattern counts are not findings.</p>${ul(d.usage.lines.map(esc))}`) : '',
     blk(`Dropped (${d.dropped.length})`, ul(d.dropped.map((x) => `${esc(x.id)}: ${esc(x.reason)}`))),
     blk('What this tier cannot tell', ul(d.unknowable.map(esc))),
     blk(`Skipped files (${d.skipped_files.length})`, ul(d.skipped_files.map((s) => `<code class="mono">${esc(s.path_scrubbed)}</code>: ${esc(s.reason)}`))),

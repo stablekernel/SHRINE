@@ -4,11 +4,12 @@ import AxeBuilder from '@axe-core/playwright';
 import { readFileSync } from 'node:fs';
 import { fileURLToPath } from 'node:url';
 import { renderReport } from '../../src/render/report.mjs';
-import { t0BadSetupFindings } from '../synth/t0-findings.mjs';
+import { t0BadSetupFindings, t0HistoryFindings } from '../synth/t0-findings.mjs';
 
 const mock = JSON.parse(readFileSync(fileURLToPath(new URL('../fixtures/findings/mock-density.json', import.meta.url)), 'utf8'));
 const MOCK_HTML = renderReport(mock);
 const T0_HTML = renderReport(t0BadSetupFindings());
+const T0_HIST_HTML = renderReport(t0HistoryFindings());
 // Count-based checks below ("no hidden detail", "every finding fits") pass on zero
 // items, so each also asserts there is something to check.
 if (mock.findings.length === 0) throw new Error('mock-density fixture has no findings');
@@ -26,7 +27,7 @@ for (const theme of ['light', 'dark']) {
   });
 
   test(`axe: zero violations, ${theme}`, async ({ page }) => {
-    for (const html of [MOCK_HTML, T0_HTML]) {
+    for (const html of [MOCK_HTML, T0_HTML, T0_HIST_HTML]) {
       await open(page, html, { theme });
       const r = await new AxeBuilder({ page }).withTags(['wcag2a', 'wcag2aa', 'wcag21a', 'wcag21aa', 'wcag22aa']).analyze();
       expect(r.violations.map((v) => `${v.id}: ${v.nodes.map((n) => n.target.join(' ')).join(', ')}`)).toEqual([]);
@@ -296,7 +297,7 @@ test('T0 fixture, light', async ({ page }) => {
 });
 
 test('above the fold at 1280x800: header, depth band, TLDR, Start with', async ({ page }) => {
-  for (const html of [MOCK_HTML, T0_HTML]) {
+  for (const html of [MOCK_HTML, T0_HTML, T0_HIST_HTML]) {
     await open(page, html, { theme: 'dark' });
     for (const sel of ['.head', '.depth', '#tldr-h', '.start']) {
       const box = await page.locator(sel).boundingBox();
@@ -388,3 +389,13 @@ for (const [name, html] of Object.entries(LIMIT_VARIANTS)) {
     });
   }
 }
+
+test('history report at 375px: no horizontal scroll, usage block readable in print', async ({ page }) => {
+  await open(page, T0_HIST_HTML, { theme: 'light', width: 375, height: 800 });
+  const overflow = await page.evaluate(() => document.documentElement.scrollWidth - document.documentElement.clientWidth);
+  expect(overflow).toBeLessThanOrEqual(0);
+  await page.emulateMedia({ media: 'print' });
+  const usage = page.locator('.appendix details', { hasText: 'Usage from session history' });
+  expect(await usage.locator('li').count()).toBeGreaterThan(4);
+  expect(await usage.locator('ul').evaluate((el) => el.getBoundingClientRect().height)).toBeGreaterThan(0);
+});

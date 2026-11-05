@@ -93,7 +93,7 @@ test('an unreadable file reports unreadable instead of throwing', async () => {
   assert.equal(missing.stats.kind, 'unreadable');
 });
 
-test('a 100 MB file streams with RSS growth under 100 MB', async () => {
+test('a 100 MB file streams with heap growth under 100 MB (RSS is GC-lagged, checked loosely)', async () => {
   const p = join(dir, 'big.jsonl');
   const line = `${JSON.stringify(user('y'.repeat(4000)))}\n`;
   const ws = createWriteStream(p);
@@ -101,13 +101,19 @@ test('a 100 MB file streams with RSS growth under 100 MB', async () => {
   for (let i = 0; i < n; i++) if (!ws.write(line)) await new Promise((r) => ws.once('drain', r));
   await new Promise((r) => ws.end(r));
   global.gc?.();
-  const before = process.memoryUsage().rss;
-  let peak = before;
+  const before = process.memoryUsage();
+  let peak = before.heapUsed;
+  let peakRss = before.rss;
   let count = 0;
   await readSessionFile(p, () => {
     count++;
-    if (count % 2000 === 0) peak = Math.max(peak, process.memoryUsage().rss);
+    if (count % 2000 === 0) {
+      const m = process.memoryUsage();
+      peak = Math.max(peak, m.heapUsed);
+      peakRss = Math.max(peakRss, m.rss);
+    }
   });
   assert.equal(count, n);
-  assert.ok(peak - before < 100 * 1024 * 1024, `rss grew ${Math.round((peak - before) / 1048576)} MB`);
+  assert.ok(peak - before.heapUsed < 100 * 1024 * 1024, `heap grew ${Math.round((peak - before.heapUsed) / 1048576)} MB`);
+  assert.ok(peakRss - before.rss < 200 * 1024 * 1024, `rss grew ${Math.round((peakRss - before.rss) / 1048576)} MB`);
 });

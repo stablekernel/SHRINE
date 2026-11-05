@@ -1,13 +1,13 @@
-// A deterministic T0 findings.json (bad setup, no history) for render and visual
-// tests, built through the real scorer and copywriter.
+// Deterministic T0 findings.json files (bad setup, with and without history) for
+// render and visual tests, built through the real scorer and copywriter.
 import { readFileSync } from 'node:fs';
 import { fileURLToPath } from 'node:url';
 import { score } from '../../src/scorer/score.mjs';
-import { copy } from '../../src/copy/templates.mjs';
+import { copy, SAMPLE_USAGE } from '../../src/copy/templates.mjs';
 
 const load = (rel) => JSON.parse(readFileSync(fileURLToPath(new URL(rel, import.meta.url)), 'utf8'));
 
-export function t0BadSetupFindings() {
+function badSetupInput({ consented }) {
   const catalogue = load('../../src/catalogue/catalogue.json');
   const pivots = load('../../src/catalogue/generic-pivots.json');
   const K = load('../../src/catalogue/t0-kinds.json');
@@ -21,13 +21,13 @@ export function t0BadSetupFindings() {
     { kind: 'short_retention', hit: true, items: [], metric: { days: 30, source: 'default', threshold_days: 30 } },
   ].map((p) => ({ ...p, entry_id: K.kinds[p.kind].entry_ids[0], see_also: K.kinds[p.kind].entry_ids.slice(1) }));
   const structure = Object.keys(K.structure).map((check) => ({ check, entry_id: K.structure[check].entry_ids[0], applicable: check !== 'repo_layout', pass: check === 'instruction_layers', items: [] }));
-  return score({
+  return {
     run: {
       id: 't0-visual',
       started_at: '2026-11-04T12:00:00.000Z',
       tool_version: '0.1.0',
-      harness: { name: 'Claude Code', version: null },
-      scope: { projects: ['bad-project'], from: null, to: null, history_consented: false },
+      harness: { name: 'Claude Code', version: consented ? '2.1.318' : null },
+      scope: { projects: ['bad-project'], from: null, to: null, history_consented: consented },
       win_definition: null,
       seed: null,
     },
@@ -39,5 +39,22 @@ export function t0BadSetupFindings() {
     copy,
     inventoryCounts: { 'instruction files': 2 },
     home,
-  });
+    usageKinds: K.usage_kinds,
+  };
+}
+
+export function t0BadSetupFindings() {
+  return score(badSetupInput({ consented: false }));
+}
+
+// The same bad setup with consented history: usage counts in the appendix and
+// header chips, and no usage finding (E5 keeps done-without-test a count).
+export function t0HistoryFindings({ limited = false } = {}) {
+  const usage = {
+    ...SAMPLE_USAGE,
+    counts: { ...SAMPLE_USAGE.counts, sessions: limited ? 6 : 66 },
+    rule: limited ? 'limited' : 'probe',
+    kinds: SAMPLE_USAGE.kinds.map((k) => ({ ...k, hit: true, tokens: 40000, episode_ids: ['e-1'] })),
+  };
+  return score({ ...badSetupInput({ consented: true }), usage, history: { consented: true, read: true, sessions: usage.counts.sessions } });
 }

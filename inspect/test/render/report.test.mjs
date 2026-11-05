@@ -212,3 +212,30 @@ test('with zero findings, the next step drops the session-history ask once histo
   assert.match(unread, /session history/);
   assert.doesNotMatch(read, /run again with session history/i);
 });
+
+test('with history: chips for sessions and correction candidates, a usage block in the appendix, no usage finding', async () => {
+  const { t0HistoryFindings } = await import('../synth/t0-findings.mjs');
+  const f = t0HistoryFindings();
+  const html = renderReport(f);
+  const body = outsideScripts(html);
+  assert.match(body, /<span class="chip">66 sessions reviewed<\/span>/);
+  assert.match(body, /<span class="chip">40 correction candidates<\/span>/);
+  assert.match(body, /<summary>Usage from session history<\/summary>/);
+  assert.match(body, /Automation sessions left out: 1069 of 1135 sessions \(94%\)/);
+  assert.match(body, /Done claims with no test or check run before them: 4 of 12 claims\. Count only/);
+  assert.match(body, /setup, repos, and local session logs parsed by code/);
+  assert.ok(!f.findings.some((x) => x.lens === 'usage'));
+});
+
+test('limited history shows in the depth band and the appendix', async () => {
+  const { t0HistoryFindings } = await import('../synth/t0-findings.mjs');
+  const body = outsideScripts(renderReport(t0HistoryFindings({ limited: true })));
+  assert.match(body, /<span>limited history<\/span>/);
+  assert.match(body, /Limited history: 6 sessions, under the 10 sessions needed/);
+});
+
+test('no history: no usage block and the "History not read" chip', () => {
+  const body = outsideScripts(renderReport(t0()));
+  assert.ok(!body.includes('Usage from session history'));
+  assert.match(body, /History not read/);
+});
