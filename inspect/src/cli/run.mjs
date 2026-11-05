@@ -274,6 +274,10 @@ export async function continueRun(folder, ctx, io) {
   let judgeNote = null;
   if (state.gates.B?.choice === 'T1' && t1 && !t1Note) {
     let order = readOrder(folder);
+    // Session files can grow between the pause and the yes: never judge more than was approved.
+    if (!order && (t1.bundles.length > (state.gates.B.episodes ?? Infinity) || t1.estimate.tokens_high > (state.gates.B.estimate?.tokens_high ?? Infinity))) {
+      throw new InspectError('E_SCOPE_CHANGED', 'the history changed since Gate B, so the approved estimate no longer holds; no model was called', { hint: 'start a new run: shrine-inspect run --tier T1', exit: EXIT.GATE_WAITING });
+    }
     if (!order) {
       order = createWorkOrder({ runId: state.run_id, seed: state.seed, bundles: t1.bundles, estimate: { ...t1.estimate, tokens_high: state.gates.B.estimate?.tokens_high ?? t1.estimate.tokens_high }, caps: { per_call_timeout_ms: T.judged.per_call_timeout_ms, max_stdout_bytes: T.judged.max_stdout_bytes, processes: 1 } });
       folder.writeJson('workorder.json', order);

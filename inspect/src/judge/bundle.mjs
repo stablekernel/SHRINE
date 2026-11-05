@@ -68,7 +68,7 @@ export function buildBundle({ episode, transcript, fallbackConfig = [], known, n
   });
 
   const source = transcript?.snapshot
-    ? transcript.snapshot.map((f) => ({ path: f.path, content: f.content, may_have_changed: false }))
+    ? transcript.snapshot.map((f) => ({ path: f.path, content: f.content, may_have_changed: transcript.snapshot_late === true }))
     : fallbackConfig;
   let budget = caps.config_chars;
   let truncated = false;

@@ -99,10 +99,10 @@ test('abort: time box plus 50%', async () => {
   assert.equal(r.abort.reason, 'time');
 });
 
-test('a usage limit stops at once with no line for that episode', async () => {
+test('a usage limit stops at once and leaves the episode unjudged', async () => {
   const r = await run(order(3), async () => ({ stdout: JSON.stringify({ type: 'result', is_error: true, result: 'Usage limit reached' }), ms: 1 }));
   assert.equal(r.abort.reason, 'limit');
-  assert.equal(r.appended.length, 0);
+  assert.ok(r.appended.every((l) => !l.valid && l.limited));
 });
 
 test('resume judges only the missing ids, so finished calls are never re-billed', async () => {
@@ -115,4 +115,13 @@ test('resume judges only the missing ids, so finished calls are never re-billed'
   }, { previous });
   assert.deepEqual(seen, Array.from({ length: 11 }, (_, i) => `e-${i + 1}`), 'e-0 is done; the invalid e-1 is judged again');
   assert.equal(r.tokens, 100 + 11 * 110);
+});
+
+test('a usage-limited call leaves a line with its tokens, not counted as invalid', async () => {
+  const r = await run(order(3), async () => ({ stdout: JSON.stringify({ type: 'result', is_error: true, result: 'Usage limit reached', usage: { input_tokens: 40, output_tokens: 0 } }), ms: 1 }));
+  assert.equal(r.abort.reason, 'limit');
+  assert.equal(r.appended.length, 1);
+  assert.equal(r.appended[0].limited, true);
+  assert.equal(r.appended[0].tokens.total, 40);
+  assert.equal(r.invalid, 0);
 });

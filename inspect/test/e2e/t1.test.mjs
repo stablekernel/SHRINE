@@ -22,7 +22,7 @@ function treeHash(root) {
   return h.digest('hex');
 }
 
-test('T1 pauses at Gate B without a terminal: zero judge spawns, no work order, the itemized offer in gate.json', async () => {
+test('T1 pauses at Gate B until a typed yes: zero judge spawns, no work order, the itemized offer in gate.json', async () => {
   const h = plantedHome([['late', 12, 'aaaa']]);
   const state = stateDir();
   const log = join(state, 'judge-launches.log');
@@ -210,7 +210,7 @@ test('one retry with the validator error: invalid then valid gives a valid line'
   h.cleanup();
 });
 
-test('no judge on this harness: Gate B offers T0 only and the report says why', async () => {
+test('no judge on this harness: T1 falls back to T0 with no gate, and the report says why', async () => {
   const h = plantedHome([['late', 12, 'aaaa']]);
   const state = stateDir();
   const judge = { available: { ok: false, reason: 'no claude command on PATH' }, invocation: null, parse: () => null };

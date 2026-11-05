@@ -128,8 +128,10 @@ export function judgedFindings({ lines, order, episodes, catalogue, pivots, copy
     // The highest-cost hit (tokens after the correction) is the episode shown.
     const cost = (h) => h.bundle.meta.tokens_after[h.c.turn_id] ?? 0;
     const top = [...list].sort((a, b) => cost(b) - cost(a) || (a.line.episode_id < b.line.episode_id ? -1 : 1))[0];
-    const tokens = list.reduce((n, h) => n + cost(h), 0);
-    const humanTurns = list.reduce((n, h) => n + (h.bundle.meta.human_after[h.c.turn_id] ?? 0), 0);
+    // Each episode counts once, from its earliest hit: later hits are already inside it.
+    const firsts = [...new Map(list.map((h) => [h.line.episode_id, h])).values()].map((h0) => list.filter((h) => h.line.episode_id === h0.line.episode_id).sort((a, b) => (a.bundle.meta.human_index[a.c.turn_id] ?? 0) - (b.bundle.meta.human_index[b.c.turn_id] ?? 0))[0]);
+    const tokens = firsts.reduce((n, h) => n + cost(h), 0);
+    const humanTurns = firsts.reduce((n, h) => n + (h.bundle.meta.human_after[h.c.turn_id] ?? 0), 0);
     const sessions = new Set(eps.map((e) => episodes.get(e)?.session_id).filter(Boolean)).size;
     const repos = new Set(eps.map((e) => episodes.get(e)?.repo ?? episodes.get(e)?.stratum?.project).filter(Boolean)).size;
     // Under 15 flagged episodes (every T1 sample), severity is capped at low.

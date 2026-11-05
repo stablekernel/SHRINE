@@ -55,7 +55,7 @@ const cases = {
   'unknown turn': (o) => ({ ...o, corrections: [{ ...o.corrections[0], turn_id: 't99' }] }),
   'assistant turn': (o) => ({ ...o, corrections: [{ ...o.corrections[0], turn_id: 't02' }] }),
   'unknown entry id': (o) => ({ ...o, corrections: [{ ...o.corrections[0], entry_ids: ['made.up'] }] }),
-  'config ref not verbatim': (o) => ({ ...o, corrections: [{ ...o.corrections[0], constraint_present_in: 'instruction_file', config_ref: { config_id: 'c1', text: 'Always edit generated files' } }] }),
+  'config ref to a missing block': (o) => ({ ...o, corrections: [{ ...o.corrections[0], constraint_present_in: 'instruction_file', config_ref: { config_id: 'c9', text: 'Always edit generated files' } }] }),
   'confidence out of range': (o) => ({ ...o, corrections: [{ ...o.corrections[0], attribution: { label: 'user', confidence: 3 } }] }),
 };
 for (const [name, mutate] of Object.entries(cases)) {
@@ -111,4 +111,13 @@ test('inherited key names (__proto__, constructor) are rejected as extra keys', 
   const b = bundle();
   for (const k of ['constructor', 'toString']) assert.equal(validateJudgment({ ...good(b), [k]: 'x' }, b).ok, false, k);
   assert.equal(validateJudgment(JSON.parse(`{"__proto__":{"a":1},${JSON.stringify(good(b)).slice(1)}`), b).ok, false);
+});
+
+test('a config quote that is not an exact copy is "not found", not an invalid answer', () => {
+  const b = bundle();
+  const o = good(b);
+  o.corrections[0] = { ...o.corrections[0], constraint_present_in: 'instruction_file', config_ref: { config_id: 'c1', text: 'Always edit generated files' } };
+  const v = validateJudgment(o, b);
+  assert.equal(v.ok, true, v.errors.join('; '));
+  assert.equal(v.output.corrections[0].config_ref.start, -1);
 });

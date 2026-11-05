@@ -75,8 +75,8 @@ export function validateJudgment(output, bundle, { catalogueIds = new Set(JUDGED
     if (c.config_ref) {
       const cfg = configs.get(c.config_ref.config_id);
       const at = cfg ? cfg.text.indexOf(c.config_ref.text) : -1;
+      // A quote that is not an exact copy is "not found" (spec 5), not an invalid answer.
       if (!cfg) errors.push(`${p}.config_ref.config_id: no such config block`);
-      else if (at < 0) errors.push(`${p}.config_ref.text: not an exact copy from that block`);
       configRef = { config_id: c.config_ref.config_id, start: at, end: at + c.config_ref.text.length };
     }
     for (const [j, e] of c.entry_ids.entries()) if (!catalogueIds.has(e)) errors.push(`${p}.entry_ids[${j}]: not in the catalogue`);

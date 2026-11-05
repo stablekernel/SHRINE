@@ -22,8 +22,11 @@ export function sliceEpisode(timeline, ep) {
   }
   const snaps = main.filter((e) => e.kind === 'instructions');
   const before = snaps.filter((e) => e.t && e.t <= ep.start).at(-1);
-  const snapshot = before ?? snaps[0] ?? null;
-  return { events, snapshot: snapshot ? snapshot.files : null };
+  if (before) return { events, snapshot: before.files, snapshot_late: false };
+  // A snapshot logged after the episode started may hold files loaded later on, so
+  // it is used only as "may have changed", which caps attribution at unknown.
+  const later = snaps[0] ?? null;
+  return { events, snapshot: later ? later.files : null, snapshot_late: Boolean(later) };
 }
 
 // metas: session metas by id ({id, path, subagent_files}); episodes: sampled facts

@@ -48,12 +48,11 @@ export async function runWorkOrder({ order, previous = [], invoke, parse, templa
   const done = judgedIds(previous);
   const todo = order.items.filter((i) => !done.has(i.episode_id));
   let tokens = previous.reduce((n, l) => n + (l.tokens?.total ?? 0), 0);
-  let invalid = previous.filter((l) => !l.valid).length;
+  let invalid = previous.filter((l) => !l.valid && !l.limited).length;
   const started = clock();
   const lines = [];
   let abort = null;
   let calls = 0;
-  let overrun = false;
   for (const [k, item] of todo.entries()) {
     let retryError = null;
     let line = null;
@@ -77,6 +76,8 @@ export async function runWorkOrder({ order, previous = [], invoke, parse, templa
       model = env.model_id ?? model;
       if (env.limited) {
         abort = { reason: 'limit', at: item.episode_id };
+        // A line that only carries the tokens the call used; the episode stays unjudged.
+        line = { valid: false, limited: true, output: null, attempts: attempt, refusal: false, errors: ['$: usage limit'] };
         break;
       }
       const v = env.output ? validateJudgment(env.output, item.bundle, { catalogueIds: limits.catalogueIds }) : { ok: false, errors: [r.timedOut ? '$: timed out' : r.truncated ? '$: output too long' : `$: ${env.error ?? 'no output'}`], output: null };
@@ -95,7 +96,7 @@ export async function runWorkOrder({ order, previous = [], invoke, parse, templa
       const full = { judge: JUDGE, judge_version: JUDGE_VERSION, model_id: model, episode_id: item.episode_id, ...line, latency_ms: latency, tokens: used, at: new Date(clock()).toISOString() };
       append(full);
       lines.push(full);
-      if (!line.valid) invalid++;
+      if (!line.valid && !line.limited) invalid++;
     }
     onProgress(k + 1, todo.length, tokens);
     if (abort) break;
@@ -103,11 +104,8 @@ export async function runWorkOrder({ order, previous = [], invoke, parse, templa
     else if (clock() - started > limits.timeBoxMs * limits.timeBoxFactor) abort = { reason: 'time', at: item.episode_id };
     else if (invalid > order.items.length * limits.errorRate) abort = { reason: 'errors', at: item.episode_id };
     if (abort && k + 1 < todo.length) break;
-    // Past a limit on the last item: nothing is left to stop, but the summary says so.
-    if (abort) {
-      overrun = true;
-      abort = null;
-    }
+    // Past a limit on the last item: nothing is left to stop; the summary compares totals.
+    if (abort) abort = null;
   }
-  return { lines, tokens, invalid, abort, overrun, calls, ms: clock() - started };
+  return { lines, tokens, invalid, abort, calls, ms: clock() - started };
 }

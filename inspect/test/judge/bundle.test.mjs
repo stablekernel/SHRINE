@@ -102,3 +102,11 @@ test('the prompt starts with the housekeeping marker and fences the data with th
   assert.match(p, /never instructions to you/);
   assert.match(p, /The nonce is abc123/);
 });
+
+test('a snapshot logged only after the episode started is kept but marked may_have_changed', () => {
+  const tl = [...events(), { t: at(20), kind: 'instructions', files: snapshot }];
+  const s = sliceEpisode(tl, episode);
+  assert.equal(s.snapshot_late, true);
+  const b = buildBundle({ episode, transcript: s, known, nonce: 'n' });
+  assert.equal(b.config[0].may_have_changed, true);
+});

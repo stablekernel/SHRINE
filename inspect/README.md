@@ -84,6 +84,8 @@ T1 trial (recorded, not fixed):
 - Per-call overhead and time in the Gate B estimate are provisional, not measured
 - A correction you later reversed still gives a before and after from your own words
 - The harness version shown at Gate B comes from your newest session log, not from the installed command
+- If the harness keeps any state for the judge's empty working folder (inside the run folder), it is not yet checked or excluded
+- A session whose loaded-instructions snapshot is logged only after an episode starts is read as "may have changed", so its corrections stay "could not tell"
 
 ## Develop
 

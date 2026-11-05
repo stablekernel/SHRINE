@@ -100,6 +100,9 @@ export async function approveCommand({ runId, gate, choice }, io, { findRun, con
   const folder = findRun(ctx.dirs.state, runId);
   const state = readJson(folder.path('state.json'));
   if (!['A', 'B', 'C'].includes(gate)) throw new InspectError('E_GATE', `gate ${gate} does not exist`, { exit: EXIT.USAGE });
+  // Judging that stopped without finishing (Ctrl-C, a crash) resumes on the consent
+  // already given: only episodes with no valid line are judged.
+  if (gate === 'B' && state.gates.B?.choice === 'T1' && !state.gates.C && !folder.isDone('judgments') && state.phase !== 'done') return continueRun(folder, ctx, io);
   if (state.gates[gate]) throw new InspectError('E_GATE_ANSWERED', `Gate ${gate} of run ${runId} is already answered`, { exit: EXIT.USAGE });
   const g = readJson(folder.path('gate.json'));
   if (g.gate !== gate) throw new InspectError('E_GATE', `run ${runId} is waiting at Gate ${g.gate}, not Gate ${gate}`, { exit: EXIT.USAGE });

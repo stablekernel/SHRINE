@@ -113,3 +113,8 @@ test('a constraint claimed "in the prompt" needs a quote from an earlier turn; d
   assert.equal(codeAttribution(c({ constraint_present_in: 'prompt' }), b), 'user', 'no quote: not found');
   assert.equal(codeAttribution(c({ constraint_present_in: 'prompt', quotes: [{ turn_id: 't01', start: 0, end: 3 }] }), b), 'model');
 });
+
+test('an unverified config quote attributes to you (rule 2), and a late snapshot caps at unknown', () => {
+  assert.equal(codeAttribution(c({ constraint_present_in: 'instruction_file', config_ref: { config_id: 'c1', start: -1, end: 5 } }), bundle()), 'user');
+  assert.equal(codeAttribution(c(), bundle({ config: [{ id: 'c1', text: 'x', may_have_changed: true }] })), 'unknown');
+});
