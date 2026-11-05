@@ -80,6 +80,17 @@ test('the linker runs only allowlisted read-only git', () => {
   r.cleanup();
 });
 
+test('the file-list log turns off rename detection, so a partial clone never fetches blobs', () => {
+  const r = makeRepo();
+  r.commit(iso(T0), 'one', { 'a.js': 'v1' });
+  resetSpy();
+  repoCommits(r.root, { since: T0 - H, until: T0 + H });
+  const named = spyLog().filter((e) => e.op === 'spawn' && e.args.includes('--name-only'));
+  assert.equal(named.length, 1);
+  assert.ok(named[0].args.includes('--no-renames'));
+  r.cleanup();
+});
+
 test('soft links scale: 20000 episodes link in under 2 seconds', () => {
   const eps = [];
   for (let i = 0; i < 20000; i++) eps.push(ep(`e${i}`, T0 + i * 600000, T0 + i * 600000 + 300000, { repo: `/w/r${i % 4}`, touched_files: [`/w/r${i % 4}/f${i % 50}.js`] }));

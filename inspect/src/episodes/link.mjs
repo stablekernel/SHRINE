@@ -24,7 +24,7 @@ const COMMIT_SLACK_MS = 2 * 60000;
 // repo never pushes the output past the spawn buffer.
 export function repoCommits(root, { since, until }) {
   const range = ['--all', '--no-merges', `--since=@${Math.floor(since / 1000)}`, `--until=@${Math.ceil(until / 1000)}`];
-  const out = gitOut(['log', ...range, '--name-only', `--format=${RS}%H${US}%ct${US}%s${US}`], root);
+  const out = gitOut(['log', ...range, '--no-renames', '--name-only', `--format=${RS}%H${US}%ct${US}%s${US}`], root);
   if (!out) return [];
   const reverts = new Map();
   const rv = gitOut(['log', ...range, '--grep=This reverts commit', `--format=${RS}%H${US}%b`], root) ?? '';
