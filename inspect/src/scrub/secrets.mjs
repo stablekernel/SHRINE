@@ -5,11 +5,13 @@ const R = (kind) => `[REDACTED:${kind}]`;
 
 // Linear time: a key starts only at a name boundary, is at most 128 chars, and a
 // bounded lookahead checks it holds a keyword, so long runs cannot backtrack.
-const KEYWORD = '(?:password|passwd|pwd|secret|api[_-]?key|access[_-]?key|auth[_-]?token|token|credential)';
+const KEYWORD = '(?:password|passwd|pwd|(?<![a-z])pass(?![a-z])|secret|api[_-]?key|access[_-]?key|auth[_-]?token|token|credential)';
 const ASSIGNMENT = new RegExp(
-  `(?<![\\w-])(?=[\\w-]{0,64}?${KEYWORD})([\\w-]{1,128})(?![\\w-])(["']?\\s{0,8}[:=]\\s{0,8}["']?)(?![\\w-]{0,64}?(?:password|secret|key|token)[\\w-]{0,64}\\s{0,8}[:=])([^\\s"',;]{8,})`,
+  `(?<![\\w-])(?=[\\w-]{0,64}?${KEYWORD})([\\w-]{1,128})(?![\\w-])(["']?\\s{0,8}[:=]\\s{0,8}["']?)(?![\\w-]{0,64}?(?:password|secret|key|token)[\\w-]{0,64}\\s{0,8}[:=])([^\\s"',;]{3,})`,
   'gi',
 );
+
+const PASSWORDISH = /pass|pwd/i;
 
 const RULES = [
   ['private-key', /-----BEGIN [A-Z0-9 ]*PRIVATE KEY-----[\s\S]*?(-----END [A-Z0-9 ]*PRIVATE KEY-----|$)/g, () => R('private-key')],
@@ -24,7 +26,22 @@ const RULES = [
   ['stripe', /\b(?:sk|rk|pk)_(?:live|test)_[0-9A-Za-z]{16,}/g, () => R('api-key')],
   ['jwt', /\beyJ[A-Za-z0-9_-]{8,}\.[A-Za-z0-9_-]{8,}\.[A-Za-z0-9_-]{8,}/g, () => R('jwt')],
   ['bearer', /\b(Bearer|Token|Basic)\s+[A-Za-z0-9._~+/=-]{16,}/g, (_m, word) => `${word} ${R('token')}`],
-  ['assignment', ASSIGNMENT, (_m, key, sep) => `${key}${sep}${R('secret')}`],
+  ['gitlab', /\bgl(?:pat|dt|ptt|rt|cbt|oas|soat|ft|imt|agent|ffct)-[A-Za-z0-9_-]{20,}/g, () => R('gitlab-token')],
+  ['npm', /\bnpm_[A-Za-z0-9]{30,}/g, () => R('npm-token')],
+  ['huggingface', /\bhf_[A-Za-z0-9]{30,}/g, () => R('api-key')],
+  ['webhook-secret', /\bwhsec_[A-Za-z0-9+/=]{20,}/g, () => R('secret')],
+  ['sendgrid', /\bSG\.[A-Za-z0-9_-]{16,}\.[A-Za-z0-9_-]{16,}/g, () => R('api-key')],
+  ['google-oauth', /\bya29\.[A-Za-z0-9_-]{20,}/g, () => R('token')],
+  ['twilio', /\bSK[0-9a-f]{32}\b/g, () => R('api-key')],
+  ['slack-webhook', /\bhttps:\/\/hooks\.slack\.com\/(?:services|workflows|triggers)\/[A-Za-z0-9_/-]+/g, () => R('webhook')],
+  ['auth-header', /\b(Authorization\s{0,4}[:=]\s{0,4}["']?)(?!(?:Bearer|Token|Basic)\s)[A-Za-z0-9._~+/=-]{16,}/gi, (_m, head) => `${head}${R('token')}`],
+  ['azure-key', /\b((?:Account|SharedAccess)Key\s{0,4}=\s{0,4})[A-Za-z0-9+/]{16,}={0,2}/g, (_m, head) => `${head}${R('secret')}`],
+  ['docker-auth', /("auth"\s{0,4}:\s{0,4}")[A-Za-z0-9+/=]{8,}"/g, (_m, head) => `${head}${R('secret')}"`],
+  // CLI passwords: mysql -p<pw> / --password=<pw>, curl -u user:<pw>. Scans are bounded.
+  ['mysql-cli', /(\bmysql(?:dump|admin|sh)?\b[^\n]{0,200}?\s(?:-p|--password=))[^\s'"-][^\s'"]*/g, (_m, head) => `${head}${R('secret')}`],
+  ['curl-user', /(\bcurl\b[^\n]{0,200}?\s(?:-u|--user)[\s=]{0,4}["']?[^\s:'"]{1,64}:)[^\s'"]+/g, (_m, head) => `${head}${R('secret')}`],
+  // Values under 8 chars are kept unless the key names a password.
+  ['assignment', ASSIGNMENT, (m, key, sep, value) => (value.length < 8 && !PASSWORDISH.test(key) ? m : `${key}${sep}${R('secret')}`)],
 ];
 
 export function scrubSecrets(text) {

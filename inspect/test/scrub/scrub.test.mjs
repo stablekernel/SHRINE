@@ -11,7 +11,7 @@ const body = corpus
   .split('\n')
   .filter((l) => !l.startsWith('#'))
   .join('\n');
-const STOP = new Set(['Authorization']);
+const STOP = new Set(['Authorization', 'DefaultEndpointsProtocol', 'EndpointSuffix']);
 const needles = [...new Set(body.match(/[A-Za-z0-9]{12,}/g))].filter((n) => !STOP.has(n));
 
 test('planted corpus has zero survivors after the default scrub', () => {
@@ -86,7 +86,7 @@ test('maskDeep masks a finding anchor, which is a user file path', () => {
 });
 
 test('scrub runs in linear time on adversarial key-like runs', () => {
-  for (const unit of ['token-', 'a-token', 'password_', 'secret-key-', 'x-']) {
+  for (const unit of ['token-', 'a-token', 'password_', 'secret-key-', 'x-', 'mysql ', 'curl -u ']) {
     const s = unit.repeat(Math.ceil(20000 / unit.length)) + '=' + 'v'.repeat(20);
     const t = performance.now();
     scrubSecrets(s);
@@ -100,4 +100,20 @@ test('assignment scrub still catches keys inside longer names', () => {
   for (const s of [`MY_API_KEY=${v}`, `"db-password": "${v}"`, `x.auth_token:${v}`, `GITHUB_TOKEN=${v}`]) {
     assert.ok(!scrubSecrets(s).includes(v), s);
   }
+});
+
+test('short passwords in password assignments are scrubbed', () => {
+  for (const s of ['password=hunter2', 'DB_PASS = s3cr', '"passwd": "abc12"', 'pwd: Xy9!']) {
+    const v = s.split(/[:=]\s*"?/)[1].replace(/"$/, '');
+    assert.ok(!scrubSecrets(s).includes(v), `${s} -> ${scrubSecrets(s)}`);
+  }
+});
+
+test('new rules leave ordinary prose alone', () => {
+  for (const s of [
+    'Use your password manager; bypass the cache; compass: north',
+    'Tests passes: 3 of 3. Set the Authorization header to a bearer token.',
+    'Run mysql -u root -p to be prompted. curl -u needs user:password.',
+    'SG.1 is a section; ya29 is a prefix. The auth flow is documented.',
+  ]) assert.equal(scrubSecrets(s), s);
 });
