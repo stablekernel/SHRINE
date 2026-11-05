@@ -56,6 +56,7 @@ test('repo layout drift with no finding kind: not counted clean, area not checke
   assert.equal(area.checked, false, 'failed check without a finding does not make its area checked');
 
   const text = html.replace(/<script[\s\S]*?<\/script>|<style[\s\S]*?<\/style>/g, '').replace(/<[^>]+>/g, ' ').replace(/\s+/g, ' ');
-  if (findings.findings.length === 0) assert.match(text, new RegExp(`No setup issues found against ${checks} SHRINE checks`));
+  if (findings.findings.length === 0) assert.match(text, new RegExp(`No findings against ${checks + 1} SHRINE checks; 1 did not pass\\.`));
+  assert.doesNotMatch(text, /No setup issues found/);
   assert.match(text, /1 check ran and did not pass; no Tier 0 finding exists for it yet\./);
 });

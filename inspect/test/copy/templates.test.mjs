@@ -46,6 +46,14 @@ test('empty states per spec 5', () => {
   assert.equal(emptyStates({ checks: 9, notPassed: 2, tier: 'T1' }).not_passed, '2 checks ran and did not pass; no Tier 1 finding exists for them yet.');
 });
 
+// "No setup issues" next to "M checks did not pass" contradicts itself.
+test('empty state with checks that did not pass claims no clean bill', () => {
+  const e = emptyStates({ checks: 9, notPassed: 1 });
+  assert.equal(e.tldr, 'No findings against 10 SHRINE checks; 1 did not pass.');
+  assert.doesNotMatch(e.tldr_next, /keep the checks/i);
+  assert.match(emptyStates({ checks: 10 }).tldr_next, /keep the checks below passing/);
+});
+
 test('all template output passes copy lint', () => {
   assert.deepEqual(copyProblemsDeep(sampleCopy()), []);
 });

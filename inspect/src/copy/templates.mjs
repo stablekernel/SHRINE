@@ -146,12 +146,13 @@ const UNKNOWABLE = [
 
 export function emptyStates({ checks, notPassed = 0, tier = 'T0' }) {
   return {
-    tldr: `No setup issues found against ${checks} SHRINE checks.`,
+    // checks counts passed checks only (no findings here), so the total adds the failed ones.
+    tldr: notPassed ? `No findings against ${checks + notPassed} SHRINE checks; ${notPassed} did not pass.` : `No setup issues found against ${checks} SHRINE checks.`,
     // Checks that ran and failed with no finding kind at this tier yet.
     not_passed: notPassed
       ? `${notPassed} ${notPassed === 1 ? 'check' : 'checks'} ran and did not pass; no Tier ${String(tier).slice(1)} finding exists for ${notPassed === 1 ? 'it' : 'them'} yet.`
       : '',
-    tldr_next: 'Next step: keep the checks below passing, or run again with session history for usage counts.',
+    tldr_next: notPassed ? 'Next step: run again with session history for usage counts.' : 'Next step: keep the checks below passing, or run again with session history for usage counts.',
     tab: {
       amplify: { title: 'Nothing cleared the bar yet.', body: 'More session history or a deeper tier adds usage findings.' },
       working: { title: 'Nothing cleared the bar yet.', body: 'Praise needs measured evidence from Tier 2 or deeper. Presence alone earns nothing.' },
