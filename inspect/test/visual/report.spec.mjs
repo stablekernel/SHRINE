@@ -78,6 +78,9 @@ test('mock density, 375px: no horizontal scroll', async ({ page }) => {
   await open(page, MOCK_HTML, { theme: 'dark', width: 375, height: 800 });
   const overflow = await page.evaluate(() => document.documentElement.scrollWidth - document.documentElement.clientWidth);
   expect(overflow).toBeLessThanOrEqual(0);
+  // .report clips overflow, so also check nothing inside a section is cut off.
+  const clipped = await page.evaluate(() => [...document.querySelectorAll('section')].filter((s) => s.scrollWidth > s.clientWidth + 1).map((s) => s.getAttribute('aria-labelledby')));
+  expect(clipped).toEqual([]);
   await expect(page).toHaveScreenshot('mock-375.png', { fullPage: true });
 });
 

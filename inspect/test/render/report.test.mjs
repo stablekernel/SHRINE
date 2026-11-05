@@ -20,6 +20,7 @@ function t0(hits = ['stale_instructions', 'blanket_permissions']) {
   const probes = Object.keys(KINDS.kinds).map((kind) => ({
     kind,
     entry_id: KINDS.kinds[kind].entry_ids[0],
+    see_also: KINDS.kinds[kind].entry_ids.slice(1),
     hit: hits.includes(kind),
     items: [{ path: '/home/jdoe/.claude/CLAUDE.md', age_days: 200, rule: 'Bash', reason: 'blanket shell allow' }],
     metric: { count: 1, total: 2, max_age_days: 200, threshold_days: 180, kb: 1, threshold_kb: 40, days: 30, source: 'default', hooks: 1, skills: 1, memory: 1, missing: [] },
@@ -124,4 +125,22 @@ test('integrity failure renders a red banner naming paths', () => {
 
 test('T2-size fixture renders under 300 KB', () => {
   assert.ok(Buffer.byteLength(renderReport(mock)) < 300 * 1024);
+});
+
+test('coverage shows only tripped areas, grouped by SHRINE area, plus one quiet line', () => {
+  const d = t0(['stale_instructions', 'blanket_permissions', 'stack_gap']);
+  const html = renderReport(d);
+  const cov = html.slice(html.indexOf('id="map-h"'), html.indexOf('class="attr"'));
+  const rows = [...cov.matchAll(/<th scope="row">[\s\S]*?<\/svg> ([^<]+)<\/th>/g)].map((m) => m[1]);
+  assert.deepEqual(rows, ['Human in the Loop', 'Deliberate Currency', 'Harness Selection']);
+  assert.deepEqual([...cov.matchAll(/scope="rowgroup" colspan="3">(\w+)</g)].map((m) => m[1]), ['Principles', 'Stack']);
+  assert.match(cov, new RegExp(`${d.coverage.length - 3} other areas showed no findings`));
+  assert.ok(!cov.includes('Authority Cascade'), 'clean areas are hidden');
+});
+
+test('coverage with no finding shows only the quiet line', () => {
+  const html = renderReport(t0([]));
+  const cov = html.slice(html.indexOf('id="map-h"'), html.indexOf('class="attr"'));
+  assert.ok(!cov.includes('<table'));
+  assert.match(cov, /No SHRINE area showed a finding \(\d+ areas checked\)/);
 });

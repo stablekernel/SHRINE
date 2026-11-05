@@ -101,15 +101,28 @@ function tldr(d, empty) {
   return `<section aria-labelledby="tldr-h"><h2 id="tldr-h">The short version</h2><div class="tldr"><div>${items}</div>${start}</div></section>`;
 }
 
+const AREA_GROUPS = [
+  ['principles', 'Principles'],
+  ['patterns', 'Patterns'],
+  ['stack', 'Stack'],
+];
+
+// Only areas with a finding get a row, grouped under their SHRINE area; the rest
+// collapse into one quiet line.
 function coverage(d, empty) {
-  const max = Math.max(3, ...d.coverage.map((c) => Math.max(c.working, c.amplify)));
-  const rows = d.coverage
-    .map(
-      (c) =>
-        `<tr><th scope="row">${icon(c.icon)} ${esc(c.title)}</th><td><div class="half left"><span>${c.working || ''}</span><i class="bar-g" style="width:${(c.working / max) * 100}%"></i></div></td><td><div class="half"><i class="bar-w" style="width:${(c.amplify / max) * 100}%"></i><span>${c.amplify || ''}</span></div></td></tr>`,
-    )
-    .join('');
-  const table = `<table class="cov"><caption class="sr-only">Findings per SHRINE principle: working for you and room to amplify</caption><thead><tr><th scope="col"><span class="sr-only">Principle</span></th><th scope="col">Working for you</th><th scope="col">Room to amplify</th></tr></thead><tbody>${rows}</tbody></table>`;
+  const tripped = d.coverage.filter((c) => c.working + c.amplify > 0);
+  const quiet = d.coverage.length - tripped.length;
+  const max = Math.max(3, ...tripped.map((c) => Math.max(c.working, c.amplify)));
+  const row = (c) =>
+    `<tr><th scope="row">${icon(c.icon)} ${esc(c.title)}</th><td><div class="half left"><span>${c.working || ''}</span><i class="bar-g" style="width:${(c.working / max) * 100}%"></i></div></td><td><div class="half"><i class="bar-w" style="width:${(c.amplify / max) * 100}%"></i><span>${c.amplify || ''}</span></div></td></tr>`;
+  const bodies = AREA_GROUPS.map(([g, label]) => {
+    const rows = tripped.filter((c) => (c.group ?? 'principles') === g);
+    return rows.length ? `<tbody><tr class="grp"><th scope="rowgroup" colspan="3">${label}</th></tr>${rows.map(row).join('')}</tbody>` : '';
+  }).join('');
+  const note = quiet ? `<p class="quiet">${quiet === d.coverage.length ? `No SHRINE area showed a finding (${pl(quiet, 'area')} checked).` : `${pl(quiet, 'other area')} showed no findings.`}</p>` : '';
+  const table = tripped.length
+    ? `<table class="cov"><caption class="sr-only">Findings per SHRINE area: working for you and room to amplify</caption><thead><tr><th scope="col"><span class="sr-only">SHRINE area</span></th><th scope="col">Working for you</th><th scope="col">Room to amplify</th></tr></thead>${bodies}</table>`
+    : '';
   let attr;
   const a = d.attribution_stack;
   if (!a) {
@@ -124,7 +137,7 @@ function coverage(d, empty) {
     ];
     attr = `<div class="attr"><h3>Who owned the ${pl(total, 'correction')}</h3><p>Only the prompt share is prompting advice. The rest points to setup and enforcement.</p><div class="stack" role="img" aria-label="${seg.map((s) => `${s[1]} ${s[2]}`).join(', ')}">${seg.map((s) => `<i class="${s[0]}" style="width:${(s[2] / total) * 100}%"></i>`).join('')}</div><ul class="legend">${seg.map((s) => `<li><i class="${s[0]}"></i><span>${esc(s[1])}</span><b>${s[2]}</b></li>`).join('')}</ul></div>`;
   }
-  return `<section aria-labelledby="map-h"><h2 id="map-h">Where you stand across SHRINE</h2><div class="info"><div>${table}</div>${attr}</div></section>`;
+  return `<section aria-labelledby="map-h"><h2 id="map-h">Where you stand across SHRINE</h2><div class="info"><div>${table}${note}</div>${attr}</div></section>`;
 }
 
 function marked(text, marks) {
