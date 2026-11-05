@@ -102,7 +102,7 @@ function usageFindings({ usage, catalogue, pivots, copy, t, kindsMap }) {
     const c = copy.finding(k.kind, k);
     const evidence = [
       { kind: 'mechanical', locator: 'session history', metric: `${k.metric.flagged} of ${k.metric.claims} done claims had no prior test or check` },
-      { kind: 'mechanical', locator: 'control', metric: ctl.status === 'ok' ? `${ctl.diff_points} points more rework than the other ${k.control.rest.n} episodes` : 'no control baseline' },
+      { kind: 'mechanical', locator: 'control', metric: k.control && ctl.status === 'ok' ? `rework within ${t.history.link_hours} hours: ${Math.round(k.control.flagged.rate * 100)}% of ${k.control.flagged.n} flagged episodes, ${Math.round(k.control.rest.rate * 100)}% of ${k.control.rest.n} other episodes` : 'no control baseline' },
     ];
     out.push({
       id,

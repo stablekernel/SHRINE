@@ -174,13 +174,13 @@ export function usageLines(u) {
   if (u.automation?.total) {
     lines.push(`Automation sessions left out: ${u.automation.count} of ${u.automation.total} ${pl(u.automation.total, 'session')} (${pctOf(u.automation.share)})`);
   }
-  if (u.limited) lines.push(`Limited history: ${c.sessions} ${pl(c.sessions, 'session')}, under the ${THRESHOLDS.history.limited_sessions} sessions needed for usage findings.`);
+  if (u.limited) lines.push(`Limited history: ${c.sessions} ${pl(c.sessions, 'session')}, fewer than ${THRESHOLDS.history.limited_sessions} sessions, so these counts may not reflect usual work.`);
   if (u.excluded_own) lines.push('The session driving this run was left out.');
   return lines;
 }
 
 export const HISTORY_NOTES = {
-  limited: `Limited history: fewer than ${THRESHOLDS.history.limited_sessions} sessions in the window, so usage shows as counts only.`,
+  limited: `Limited history: fewer than ${THRESHOLDS.history.limited_sessions} sessions in the window, so usage counts may not reflect usual work.`,
   none: 'Session history was approved, but no sessions were found in the window.',
 };
 

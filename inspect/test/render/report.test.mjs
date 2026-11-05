@@ -231,7 +231,7 @@ test('limited history shows in the depth band and the appendix', async () => {
   const { t0HistoryFindings } = await import('../synth/t0-findings.mjs');
   const body = outsideScripts(renderReport(t0HistoryFindings({ limited: true })));
   assert.match(body, /<span>limited history<\/span>/);
-  assert.match(body, /Limited history: 6 sessions, under the 10 sessions needed/);
+  assert.match(body, /Limited history: 6 sessions, fewer than 10 sessions/);
 });
 
 test('no history: no usage block and the "History not read" chip', () => {

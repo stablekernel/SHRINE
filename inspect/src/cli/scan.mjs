@@ -7,11 +7,14 @@ import { excludeSessions } from '../adapters/claude-code/sessions.mjs';
 import { readSession } from '../adapters/claude-code/events.mjs';
 import { extractEpisodes } from '../episodes/extract.mjs';
 import { linkEpisodes, repoCommits } from '../episodes/link.mjs';
-import { episodeFlags, runUsageProbes } from '../probes/usage.mjs';
+import { runUsageProbes } from '../probes/usage.mjs';
 import { historyRule } from '../scorer/stats.mjs';
 import { THRESHOLDS } from '../probes/config.mjs';
 
 const HOUR = 3600000;
+// Loops, not spread: spread arguments overflow the stack on very long arrays.
+const minOf = (xs) => xs.reduce((a, b) => (b < a ? b : a), Infinity);
+const maxOf = (xs) => xs.reduce((a, b) => (b > a ? b : a), -Infinity);
 
 // Seconds to parse `bytes` at the measured E2 rate; a lower bound (episodes and
 // git links add time).
@@ -24,8 +27,7 @@ const hhmm = (iso) => iso.slice(11, 16);
 // Generic labels only: no prompt text ever reaches the timeline.
 export function episodeTimeline(ep, flags) {
   const ev = [{ t: hhmm(ep.start), label_scrubbed: 'Prompt', kind: 'neutral', event_kind: 'Prompt' }];
-  const corr = ep.humans.find((h) => h.index > 0 && flags.corrections > 0);
-  if (corr) ev.push({ t: hhmm(corr.t), label_scrubbed: 'Correction', kind: 'warn', event_kind: 'Correction' });
+  if (ep.correction_t) ev.push({ t: hhmm(ep.correction_t), label_scrubbed: 'Correction', kind: 'warn', event_kind: 'Correction' });
   if (flags.done_claim && ep.last_text_t) ev.push({ t: hhmm(ep.last_text_t), label_scrubbed: 'Done claim', kind: flags.tested ? 'neutral' : 'warn', event_kind: 'Done claim' });
   if (ep.terminal === 'commit' || ep.terminal === 'pr') ev.push({ t: hhmm(ep.end), label_scrubbed: 'Commit', kind: 'resolve', event_kind: 'Commit' });
   return ev.sort((a, b) => (a.t < b.t ? -1 : a.t > b.t ? 1 : 0));
@@ -63,16 +65,16 @@ export async function scanHistory({ listing, excludedIds = [], display = (p) => 
   const commitsByRepo = new Map();
   for (const root of new Set(episodes.filter((e) => e.committed).map((e) => e.repo))) {
     const mine = episodes.filter((e) => e.repo === root);
-    const since = Math.min(...mine.map((e) => Date.parse(e.start)));
-    const until = Math.max(...mine.map((e) => Date.parse(e.end))) + t.history.link_hours * HOUR;
+    const since = minOf(mine.map((e) => Date.parse(e.start)));
+    const until = maxOf(mine.map((e) => Date.parse(e.end))) + t.history.link_hours * HOUR;
     commitsByRepo.set(root, repoCommits(root, { since, until }));
   }
   const linked = linkEpisodes(episodes, commitsByRepo, { windowHours: t.history.link_hours });
   const probes = runUsageProbes({ sessions, episodes: linked, t });
   const rule = historyRule({ consented: true, sessions: sessions.length }, t);
 
-  const from = sessions.length ? Math.min(...sessions.map((s) => Date.parse(s.start))) : 0;
-  const to = sessions.length ? Math.max(...sessions.map((s) => Date.parse(s.end))) : 0;
+  const from = sessions.length ? minOf(sessions.map((s) => Date.parse(s.start))) : 0;
+  const to = sessions.length ? maxOf(sessions.map((s) => Date.parse(s.end))) : 0;
   const factsEpisodes = linked.map((e) => {
     const flags = probes.flags.get(e.id);
     return {

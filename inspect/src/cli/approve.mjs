@@ -26,7 +26,7 @@ const describe = (gate) => {
   const h = gate.history;
   if (h) {
     lines.push(`History if yes: ${h.sessions} session files in ${h.projects} ${h.projects === 1 ? 'project' : 'projects'}, ${day(h.from)} to ${day(h.to)} (last ${h.window_days} days), ${size(h.bytes)} on disk.`);
-    lines.push(`Estimated time with history: ${eta(h.estimate_seconds)} to parse, on this machine's disk. Read locally; nothing leaves it.`);
+    lines.push(`Estimated time with history: ${eta(h.estimate_seconds)} to parse, from file size at a rate measured during development (a lower bound). Read locally; nothing leaves it.`);
   }
   if (gate.own_session) lines.push(`Left out: session ${gate.own_session.id.slice(0, 8)} (${gate.own_session.reason === 'flag' ? 'named by --session-id' : 'still being written, likely the one running this'}).`);
   if (gate.tier?.note) lines.push(gate.tier.note);
