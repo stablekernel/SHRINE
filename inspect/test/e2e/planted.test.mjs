@@ -13,7 +13,8 @@ import { main } from '../../src/cli/main.mjs';
 import { makeHome, FIXED_NOW } from '../synth/home.mjs';
 import { addHistory, addSession, COMMIT_AT_MS, PRESETS } from '../synth/history.mjs';
 import { makeRepo, openRepo } from '../synth/repos.mjs';
-import { setGitVersion } from '../../src/io/git.mjs';
+import { resetGitTimeouts, setGitVersion } from '../../src/io/git.mjs';
+import { setSpawnTimeout } from '../../src/io/proc.mjs';
 import { encodeProjectPath } from '../../src/adapters/claude-code/projects.mjs';
 
 const NOW = Date.parse(FIXED_NOW);
@@ -191,7 +192,8 @@ test('a repo where git log fails is history not read, not unlinked commits, and 
   }
 });
 
-test('a repo git refuses during setup keeps the not-owned reason when the linker reaches it', async () => {
+// 2.50.1 reads history safely; on 2.44.0 the refusal must not read as a partial clone.
+for (const v of [[2, 50, 1], [2, 44, 0]]) test(`a repo git refuses during setup keeps the not-owned reason when the linker reaches it (git ${v.join('.')})`, async () => {
   const h = home('good', 'clean');
   const r2 = makeRepo();
   const iso = (ms) => new Date(ms).toISOString();
@@ -207,8 +209,7 @@ test('a repo git refuses during setup keeps the not-owned reason when the linker
   writeFileSync(join(bin, 'git'), `#!/bin/sh\ncase "$(pwd -P)" in '${target}'|'${target}'/*) case "$1" in --version|version) ;; *) echo "fatal: detected dubious ownership in repository at '${target}'" >&2; exit 128;; esac;; esac\nexec '${real}' "$@"\n`);
   chmodSync(join(bin, 'git'), 0o755);
   const path = process.env.PATH;
-  // A git that reads history safely, so the linker reaches the repo.
-  setGitVersion([2, 50, 1]);
+  setGitVersion(v);
   try {
     process.env.PATH = `${bin}:${path}`;
     const r = await runWithHistory(h);
@@ -216,10 +217,51 @@ test('a repo git refuses during setup keeps the not-owned reason when the linker
     assert.ok(r.findings.run_limits.some((n) => n.startsWith('Git refused to read 1 repo owned by another user')), 'setup saw the refusal first');
     const note = r.findings.run_limits.find((n) => n.startsWith('Git could not read commit history in 1 repo'));
     assert.ok(note, r.findings.run_limits.join('\n'));
-    assert.match(note, /\(git refused it: the repo is owned by another user\)/);
+    assert.match(note, /\(git refused it: the repo is owned by another user\)\. Rework and commit links there were not counted: 1 episode with a commit command left out\./);
     assert.doesNotMatch(note, /git log failed/);
+    assert.ok(!r.findings.run_limits.some((n) => n.startsWith('Git history was not read')), 'not reported as a partial clone');
+    assert.equal(r.findings.usage.counts.history_unread, 1);
   } finally {
     process.env.PATH = path;
+    setGitVersion(undefined);
+    rmSync(bin, { recursive: true, force: true });
+    r2.cleanup();
+    h.cleanup();
+  }
+});
+
+test('a repo where git hung during setup is history not read in the scan, with its episodes counted', { timeout: 30_000 }, async () => {
+  const h = home('good', 'clean');
+  const r2 = makeRepo();
+  const iso = (ms) => new Date(ms).toISOString();
+  const T = NOW - 10 * DAY;
+  r2.commit(iso(T - 3600000), 'base', { 'CLAUDE.md': '# Parser\n\nRun the parser tests.\n', 'src/parser.js': 'v0' });
+  for (const i of [1, 2]) {
+    addSession(h, { id: `afaf0000-0000-4000-8000-00000000000${i}`, cwd: r2.root, startMs: T + i * DAY, script: PRESETS.committing(i) });
+    r2.commit(iso(T + i * DAY + COMMIT_AT_MS), `parser step ${i}`, { [`src/p${i}.js`]: `v${i}` });
+  }
+  // A git that hangs on every run in this one repo, past a short spawn limit.
+  const bin = mkdtempSync(join(tmpdir(), 'si-fakegit-'));
+  const real = execFileSync('sh', ['-c', 'command -v git'], { encoding: 'utf8' }).trim();
+  const target = realpathSync(r2.root);
+  writeFileSync(join(bin, 'git'), `#!/bin/sh\ncase "$(pwd -P)" in '${target}'|'${target}'/*) case "$1" in --version|version) ;; *) exec sleep 5;; esac;; esac\nexec '${real}' "$@"\n`);
+  chmodSync(join(bin, 'git'), 0o755);
+  const path = process.env.PATH;
+  setGitVersion([2, 50, 1]);
+  setSpawnTimeout(500);
+  try {
+    process.env.PATH = `${bin}:${path}`;
+    const r = await runWithHistory(h);
+    assert.equal(r.code, 0, r.stderr);
+    assert.equal(r.findings.usage.counts.history_unread, 2);
+    assert.equal(r.findings.usage.counts.linked_commits, 0);
+    const note = r.findings.run_limits.find((n) => n.startsWith('Git could not read commit history in 1 repo'));
+    assert.ok(note, r.findings.run_limits.join('\n'));
+    assert.match(note, /\(git timed out\)\. Rework and commit links there were not counted: 2 episodes with a commit command left out\./);
+  } finally {
+    process.env.PATH = path;
+    setSpawnTimeout();
+    resetGitTimeouts();
     setGitVersion(undefined);
     rmSync(bin, { recursive: true, force: true });
     r2.cleanup();

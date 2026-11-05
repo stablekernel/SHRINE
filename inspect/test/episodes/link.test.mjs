@@ -130,6 +130,30 @@ test('a git log that fails is a distinct failure, never an empty commit list', a
   }
 });
 
+test('a revert log that fails after the commit log worked is a failure, never commits without reverts', async () => {
+  const { resetGitTimeouts, setGitVersion } = await import('../../src/io/git.mjs');
+  const { mkdtempSync, chmodSync, rmSync } = await import('node:fs');
+  const { tmpdir } = await import('node:os');
+  const r = makeRepo();
+  r.commit(iso(T0), 'one');
+  const bin = mkdtempSync(join(tmpdir(), 'si-fakegit-'));
+  const real = execFileSync('sh', ['-c', 'command -v git'], { encoding: 'utf8' }).trim();
+  writeFileSync(join(bin, 'git'), `#!/bin/sh\ncase " $* " in *" --grep="*) echo "fatal: bad object" >&2; exit 1;; esac\nexec '${real}' "$@"\n`);
+  chmodSync(join(bin, 'git'), 0o755);
+  const path = process.env.PATH;
+  setGitVersion([2, 50, 1]);
+  try {
+    process.env.PATH = `${bin}:${path}`;
+    assert.deepEqual(repoCommits(r.root, { since: T0 - H, until: T0 + H }), { failed: 'failed' });
+  } finally {
+    process.env.PATH = path;
+    resetGitTimeouts();
+    setGitVersion(undefined);
+    rmSync(bin, { recursive: true, force: true });
+    r.cleanup();
+  }
+});
+
 test('the file-list log turns off rename detection, so a partial clone never fetches blobs', () => {
   const r = makeRepo();
   r.commit(iso(T0), 'one', { 'a.js': 'v1' });
