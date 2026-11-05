@@ -128,9 +128,10 @@ table.cov tbody:first-of-type tr.grp th { padding-top: var(--s1); }
 .ev { font-size: var(--f-xs); color: var(--muted); }
 .ev code { overflow-wrap: anywhere; }
 .ev code, .mono { font-family: ui-monospace, SFMono-Regular, Menlo, monospace; font-size: var(--f-xs); }
-/* The timeline scrolls inside its own box on phones so its text keeps full size. */
+/* The timeline draws in 520 units and never shrinks below 460px (text stays 10px or
+   more); below that it scrolls inside its own box. Capped so it does not balloon. */
 .tl-scroll { overflow-x: auto; margin-top: var(--s1); }
-.tl { width: 100%; height: auto; display: block; }
+.tl { width: 100%; min-width: 460px; max-width: 640px; height: auto; display: block; }
 .tl text { fill: var(--text2); font-size: 11.5px; font-family: inherit; }
 .tl .dim { fill: var(--muted); }
 .tl .ln { stroke: var(--line); stroke-width: 2; }
@@ -173,7 +174,6 @@ table.cov tbody:first-of-type tr.grp th { padding-top: var(--s1); }
   .tldr, .info, .explore, .ba, .benefit { grid-template-columns: minmax(0, 1fr); }
   section, .head, .foot, .depth { padding-left: var(--s4); padding-right: var(--s4); }
   .detail { padding: var(--s4); }
-  .tl text { font-size: 10px; }
 }
 /* Phones: each coverage label gets its own unwrapped line, its two bars below.
    report.mjs sets ARIA table roles so the grid display keeps table semantics. */
@@ -183,8 +183,7 @@ table.cov tbody:first-of-type tr.grp th { padding-top: var(--s1); }
   table.cov th[scope='row'], table.cov tr.grp th { grid-column: 1 / -1; }
   table.cov thead th:first-child { position: absolute; width: 1px; height: 1px; overflow: hidden; clip: rect(0 0 0 0); }
   table.cov thead th:nth-child(2), table.cov thead th:nth-child(3) { width: auto; }
-  .tl { width: 760px; max-width: none; }
-  .tl text { font-size: 11.5px; }
+  .tl { width: 520px; }
 }
 @media (prefers-reduced-motion: reduce) { * { transition: none !important; scroll-behavior: auto !important; } }
 @media print {

@@ -154,27 +154,49 @@ function marked(text, marks) {
   return out + esc(text.slice(pos));
 }
 
+// Timeline drawn in a 520-unit box. styles.css keeps the box at least 460px wide (a
+// scroll box below that), so 11.5px text never renders under 10px. Labels are
+// centred on their dot and wrapped to the space between dots, so none overlap.
+const TL_W = 520;
+const TL_CHAR = 6.4; // generous average glyph width at 11.5px
+function wrapLabel(text, max) {
+  const lines = [];
+  for (const word of String(text).split(/\s+/).filter(Boolean)) {
+    const last = lines.at(-1);
+    if (last != null && `${last} ${word}`.length <= max) lines[lines.length - 1] = `${last} ${word}`;
+    else lines.push(word);
+  }
+  return lines.length ? lines : [''];
+}
+
 function timeline(f) {
   const ev = f.episode_ref?.timeline;
   if (!ev?.length) return '';
-  const w = 760;
-  const h = 96;
-  const pad = 40;
+  const w = TL_W;
   const n = ev.length;
+  const slot = n > 1 ? (w - 16) / n : w - 16;
+  const pad = 8 + slot / 2;
   const step = n > 1 ? (w - 2 * pad) / (n - 1) : 0;
+  const max = Math.max(6, Math.floor((slot - 12) / TL_CHAR));
   const y = 34;
+  const lh = 14;
   const gap = f.timeline_gap;
   const gi = gap ? ev.findIndex((e) => e.t === gap.from_t) : -1;
   const gj = gap ? ev.findIndex((e) => e.t === gap.to_t) : -1;
-  let s = `<line class="ln" x1="${pad}" y1="${y}" x2="${w - pad}" y2="${y}"/>`;
-  if (gi >= 0 && gj > gi) s += `<line class="dash" x1="${pad + step * gi}" y1="${y}" x2="${pad + step * gj}" y2="${y}"/>`;
+  const x0 = n > 1 ? pad : w / 2;
+  let s = `<line class="ln" x1="${x0}" y1="${y}" x2="${n > 1 ? w - pad : w / 2}" y2="${y}"/>`;
+  if (gi >= 0 && gj > gi) s += `<line class="dash" x1="${x0 + step * gi}" y1="${y}" x2="${x0 + step * gj}" y2="${y}"/>`;
+  let lines = 1;
   ev.forEach((e, i) => {
-    const x = pad + step * i;
-    const anchor = i === 0 ? 'start' : i === n - 1 ? 'end' : 'middle';
-    const tx = i === 0 ? x - 8 : i === n - 1 ? x + 8 : x;
-    s += `<circle class="dot ${e.kind === 'neutral' ? '' : esc(e.kind)}" cx="${x}" cy="${y}" r="6"/><text class="dim" x="${tx}" y="${y - 16}" text-anchor="${anchor}">${esc(e.t)}</text><text x="${tx}" y="${y + 30}" text-anchor="${anchor}">${esc(e.label_scrubbed)}</text>`;
+    const x = x0 + step * i;
+    const wrapped = wrapLabel(e.label_scrubbed, max);
+    lines = Math.max(lines, wrapped.length);
+    const tspans = wrapped.map((l, k) => `<tspan x="${x}" dy="${k ? lh : 0}">${esc(l)}</tspan>`).join('');
+    s += `<circle class="dot ${e.kind === 'neutral' ? '' : esc(e.kind)}" cx="${x}" cy="${y}" r="6"/><text class="dim" x="${x}" y="${y - 16}" text-anchor="middle">${esc(e.t)}</text><text x="${x}" y="${y + 30}" text-anchor="middle">${tspans}</text>`;
   });
-  if (gi >= 0 && gj > gi) s += `<text class="gap" x="${pad + step * ((gi + gj) / 2)}" y="${y + 52}" text-anchor="middle">${esc(gap.label)}</text>`;
+  const gy = y + 30 + (lines - 1) * lh + 22;
+  if (gi >= 0 && gj > gi) s += `<text class="gap" x="${x0 + step * ((gi + gj) / 2)}" y="${gy}" text-anchor="middle">${esc(gap.label)}</text>`;
+  const h = (gi >= 0 && gj > gi ? gy : gy - 22) + 10;
   const label = `Episode timeline: ${ev.map((e) => `${e.t} ${e.label_scrubbed}`).join('; ')}${gap ? `. Gap: ${gap.label}` : ''}`;
   return `<div class="blk"><h4>What happened</h4><div class="tl-scroll excerpt" tabindex="0" role="group" aria-label="Episode timeline"><svg class="tl" viewBox="0 0 ${w} ${h}" role="img" aria-label="${esc(label)}">${s}</svg></div><p class="excerpt-safe">Timeline labels are hidden in the share-safe file.</p></div>`;
 }

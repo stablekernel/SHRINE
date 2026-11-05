@@ -160,15 +160,37 @@ test('375px with scripts off: every finding detail fits inside the report', asyn
 test('375px: timeline text stays readable and scrolls inside its own box', async ({ page }) => {
   await open(page, MOCK_HTML, { theme: 'dark', width: 375, height: 800 });
   const tl = page.locator('svg.tl:visible').first();
-  const px = await tl.evaluate((svg) => {
-    const scale = svg.getBoundingClientRect().width / svg.viewBox.baseVal.width;
-    return Math.min(...[...svg.querySelectorAll('text')].map((t) => parseFloat(getComputedStyle(t).fontSize) * scale));
-  });
+  const { px, overlaps } = await tl.evaluate(timelineText);
   expect(px).toBeGreaterThanOrEqual(10);
+  expect(overlaps).toEqual([]);
   const overflow = await page.evaluate(() => document.documentElement.scrollWidth - document.documentElement.clientWidth);
   expect(overflow).toBeLessThanOrEqual(0);
   const r = await new AxeBuilder({ page }).include('.tl-scroll').analyze();
   expect(r.violations.map((v) => v.id)).toEqual([]);
+});
+
+// Smallest rendered timeline text in CSS px, and any two text boxes that overlap.
+const timelineText = (svg) => {
+  const scale = svg.getBoundingClientRect().width / svg.viewBox.baseVal.width;
+  const texts = [...svg.querySelectorAll('text')];
+  const boxes = texts.map((t) => t.getBoundingClientRect());
+  const hit = (a, b) => a.left < b.right && b.left < a.right && a.top < b.bottom && b.top < a.bottom;
+  const overlaps = boxes.flatMap((a, i) => boxes.slice(i + 1).filter((b) => hit(a, b)).map(() => texts[i].textContent));
+  return { px: Math.min(...texts.map((t) => parseFloat(getComputedStyle(t).fontSize) * scale)), overlaps };
+};
+
+test('desktop and tablet timeline text is at least 10px and never overlaps', async ({ page }) => {
+  for (const width of [768, 1024, 1280, 1440]) {
+    await open(page, MOCK_HTML, { theme: 'dark', width });
+    for (const svg of await page.locator('svg.tl').all()) {
+      if (!(await svg.isVisible())) continue;
+      const r = await svg.evaluate(timelineText);
+      expect(r.px, `${width}px`).toBeGreaterThanOrEqual(10);
+      expect(r.overlaps, `${width}px`).toEqual([]);
+    }
+    const overflow = await page.evaluate(() => document.documentElement.scrollWidth - document.documentElement.clientWidth);
+    expect(overflow, `${width}px`).toBeLessThanOrEqual(0);
+  }
 });
 
 test('content is about 80% of the viewport on desktop, full-bleed on phones', async ({ page }) => {
