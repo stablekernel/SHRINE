@@ -104,21 +104,32 @@ for (const kind of ['ext', 'file']) {
 
 // fetch.bundleURI is applied by the lazy fetch before any transport check, so a
 // local bundle named in repo config writes a pack even with every protocol refused.
-test('repo config fetch.bundleURI cannot write a pack, for git older than GIT_NO_LAZY_FETCH', () => {
+test('repo config fetch.bundleURI cannot write a pack, for git older than GIT_NO_LAZY_FETCH', (t) => {
+  // fetch.bundleURI arrived in git 2.40; older git has nothing to unbundle.
+  const [maj, min] = (sh('.', '--version').match(/(\d+)\.(\d+)/) ?? []).slice(1).map(Number);
+  if (maj < 2 || (maj === 2 && min < 40)) return t.skip(`git ${maj}.${min} has no fetch.bundleURI`);
   const clone = partialClone('tree:0');
   const dir = join(clone, '..');
+  // Runs the reads with GIT_NO_LAZY_FETCH dropped; unguarded also drops the bundle -c flags.
+  const reads = (unguarded) => {
+    for (const args of [['log', '-1', '--format=%cI', '--', 'a.txt'], ...LAZY_READS]) {
+      const inv = gitInvocation(args, clone);
+      delete inv.env.GIT_NO_LAZY_FETCH;
+      const argv = unguarded ? inv.args.filter((a, i, all) => !/bundleURI|writeCommitGraph/.test(a) && !(a === '-c' && /bundleURI|writeCommitGraph/.test(all[i + 1]))) : inv.args;
+      spawnSync(inv.cmd, argv, { cwd: inv.cwd, env: inv.env, stdio: 'pipe' });
+    }
+  };
   try {
     const bundle = join(dir, 'all.bundle');
     sh(join(dir, 'src'), 'bundle', 'create', bundle, '--all');
     sh(clone, 'config', 'fetch.bundleURI', bundle);
     const before = packs(clone);
-    for (const args of [['log', '-1', '--format=%cI', '--', 'a.txt'], ...LAZY_READS]) {
-      const inv = gitInvocation(args, clone);
-      delete inv.env.GIT_NO_LAZY_FETCH;
-      spawnSync(inv.cmd, inv.args, { cwd: inv.cwd, env: inv.env, stdio: 'pipe' });
-    }
+    reads(false);
     assert.deepEqual(packs(clone), before, 'a lazy fetch applied the bundle');
     assert.equal(existsSync(join(clone, '.git', 'objects', 'bundles')), false);
+    // Control: the same reads without the bundle guards do write a pack.
+    reads(true);
+    assert.notDeepEqual(packs(clone), before, 'control: an unguarded lazy fetch applies the bundle');
   } finally {
     rmSync(dir, { recursive: true, force: true });
   }
