@@ -3,10 +3,10 @@
 // run; any other change is reported as "changed during run, not by inspect".
 // Append-only session logs only record growth, attributed to other sessions.
 // Each scanned repo's .git is also snapshotted (pack list; index, HEAD, FETCH_HEAD,
-// and packed-refs mtimes). Only the lazy-fetch signature fails the run: a new pack
-// with no FETCH_HEAD update (a partial-clone fetch does not write FETCH_HEAD).
-// Index, HEAD, ref, or fetched-pack changes come from the user (git add, stash,
-// fetch, an IDE refresh) and are reported as changed by others.
+// and packed-refs mtimes). Only the lazy-fetch signature fails the run: a new
+// promisor pack, no pack removed, and no FETCH_HEAD update. Index, HEAD, ref, and
+// other pack changes come from the user (git add, stash, fetch, repack, gc,
+// maintenance, an IDE refresh) and are reported as changed by others.
 import { resolve } from 'node:path';
 import { exists, list, readBytes, sha256, stat } from '../io/fsread.mjs';
 import { gitOut } from '../io/git.mjs';
@@ -17,7 +17,12 @@ function gitState(root) {
   if (!dir || !commonOut) return null;
   const common = resolve(root, commonOut);
   const mtime = (p) => stat(p)?.mtimeMs ?? null;
-  const packs = list(resolve(common, 'objects', 'pack')).map((e) => e.name).join('\n');
+  // tmp_* entries are packs still being written by some other git process.
+  const packs = list(resolve(common, 'objects', 'pack'))
+    .map((e) => e.name)
+    .filter((n) => !n.startsWith('tmp_'))
+    .sort()
+    .join('\n');
   return {
     common,
     packs,
@@ -29,7 +34,15 @@ function gitState(root) {
 }
 
 const sameState = (a, b) => ['packs', 'index', 'head', 'fetch_head', 'refs'].every((k) => a[k] === b[k]);
-const lazyFetch = (a, b) => a.packs !== b.packs && a.fetch_head === b.fetch_head;
+// A lazy fetch only adds a pack with a .promisor sidecar and never writes
+// FETCH_HEAD. A repack or gc also removes packs; plain fetches add no .promisor.
+function lazyFetch(a, b) {
+  if (a.fetch_head !== b.fetch_head) return false;
+  const before = new Set(a.packs.split('\n'));
+  const after = new Set(b.packs.split('\n'));
+  if ([...before].some((n) => n && !after.has(n))) return false;
+  return [...after].some((n) => n.endsWith('.promisor') && !before.has(n));
+}
 
 export function baselineOf(items, repos = []) {
   const files = items

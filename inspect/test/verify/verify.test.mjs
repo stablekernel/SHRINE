@@ -71,7 +71,7 @@ test('a repo HEAD that moves after the baseline shows as HEAD moved, by others',
   assert.deepEqual(r.changed_by_others.map((c) => c.change), ['HEAD moved']);
 });
 
-test('a new pack in a scanned repo .git while HEAD stays put fails the run', async () => {
+test('a new promisor pack while HEAD and FETCH_HEAD stay put (lazy fetch) fails the run', async () => {
   const { execFileSync } = await import('node:child_process');
   const repo = mkdtempSync(join(tmpdir(), 'si-verify-git-'));
   const env = { ...process.env, GIT_AUTHOR_NAME: 't', GIT_AUTHOR_EMAIL: 't@x', GIT_COMMITTER_NAME: 't', GIT_COMMITTER_EMAIL: 't@x' };
@@ -79,10 +79,49 @@ test('a new pack in a scanned repo .git while HEAD stays put fails the run', asy
   execFileSync('git', ['commit', '-q', '--allow-empty', '-m', 'one'], { cwd: repo, env });
   const { heads } = baselineOf([], [repo]);
   assert.equal(verifyRun({ files: [], heads }, []).ok, true, 'no change verifies ok');
-  writeFileSync(join(repo, '.git', 'objects', 'pack', 'pack-0000.pack'), 'x');
+  for (const ext of ['pack', 'idx', 'promisor']) writeFileSync(join(repo, '.git', 'objects', 'pack', `pack-0000.${ext}`), 'x');
   const r = verifyRun({ files: [], heads }, []);
   assert.equal(r.ok, false);
   assert.deepEqual(r.changed_paths, [join(repo, '.git')]);
+});
+
+test('a new pack with no promisor sidecar, or an in-flight tmp pack, is not blamed on inspect', async () => {
+  const { execFileSync } = await import('node:child_process');
+  const { repo } = gitRepo(execFileSync);
+  const { heads } = baselineOf([], [repo]);
+  writeFileSync(join(repo, '.git', 'objects', 'pack', 'pack-0000.pack'), 'x');
+  writeFileSync(join(repo, '.git', 'objects', 'pack', 'tmp_pack_abc123'), 'x');
+  writeFileSync(join(repo, '.git', 'objects', 'pack', 'tmp_pack_def456.promisor'), 'x');
+  const r = verifyRun({ files: [], heads }, []);
+  assert.equal(r.ok, true);
+  assert.deepEqual(r.changed_by_others.map((c) => c.change), ['.git changed']);
+});
+
+test('a user repack during the scan is reported, not blamed on inspect', async () => {
+  const { execFileSync } = await import('node:child_process');
+  const { repo, g } = gitRepo(execFileSync);
+  g('commit', '-q', '--allow-empty', '-m', 'two');
+  g('repack', '-q', '-d');
+  g('commit', '-q', '--allow-empty', '-m', 'three');
+  const { heads } = baselineOf([], [repo]);
+  g('repack', '-q', '-a', '-d');
+  const r = verifyRun({ files: [], heads }, []);
+  assert.equal(r.ok, true);
+  assert.deepEqual(r.changed_by_others.map((c) => c.change), ['.git changed']);
+});
+
+test('a fetch with --no-write-fetch-head during the scan is reported, not blamed on inspect', async () => {
+  const { execFileSync } = await import('node:child_process');
+  const { repo, g } = gitRepo(execFileSync);
+  const { repo: other, g: go } = gitRepo(execFileSync);
+  writeFileSync(join(other, 'f'), 'f');
+  go('add', 'f');
+  go('commit', '-q', '-m', 'f');
+  const { heads } = baselineOf([], [repo]);
+  g('-c', 'fetch.unpackLimit=1', 'fetch', '-q', '--no-write-fetch-head', other, 'HEAD:refs/prefetch/x');
+  const r = verifyRun({ files: [], heads }, []);
+  assert.equal(r.ok, true);
+  assert.deepEqual(r.changed_by_others.map((c) => c.change), ['.git changed']);
 });
 
 function gitRepo(execFileSync) {
