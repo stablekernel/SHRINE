@@ -164,3 +164,21 @@ test('without history the report notes it and the attribution stack is empty', (
   assert.equal(out.attribution_stack, null);
   assert.equal(out.history.consented, false);
 });
+
+test('a probe that is not applicable is neither clear nor counts its area as checked', () => {
+  const probes = hitsOf().map((p) => (p.kind === 'blanket_permissions' ? { ...p, applicable: false } : p));
+  const out = run(probes, { structure: structure().map((s) => ({ ...s, applicable: false })) });
+  assert.ok(!out.checked_clear.some((c) => c.entry_id === KINDS.kinds.blanket_permissions.entry_ids[0]));
+  assert.equal(out.checked_clear.length, allKinds.length - 1);
+  assert.equal(out.headline.counts.checks, allKinds.length - 1);
+  const key = (k) => out.coverage.find((c) => c.key === k);
+  assert.equal(key('stack/tool-integration').checked, false);
+  assert.equal(key('human-in-the-loop').checked, false);
+});
+
+test('an area with a finding counts as checked even when no applicable check maps to it', () => {
+  const probes = hitsOf('blanket_permissions').map((p) => (p.kind === 'blanket_permissions' ? { ...p, applicable: false } : p));
+  const out = run(probes, { structure: [] });
+  assert.ok(out.findings.some((f) => f.kind === 'blanket_permissions'));
+  for (const c of out.coverage) if (c.amplify + c.working > 0) assert.equal(c.checked, true, c.key);
+});

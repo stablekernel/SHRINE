@@ -41,11 +41,11 @@ function setup(over = {}) {
 const probe = (s, kind) => runConfigProbes(s).probes.find((p) => p.kind === kind);
 const check = (s, name) => runConfigProbes(s).structure.find((c) => c.check === name);
 
-test('every probe returns kind, entry_id, see_also, hit, items, metric', () => {
+test('every probe returns kind, entry_id, see_also, applicable, hit, items, metric', () => {
   const { probes } = runConfigProbes(setup());
   assert.equal(probes.length, 6);
   for (const p of probes) {
-    assert.deepEqual(Object.keys(p).sort(), ['entry_id', 'hit', 'items', 'kind', 'metric', 'see_also']);
+    assert.deepEqual(Object.keys(p).sort(), ['applicable', 'entry_id', 'hit', 'items', 'kind', 'metric', 'see_also']);
     assert.ok(p.entry_id);
     assert.ok(Array.isArray(p.see_also));
   }
@@ -169,4 +169,18 @@ test('instructions_reviewed uses the review line, then git, never mtime alone', 
 test('permissions_scoped mirrors blanket_permissions', () => {
   const s = setup({ permissions: { allow: [{ rule: 'Bash', path: 'p' }], ask: [], deny: [], defaultMode: null, skipDangerousModePermissionPrompt: null } });
   assert.equal(check(s, 'permissions_scoped').pass, false);
+});
+
+test('probes over instruction or memory files are not applicable when there are none', () => {
+  const empty = setup({ items: [], always_loaded: { max_bytes: 0, by_project: [] } });
+  const applicable = Object.fromEntries(runConfigProbes(empty).probes.map((p) => [p.kind, p.applicable]));
+  assert.deepEqual(applicable, {
+    stale_instructions: false,
+    oversized_instructions: false,
+    no_owner_or_review: false,
+    blanket_permissions: true,
+    stack_gap: true,
+    short_retention: true,
+  });
+  assert.ok(runConfigProbes(setup()).probes.every((p) => p.applicable), 'a full setup runs every probe');
 });

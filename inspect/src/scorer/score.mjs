@@ -84,11 +84,13 @@ export function score({ run, shrine, probes, structure, catalogue, pivots, copy,
   const dropped = [];
   const checked_clear = [];
 
+  // A probe without applicable: false ran; older callers omit the field.
+  const ran = probes.filter((p) => p.applicable !== false);
   for (const p of probes) {
     const id = findingId(p.kind, p.entry_id, 'setup');
     const r = p.entry_id ? ref(catalogue, p.entry_id) : null;
     if (!p.hit) {
-      if (r) checked_clear.push({ id, ...copy.clear(p.kind, p), entry_id: p.entry_id, title: r.title, shrine_ref: r });
+      if (r && p.applicable !== false) checked_clear.push({ id, ...copy.clear(p.kind, p), entry_id: p.entry_id, title: r.title, shrine_ref: r });
       continue;
     }
     if (!p.entry_id || !r) {
@@ -165,12 +167,16 @@ export function score({ run, shrine, probes, structure, catalogue, pivots, copy,
   const pick = eligible ?? amplify[0];
   const start_with = pick ? { finding_id: pick.id, action: pick.pivot.action, minutes_to_apply: pick.pivot.minutes_to_apply, framed: Boolean(eligible) } : null;
 
-  // An area is checked only when some check that ran at this tier maps to it.
+  // An area is checked when some check that ran at this tier maps to it, or when
+  // it holds a finding from any source.
   const checkRefs = (ids) => ids.map((e) => ref(catalogue, e)).filter(Boolean);
   const checkedKeys = new Set([
-    ...probes.map((p) => checkRefs([p.entry_id, ...(p.see_also ?? [])])),
-    ...structure.filter((s) => s.applicable).map((s) => checkRefs([s.entry_id])),
-  ].filter((refs) => refs.length).map(coverageKey));
+    ...[
+      ...ran.map((p) => checkRefs([p.entry_id, ...(p.see_also ?? [])])),
+      ...structure.filter((s) => s.applicable).map((s) => checkRefs([s.entry_id])),
+    ].filter((refs) => refs.length).map(coverageKey),
+    ...findings.map((f) => f.coverage_key),
+  ]);
   const coverage = coverageAreas(catalogue).map(
     (c) => ({
       ...c,
@@ -193,7 +199,7 @@ export function score({ run, shrine, probes, structure, catalogue, pivots, copy,
     minutes_elapsed: 0,
     tokens_used: 0,
     headline: {
-      counts: { amplify: amplify.length, working: working.length, worth_a_look: 0, checked_clear: checked_clear.length, configured: configured.length, checks: probes.length + structure.filter((s) => s.applicable).length },
+      counts: { amplify: amplify.length, working: working.length, worth_a_look: 0, checked_clear: checked_clear.length, configured: configured.length, checks: ran.length + structure.filter((s) => s.applicable).length },
       tldr,
       start_with,
     },

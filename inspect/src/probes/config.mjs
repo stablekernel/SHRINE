@@ -39,6 +39,7 @@ function stale(s, t) {
     .filter((i) => i.age_days > t.config.stale_days)
     .sort((a, b) => b.age_days - a.age_days);
   return {
+    applicable: files.length > 0,
     hit: items.length > 0,
     items,
     metric: { count: items.length, total: files.length, max_age_days: items[0]?.age_days ?? 0, threshold_days: t.config.stale_days },
@@ -50,6 +51,7 @@ function oversized(s, t) {
   const top = [...(al.by_project ?? [])].sort((a, b) => b.bytes - a.bytes)[0];
   const files = top?.files ?? [];
   return {
+    applicable: al.max_bytes > 0,
     hit: al.max_bytes > t.config.oversized_bytes,
     items: [...files].sort((a, b) => b.bytes - a.bytes).map((f) => ({ path: f.path, bytes: f.bytes })),
     metric: { bytes: al.max_bytes, kb: Math.round(al.max_bytes / 1024), threshold_kb: Math.floor(t.config.oversized_bytes / 1024), project: top?.project ?? null },
@@ -65,7 +67,7 @@ function noOwner(s) {
       return { path: i.path, missing };
     })
     .filter((i) => i.missing.length > 0);
-  return { hit: items.length > 0, items, metric: { count: items.length, total: files.length } };
+  return { applicable: files.length > 0, hit: items.length > 0, items, metric: { count: items.length, total: files.length } };
 }
 
 function parseRule(rule) {
@@ -159,7 +161,9 @@ export function runConfigProbes(setup, t = THRESHOLDS) {
     stack_gap: stackGap(setup),
     short_retention: shortRetention(setup, t),
   };
-  const probes = Object.entries(raw).map(([kind, r]) => ({ kind, entry_id: entry(kind), see_also: seeAlso(kind), hit: r.hit, items: r.items, metric: r.metric }));
+  // A probe with nothing to look at (no instruction or memory files) did not run:
+  // it is never reported clear and never marks its area checked.
+  const probes = Object.entries(raw).map(([kind, r]) => ({ kind, entry_id: entry(kind), see_also: seeAlso(kind), applicable: r.applicable ?? true, hit: r.hit, items: r.items, metric: r.metric }));
   const checks = {
     instruction_layers: layersCheck(setup, t),
     repo_layout: layoutCheck(setup),
