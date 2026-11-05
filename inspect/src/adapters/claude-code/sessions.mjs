@@ -14,7 +14,8 @@ export function ownSession(listing, { sessionId = null, now = Date.now() } = {})
     return { id: sessionId, project: f?.project ?? null, reason: 'flag' };
   }
   const newest = files.sort((a, b) => b.mtime - a.mtime)[0];
-  if (!newest || now - newest.mtime > GROWING_MS) return null;
+  // A file dated after now (clock skew, a pinned test clock) is not growing.
+  if (!newest || newest.mtime > now || now - newest.mtime > GROWING_MS) return null;
   return { id: basename(newest.path, '.jsonl'), project: newest.project, reason: 'growing' };
 }
 

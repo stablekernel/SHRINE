@@ -31,3 +31,7 @@ test('--session-id parses in both forms and rejects odd ids', () => {
 test('excludeSessions drops the excluded ids only', () => {
   assert.deepEqual(excludeSessions([{ id: 'a' }, { id: 'b' }], ['b']), [{ id: 'a' }]);
 });
+
+test('a newest file dated after now is not "growing": nothing is excluded', () => {
+  assert.equal(ownSession(listing([['future', -60000], ['old', 60 * 60000]]), { now: NOW }), null);
+});
