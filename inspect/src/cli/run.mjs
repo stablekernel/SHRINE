@@ -5,7 +5,7 @@ import { basename, join } from 'node:path';
 import { exists, readJson, resetSpy, spyLog } from '../io/fsread.mjs';
 import { createRunFolder, runFolder } from '../io/runfolder.mjs';
 import { appDirs } from '../io/paths.mjs';
-import { firstSafeGit, gitTimeouts, gitVersion, historyReadable, isHung, resetGitTimeouts } from '../io/git.mjs';
+import { firstSafeGit, gitRefusals, gitTimeouts, gitVersion, historyReadable, isHung, isRefused, resetGitTimeouts } from '../io/git.mjs';
 import { spawnTimeoutMs } from '../io/proc.mjs';
 import { detect } from '../adapters/claude-code/detect.mjs';
 import { defaultTempPatterns, listProjects } from '../adapters/claude-code/projects.mjs';
@@ -181,8 +181,8 @@ export async function continueRun(folder, ctx, io) {
   // Run limits: what this run could not read. Shown near the top of the report, and
   // kept in notes for readers of findings.json.
   const limits = [];
-  // A repo where git hung is reported as hung, not as a partial clone.
-  const noHistory = projects.filter((p) => !isHung(p.root) && !historyReadable(p.root)).length;
+  // A repo where git hung or was refused is reported as that, not as a partial clone.
+  const noHistory = projects.filter((p) => !isHung(p.root) && !isRefused(p.root) && !historyReadable(p.root)).length;
   if (noHistory) {
     const v = gitVersion()?.join('.') ?? 'unknown';
     limits.push(`Git history was not read in ${noHistory === 1 ? '1 repo' : `${noHistory} repos`}: a partial clone, and git ${v} can fetch missing objects while reading it. Git dates there were not used and review-date checks skip those files. Only the name and email in your git config are masked as authors there; other commit authors are not known, so their names are not masked. Git ${firstSafeGit(gitVersion())} or later reads them safely.`);
@@ -192,6 +192,10 @@ export async function continueRun(folder, ctx, io) {
   if (hung) {
     const secs = spawnTimeoutMs() / 1000;
     limits.push(`Git did not finish within ${secs === 1 ? '1 second' : `${secs} seconds`} in ${hung === 1 ? '1 repo' : `${hung} repos`} and was stopped. Git reads there count as failed: no git dates or history. Repo config that blocks git (an include.path naming a pipe, for one) causes this.`);
+  }
+  const refused = gitRefusals().length;
+  if (refused) {
+    limits.push(`Git refused to read ${refused === 1 ? '1 repo' : `${refused} repos`} owned by another user (git's safe.directory check). Git dates and commit authors there are unknown, and date checks skip those files.`);
   }
   if (limits.length) {
     findings.run_limits = limits;

@@ -7,7 +7,7 @@ import { join } from 'node:path';
 import { Readable } from 'node:stream';
 import { fileURLToPath } from 'node:url';
 import { main } from '../../src/cli/main.mjs';
-import { setGitVersion } from '../../src/io/git.mjs';
+import { setGitTestEnv, setGitVersion } from '../../src/io/git.mjs';
 import { diffRuns } from '../../src/diff/previous.mjs';
 import { makeHome, FIXED_NOW } from '../synth/home.mjs';
 
@@ -200,6 +200,24 @@ test('a partial clone on git without GIT_NO_LAZY_FETCH: history skipped, with a 
     const spy = readFileSync(join(s.run_dir, 'spy.jsonl'), 'utf8').split('\n').filter(Boolean).map((l) => JSON.parse(l));
     assert.deepEqual(spy.filter((e) => e.op === 'spawn' && ['log', 'show', 'diff', 'status'].some((c) => e.args.includes(c)) && e.cwd?.startsWith(h.repo)), [], 'no history read in the repo');
   } finally {
+    setGitVersion(undefined);
+    h.cleanup();
+  }
+});
+
+test('a repo git refuses to read (another owner) shows as a run limit, not a partial clone', async () => {
+  const h = makeHome('good');
+  const state = mkdtempSync(join(tmpdir(), 'si-state-'));
+  setGitTestEnv({ GIT_TEST_ASSUME_DIFFERENT_OWNER: '1' });
+  setGitVersion([2, 44, 0]);
+  try {
+    const r = await inproc(['run', '--tier', 'T0', '--no-history', '--json'], h, state);
+    assert.equal(r.code, 0, r.stderr);
+    const findings = JSON.parse(readFileSync(join(JSON.parse(r.stdout).run_dir, 'findings.json'), 'utf8'));
+    assert.ok(findings.run_limits.some((n) => n.startsWith('Git refused to read 1 repo owned by another user')), findings.run_limits.join('|'));
+    assert.ok(!findings.run_limits.some((n) => n.startsWith('Git history was not read')), 'not reported as a partial clone');
+  } finally {
+    setGitTestEnv();
     setGitVersion(undefined);
     h.cleanup();
   }

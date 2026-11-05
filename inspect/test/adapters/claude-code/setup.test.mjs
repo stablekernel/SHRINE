@@ -195,3 +195,27 @@ test('with git history skipped, the git config user is still masked as an author
   assert.equal(configUser('[core]\n\tname = x\n'), null);
   assert.deepEqual(configUser('[user]\n  email = a@b.example\n[user "x"]\n'), { name: null, email: 'a@b.example' });
 });
+
+// Git refuses a repo owned by another user. That is a failed read: the git date is
+// unknown, so the file is marked like a skipped history read, not dated by mtime.
+test('a repo git refuses to read gives unknown dates, not file times', async () => {
+  const { collectSetup } = await import('../../../src/adapters/claude-code/setup.mjs');
+  const { gitRefusals, resetGitTimeouts, setGitTestEnv } = await import('../../../src/io/git.mjs');
+  const h = makeHome('good');
+  const repoFile = (s) => s.items.find((i) => i.path === join(h.repo, 'CLAUDE.md'));
+  try {
+    const control = collectSetup({ home: h.home, projects: h.projects, now: Date.now() });
+    assert.equal(repoFile(control).last_change.source, 'git', 'control: a readable repo gives a git date');
+    resetGitTimeouts();
+    setGitTestEnv({ GIT_TEST_ASSUME_DIFFERENT_OWNER: '1' });
+    const s = collectSetup({ home: h.home, projects: h.projects, now: Date.now() });
+    assert.equal(repoFile(s).last_change.git_skipped, true, JSON.stringify(repoFile(s).last_change));
+    assert.deepEqual(gitRefusals(), [h.repo]);
+    const user = s.items.find((i) => i.path === join(h.claudeHome, 'CLAUDE.md'));
+    assert.ok(!user.last_change.git_skipped, 'a file outside any repo keeps its file time');
+  } finally {
+    setGitTestEnv();
+    resetGitTimeouts();
+    h.cleanup();
+  }
+});

@@ -23,6 +23,13 @@ const NO_TRANSPORT = ['protocol.allow', ...['ext', 'file', 'ssh', 'git', 'http',
 // transfer.bundleURI does the same on an advertised URI. Neither is honored here.
 const NO_BUNDLES = ['-c', 'fetch.bundleURI=', '-c', 'transfer.bundleURI=false', '-c', 'fetch.writeCommitGraph=false'];
 
+// Test seam: extra variables for every git run (GIT_TEST_ASSUME_DIFFERENT_OWNER, to
+// make git refuse a repo as if another user owned it). Empty outside tests.
+let testEnv = {};
+export function setGitTestEnv(vars = {}) {
+  testEnv = vars;
+}
+
 function deny(args, why) {
   throw new InspectError('E_GIT_DENIED', `refused git ${args.join(' ')}: ${why}`);
 }
@@ -47,7 +54,8 @@ export function gitInvocation(args, cwd) {
   // are dropped first so nothing redirects the repo, injects config or re-allows a
   // transport; the ceiling only narrows discovery.
   const env = Object.fromEntries(Object.entries(process.env).filter(([k]) => !k.startsWith('GIT_') || KEEP_ENV.has(k)));
-  Object.assign(env, { GIT_OPTIONAL_LOCKS: '0', GIT_TERMINAL_PROMPT: '0', GIT_NO_LAZY_FETCH: '1', GIT_ALLOW_PROTOCOL: NO_PROTOCOL });
+  // LC_ALL=C keeps git's messages in English, so a refusal can be recognized.
+  Object.assign(env, testEnv, { LC_ALL: 'C', GIT_OPTIONAL_LOCKS: '0', GIT_TERMINAL_PROMPT: '0', GIT_NO_LAZY_FETCH: '1', GIT_ALLOW_PROTOCOL: NO_PROTOCOL });
   return {
     cmd: 'git',
     args: ['--no-pager', '-c', 'safe.bareRepository=explicit', '-c', 'core.fsmonitor=false', '-c', 'log.showSignature=false', ...NO_TRANSPORT, ...NO_BUNDLES, sub, ...noPrograms, ...args.slice(1)],
@@ -112,19 +120,30 @@ export function enclosingRepo(cwd) {
   }
   return roots.get(cwd);
 }
-// Hung marks are per repo: every folder under a hung repo shares its config.
+// Hung and refused marks are per repo: every folder under a repo shares its config
+// and its owner.
 const hungKey = (cwd) => enclosingRepo(cwd) ?? cwd;
 export const isHung = (cwd) => timedOut.has(hungKey(cwd));
+export const isRefused = (cwd) => refused.has(hungKey(cwd));
+// Git refuses a repo owned by another user (safe.directory). The message is
+// matched in the C locale, which every git run uses.
+const REFUSAL = /detected dubious ownership/;
+function noteFailure(r, cwd) {
+  if (r.timedOut) timedOut.add(hungKey(cwd));
+  else if (r.status !== 0 && REFUSAL.test(r.stderr)) refused.add(hungKey(cwd));
+  else return false;
+  return true;
+}
 
 const partial = new Map();
 // True when this repo has a promisor remote (a partial clone): the only kind of repo
 // a read can lazy-fetch into.
 export function isPartialClone(cwd) {
-  if (!partial.has(cwd) && isHung(cwd)) partial.set(cwd, true);
+  if (!partial.has(cwd) && (isHung(cwd) || isRefused(cwd))) partial.set(cwd, true);
   if (!partial.has(cwd)) {
     const inv = gitInvocation(PROMISOR_QUERY, cwd);
     const r = runSync(inv.cmd, inv.args, { cwd, env: inv.env });
-    if (r.timedOut) timedOut.add(hungKey(cwd));
+    noteFailure(r, cwd);
     // Exit 1 is "no such key"; any other failure counts as partial, to stay safe.
     partial.set(cwd, !(r.status === 1 || (r.status === 0 && !/\S/.test(r.stdout))));
   }
@@ -143,32 +162,46 @@ const timedOut = new Set();
 export function gitTimeouts() {
   return [...timedOut];
 }
-// Each run starts with no repo marked as hung.
+// Repo roots git refused to read (owned by another user).
+const refused = new Set();
+export function gitRefusals() {
+  return [...refused];
+}
+// Each run starts with no repo marked as hung or refused.
 export function resetGitTimeouts() {
   partial.clear();
   roots.clear();
   timedOut.clear();
+  refused.clear();
 }
 
+// failed: git could not read the repo (timed out, refused, skipped, or did not
+// start), so its answer is unknown. A plain non-zero exit (not a repo, no commits
+// yet) is an answer, not a failure.
 export function git(args, { cwd }) {
   const inv = gitInvocation(args, cwd);
-  if (isHung(cwd)) return { ok: false, stdout: '', stderr: 'git not run: an earlier git run in this repo timed out', skipped: true, timedOut: true };
-  if (HISTORY.has(args[0]) && !historyReadable(cwd)) return { ok: false, stdout: '', stderr: 'history not read: partial clone on a git that can lazy-fetch', skipped: true };
+  if (isHung(cwd)) return { ok: false, stdout: '', stderr: 'git not run: an earlier git run in this repo timed out', skipped: true, timedOut: true, failed: true };
+  if (isRefused(cwd)) return { ok: false, stdout: '', stderr: 'git not run: git refused this repo earlier', skipped: true, refused: true, failed: true };
+  if (HISTORY.has(args[0]) && !historyReadable(cwd)) return { ok: false, stdout: '', stderr: 'history not read: partial clone on a git that can lazy-fetch', skipped: true, failed: true };
   const r = runSync(inv.cmd, inv.args, { cwd: inv.cwd, env: inv.env });
-  if (r.timedOut) {
-    timedOut.add(hungKey(cwd));
-    return { ok: false, stdout: '', stderr: 'git timed out', timedOut: true };
-  }
+  if (noteFailure(r, cwd)) return { ok: false, stdout: '', stderr: r.timedOut ? 'git timed out' : r.stderr, timedOut: r.timedOut, refused: !r.timedOut, failed: true };
+  if (r.error) return { ok: false, stdout: '', stderr: String(r.error.message), failed: true };
   return { ok: r.status === 0, stdout: r.stdout, stderr: r.stderr };
 }
 
 // Convenience: trimmed stdout or null.
 export function gitOut(args, cwd) {
+  return gitRead(args, cwd).out;
+}
+
+// { out, failed }: out is trimmed stdout, or null when git did not answer; failed
+// tells "git could not read this repo" (unknown) from "git answered with nothing".
+export function gitRead(args, cwd) {
   try {
     const r = git(args, { cwd });
-    return r.ok ? r.stdout.trim() : null;
+    return { out: r.ok ? r.stdout.trim() : null, failed: r.failed === true };
   } catch (e) {
     if (e.code === 'E_GIT_DENIED') throw e;
-    return null;
+    return { out: null, failed: true };
   }
 }
