@@ -1,6 +1,6 @@
 import { test } from 'node:test';
 import assert from 'node:assert/strict';
-import { mkdtempSync, writeFileSync, statSync, readFileSync } from 'node:fs';
+import { mkdtempSync, writeFileSync, statSync, readFileSync, readdirSync, rmSync } from 'node:fs';
 import { createHash } from 'node:crypto';
 import { tmpdir } from 'node:os';
 import { join } from 'node:path';
@@ -105,10 +105,11 @@ test('a new pack with no promisor sidecar, or an in-flight tmp pack, is not blam
   const { execFileSync } = await import('node:child_process');
   const { repo } = gitRepo(execFileSync);
   const { heads } = baselineOf([], [repo]);
+  const t_start = Date.now();
   writeFileSync(join(repo, '.git', 'objects', 'pack', 'pack-0000.pack'), 'x');
   writeFileSync(join(repo, '.git', 'objects', 'pack', 'tmp_pack_abc123'), 'x');
   writeFileSync(join(repo, '.git', 'objects', 'pack', 'tmp_pack_def456.promisor'), 'x');
-  const r = verifyRun({ files: [], heads }, []);
+  const r = verifyRun({ files: [], heads }, [inspectGit(repo, t_start, Date.now())]);
   assert.equal(r.ok, true);
   assert.deepEqual(r.changed_by_others.map((c) => c.change), ['.git changed']);
 });
@@ -162,13 +163,30 @@ test('a user git add during the scan is reported, not blamed on inspect', async 
   assert.deepEqual(r.changed_by_others.map((c) => c.change), ['.git changed']);
 });
 
-test('a new pack that arrives with a FETCH_HEAD update is a user fetch, not inspect', async () => {
+test('a new promisor pack that arrives with a FETCH_HEAD update is a user fetch, not inspect', async () => {
   const { execFileSync } = await import('node:child_process');
   const { repo } = gitRepo(execFileSync);
   const { heads } = baselineOf([], [repo]);
-  writeFileSync(join(repo, '.git', 'objects', 'pack', 'pack-0000.pack'), 'x');
+  const t_start = Date.now();
+  for (const ext of ['pack', 'promisor']) writeFileSync(join(repo, '.git', 'objects', 'pack', `pack-0000.${ext}`), 'x');
   writeFileSync(join(repo, '.git', 'FETCH_HEAD'), '');
-  const r = verifyRun({ files: [], heads }, []);
+  const r = verifyRun({ files: [], heads }, [inspectGit(repo, t_start, Date.now())]);
+  assert.equal(r.ok, true);
+  assert.deepEqual(r.changed_by_others.map((c) => c.change), ['.git changed']);
+});
+
+test('a new promisor pack while another pack is removed is a user repack, not inspect', async () => {
+  const { execFileSync } = await import('node:child_process');
+  const { repo, g } = gitRepo(execFileSync);
+  g('repack', '-q', '-a', '-d');
+  const packDir = join(repo, '.git', 'objects', 'pack');
+  const old = readdirSync(packDir).filter((n) => n.endsWith('.pack'));
+  assert.ok(old.length > 0, 'repo starts with a pack');
+  const { heads } = baselineOf([], [repo]);
+  const t_start = Date.now();
+  for (const n of old) rmSync(join(packDir, n));
+  for (const ext of ['pack', 'promisor']) writeFileSync(join(packDir, `pack-0000.${ext}`), 'x');
+  const r = verifyRun({ files: [], heads }, [inspectGit(repo, t_start, Date.now())]);
   assert.equal(r.ok, true);
   assert.deepEqual(r.changed_by_others.map((c) => c.change), ['.git changed']);
 });
