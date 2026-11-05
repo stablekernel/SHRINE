@@ -178,6 +178,12 @@ test('invalid answers past 10% stop judging at Gate C; keep gives a partial repo
   assert.equal(json(r.dir, 'state.json').abort.reason, 'errors');
   const judged = lines(r.dir, 'judgments.jsonl');
   assert.equal(judged.length, 2, 'stopped after 2 of 12 invalid');
+  // While Gate C waits, approve B never resumes judging.
+  for (const choice of ['T1', 'T0']) {
+    const again = await inproc(['approve', r.runId, 'B', choice, '--json'], h, r.state, { stdin: tty('yes'), judge: fakeJudge('auto') });
+    assert.equal(again.code, 2, again.stderr);
+    assert.equal(lines(r.dir, 'judgments.jsonl').length, 2);
+  }
   assert.ok(judged.every((l) => !l.valid && l.attempts === 2 && l.output === null));
   const k = await inproc(['approve', r.runId, 'C', 'keep', '--json'], h, r.state, { stdin: tty('yes'), judge: fakeJudge('auto') });
   assert.equal(k.code, 0, k.stderr);
@@ -197,6 +203,7 @@ test('a usage limit stops judging apart from errors; stop keeps the scan only', 
   const f = json(r.dir, 'findings.json');
   assert.equal(f.tier, 'T0');
   assert.ok(f.notes.some((n) => /stopped early at Gate C/.test(n)));
+  assert.ok(lines(r.dir, 'judgments.jsonl').every((l) => l.limited), 'the limited call is a line of its own, not an invalid answer');
   h.cleanup();
 });
 

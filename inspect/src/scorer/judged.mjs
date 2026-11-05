@@ -195,7 +195,7 @@ export function judgedFindings({ lines, order, episodes, catalogue, pivots, copy
       items: eps.slice(0, 10).map((e) => ({ episode: e })),
     });
   }
-  const invalid = lines.filter((l) => !l.valid).length;
+  const invalid = lines.filter((l) => !l.valid && !l.limited).length;
   return {
     findings,
     dropped,
