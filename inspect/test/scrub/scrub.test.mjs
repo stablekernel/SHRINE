@@ -1,7 +1,5 @@
 import { test } from 'node:test';
 import assert from 'node:assert/strict';
-import { readFileSync } from 'node:fs';
-import { fileURLToPath } from 'node:url';
 import { scrubSecrets } from '../../src/scrub/secrets.mjs';
 import { plantedCorpus } from '../synth/secrets.mjs';
 import { buildIdentifiers, mask, maskBase, maskDeep, maskPath } from '../../src/scrub/mask.mjs';
