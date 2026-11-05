@@ -5,16 +5,20 @@ import { approveCommand } from './approve.mjs';
 import { purgeCommand } from './purge.mjs';
 
 const USAGE = `usage:
-  shrine-inspect run --tier T0 [--no-history] [--json]
+  shrine-inspect run --tier T0 [--no-history] [--session-id <id>] [--json]
   shrine-inspect approve <run> <gate> [choice]
   shrine-inspect purge [--json]`;
 
 export function parseArgs(argv) {
-  const out = { cmd: argv[0], positional: [], json: false, noHistory: false, tier: null };
+  const out = { cmd: argv[0], positional: [], json: false, noHistory: false, tier: null, sessionId: null };
   for (let i = 1; i < argv.length; i++) {
     const a = argv[i];
     if (a === '--json') out.json = true;
     else if (a === '--no-history') out.noHistory = true;
+    else if (a === '--session-id' || a.startsWith('--session-id=')) {
+      out.sessionId = a.includes('=') ? a.slice(13) : argv[++i];
+      if (!out.sessionId || !/^[\w-]+$/.test(out.sessionId)) throw new InspectError('E_USAGE', 'bad --session-id', { hint: USAGE, exit: EXIT.USAGE });
+    }
     else if (a === '--tier') out.tier = argv[++i];
     else if (a.startsWith('--tier=')) out.tier = a.slice(7);
     else if (a.startsWith('--')) throw new InspectError('E_USAGE', `unknown option ${a}`, { hint: USAGE, exit: EXIT.USAGE });
