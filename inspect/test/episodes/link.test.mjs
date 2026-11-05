@@ -76,3 +76,12 @@ test('the linker runs only allowlisted read-only git', () => {
   assert.deepEqual(repoCommits('/nowhere/at/all', { since: 0, until: 1 }), []);
   r.cleanup();
 });
+
+test('soft links scale: 20000 episodes link in under 2 seconds', () => {
+  const eps = [];
+  for (let i = 0; i < 20000; i++) eps.push(ep(`e${i}`, T0 + i * 600000, T0 + i * 600000 + 300000, { repo: `/w/r${i % 4}`, touched_files: [`/w/r${i % 4}/f${i % 50}.js`] }));
+  const t = Date.now();
+  const out = linkEpisodes(eps, new Map());
+  assert.ok(Date.now() - t < 2000, `${Date.now() - t} ms`);
+  assert.ok(out[0].downstream.length > 0);
+});

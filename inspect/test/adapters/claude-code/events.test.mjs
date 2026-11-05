@@ -69,3 +69,19 @@ test('secrets in prompts, replies, and commands are scrubbed before leaving the 
   const { timeline } = await readSession({ id: 's3', path: p, project: 'app' });
   assert.ok(!JSON.stringify(timeline).includes(key));
 });
+
+test('inline sidechain lines in the main file count tokens as subagent and are never human turns', async () => {
+  const p = join(dir, 's4.jsonl');
+  write(p, [user(0, 'main prompt', { promptSource: 'typed' }), user(1, 'inline subagent prompt', { isSidechain: true }), asst(2, 'rs', [{ type: 'text', text: 'x' }], { input_tokens: 10, output_tokens: 10 })].map((l, i) => (i === 2 ? { ...l, isSidechain: true } : l)));
+  const { session } = await readSession({ id: 's4', path: p, project: 'app' });
+  assert.equal(session.turns, 1);
+  assert.equal(session.subagent_share, 1);
+});
+
+test('a split response keeps the largest usage per requestId', async () => {
+  const p = join(dir, 's5.jsonl');
+  write(p, [user(0, 'go', { promptSource: 'typed' }), asst(1, 'rq', [{ type: 'text', text: 'a' }], { input_tokens: 5, output_tokens: 1 }), asst(1, 'rq', [{ type: 'text', text: 'b' }], { input_tokens: 5, output_tokens: 40 })]);
+  const { session, timeline } = await readSession({ id: 's5', path: p, project: 'app' });
+  assert.deepEqual(session.tokens, { in: 5, out: 40, cache_read: 0 });
+  assert.equal(timeline.find((e) => e.kind === 'usage').tokens, 45);
+});

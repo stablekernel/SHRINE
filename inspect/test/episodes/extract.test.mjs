@@ -82,7 +82,9 @@ test('episode fields: counts, tokens, files, subagents, interrupts, humans after
   assert.equal(e.interrupts, 1);
   assert.equal(e.compactions, 1);
   assert.deepEqual(e.touched_files, ['/w/p.js', '/w/q.js']);
-  assert.equal(e.humans[1].after_interrupt, true);
+  assert.equal(e.flags.corrections, 1, 'the turn after an interrupt is a correction candidate');
+  assert.equal(e.correction_t, at(3));
+  assert.equal(e.calls, undefined, 'per-call lists are dropped after flags are computed');
   assert.equal(e.start, at(0));
   assert.equal(e.end, at(5));
 });

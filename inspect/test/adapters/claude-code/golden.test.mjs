@@ -7,7 +7,6 @@ import { existsSync, readFileSync, writeFileSync } from 'node:fs';
 import { fileURLToPath } from 'node:url';
 import { readSession } from '../../../src/adapters/claude-code/events.mjs';
 import { extractEpisodes } from '../../../src/episodes/extract.mjs';
-import { episodeFlags } from '../../../src/probes/usage.mjs';
 
 const fx = (p) => fileURLToPath(new URL(`../../fixtures/sessions/${p}`, import.meta.url));
 const golden = (v) => fileURLToPath(new URL(`../../golden/facts-v${v}.json`, import.meta.url));
@@ -26,7 +25,7 @@ async function factsOf(id, path, subagent_files = []) {
     subagents: e.subagents,
     compactions: e.compactions,
     touched_files: e.touched_files,
-    flags: episodeFlags(e),
+    flags: e.flags,
   }));
   const files = r.files.map(({ kind, lines, parsed, skipped_by_sniff, corrupt, core_missing, unknown_types, version }) => ({ kind, lines, parsed, skipped_by_sniff, corrupt, core_missing, unknown_types, version }));
   return { session: r.session, episodes, files };

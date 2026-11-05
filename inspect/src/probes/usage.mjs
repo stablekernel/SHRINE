@@ -65,7 +65,7 @@ export function rateDifference(flagged, rest) {
 // sessions: facts sessions; episodes: extract + link output (with .rework).
 export function runUsageProbes({ sessions, episodes, t = THRESHOLDS }) {
   const u = t.usage;
-  const flags = new Map(episodes.map((e) => [e.id, episodeFlags(e)]));
+  const flags = new Map(episodes.map((e) => [e.id, e.flags ?? episodeFlags(e)]));
   const sum = (f) => [...flags.values()].reduce((n, x) => n + f(x), 0);
   const attrib = sessions.reduce((n, s) => n + s.tokens.in + s.tokens.out, 0);
   const subTok = sessions.reduce((n, s) => n + s.subagent_share * (s.tokens.in + s.tokens.out), 0);

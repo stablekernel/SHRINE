@@ -16,11 +16,22 @@ const MAX_COMMAND = 2000;
 
 // Cut copies are flattened, so a short cut never pins the long string it came from.
 const own = (s) => JSON.parse(JSON.stringify(s));
-const tail = (s, n) => own(s.length > n ? s.slice(-n) : s);
-const head = (s, n) => own(s.length > n ? s.slice(0, n) : s);
+// Scrub before the final cut, so a cut never leaves half a secret that no pattern
+// matches; the margin bounds the scrub cost on very long texts.
+const MARGIN = 512;
+const tail = (s, n) => {
+  const x = scrubSecrets(s.length > n + MARGIN ? s.slice(-(n + MARGIN)) : s);
+  return own(x.length > n ? x.slice(-n) : x);
+};
+const head = (s, n) => {
+  const x = scrubSecrets(s.length > n + MARGIN ? s.slice(0, n + MARGIN) : s);
+  return own(x.length > n ? x.slice(0, n) : x);
+};
 const keyOf = (name, input) => createHash('sha1').update(`${name}\u0000${JSON.stringify(input ?? null)}`).digest('hex').slice(0, 16);
 
-function onLine(o, sub, acc) {
+function onLine(o, inSubagentFile, acc) {
+  // Older versions wrote some subagent lines inline in the main file.
+  const sub = inSubagentFile || o.isSidechain === true;
   const t = o.timestamp ?? acc.lastT;
   if (t) {
     acc.lastT = t;
@@ -29,24 +40,28 @@ function onLine(o, sub, acc) {
   }
   if (o.type === 'assistant') {
     const m = o.message;
-    if (o.requestId && !acc.requests.has(o.requestId)) {
-      acc.requests.add(o.requestId);
+    if (o.requestId) {
+      // One record per requestId; each field keeps its largest value across the
+      // lines of a split response. Totals are summed once, after reading.
       const u = m.usage ?? {};
-      const tok = { in: (u.input_tokens ?? 0) + (u.cache_creation_input_tokens ?? 0), out: u.output_tokens ?? 0, cache_read: u.cache_read_input_tokens ?? 0 };
-      acc.tokens.in += tok.in;
-      acc.tokens.out += tok.out;
-      acc.tokens.cache_read += tok.cache_read;
-      if (sub) acc.subTokens += tok.in + tok.out;
-      acc.timeline.push({ t, kind: 'usage', tokens: tok.in + tok.out, sub });
+      let rec = acc.requests.get(o.requestId);
+      if (!rec) {
+        rec = { in: 0, out: 0, cache_read: 0, sub };
+        acc.requests.set(o.requestId, rec);
+        acc.timeline.push({ t, kind: 'usage', rec, sub });
+      }
+      rec.in = Math.max(rec.in, (u.input_tokens ?? 0) + (u.cache_creation_input_tokens ?? 0));
+      rec.out = Math.max(rec.out, u.output_tokens ?? 0);
+      rec.cache_read = Math.max(rec.cache_read, u.cache_read_input_tokens ?? 0);
     }
     if (typeof m.model === 'string' && m.model !== '<synthetic>') acc.models.add(m.model);
     for (const b of Array.isArray(m.content) ? m.content : []) {
       if (b?.type === 'text' && typeof b.text === 'string' && b.text.trim()) {
-        acc.timeline.push({ t, kind: 'assistant_text', text: scrubSecrets(tail(b.text.trim(), MAX_ASSISTANT)), sub });
+        acc.timeline.push({ t, kind: 'assistant_text', text: tail(b.text.trim(), MAX_ASSISTANT), sub });
       } else if (b?.type === 'tool_use') {
         const input = b.input ?? {};
         const ev = { t, kind: 'tool_use', id: b.id ?? null, name: b.name ?? 'unknown', key: keyOf(b.name, input), sub };
-        if (typeof input.command === 'string') ev.command = scrubSecrets(head(input.command, MAX_COMMAND));
+        if (typeof input.command === 'string') ev.command = head(input.command, MAX_COMMAND);
         const file = input.file_path ?? input.notebook_path;
         if (WRITE_TOOLS.has(b.name) && typeof file === 'string') ev.files = [file];
         acc.timeline.push(ev);
@@ -67,7 +82,7 @@ function onLine(o, sub, acc) {
     if (c.command) acc.timeline.push({ t, kind: 'command', name: c.command, sub });
     if (c.human) {
       acc.turns++;
-      acc.timeline.push({ t, kind: 'human', text: scrubSecrets(head(c.text.trim(), MAX_HUMAN)), queued: c.queued, uuid: o.uuid ?? null, sub });
+      acc.timeline.push({ t, kind: 'human', text: head(c.text.trim(), MAX_HUMAN), queued: c.queued, uuid: o.uuid ?? null, sub });
     }
     return;
   }
@@ -80,7 +95,7 @@ function onLine(o, sub, acc) {
 // meta: {id, path, project, subagent_files, version}. Returns {session, timeline, files}
 // where files lists per-file stats ({path, kind, corrupt, unknown_types}).
 export async function readSession(meta) {
-  const acc = { lastT: null, start: null, end: null, requests: new Set(), tokens: { in: 0, out: 0, cache_read: 0 }, subTokens: 0, models: new Set(), timeline: [], turns: 0, interrupts: 0, compactions: 0, toolCalls: 0 };
+  const acc = { lastT: null, start: null, end: null, requests: new Map(), models: new Set(), timeline: [], turns: 0, interrupts: 0, compactions: 0, toolCalls: 0 };
   const files = [];
   const main = await readSessionFile(meta.path, (o) => onLine(o, false, acc));
   files.push({ path: meta.path, ...main });
@@ -91,16 +106,30 @@ export async function readSession(meta) {
   }
   // Stable sort keeps file order for equal timestamps.
   const timeline = acc.timeline.map((e, i) => ({ e, i })).sort((a, b) => (a.e.t < b.e.t ? -1 : a.e.t > b.e.t ? 1 : a.i - b.i)).map((x) => x.e);
-  const attributable = acc.tokens.in + acc.tokens.out;
+  const tokens = { in: 0, out: 0, cache_read: 0 };
+  let subTokens = 0;
+  for (const r of acc.requests.values()) {
+    tokens.in += r.in;
+    tokens.out += r.out;
+    tokens.cache_read += r.cache_read;
+    if (r.sub) subTokens += r.in + r.out;
+  }
+  for (const e of timeline) {
+    if (e.kind === 'usage') {
+      e.tokens = e.rec.in + e.rec.out;
+      delete e.rec;
+    }
+  }
+  const attributable = tokens.in + tokens.out;
   const session = {
     id: meta.id,
     project: meta.project,
     start: acc.start ?? new Date(meta.mtime ?? 0).toISOString(),
     end: acc.end ?? new Date(meta.mtime ?? 0).toISOString(),
     turns: acc.turns,
-    tokens: acc.tokens,
+    tokens,
     models: [...acc.models].sort(),
-    subagent_share: attributable ? Math.round((acc.subTokens / attributable) * 1000) / 1000 : 0,
+    subagent_share: attributable ? Math.round((subTokens / attributable) * 1000) / 1000 : 0,
     compactions: acc.compactions,
     interrupts: acc.interrupts,
     tool_calls: acc.toolCalls,

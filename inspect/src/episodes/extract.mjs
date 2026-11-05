@@ -9,7 +9,7 @@ import { createHash } from 'node:crypto';
 import { fileURLToPath } from 'node:url';
 import { readJson } from '../io/fsread.mjs';
 import { matchesAtCommand } from '../probes/command-position.mjs';
-import { isCorrectionCue, isTestCommand } from '../probes/usage.mjs';
+import { episodeFlags, isCorrectionCue, isTestCommand } from '../probes/usage.mjs';
 
 const load = (rel) => readJson(fileURLToPath(new URL(rel, import.meta.url)));
 const COMMIT = load('../probes/patterns/commit.json');
@@ -60,8 +60,12 @@ export function extractEpisodes(session, timeline, { idleMinutes = 30 } = {}) {
   });
   const finish = (terminal) => {
     if (!cur) return;
-    const { touched, closed_by, last_kind, ...rest } = cur;
-    out.push({ ...rest, terminal, touched_files: [...touched].sort() });
+    // Flags are computed here and the per-call and per-turn lists dropped, so a
+    // multi-GB history keeps only small episode records.
+    const { touched, closed_by, last_kind, calls, humans, last_text, ...rest } = cur;
+    const flags = episodeFlags({ calls, humans, last_text, last_text_t: cur.last_text_t });
+    const corr = humans.find((h) => h.index > 0 && (h.after_interrupt || h.cue));
+    out.push({ ...rest, terminal, touched_files: [...touched].sort(), flags, correction_t: corr?.t ?? null });
     cur = null;
   };
 

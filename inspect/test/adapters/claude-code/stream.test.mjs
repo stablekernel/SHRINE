@@ -117,3 +117,16 @@ test('a 100 MB file streams with heap growth under 100 MB (RSS is GC-lagged, che
   assert.ok(peak - before.heapUsed < 100 * 1024 * 1024, `heap grew ${Math.round((peak - before.heapUsed) / 1048576)} MB`);
   assert.ok(peakRss - before.rss < 200 * 1024 * 1024, `rss grew ${Math.round((peakRss - before.rss) / 1048576)} MB`);
 });
+
+test('a JSON null or array line is corrupt, not an unreadable file', async () => {
+  const p = file('nulls.jsonl', ['null', '[1,2]', user('ok')]);
+  const { events, stats } = await collect(p);
+  assert.equal(stats.kind, 'session');
+  assert.equal(stats.corrupt, 2);
+  assert.equal(events.length, 1);
+});
+
+test('an error in the event handler surfaces instead of marking the file unreadable', async () => {
+  const p = file('handler.jsonl', [user('ok')]);
+  await assert.rejects(readSessionFile(p, () => { throw new Error('handler bug'); }), /handler bug/);
+});

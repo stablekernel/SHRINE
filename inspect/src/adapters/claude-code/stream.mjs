@@ -51,11 +51,14 @@ export async function readSessionFile(path, onEvent) {
       try {
         o = JSON.parse(line);
       } catch {
+        o = undefined;
+      }
+      if (!o || typeof o !== 'object' || Array.isArray(o)) {
         stats.corrupt++;
         continue;
       }
       stats.parsed++;
-      const type = typeof o?.type === 'string' ? o.type : '(none)';
+      const type = typeof o.type === 'string' ? o.type : '(none)';
       stats.types[type] = (stats.types[type] ?? 0) + 1;
       if (!stats.version && typeof o.version === 'string') stats.version = o.version;
       if (!READ_TYPES.has(type)) {
@@ -70,9 +73,15 @@ export async function readSessionFile(path, onEvent) {
         sessionLines++;
       }
       if (type === 'attachment' && !ATTACHMENT_TYPES.has(o.attachment?.type)) continue;
-      onEvent(o);
+      try {
+        onEvent(o);
+      } catch (e) {
+        // A bug in the caller is not a bad file: let it surface.
+        throw Object.assign(e, { fromHandler: true });
+      }
     }
-  } catch {
+  } catch (e) {
+    if (e?.fromHandler) throw e;
     return { ...stats, kind: 'unreadable' };
   }
   const types = Object.keys(stats.types);

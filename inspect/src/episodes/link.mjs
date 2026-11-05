@@ -13,18 +13,25 @@ const COMMIT_SLACK_MS = 2 * 60000;
 
 // Commits on any ref with commit time in [since, until] (ms). Empty when the
 // folder is gone or not a repo.
+// Bodies are read only for revert commits (a second, filtered log), so a busy
+// repo never pushes the output past the spawn buffer.
 export function repoCommits(root, { since, until }) {
-  const out = gitOut(
-    ['log', '--all', '--no-merges', `--since=@${Math.floor(since / 1000)}`, `--until=@${Math.ceil(until / 1000)}`, `--format=${RS}%H${US}%ct${US}%s${US}%b${US}`],
-    root,
-  );
+  const range = ['--all', '--no-merges', `--since=@${Math.floor(since / 1000)}`, `--until=@${Math.ceil(until / 1000)}`];
+  const out = gitOut(['log', ...range, `--format=${RS}%H${US}%ct${US}%s`], root);
   if (!out) return [];
+  const reverts = new Map();
+  const rv = gitOut(['log', ...range, '--grep=This reverts commit', `--format=${RS}%H${US}%b`], root) ?? '';
+  for (const rec of rv.split(RS).filter(Boolean)) {
+    const [sha, body] = rec.split(US);
+    reverts.set(sha.trim(), body ?? '');
+  }
   return out
     .split(RS)
     .filter(Boolean)
     .map((rec) => {
-      const [sha, ct, subject, body] = rec.split(US);
-      return { sha, t: Number(ct) * 1000, subject: subject ?? '', body: body ?? '' };
+      const [sha, ct, subject] = rec.split(US);
+      const id = sha.trim();
+      return { sha: id, t: Number(ct) * 1000, subject: (subject ?? '').trim(), body: reverts.get(id) ?? '' };
     });
 }
 
@@ -35,6 +42,24 @@ const hours = (ms) => Math.round((ms / HOUR) * 10) / 10;
 export function linkEpisodes(episodes, commitsByRepo, { windowHours = 72 } = {}) {
   const win = windowHours * HOUR;
   const ms = (e) => ({ s: Date.parse(e.start), e: Date.parse(e.end) });
+  // Per repo, episodes sorted by start: each episode scans forward only while the
+  // next start is inside the window, never the whole history.
+  const byRepo = new Map();
+  for (const e of episodes) {
+    if (!byRepo.has(e.repo)) byRepo.set(e.repo, []);
+    byRepo.get(e.repo).push({ ep: e, s: Date.parse(e.start) });
+  }
+  for (const list of byRepo.values()) list.sort((a, b) => a.s - b.s);
+  const lowerBound = (list, x) => {
+    let lo = 0;
+    let hi = list.length;
+    while (lo < hi) {
+      const mid = (lo + hi) >> 1;
+      if (list[mid].s <= x) lo = mid + 1;
+      else hi = mid;
+    }
+    return lo;
+  };
   return episodes.map((ep) => {
     const { s, e } = ms(ep);
     const commits = commitsByRepo.get(ep.repo) ?? [];
@@ -51,11 +76,11 @@ export function linkEpisodes(episodes, commitsByRepo, { windowHours = 72 } = {})
     }
     const files = new Set(ep.touched_files ?? []);
     if (files.size) {
-      for (const other of episodes) {
-        if (other === ep || other.repo !== ep.repo) continue;
-        const d = ms(other).s - e;
-        if (d <= 0 || d > win) continue;
-        if ((other.touched_files ?? []).some((f) => files.has(f))) links.push({ kind: 'episode', ref: other.id, delta_hours: hours(d), link: 'soft' });
+      const list = byRepo.get(ep.repo);
+      for (let i = lowerBound(list, e); i < list.length && list[i].s - e <= win; i++) {
+        const other = list[i].ep;
+        if (other === ep) continue;
+        if ((other.touched_files ?? []).some((f) => files.has(f))) links.push({ kind: 'episode', ref: other.id, delta_hours: hours(list[i].s - e), link: 'soft' });
       }
     }
     links.sort((a, b) => a.delta_hours - b.delta_hours || a.ref.localeCompare(b.ref));

@@ -49,7 +49,8 @@ export function classifyUser(o, { subagent = false } = {}) {
   const interrupt = isInterrupt(o, trimmed);
   const prefixed = NOT_HUMAN_PREFIXES.some((p) => trimmed.startsWith(p));
   let human;
-  if (subagent || prefixed || trimmed === '') human = false;
+  const hasImage = blocks(o).some((b) => b?.type === 'image');
+  if (subagent || prefixed || (trimmed === '' && !hasImage)) human = false;
   else if (typeof o.turnOrigin === 'string') human = o.turnOrigin === 'human';
   else if (typeof o.promptSource === 'string') human = HUMAN_SOURCES.has(o.promptSource);
   else human = fallbackHuman(o);

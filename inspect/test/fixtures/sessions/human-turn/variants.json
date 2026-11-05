@@ -24,5 +24,6 @@
   { "name": "prefix bash-stderr", "line": { "type": "user", "message": { "role": "user", "content": "<bash-stderr>warning</bash-stderr>" } }, "expect": { "human": false } },
   { "name": "interrupt by interruptedMessageId", "line": { "type": "user", "interruptedMessageId": "msg_1", "message": { "role": "user", "content": "stop, use the other file" } }, "expect": { "interrupt": true } },
   { "name": "interrupt by toolUseResult.interrupted", "line": { "type": "user", "toolUseResult": { "interrupted": true }, "message": { "role": "user", "content": [{ "type": "tool_result", "tool_use_id": "toolu_2", "content": "[Request interrupted by user for tool use]" }] } }, "expect": { "human": false, "interrupt": true } },
+  { "name": "image-only prompt is a human turn", "line": { "type": "user", "promptSource": "typed", "message": { "role": "user", "content": [{ "type": "image", "source": { "type": "base64", "data": "AA" } }] } }, "expect": { "human": true } },
   { "name": "subagent user line is never human", "subagent": true, "line": { "type": "user", "promptSource": "typed", "message": { "role": "user", "content": "do the subtask" } }, "expect": { "human": false } }
 ]
