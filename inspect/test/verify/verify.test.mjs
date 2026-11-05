@@ -265,8 +265,11 @@ test('a whole-second promisor pack from before the run window is not blamed on i
 // Real git: a tree:0 clone whose repo config names a local bundle. With the lazy-fetch
 // and bundle guards stripped (old git, or a future bypass) the unbundled pack has no
 // .promisor sidecar; verify must still blame the run it landed in.
-test('a real bundle-URI pack written during an unguarded git run fails the run', async () => {
+test('a real bundle-URI pack written during an unguarded git run fails the run', async (t) => {
   const { execFileSync, spawnSync } = await import('node:child_process');
+  // fetch.bundleURI arrived in git 2.40; older git has nothing to unbundle.
+  const [maj, min] = (execFileSync('git', ['--version'], { encoding: 'utf8' }).match(/(\d+)\.(\d+)/) ?? []).slice(1).map(Number);
+  if (maj < 2 || (maj === 2 && min < 40)) return t.skip(`git ${maj}.${min} has no fetch.bundleURI`);
   const { gitInvocation } = await import('../../src/io/git.mjs');
   const dir = mkdtempSync(join(tmpdir(), 'si-verify-bundle-'));
   const env = { ...process.env, GIT_AUTHOR_NAME: 't', GIT_AUTHOR_EMAIL: 't@x', GIT_COMMITTER_NAME: 't', GIT_COMMITTER_EMAIL: 't@x' };
