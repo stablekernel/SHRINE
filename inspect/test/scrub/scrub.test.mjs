@@ -278,6 +278,11 @@ test('maskPath masks relative paths, bare file names, and anchors under path key
     'docs/Initech Corp/x.md#L3-L9': '<path>/<file>.md#L3-L9',
     'CLAUDE.md': 'CLAUDE.md',
     skills: 'skills',
+    // A bare name with no extension or a code extension: still a file name.
+    'initech-merger': '<file>',
+    'acme.ts': '<file>.ts',
+    'Initech Corp': '<file>',
+    initrode: '<file>',
   };
   for (const [input, want] of Object.entries(cases)) assert.equal(maskPath(input, k), want, input);
   const out = JSON.stringify(maskDeep({ path: 'cheersbar notes.md', touched_files: ['initech-merger.md', 'Hooli Plans/CLAUDE.md'], anchor: '#L3 Initech Corp/x.md' }, k));
