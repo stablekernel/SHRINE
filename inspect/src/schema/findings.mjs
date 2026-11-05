@@ -116,6 +116,7 @@ export const findingsSchema = obj(
     git_history_skipped: int,
     thresholds: dict(any),
     history: obj({ consented: bool, read: bool, sessions: nullable(int) }),
+    usage: obj({ counts: dict(num), kinds: arr(obj({ kind: str, ship: oneOf(['appendix', 'candidates']), hit: bool, metric: dict(any) }, { control: nullable(dict(any)) })), lines: arr(str) }, { automation: nullable(obj({ count: int, total: int, share: num })), limited: bool, excluded_own: bool }),
   },
 );
 

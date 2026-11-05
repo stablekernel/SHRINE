@@ -5,10 +5,11 @@ import { createHash } from 'node:crypto';
 import { scrubSecrets } from '../scrub/secrets.mjs';
 import { underHome } from '../scrub/mask.mjs';
 import { THRESHOLDS } from '../probes/config.mjs';
+import { controlTest, usageConfidence, usageSeverity } from './stats.mjs';
 
 export const TOOL_VERSION = '0.1.0';
 const SEV_RANK = { high: 3, medium: 2, low: 1 };
-const KIND_ORDER = ['blanket_permissions', 'stale_instructions', 'oversized_instructions', 'no_owner_or_review', 'stack_gap', 'short_retention'];
+const KIND_ORDER = ['blanket_permissions', 'stale_instructions', 'oversized_instructions', 'done_without_test', 'no_owner_or_review', 'stack_gap', 'short_retention'];
 
 // Coverage areas: 7 ratified principles (North Star excluded; it frames cost) in
 // the docs' deliberate order, then every pattern page, then every stack page. The
@@ -78,11 +79,86 @@ function evidenceOf(p, home) {
   });
 }
 
-export function score({ run, shrine, probes, structure, catalogue, pivots, copy, inventoryCounts = {}, home = null, history = { consented: false, read: false, sessions: null }, thresholds = THRESHOLDS, tier = 'T0' }) {
+// Usage lens (T0): a kind becomes a finding only when thresholds ship it as
+// "candidates", it hit, and history is past the thin-window rule. Otherwise it
+// stays an appendix count. Attribution is "Could not tell" at T0.
+function usageFindings({ usage, catalogue, pivots, copy, t, kindsMap }) {
+  const out = [];
+  const dropped = [];
+  for (const k of usage.kinds) {
+    if (k.ship !== 'candidates' || !k.hit || usage.rule !== 'probe') continue;
+    const ids = kindsMap[k.kind]?.entry_ids ?? [];
+    const refs = ids.map((e) => ref(catalogue, e)).filter(Boolean);
+    const pivot = pivots[ids[0]];
+    const id = findingId(k.kind, ids[0], 'usage');
+    if (!refs.length || !pivot) {
+      dropped.push({ id, reason: `no catalogue entry or pivot for ${k.kind}` });
+      continue;
+    }
+    const ctl = controlTest(k.control, { minN: t.usage.control_min_episodes, points: t.usage[k.kind].control_points });
+    const bar = Math.floor(k.metric.threshold * k.metric.claims);
+    const conf = usageConfidence({ hitsAboveBar: k.metric.flagged - bar, beatsControl: ctl.beats, candidates: true }, t);
+    const sev = usageSeverity({ tokens: k.tokens, episodes: k.metric.flagged, flaggedN: k.metric.flagged }, t);
+    const c = copy.finding(k.kind, k);
+    const evidence = [
+      { kind: 'mechanical', locator: 'session history', metric: `${k.metric.flagged} of ${k.metric.claims} done claims had no prior test or check` },
+      { kind: 'mechanical', locator: 'control', metric: ctl.status === 'ok' ? `${ctl.diff_points} points more rework than the other ${k.control.rest.n} episodes` : 'no control baseline' },
+    ];
+    out.push({
+      id,
+      kind: k.kind,
+      entry_id: ids[0],
+      lens: 'usage',
+      tab: 'amplify',
+      title: c.title,
+      short: c.short,
+      lead: c.lead,
+      icon: c.icon,
+      provenance: 'mechanical',
+      attribution: 'unknown',
+      confidence: { ...conf, basis: `pattern candidates; control ${ctl.status === 'ok' ? `difference ${ctl.diff_points} points` : 'not available'}` },
+      severity: { tokens_attributable: k.tokens, human_turns_attributable: null, delay_minutes: null, label: sev.label },
+      recurrence: { hits: k.metric.flagged, sample: k.metric.claims, stratum: null, control_rate: k.control?.rest.rate ?? null },
+      evidence,
+      anchor: evidence[0].locator,
+      counter_reading: null,
+      adversarial: null,
+      episode_ref: k.episode_ref ?? null,
+      why: c.why,
+      problem: c.problem,
+      pivot: { kind: pivot.kind, action: pivot.action, before_scrubbed: pivot.before, after_scrubbed: pivot.after, after_marks: [], setup_note: pivot.setup_note, source: 'shrine_generic', minutes_to_apply: t.minutes_to_apply[pivot.kind] },
+      praise_class: null,
+      benefit: c.benefit,
+      shrine_refs: refs,
+      owner_label: 'Owner: Could not tell',
+      timeline_gap: null,
+      coverage_key: coverageKey(refs),
+      items: k.episode_ids.slice(0, 10).map((e) => ({ episode: e })),
+      config_strip: null,
+    });
+  }
+  return { out, dropped };
+}
+
+const usageThresholds = (t) => ({
+  done_claims_without_test_pct: Math.round(t.usage.done_without_test.rate * 100),
+  retries_per_100_tool_calls: t.usage.retry_loops.per_100,
+  control_min_episodes: t.usage.control_min_episodes,
+  limited_history_sessions: t.history.limited_sessions,
+  idle_cut_minutes: t.history.idle_minutes,
+  rework_link_hours: t.history.link_hours,
+});
+
+export function score({ run, shrine, probes, structure, catalogue, pivots, copy, inventoryCounts = {}, home = null, history = { consented: false, read: false, sessions: null }, usage = null, usageKinds = {}, thresholds = THRESHOLDS, tier = 'T0' }) {
   const t = thresholds;
   const findings = [];
   const dropped = [];
   const checked_clear = [];
+  if (usage) {
+    const u = usageFindings({ usage, catalogue, pivots, copy, t, kindsMap: usageKinds });
+    findings.push(...u.out);
+    dropped.push(...u.dropped);
+  }
 
   // A probe without applicable: false ran; older callers omit the field.
   const ran = probes.filter((p) => p.applicable !== false);
@@ -211,7 +287,16 @@ export function score({ run, shrine, probes, structure, catalogue, pivots, copy,
     minutes_elapsed: 0,
     tokens_used: 0,
     headline: {
-      counts: { amplify: amplify.length, working: working.length, worth_a_look: 0, checked_clear: checked_clear.length, configured: configured.length, checks: ran.length + counted.length, not_passed: notPassed },
+      counts: {
+        amplify: amplify.length,
+        working: working.length,
+        worth_a_look: 0,
+        checked_clear: checked_clear.length,
+        configured: configured.length,
+        checks: ran.length + counted.length,
+        not_passed: notPassed,
+        ...(usage ? { sessions: usage.counts.sessions, correction_candidates: usage.counts.correction_candidates } : {}),
+      },
       tldr,
       start_with,
     },
@@ -226,8 +311,9 @@ export function score({ run, shrine, probes, structure, catalogue, pivots, copy,
     unknowable: copy.unknowable(),
     skipped_files: [],
     integrity: { ok: true, changed_paths: [] },
-    notes: history.consented ? [] : ['history not read'],
-    thresholds: { version: t.version, ...t.config },
+    notes: !history.consented ? ['history not read'] : usage?.rule === 'limited' ? [copy.notes.limited] : !usage ? [copy.notes.none] : [],
+    thresholds: { version: t.version, ...t.config, ...(usage ? usageThresholds(t) : {}) },
     history,
+    ...(usage ? { usage: { counts: usage.counts, kinds: usage.kinds.map(({ kind, ship, hit, metric, control }) => ({ kind, ship, hit, metric, control })), automation: usage.automation, limited: usage.rule === 'limited', excluded_own: Boolean(usage.excluded_own), lines: copy.usageLines({ ...usage, limited: usage.rule === 'limited' }) } } : {}),
   };
 }

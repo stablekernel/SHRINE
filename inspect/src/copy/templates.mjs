@@ -127,6 +127,61 @@ const FINDINGS = {
     ],
     benefit: [{ headline: 'A longer window', sub: 'Compare behavior across releases', metric: 'days' }],
   }),
+  // Usage kind; renders only when thresholds ship it as "candidates" (E5 keeps it an appendix count).
+  done_without_test: ({ metric: m, control: c }) => ({
+    icon: 'loop',
+    title: 'Done claims with no test run before them (candidates)',
+    short: `${m.flagged} of ${m.claims} claims, no prior test`,
+    lead: 'Some replies reported work as done with no test or check command earlier in the episode. These are pattern candidates, not judged claims.',
+    why: [
+      `${m.flagged} of ${m.claims} done ${pl(m.claims, 'claim')} had no test or check command before them, over the ${Math.round(m.threshold * 100)}% line.`,
+      controlSentence(c),
+      'Claims are matched by a versioned pattern list, so some matches are not real claims.',
+    ],
+    problem: [
+      'A done claim with no run behind it leaves you as the only check.',
+      'Rework found later costs more turns than a test run now.',
+    ],
+    benefit: [
+      { headline: 'Evidence with every done', sub: 'The reply quotes the test run', metric: 'claims' },
+      { headline: `${m.flagged} ${pl(m.flagged, 'episode')} to check`, sub: 'Each one is listed in the evidence', metric: 'flagged' },
+    ],
+  }),
+};
+
+const pctOf = (r) => `${Math.round(r * 100)}%`;
+function controlSentence(c) {
+  if (!c || c.rest.n < THRESHOLDS.usage.control_min_episodes) return `No control baseline: fewer than ${THRESHOLDS.usage.control_min_episodes} other episodes to compare.`;
+  return `Rework within ${THRESHOLDS.history.link_hours} hours: ${c.flagged.hits} of ${c.flagged.n} flagged ${pl(c.flagged.n, 'episode')} (${pctOf(c.flagged.rate)}), ${c.rest.hits} of ${c.rest.n} other ${pl(c.rest.n, 'episode')} (${pctOf(c.rest.rate)}).`;
+}
+
+// Appendix lines for the usage counts block. Every regex-based count says it is a count only.
+export function usageLines(u) {
+  if (!u) return [];
+  const c = u.counts;
+  const lines = [
+    `${c.sessions} ${pl(c.sessions, 'session')} reviewed, ${c.episodes} ${pl(c.episodes, 'episode')}`,
+    `${c.human_turns} human ${pl(c.human_turns, 'turn')}, ${c.interrupts} ${pl(c.interrupts, 'interrupt')}, ${c.compactions} ${pl(c.compactions, 'compaction')}`,
+    `Subagent share of attributable tokens: ${pctOf(c.subagent_share)}`,
+    `Correction candidates: ${c.correction_candidates} human ${pl(c.correction_candidates, 'turn')}. Count only, not judged.`,
+    `Identical tool-call retries: ${c.retries} of ${c.tool_calls} tool ${pl(c.tool_calls, 'call')} (${c.retries_per_100} per 100 tool calls). Count only: polling and re-reads look the same.`,
+  ];
+  const dwt = u.kinds?.find((k) => k.kind === 'done_without_test');
+  if (dwt && dwt.ship === 'appendix') {
+    lines.push(`Done claims with no test or check run before them: ${dwt.metric.flagged} of ${dwt.metric.claims} ${pl(dwt.metric.claims, 'claim')}. Count only: the claim pattern is not precise enough for a finding.`);
+    if (dwt.metric.flagged > 0) lines.push(controlSentence(dwt.control));
+  }
+  if (u.automation?.total) {
+    lines.push(`Automation sessions left out: ${u.automation.count} of ${u.automation.total} ${pl(u.automation.total, 'session')} (${pctOf(u.automation.share)})`);
+  }
+  if (u.limited) lines.push(`Limited history: ${c.sessions} ${pl(c.sessions, 'session')}, under the ${THRESHOLDS.history.limited_sessions} sessions needed for usage findings.`);
+  if (u.excluded_own) lines.push('The session driving this run was left out.');
+  return lines;
+}
+
+export const HISTORY_NOTES = {
+  limited: `Limited history: fewer than ${THRESHOLDS.history.limited_sessions} sessions in the window, so usage shows as counts only.`,
+  none: 'Session history was approved, but no sessions were found in the window.',
 };
 
 const CLEAR = {
@@ -187,6 +242,8 @@ export const copy = {
     return { check, guards_against };
   },
   unknowable: () => [...UNKNOWABLE],
+  usageLines: (u) => usageLines(u),
+  notes: HISTORY_NOTES,
 };
 
 export const SAMPLE_PROBES = {
@@ -196,6 +253,19 @@ export const SAMPLE_PROBES = {
   blanket_permissions: { metric: { count: 2, rules: 1, settings: 1 }, items: [{ rule: 'Bash' }, { rule: 'defaultMode: bypassPermissions' }] },
   stack_gap: { metric: { hooks: 0, skills: 0, memory: 1, missing: ['hooks', 'skills'] }, items: [] },
   short_retention: { metric: { days: 30, source: 'default', threshold_days: 30 }, items: [] },
+  done_without_test: {
+    metric: { flagged: 6, claims: 12, rate: 0.5, threshold: 0.3 },
+    control: { flagged: { hits: 3, n: 6, rate: 0.5 }, rest: { hits: 10, n: 80, rate: 0.125 }, diff_points: 37.5 },
+    items: [],
+  },
+};
+
+export const SAMPLE_USAGE = {
+  counts: { sessions: 66, episodes: 136, human_turns: 1171, interrupts: 22, compactions: 3, tool_calls: 5200, retries: 61, retries_per_100: 1.2, subagent_share: 0.452, correction_candidates: 40, done_claims: 12, done_without_test: 4 },
+  kinds: [{ kind: 'done_without_test', ship: 'appendix', metric: { flagged: 4, claims: 12, rate: 0.33, threshold: 0.3 }, control: SAMPLE_PROBES.done_without_test.control }],
+  automation: { count: 1069, total: 1135, share: 0.942 },
+  limited: true,
+  excluded_own: true,
 };
 
 // Everything the templates can emit, for scripts/lint-copy.mjs.
@@ -205,5 +275,8 @@ export function sampleCopy() {
     clear: Object.keys(CLEAR).map((k) => copy.clear(k)),
     unknowable: copy.unknowable(),
     empty: [0, 1, 2].flatMap((notPassed) => [false, true].map((historyRead) => emptyStates({ checks: 10, notPassed, historyRead }))),
+    usage: usageLines(SAMPLE_USAGE),
+    usage_no_control: usageLines({ ...SAMPLE_USAGE, kinds: [{ ...SAMPLE_USAGE.kinds[0], control: { flagged: { hits: 1, n: 4, rate: 0.25 }, rest: { hits: 0, n: 3, rate: 0 }, diff_points: 25 } }] }),
+    notes: HISTORY_NOTES,
   };
 }
