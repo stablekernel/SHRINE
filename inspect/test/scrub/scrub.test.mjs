@@ -284,6 +284,66 @@ test('maskPath masks relative paths, bare file names, and anchors under path key
   assert.doesNotMatch(out, /cheersbar|notes|initech|Initech|Hooli|merger/i, out);
 });
 
+test('free text masks UNC, relative, remote, env-var, and odd-character paths', () => {
+  const k = buildIdentifiers({ osUser: 'gavin', home: '/Users/gavin' });
+  const cases = {
+    'see \\\\srv\\Initech\\plan.md now': 'see <path>/<file>.md now',
+    '//fileserver/Hooli Share/contract.docx': '<path>/<file>.docx',
+    'open ../Initech Corp/plan.md now': 'open <path>/<file>.md now',
+    'edit Hooli Plans/CLAUDE.md today': 'edit <path>/CLAUDE.md today',
+    'in initech-payroll/src/app.ts': 'in <path>/<file>.ts',
+    'see ./initech/notes.md': 'see <path>/<file>.md',
+    'Initech Merger.docx': '<file>.docx',
+    'opened globex q3 plan.docx': '<file>.docx',
+    '/srv/🍕 Pizza Co/menu.md': '<path>/<file>.md',
+    '/srv/Initech\tCorp/plan.md': '<path>/<file>.md',
+    '/srv/Initech\nCorp/plan.md': '<path>/<file>.md',
+    '/srv/Initech  Corp/plan.md': '<path>/<file>.md',
+    '/srv/Hooli;Inc/x.md': '<path>/<file>.md',
+    '/srv/Hooli|Inc/x.md': '<path>/<file>.md',
+    '/srv/Hooli*Inc/x.md': '<path>/<file>.md',
+    '/srv/Hooli"Inc/x.md': '<path>/<file>.md',
+    '/srv/Hooli^Inc/x.md': '<path>/<file>.md',
+    '/srv/Hooli`Inc/x.md': '<path>/<file>.md',
+    '/srv/Hooli:Inc/x.md': '<path>/<file>.md',
+    '/srv/Hooli?Inc/x.md': '<path>/<file>.md',
+    '/srv/x/Initech;plan.md': '<path>/<file>.md',
+    "/srv/x/O'Brien (copy).md": '<path>/<file>.md',
+    [`/srv/${'A'.repeat(300)}/x.md`]: '<path>/<file>.md',
+    [`/srv/a/${'Initech'.repeat(50)}.md`]: '<path>/<file>.md',
+    '/srv/x/.env.initech': '<path>/<file>',
+    'C:Initech\\x.md': '<path>/<file>.md',
+    'origin git@github.com:Initech/payroll.git (fetch)': 'origin <email>:<path>/<file>.git (fetch)',
+    'github.com/initech/payroll': '<host>/<path>/<file>',
+    'http://10.0.0.5:8080/initech/api': 'http://<ip>:8080/<path>/<file>',
+    '$HOME/Initech/plan.md': '$HOME/<path>/<file>.md',
+    '%USERPROFILE%\\Initech\\plan.md': '%USERPROFILE%/<path>/<file>.md',
+    '~initech/x': '<path>/<file>',
+    'mounted at /initech': 'mounted at <path>',
+  };
+  for (const [input, want] of Object.entries(cases)) {
+    const out = mask(input, k);
+    assert.equal(out, want, JSON.stringify(input));
+    assert.doesNotMatch(out, /initech|hooli|pizza|globex|payroll|merger|brien|fileserver|AAA/i, input);
+  }
+});
+
+test('free-text path rules leave prose, fractions, and slash commands alone', () => {
+  const k = buildIdentifiers({ home: '/Users/bob' });
+  for (const s of ['3/5 sessions (60%)', 'A/B test', 'and/or', 'tokens 1,234/5,678', 'n/a, no tool calls.', 'see /compact or /clear', 'Run npm test; see README.md; v1.2.3 shipped.', 'Read ~/.claude/settings.json and CLAUDE.md', 'host:8080 is up', 'x = a / 2; y = b / 3']) {
+    assert.equal(mask(s, k), s);
+  }
+});
+
+test('the new free-text path rules run in linear time on adversarial runs', () => {
+  const k = buildIdentifiers({ home: '/Users/bob' });
+  const units = ['%+', 'a+', ':a', '-a:', 'a:b ', 'git@x.io:', 'git@x.io:a', 'x.io/a', '1.2.3.4:1/a ', '\\\\a', '//a ', '$a/', '%a%\\', '~a/', 'a/x ', 'A a/b ', '../a ', 'a b.md ', 'A b.', '/🍕 ', '/a\t', '\t/a', ' /a;', "/a'b", 'a;b.', '(a).'];
+  for (const unit of units) {
+    const g = growth(repeatTo(unit), (s) => mask(s, k));
+    assert.ok(g < 10, `${JSON.stringify(unit)}: 4x input took ${g.toFixed(1)}x as long`);
+  }
+});
+
 test('displayPath only shortens the home at a path boundary', () => {
   assert.equal(displayPath('/Users/bobby/acmeco/CLAUDE.md', '/Users/bob'), '/Users/bobby/acmeco/CLAUDE.md');
   assert.equal(displayPath('/Users/bob/acmeco/CLAUDE.md', '/Users/bob'), '~/acmeco/CLAUDE.md');

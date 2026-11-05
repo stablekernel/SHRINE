@@ -1,6 +1,6 @@
 // Share-safe masking (spec 7): a known-identifier list built from facts (OS user,
 // git authors and emails, home segments, project, repo, and org names) replaced by
-// stable placeholders; then emails, hostnames, IPs, and absolute paths. No
+// stable placeholders; then emails, hostnames, IPs, and paths (absolute, UNC, relative, remote). No
 // free-text name detection. Ticket IDs are left as they are.
 
 const esc = (s) => s.replace(/[.*+?^${}()|[\]\\]/g, '\\$&');
@@ -41,25 +41,31 @@ const TLDS = 'com|net|org|io|dev|ai|app|co|us|uk|de|fr|cloud|internal|local|lan|
 // one label at a time.
 const HOST = new RegExp(`(?<![A-Za-z0-9-])(?<![A-Za-z0-9-]\\.)(?:[A-Za-z0-9](?:[A-Za-z0-9-]{0,61}[A-Za-z0-9])?\\.)+(?:${TLDS})\\b`, 'g');
 // Home paths keep only .claude and the file name; other folders name clients and repos.
-// A folder is words of letters (any script), digits, and the punctuation folder
-// names carry ("Acme & Sons (Legal)", "Acme, Inc", "Café Nordström"), joined by
-// single spaces, and a slash follows it, so the whole folder is masked. An
-// apostrophe counts only between letters ("Bob's"), so quotes around a path stay.
-// The file name is stricter (no parentheses, commas, or quotes): in prose those
-// close the sentence. A file name with no extension takes on further words that
-// start with a capital, a digit, "&", or "(" ("Acme Corp"), since a folder named
-// last in prose has no slash to show where it ends. Every quantifier is bounded or
-// separated by a character the next part cannot match, so matching is linear.
+// A folder runs to the next separator: any character but a separator (emoji, tabs,
+// newlines, runs of spaces, ;|*"^`:? and the like), and whitespace only where no
+// new path starts after it, so "see /a or /b" stays two paths. A folder ends at a
+// character it cannot hold, so each folder is scanned once and matching is linear.
+// The file name is stricter: in prose, spaces and closing punctuation end it.
+// Punctuation counts inside a name only when a name character follows it
+// ("Initech;plan.md", "O'Brien"), so quotes and parentheses around a path stay. A
+// file name with no extension takes on further words that start with a capital, a
+// digit, "&", or "(" ("Acme Corp"), since a folder named last in prose has no
+// slash to show where it ends.
 const WORD = String.raw`(?:[\p{L}\p{N}\p{M}_.@+&(),#%=!$\[\]{}<>-]|(?<=\p{L})['’](?=\p{L}))`;
-const FOLDER = String.raw`${WORD}{1,255}(?:[  ]${WORD}{1,255}){0,31}`;
+const PATH_START = String.raw`["'(\[<\x60]?(?:[\\/~$%]|[A-Za-z]:[\\/])`;
+const FOLDER = String.raw`[^\\/\s](?:[^\\/\s]|\s(?!${PATH_START}))*`;
+// The first folder at the root starts with a name character, so code ("/[a-z]/",
+// a closing "/>") is not read as a path.
+const ROOT_FOLDER = String.raw`[\p{L}\p{N}\p{M}_.@#$&+=~-](?:[^\\/\s]|\s(?!${PATH_START}))*`;
 // A name with no extension also takes on lowercase words when a later word in the
 // same run ends in an extension ("q3 globex merger.md"): the shortest such run, up
 // to 8 words. An extension needs a letter, so "v1.2" does not end the run.
 const NAME_CH = String.raw`[\p{L}\p{N}\p{M}_.@+&#%=~<>-]`;
+const INNER = String.raw`(?:${NAME_CH}|[,;'()\[\]](?=[\p{L}\p{N}_(\[]|\.[\p{L}\p{N}])|:(?=[\p{L}_]))`;
 const EXT_END = String.raw`\.(?=[A-Za-z0-9]{0,7}[A-Za-z])[A-Za-z0-9]{1,8}(?=\.*(?!${NAME_CH}))`;
-const EXT_RUN = String.raw`(?:[  ]${NAME_CH}{1,255}){0,7}?[  ]${NAME_CH}{0,255}?${EXT_END}`;
-const BASE = String.raw`(${NAME_CH}{0,255})(${EXT_RUN}|(?:[  ][\p{Lu}\p{Lt}\p{N}&(]${WORD}{0,254}){0,15})`;
-const HOME_PATH = new RegExp(String.raw`(?<![\p{L}\p{N}\p{M}_.~<>-])~\/((?:${FOLDER}\/)*)${BASE}`, 'gu');
+const EXT_RUN = String.raw`(?:[  ]${INNER}{1,255}){0,7}?[  ]${INNER}{0,255}?${EXT_END}`;
+const BASE = String.raw`(${INNER}*)(${EXT_RUN}|(?:[  ][\p{Lu}\p{Lt}\p{N}&(]${WORD}{0,254}){0,15})`;
+const HOME_PATH = new RegExp(String.raw`(?<![\p{L}\p{N}\p{M}_.~<>-])~[\\/]((?:${FOLDER}[\\/])*)${BASE}`, 'gu');
 const collapse = (dirs) => {
   const kept = [];
   for (const seg of dirs) {
@@ -72,6 +78,7 @@ const collapse = (dirs) => {
 // name may name a client ("acme-contract.md"), so only its extension survives.
 const TOOL_FILES = new Set(['CLAUDE.md', 'CLAUDE.local.md', 'AGENTS.md', 'MEMORY.md', 'SKILL.md', 'settings.json', 'settings.local.json', '.mcp.json', 'installed_plugins.json']);
 const TOOL_NAMES = [...TOOL_FILES];
+const LONG_EXTS = new Set(['jsonl', 'jsonc', 'markdown', 'numbers', 'pages', 'ipynb', 'swift', 'scala', 'xhtml', 'local', 'example', 'sample', 'backup', 'patch', 'plist', 'proto', 'graphql', 'vue', 'svelte', 'astro']);
 const SESSION_FILE =/^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}\.jsonl$/i;
 export function maskBase(base) {
   // A sentence's closing period is not part of the name. A loop, not /(\.*)$/,
@@ -83,7 +90,9 @@ export function maskBase(base) {
   const tail = s.slice(end);
   if (!name || TOOL_FILES.has(name) || SESSION_FILE.test(name) || /^<[\w-]+>$/.test(name)) return base;
   const ext = /\.([A-Za-z0-9]{1,8})$/.exec(name.slice(1));
-  return `${ext ? `<file>.${ext[1]}` : '<file>'}${tail}`;
+  // A long extension can be a name (".env.initech"); only known long ones stay.
+  if (ext && ext[1].length > 4 && !LONG_EXTS.has(ext[1].toLowerCase())) ext[1] = null;
+  return `${ext?.[1] ? `<file>.${ext[1]}` : '<file>'}${tail}`;
 }
 // The words after a file name are part of it only when it has no extension; a run
 // that ends in an extension is masked as one name with that extension.
@@ -91,12 +100,49 @@ const fileName = (base, more) => {
   if (!base || /\.[A-Za-z0-9]{1,8}\.*$/.test(base)) return `${maskBase(base)}${more}`;
   return /\.[A-Za-z0-9]{1,8}$/.test(more) ? maskBase(`${base}${more}`) : maskBase(base);
 };
-const homePath = (_m, dirs, base, more) => `~/${collapse(dirs.split('/').filter(Boolean))}${fileName(base, more)}`;
-const ABS_PATH = new RegExp(String.raw`(?<![\p{L}\p{N}\p{M}_~.<>-])\/(?:${FOLDER}\/)+${BASE}`, 'gu');
+const dirList = (dirs) => (dirs ?? '').split(/[\\/]/).filter(Boolean);
+const homePath = (_m, dirs, base, more) => `~/${collapse(dirList(dirs))}${fileName(base, more)}`;
+const ABS_PATH = new RegExp(String.raw`(?<![\p{L}\p{N}\p{M}_~.<>-])\/${ROOT_FOLDER}[\\/](?:${FOLDER}[\\/])*${BASE}`, 'gu');
 // Windows drive paths, with either separator.
-const WIN_PATH = new RegExp(String.raw`(?<![\p{L}\p{N}\p{M}_])[A-Za-z]:[\\/](?:${FOLDER}[\\/])+${BASE}`, 'gu');
+const WIN_PATH = new RegExp(String.raw`(?<![\p{L}\p{N}\p{M}_])[A-Za-z]:(?:[\\/](?:${FOLDER}[\\/])+|[^\\/\s:]+[\\/](?:${FOLDER}[\\/])*)${BASE}`, 'gu');
 const otherPath = (_m, base, more) => `<path>/${fileName(base, more)}`;
 const PROJECT_FOLDER = /(\.claude\/projects\/)[^/\s"'<>]+/g;
+// A path that starts where a word can: after whitespace, a quote, or a bracket.
+const AT_START = String.raw`(?<![^\s"'(\[\x60=])`;
+// UNC shares (\\server\share\x) and their forward-slash form (//server/share/x).
+const UNC_PATH = new RegExp(String.raw`${AT_START}[\\/]{2}(?=[^\\/\s])(?:${FOLDER}[\\/])+${BASE}`, 'gu');
+// Paths under an environment variable ($HOME/x, ${HOME}/x, %USERPROFILE%\x): the
+// variable stays, the folders do not.
+const ENV_PATH = new RegExp(String.raw`(?<![\p{L}\p{N}_$%])(\$\{?[A-Za-z_]\w{0,63}\}?|%[A-Za-z_]\w{0,63}%)[\\/]((?:${FOLDER}[\\/])*)${BASE}`, 'gu');
+const envPath = (_m, v, dirs, base, more) => `${v}/${collapse(dirList(dirs))}${fileName(base, more)}`;
+// Another user's home (~initech/x) names that user.
+const USER_HOME = new RegExp(String.raw`(?<![\p{L}\p{N}\p{M}_.~<>-])~[\p{L}\p{N}_][\p{L}\p{N}\p{M}_.-]*[\\/](?:${FOLDER}[\\/])*${BASE}`, 'gu');
+// The path after a host, an IP and port, or an scp remote (git@host:org/repo.git).
+// An scp colon needs a non-digit after it, so "host:8080" stays a port.
+const REMOTE_PATH = new RegExp(String.raw`(<(?:email|host|ip)>)((?::\d{1,5})?\/|:(?=[^\s\d\\/]))((?:(?:[^\\/\s<>:]|<[\w-]{1,32}>)+[\\/])*)${BASE}`, 'gu');
+const remotePath = (_m, at, sep, dirs, base, more) => `${at}${sep}${collapse(dirList(dirs))}${fileName(base, more)}`;
+// A folder alone at the root ("/initech"). Built-in slash commands stay.
+const SLASH_COMMANDS = new Set(['add-dir', 'agents', 'approve', 'bug', 'clear', 'compact', 'config', 'context', 'cost', 'doctor', 'exit', 'export', 'help', 'hooks', 'ide', 'init', 'login', 'logout', 'mcp', 'memory', 'model', 'permissions', 'plugin', 'pr-comments', 'release-notes', 'resume', 'review', 'rewind', 'security-review', 'status', 'statusline', 'terminal-setup', 'todos', 'usage', 'vim']);
+const ROOT_DIR = new RegExp(String.raw`${AT_START}\/([\p{L}\p{N}_][\p{L}\p{N}\p{M}_.-]*)(?![\\/\p{L}\p{N}\p{M}_.-])`, 'gu');
+// Relative paths (../x/y, ./x, a/b/c.md, Hooli Plans/CLAUDE.md). A slash between
+// two words is prose ("A/B", "and/or", "3/5"), so a relative path needs a leading
+// ./ or ../, two separators, or a file extension, and a letter. Up to two
+// capitalized words before the first folder belong to it ("Hooli Plans/").
+const REL_PATH = new RegExp(String.raw`(?<![\p{L}\p{N}\p{M}_.~<>@:$%+&#=\\/-])(?:(\.{1,2}[\\/])|((?:[\p{Lu}\p{N}][\p{L}\p{N}\p{M}_&'’-]{0,63}[  ]){0,2})([\p{L}\p{N}\p{M}_.][\p{L}\p{N}\p{M}_.@+&#%=-]*[\\/]))((?:${FOLDER}[\\/])*)${BASE}`, 'gu');
+const relPath = (m, dots, prefix, first, dirs, base, more) => {
+  const segs = dirList(`${first ?? ''}${dirs}`);
+  const seps = (first ? 1 : 0) + (dirs.match(/[\\/]/g) ?? []).length;
+  const ext = /\.[A-Za-z][A-Za-z0-9]{0,7}\.*$/.test(base) || /\.[A-Za-z][A-Za-z0-9]{0,7}$/.test(more);
+  if (!dots && ((!ext && seps < 2) || !/\p{L}/u.test(`${first}${dirs}${base}`))) return m;
+  return `${first?.startsWith('.') ? prefix : ''}${segs.length ? collapse(segs) : dots}${fileName(base, more)}`;
+};
+// Document names in prose ("Initech Merger.docx", "q3 globex plan.md"). Where such a
+// name starts is unknowable, so up to three words before it go with it. Tool and
+// generic repo file names stay.
+const DOC_EXT = 'md|mdx|markdown|txt|rtf|docx?|odt|pdf|pages|xlsx?|xlsm|ods|csv|tsv|numbers|pptx?|odp|key|eml|msg';
+const GENERIC_FILES = new Set(['README.md', 'CHANGELOG.md', 'CONTRIBUTING.md', 'LICENSE.md', 'LICENSE.txt', 'SECURITY.md', 'CODE_OF_CONDUCT.md', 'llms.txt', 'requirements.txt', 'robots.txt']);
+const BARE_NAME = new RegExp(String.raw`(?<![\p{L}\p{N}\p{M}_.~<>@:$%+&#=\\/-])(?:[\p{L}\p{N}\p{M}_&'’-]{1,64}[  ]){0,3}([\p{L}\p{N}\p{M}_][\p{L}\p{N}\p{M}_.@+&#%=-]*?)\.(${DOC_EXT})(?![\p{L}\p{N}\p{M}_-])`, 'giu');
+const bareName = (m, name, ext) => (TOOL_FILES.has(`${name}.${ext}`) || GENERIC_FILES.has(`${name}.${ext}`) ? m : `<file>.${ext}`);
 
 // Home prefix to "~" only at a path boundary: home /Users/bob must not turn
 // /Users/bobby/x into "~by/x".
@@ -152,9 +198,16 @@ export function mask(text, known) {
   out = out.replace(IPV4, '<ip>');
   // "CLAUDE.local.md" and "settings.local.json" are file names, not hosts.
   out = out.replace(HOST, (m, at, s) => (TOOL_NAMES.some((n) => s.startsWith(n, at)) ? m : '<host>'));
+  out = out.replace(REMOTE_PATH, remotePath);
+  out = out.replace(UNC_PATH, otherPath);
+  out = out.replace(ENV_PATH, envPath);
+  out = out.replace(USER_HOME, otherPath);
   out = out.replace(WIN_PATH, otherPath);
   out = out.replace(HOME_PATH, homePath);
   out = out.replace(ABS_PATH, otherPath);
+  out = out.replace(ROOT_DIR, (m, name) => (SLASH_COMMANDS.has(name) ? m : '<path>'));
+  out = out.replace(REL_PATH, relPath);
+  out = out.replace(BARE_NAME, bareName);
   return out;
 }
 
