@@ -16,13 +16,14 @@ export function gitInvocation(args, cwd) {
   if (sub === 'status' && !args.includes('--porcelain')) deny(args, 'status needs --porcelain');
   if (args.some((a) => WRITING_FLAGS.test(a))) deny(args, 'flag can write or run code');
   // Commands that can render a diff never run an external diff or textconv program,
-  // whether it comes from repo config or the environment.
+  // whether it comes from repo config or the environment; signature checks (which
+  // run gpg.program) are off for every command.
   const noPrograms = DIFFING.has(sub) ? ['--no-ext-diff', '--no-textconv'] : [];
   const env = { ...process.env, GIT_OPTIONAL_LOCKS: '0', GIT_TERMINAL_PROMPT: '0' };
   delete env.GIT_EXTERNAL_DIFF;
   return {
     cmd: 'git',
-    args: ['--no-pager', '-c', 'core.fsmonitor=false', sub, ...noPrograms, ...args.slice(1)],
+    args: ['--no-pager', '-c', 'core.fsmonitor=false', '-c', 'log.showSignature=false', sub, ...noPrograms, ...args.slice(1)],
     env,
     cwd,
   };
