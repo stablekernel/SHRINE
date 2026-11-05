@@ -5,14 +5,8 @@ const EM_DASH = /—/;
 const JUDGMENT = /\b(you failed|you forgot|bad|lazy|careless|sloppy|incompetent|stupid|terrible|awful|poor job)\b/i;
 const DOLLARS = /\$\s?\d|\b(dollars?|usd)\b/i;
 
-const UNITS = [
-  '%', 'kb', 'mb', 'gb', 'bytes?', 'days?', 'hours?', 'minutes?', 'min', 'seconds?', 'sessions?',
-  'files?', 'tokens?', 'episodes?', 'turns?', 'items?', 'checks?', 'lines?', 'points?', 'x',
-  'hooks?', 'skills?', 'servers?', 'kinds?', 'projects?', 'repos?', 'findings?', 'characters?',
-  'chars?', 'rules?', 'entries', 'entry', 'layers?', 'of', 'allow', 'permissions?', 'commits?',
-  'agents?', 'commands?', 'sources?', 'reviewers?', 'corrections?', 'candidates?', 'k',
-];
-const UNIT_AFTER = new RegExp(`^\\s*(${UNITS.join('|')})\\b|^%|^\\s*(KB|MB)`, 'i');
+// A unit is a counted noun or a symbol right after the number ("3 rules", "40 KB", "12%").
+const UNIT_AFTER = /^(%|\s*[A-Za-z])/;
 const NUMBER = /(?<![\w.:/-])\d[\d,]*(\.\d+)?/g;
 // Numbers that are labels, not quantities: dates, versions, tier names, ids.
 const EXEMPT_BEFORE = /(tier|t|v|version|step|phase|gate|node|schema_version|wcag|level)\s*$/i;
