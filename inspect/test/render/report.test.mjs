@@ -181,3 +181,14 @@ test('empty state prints its next step once, in a "Next step" box', () => {
     assert.doesNotMatch(tldr, /Start with one change/, label);
   }
 });
+
+test('with zero findings, the next step drops the session-history ask once history was read', () => {
+  const base = JSON.parse(JSON.stringify(mock));
+  Object.assign(base, { findings: [], worth_a_look: [], headline: { ...base.headline, tldr: [], start_with: null, counts: { ...base.headline.counts, amplify: 0, working: 0, not_passed: 0 } } });
+  const next = (html) => html.match(/<h3>Next step<\/h3><p>([^<]*)<\/p>/)?.[1];
+  const unread = next(renderReport({ ...base, history: { consented: false, read: false, sessions: null } }));
+  const read = next(renderReport({ ...base, history: { consented: true, read: true, sessions: 12 } }));
+  assert.ok(unread && read, 'both renders show a next step');
+  assert.match(unread, /session history/);
+  assert.doesNotMatch(read, /run again with session history/i);
+});

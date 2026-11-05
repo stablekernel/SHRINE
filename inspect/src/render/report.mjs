@@ -306,7 +306,7 @@ function footer(d) {
 
 export function renderReport(findings, { shareSafe = false } = {}) {
   const d = findings;
-  const empty = emptyStates({ checks: d.headline.counts?.checks ?? d.checked_clear.length, notPassed: d.headline.counts?.not_passed ?? 0, tier: d.tier });
+  const empty = emptyStates({ checks: d.headline.counts?.checks ?? d.checked_clear.length, notPassed: d.headline.counts?.not_passed ?? 0, tier: d.tier, historyRead: d.history?.read === true });
   const integrity = d.integrity?.ok === false
     ? `<div class="integrity" role="alert"><b>Integrity check failed.</b> These files changed while inspect had them open for writing: ${d.integrity.changed_paths.map((p) => `<code class="mono">${esc(p)}</code>`).join(', ')}</div>`
     : '';

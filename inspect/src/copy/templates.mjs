@@ -144,7 +144,7 @@ const UNKNOWABLE = [
   'Whether a change was correct when no later commit or test touched it',
 ];
 
-export function emptyStates({ checks, notPassed = 0, tier = 'T0' }) {
+export function emptyStates({ checks, notPassed = 0, tier = 'T0', historyRead = false }) {
   return {
     // checks counts passed checks only (no findings here), so the total adds the failed ones.
     tldr: notPassed ? `No findings against ${checks + notPassed} SHRINE checks; ${notPassed} did not pass.` : `No setup issues found against ${checks} SHRINE checks.`,
@@ -152,7 +152,14 @@ export function emptyStates({ checks, notPassed = 0, tier = 'T0' }) {
     not_passed: notPassed
       ? `${notPassed} ${notPassed === 1 ? 'check' : 'checks'} ran and did not pass; no Tier ${String(tier).slice(1)} finding exists for ${notPassed === 1 ? 'it' : 'them'} yet.`
       : '',
-    tldr_next: notPassed ? 'Run again with session history for usage counts.' : 'Keep the checks below passing, or run again with session history for usage counts.',
+    // Session history is only worth asking for when this run did not read it.
+    tldr_next: historyRead
+      ? notPassed
+        ? 'Fix the checks that did not pass, then run again to confirm.'
+        : 'Keep the checks below passing. Session history showed nothing to act on.'
+      : notPassed
+        ? 'Run again with session history for usage counts.'
+        : 'Keep the checks below passing, or run again with session history for usage counts.',
     tab: {
       amplify: { title: 'Nothing cleared the bar yet.', body: 'More session history or a deeper tier adds usage findings.' },
       working: { title: 'Nothing cleared the bar yet.', body: 'Praise needs measured evidence from Tier 2 or deeper. Presence alone earns nothing.' },
@@ -192,6 +199,6 @@ export function sampleCopy() {
     findings: Object.keys(FINDINGS).map((k) => copy.finding(k, SAMPLE_PROBES[k])),
     clear: Object.keys(CLEAR).map((k) => copy.clear(k)),
     unknowable: copy.unknowable(),
-    empty: [emptyStates({ checks: 10, notPassed: 1 }), emptyStates({ checks: 10, notPassed: 2 })],
+    empty: [0, 1, 2].flatMap((notPassed) => [false, true].map((historyRead) => emptyStates({ checks: 10, notPassed, historyRead }))),
   };
 }

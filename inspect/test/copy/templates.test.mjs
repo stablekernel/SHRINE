@@ -65,3 +65,14 @@ test('copy lint catches each rule', () => {
   assert.deepEqual(copyProblems('Size is 52.'), ['number without unit "52"']);
   assert.deepEqual(copyProblems('Size is 52 KB on 2026-11-04 in Tier 1.'), []);
 });
+
+// "Run again with session history" after history was read sends the reader in a circle.
+test('the empty-state next step only asks for session history when it was not read', () => {
+  for (const notPassed of [0, 1]) {
+    const unread = emptyStates({ checks: 9, notPassed });
+    const read = emptyStates({ checks: 9, notPassed, historyRead: true });
+    assert.match(unread.tldr_next, /session history/);
+    assert.doesNotMatch(read.tldr_next, /run again with session history/i);
+    assert.notEqual(read.tldr_next, unread.tldr_next);
+  }
+});
