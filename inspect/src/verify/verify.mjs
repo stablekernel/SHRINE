@@ -4,10 +4,11 @@
 // Append-only session logs only record growth, attributed to other sessions.
 // Each scanned repo's .git is also snapshotted (pack list; index, HEAD, FETCH_HEAD,
 // and packed-refs mtimes). Only the lazy-fetch signature fails the run: a new
-// promisor pack, no pack removed, and no FETCH_HEAD update. Index, HEAD, ref, and
+// promisor pack written during one of inspect's own git runs in that repo, no pack
+// removed, and no FETCH_HEAD update. Index, HEAD, ref, and
 // other pack changes come from the user (git add, stash, fetch, repack, gc,
 // maintenance, an IDE refresh) and are reported as changed by others.
-import { resolve } from 'node:path';
+import { resolve, sep } from 'node:path';
 import { exists, list, readBytes, sha256, stat } from '../io/fsread.mjs';
 import { gitOut } from '../io/git.mjs';
 
@@ -34,14 +35,26 @@ function gitState(root) {
 }
 
 const sameState = (a, b) => ['packs', 'index', 'head', 'fetch_head', 'refs'].every((k) => a[k] === b[k]);
+// Slack around each inspect git run for coarse filesystem mtimes.
+const SLACK_MS = 250;
 // A lazy fetch only adds a pack with a .promisor sidecar and never writes
 // FETCH_HEAD. A repack or gc also removes packs; plain fetches add no .promisor.
-function lazyFetch(a, b) {
+// The user or an IDE can lazy-fetch in the same clone, so inspect is blamed only
+// when the new pack's mtime falls inside one of its own git runs in that repo.
+function lazyFetch(a, b, runs) {
   if (a.fetch_head !== b.fetch_head) return false;
   const before = new Set(a.packs.split('\n'));
   const after = new Set(b.packs.split('\n'));
   if ([...before].some((n) => n && !after.has(n))) return false;
-  return [...after].some((n) => n.endsWith('.promisor') && !before.has(n));
+  return [...after]
+    .filter((n) => n.endsWith('.promisor') && !before.has(n))
+    .map((n) => stat(resolve(a.common, 'objects', 'pack', n))?.mtimeMs)
+    .some((m) => m != null && runs.some((r) => m >= r.t_start - SLACK_MS && m <= r.t + SLACK_MS));
+}
+
+function gitRunsIn(spy, root) {
+  const under = (cwd) => cwd && (resolve(cwd) === root || resolve(cwd).startsWith(`${root}${sep}`));
+  return spy.filter((e) => e.op === 'spawn' && e.cmd === 'git' && e.t_start != null && under(e.cwd));
 }
 
 export function baselineOf(items, repos = []) {
@@ -75,7 +88,7 @@ export function verifyRun(baseline, spy) {
     if (now !== h.head) changed.push({ path: h.root, change: 'HEAD moved', by: 'others' });
     else if (h.git) {
       const after = gitState(h.root);
-      if (after && !sameState(h.git, after)) changed.push({ path: h.git.common, change: '.git changed', by: lazyFetch(h.git, after) ? 'inspect' : 'others' });
+      if (after && !sameState(h.git, after)) changed.push({ path: h.git.common, change: '.git changed', by: lazyFetch(h.git, after, gitRunsIn(spy, resolve(h.root))) ? 'inspect' : 'others' });
     }
   }
   const byInspect = changed.filter((c) => c.by === 'inspect');

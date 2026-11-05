@@ -85,6 +85,7 @@ test('git spawns are recorded in the spy log', () => {
   const spawns = fsread.spyLog().filter((e) => e.op === 'spawn');
   assert.equal(spawns.length, 1);
   assert.equal(spawns[0].cmd, 'git');
+  assert.ok(spawns[0].t_start <= spawns[0].t, 'spawn records its start and end time');
 });
 
 test('spawn allowlist is git plus a self-spawn of this package bin', () => {

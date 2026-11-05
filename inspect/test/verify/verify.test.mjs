@@ -79,10 +79,26 @@ test('a new promisor pack while HEAD and FETCH_HEAD stay put (lazy fetch) fails 
   execFileSync('git', ['commit', '-q', '--allow-empty', '-m', 'one'], { cwd: repo, env });
   const { heads } = baselineOf([], [repo]);
   assert.equal(verifyRun({ files: [], heads }, []).ok, true, 'no change verifies ok');
+  const t_start = Date.now();
   for (const ext of ['pack', 'idx', 'promisor']) writeFileSync(join(repo, '.git', 'objects', 'pack', `pack-0000.${ext}`), 'x');
-  const r = verifyRun({ files: [], heads }, []);
+  const r = verifyRun({ files: [], heads }, [inspectGit(repo, t_start, Date.now())]);
   assert.equal(r.ok, false);
   assert.deepEqual(r.changed_paths, [join(repo, '.git')]);
+});
+
+const inspectGit = (cwd, t_start, t) => ({ op: 'spawn', cmd: 'git', args: [], cwd, mode: 'x', t_start, t });
+
+test('a promisor pack made between inspect git runs (a user lazy fetch) is reported, not blamed on inspect', async () => {
+  const { execFileSync } = await import('node:child_process');
+  const { repo } = gitRepo(execFileSync);
+  const { heads } = baselineOf([], [repo]);
+  const now = Date.now();
+  for (const ext of ['pack', 'idx', 'promisor']) writeFileSync(join(repo, '.git', 'objects', 'pack', `pack-0000.${ext}`), 'x');
+  const other = mkdtempSync(join(tmpdir(), 'si-verify-other-'));
+  const spy = [inspectGit(repo, now - 60_000, now - 59_000), inspectGit(repo, now + 59_000, now + 60_000), inspectGit(other, now - 1000, now + 1000)];
+  const r = verifyRun({ files: [], heads }, spy);
+  assert.equal(r.ok, true);
+  assert.deepEqual(r.changed_by_others.map((c) => c.change), ['.git changed']);
 });
 
 test('a new pack with no promisor sidecar, or an in-flight tmp pack, is not blamed on inspect', async () => {

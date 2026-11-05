@@ -15,7 +15,10 @@ export function checkSpawn(cmd, args) {
 
 export function runSync(cmd, args, { cwd, env } = {}) {
   checkSpawn(cmd, args);
-  record({ op: 'spawn', cmd, args, cwd, mode: 'x' });
+  // t_start and the entry's own t (end) bound the run, so the verifier can tell
+  // a .git change made during an inspect git run from one made between runs.
+  const t_start = Date.now();
   const r = spawnSync(cmd, args, { cwd, env, encoding: 'utf8', maxBuffer: 64 << 20 });
+  record({ op: 'spawn', cmd, args, cwd, mode: 'x', t_start });
   return { status: r.status, stdout: r.stdout ?? '', stderr: r.stderr ?? '', error: r.error };
 }
