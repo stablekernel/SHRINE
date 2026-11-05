@@ -168,6 +168,10 @@ export function maskPath(value, known) {
     const before = value.slice(0, anchor.index).trimEnd();
     return `${before ? maskPath(before, known) : ''}${anchor[0]}`;
   }
+  // A known identifier (a project named "skills") is masked even when it is also a
+  // locator word or tool name: the whole value is that name.
+  const id = known?.ids?.find((i) => i.value === value);
+  if (id) return id.placeholder;
   if (!/[\\/]/.test(value)) return LOCATOR_WORDS.has(value) || TOOL_FILES.has(value) ? value : maskBase(mask(value, known));
   let p = value.replace(PROJECT_FOLDER, '$1<project-folder>');
   const rest = underHome(p, known?.home);

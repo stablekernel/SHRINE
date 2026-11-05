@@ -377,3 +377,9 @@ test('share-safe basenames: tool file names and session ids stay, other names ke
   assert.equal(maskPath('/home/u/work/Makefile', known), '~/<path>/<file>');
   assert.equal(mask('See ~/.claude/commands/globex-release.md and /srv/acme/notes.txt.', known), 'See ~/.claude/<path>/<file>.md and <path>/<file>.txt.');
 });
+
+test('a project named like a locator word is masked under a path key', () => {
+  const known = buildIdentifiers({ projects: ['skills', 'acme-api'] });
+  assert.deepEqual(maskDeep({ projects: ['skills', 'acme-api'], path: 'skills' }, known), { projects: ['<project-2>', '<project-1>'], path: '<project-2>' });
+  assert.equal(maskPath('hooks', known), 'hooks', 'a locator word that is no project stays');
+});
