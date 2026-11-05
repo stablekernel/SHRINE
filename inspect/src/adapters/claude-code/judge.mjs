@@ -22,7 +22,13 @@ export const JUDGE_ENV = Object.freeze({
   DISABLE_AUTOUPDATER: '1',
   CLAUDE_CODE_DISABLE_CLAUDE_MDS: '1',
   CLAUDE_CODE_DISABLE_AUTO_MEMORY: '1',
+  CLAUDE_CODE_ENABLE_TELEMETRY: '0',
 });
+
+// Variables that tie a process to a running Claude Code session (set when inspect
+// itself runs inside one). The judge is a fresh headless launch, so they are
+// dropped; login and provider settings are kept as they are.
+const SESSION_LINK = /^(CLAUDECODE|CLAUDE_PID|CLAUDE_CODE_(ENTRYPOINT|EXECPATH|SESSION_ID|CHILD_SESSION|SESSION_ATTENDED|SSE_PORT|MESSAGING_SOCKET|MESSAGING_TOKEN))$/;
 
 // What a judge launch may still do, disclosed at Gate B (spec 7 child writes).
 export const DISCLOSURE = [
@@ -64,7 +70,7 @@ export function judgeInvocation({ bin, schema, env = {} }) {
       '--system-prompt', SYSTEM_PROMPT,
       '--json-schema', JSON.stringify(schema),
     ],
-    env: { ...env, ...JUDGE_ENV },
+    env: { ...Object.fromEntries(Object.entries(env).filter(([k]) => !SESSION_LINK.test(k))), ...JUDGE_ENV },
   };
 }
 

@@ -11,7 +11,10 @@ import { armJudge, checkSpawn, disarmJudge, runJudge } from '../../../src/io/pro
 const FAKE = fileURLToPath(new URL('../../fixtures/judge/fake-judge.mjs', import.meta.url));
 
 test('invocation: one headless --print call, no session saved, no tools, no MCP, no settings files, schema enforced', () => {
-  const inv = judgeInvocation({ bin: '/bin/claude', schema: CLASSIFIER_SCHEMA, env: { HOME: '/h', PATH: '/bin' } });
+  const inv = judgeInvocation({ bin: '/bin/claude', schema: CLASSIFIER_SCHEMA, env: { HOME: '/h', PATH: '/bin', CLAUDECODE: '1', CLAUDE_CODE_SESSION_ID: 'parent', CLAUDE_CODE_USE_BEDROCK: '1' } });
+  assert.equal(inv.env.CLAUDECODE, undefined, 'not tied to a running session');
+  assert.equal(inv.env.CLAUDE_CODE_SESSION_ID, undefined);
+  assert.equal(inv.env.CLAUDE_CODE_USE_BEDROCK, '1', 'provider settings kept');
   const a = inv.args;
   assert.equal(inv.cmd, '/bin/claude');
   assert.equal(a[0], '--print');
