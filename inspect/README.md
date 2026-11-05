@@ -14,6 +14,13 @@ Status: pre-release (SP1). Install and docs cutover arrive in SP3; until then th
 - `node bin/shrine-inspect.mjs purge` deletes the state and cache dirs, only if this tool created them
 - Exit codes: 0 ok, 1 internal, 2 usage, 3 gate waiting, 4 unsupported format (reserved, not raised yet), 5 integrity failure
 
+## Known limits
+
+Recorded, not fixed; `test/scrub/known-limits.test.mjs` pins each one, so a change is deliberate.
+
+- Share-safe may over-mask words near a path or document name: `Read ~/work/api Then Stop` gives `Read ~/<path>/<file>`
+- In free text, a path followed by a parenthesis can swallow the next word: `~/work/api (git timed out)` gives `~/<path>/<file> timed out)`
+
 ## Develop
 
 - Node 20 or newer; no runtime dependencies
