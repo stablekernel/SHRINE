@@ -208,6 +208,23 @@ test('a partial clone on git without GIT_NO_LAZY_FETCH: history skipped, with a 
   }
 });
 
+test('a git config include over 1 MiB is noted as a run limit and the run still writes both reports', async () => {
+  const h = makeHome('good');
+  const state = mkdtempSync(join(tmpdir(), 'si-state-'));
+  try {
+    writeFileSync(join(h.home, '.gitconfig'), '[include]\n\tpath = ~/big.cfg\n');
+    writeFileSync(join(h.home, 'big.cfg'), `[user]\n\tname = Big Person\n${'#'.repeat(1 << 20)}\n`);
+    const r = await inproc(['run', '--tier', 'T0', '--no-history', '--json'], h, state);
+    assert.equal(r.code, 0, r.stderr);
+    const s = JSON.parse(r.stdout);
+    const findings = JSON.parse(readFileSync(join(s.run_dir, 'findings.json'), 'utf8'));
+    assert.ok(findings.run_limits.some((n) => n.startsWith('1 git config file was not read in full')), JSON.stringify(findings.run_limits));
+    assert.ok(existsSync(s.share_safe));
+  } finally {
+    h.cleanup();
+  }
+});
+
 test('a repo git refuses to read (another owner) shows as a run limit, not a partial clone', async () => {
   const h = makeHome('good');
   const state = mkdtempSync(join(tmpdir(), 'si-state-'));

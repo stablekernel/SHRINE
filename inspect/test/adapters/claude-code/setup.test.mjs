@@ -264,6 +264,36 @@ test('git config users: comments, quoting, and case follow git config syntax', a
   assert.equal(configUser('[user "x"]\n\tname = sub\n'), null, 'a subsection is not [user]');
 });
 
+test('git config includes that cannot be read in full are skipped or cut at 1 MiB and noted, never fatal', async (t) => {
+  const { spawnSync } = await import('node:child_process');
+  const { chmodSync, truncateSync } = await import('node:fs');
+  const { knownIdentifiers } = await import('../../../src/adapters/claude-code/setup.mjs');
+  const h = makeHome('good');
+  try {
+    writeFileSync(join(h.home, '.gitconfig'), ['[user]', '\tname = Top Person', '[include]', '\tpath = ~/locked.cfg', '[include]', '\tpath = ~/huge.cfg', '[include]', '\tpath = ~/pipe', '[include]', '\tpath = ~/missing.cfg'].join('\n'));
+    writeFileSync(join(h.home, 'locked.cfg'), '[user]\n\tname = Locked Person\n');
+    chmodSync(join(h.home, 'locked.cfg'), 0o000);
+    writeFileSync(join(h.home, 'huge.cfg'), '[user]\n\tname = Big Person\n');
+    truncateSync(join(h.home, 'huge.cfg'), 3 * 1024 ** 3); // sparse, over 2 GiB
+    const fifo = spawnSync('mkfifo', [join(h.home, 'pipe')], { stdio: 'ignore' });
+    const ids = knownIdentifiers({ home: h.home, projects: [] });
+    const names = ids.authors.map((a) => a.name);
+    assert.ok(names.includes('Top Person') && names.includes('Big Person'), JSON.stringify(names));
+    const unread = ids.unread_configs.map((p) => p.slice(h.home.length + 1)).sort();
+    const expected = ['huge.cfg'];
+    if (process.getuid?.() === 0) t.diagnostic('root reads mode 000 files: EACCES not exercised');
+    else expected.push('locked.cfg');
+    if (fifo.error) t.diagnostic('no mkfifo: pipe include not exercised');
+    else expected.push('pipe');
+    assert.deepEqual(unread, expected.sort(), 'a missing include is not noted (git skips it too)');
+  } finally {
+    try {
+      (await import('node:fs')).chmodSync(join(h.home, 'locked.cfg'), 0o600);
+    } catch {}
+    h.cleanup();
+  }
+});
+
 test('git config users are followed through include.path and every includeIf, bounded, regular files only', async (t) => {
   const { execFileSync, spawnSync } = await import('node:child_process');
   const { knownIdentifiers } = await import('../../../src/adapters/claude-code/setup.mjs');

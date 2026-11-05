@@ -197,6 +197,13 @@ export async function continueRun(folder, ctx, io) {
   if (refused) {
     limits.push(`Git refused to read ${refused === 1 ? '1 repo' : `${refused} repos`} owned by another user (git's safe.directory check). Git dates and commit authors there are unknown, and date checks skip those files.`);
   }
+  // Identifiers for the share-safe copy, read now so a git config file it could not
+  // read in full shows as a run limit.
+  const ids = knownIdentifiers({ home: ctx.home, projects });
+  const unreadCfg = ids.unread_configs.length;
+  if (unreadCfg) {
+    limits.push(`${unreadCfg === 1 ? '1 git config file was' : `${unreadCfg} git config files were`} not read in full (not a regular file, unreadable, or over 1 MiB). Names and emails set there, past that point, are not masked in the share-safe copy.`);
+  }
   if (limits.length) {
     findings.run_limits = limits;
     findings.notes.push(...limits);
@@ -216,7 +223,7 @@ export async function continueRun(folder, ctx, io) {
   folder.markDone('findings');
 
   // Phase: report.
-  const known = buildIdentifiers(knownIdentifiers({ home: ctx.home, projects }));
+  const known = buildIdentifiers(ids);
   const reportPath = folder.write('report.html', renderReport(findings));
   const safePath = folder.write('report.share-safe.html', renderReport(shareSafeFindings(findings, known, PIVOTS), { shareSafe: true }));
   folder.markDone('report');

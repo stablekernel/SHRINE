@@ -74,6 +74,23 @@ export function readLines(path, maxLines, maxBytes = 1 << 20) {
   }
 }
 
+// At most maxBytes from the start of a file, as text, and whether more was left.
+export function readHead(path, maxBytes) {
+  const fd = open(path);
+  try {
+    const buf = Buffer.alloc(maxBytes + 1);
+    let pos = 0;
+    while (pos < buf.length) {
+      const n = fs.readSync(fd, buf, pos, buf.length - pos, pos);
+      if (n === 0) break;
+      pos += n;
+    }
+    return { text: buf.subarray(0, Math.min(pos, maxBytes)).toString('utf8'), truncated: pos > maxBytes };
+  } finally {
+    close(fd);
+  }
+}
+
 export function stat(path) {
   record({ op: 'stat', path, mode: 'r' });
   try {

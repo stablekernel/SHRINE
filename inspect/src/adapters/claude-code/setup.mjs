@@ -3,7 +3,7 @@
 // (git first, else mtime), and each repo's instruction-file layout.
 import { basename, dirname, join, relative, resolve } from 'node:path';
 import { userInfo } from 'node:os';
-import { exists, readLines, readText, stat } from '../../io/fsread.mjs';
+import { exists, readHead, readLines, stat } from '../../io/fsread.mjs';
 import { gitOut, gitRead, historyReadable } from '../../io/git.mjs';
 import { inventory } from './inventory.mjs';
 import { alwaysLoaded } from './always-loaded.mjs';
@@ -112,16 +112,39 @@ export function configUser(text) {
 // the user's own git identity is masked even where git history is not read. Every
 // include.path and every includeIf path is followed, whatever its condition. Only
 // regular files are read (never a pipe or device), each once, at most 10 levels
-// deep (git's own limit).
-export function configIdentities(path, home, depth = 0, seen = new Set(), out = []) {
-  if (depth > 10 || seen.has(path) || !stat(path)?.isFile()) return out;
+// deep (git's own limit), and at most CONFIG_MAX bytes each. A file that exists but
+// is not read in full (not a regular file, unreadable, or cut at the cap) is added
+// to unread; a missing one is not (git skips it too).
+export const CONFIG_MAX = 1 << 20;
+
+function readConfig(path, unread) {
+  const st = stat(path);
+  if (!st) return null;
+  if (!st.isFile()) {
+    unread.push(path);
+    return null;
+  }
+  try {
+    const { text, truncated } = readHead(path, CONFIG_MAX);
+    if (truncated) unread.push(path);
+    return text;
+  } catch {
+    unread.push(path);
+    return null;
+  }
+}
+
+export function configIdentities(path, home, depth = 0, seen = new Set(), out = [], unread = []) {
+  if (depth > 10 || seen.has(path)) return out;
   seen.add(path);
+  const text = readConfig(path, unread);
+  if (text === null) return out;
   const own = { name: [], email: [] };
-  for (const e of configEntries(readText(path))) {
+  for (const e of configEntries(text)) {
     if (isUser(e) && e.value) own[e.key].push(e.value.normalize('NFC'));
     if ((e.section === 'include' || e.section === 'includeif') && e.key === 'path' && e.value) {
       const next = e.value.startsWith('~/') ? (home ? join(home, e.value.slice(2)) : null) : resolve(dirname(path), e.value);
-      if (next) configIdentities(next, home, depth + 1, seen, out);
+      if (next) configIdentities(next, home, depth + 1, seen, out, unread);
     }
   }
   // A file's names and emails pair up in order (one [user] block is one person).
@@ -165,10 +188,11 @@ export function commonGitDir(root) {
 export function knownIdentifiers({ home, projects }) {
   const authors = [];
   const orgs = [];
+  const unread = [];
   const addAuthor = (a) => {
     if (a && !authors.some((x) => x.email === a.email && x.name === a.name)) authors.push(a);
   };
-  if (home) for (const cfg of [join(home, '.gitconfig'), join(home, '.config', 'git', 'config')]) configIdentities(cfg, home).forEach(addAuthor);
+  if (home) for (const cfg of [join(home, '.gitconfig'), join(home, '.config', 'git', 'config')]) configIdentities(cfg, home, 0, new Set(), [], unread).forEach(addAuthor);
   for (const p of projects) {
     const log = gitOut(['log', '-n', '200', '--format=%an%x09%ae'], p.root);
     for (const line of (log ?? '').split('\n').filter(Boolean)) {
@@ -177,10 +201,11 @@ export function knownIdentifiers({ home, projects }) {
     }
     const common = commonGitDir(p.root);
     const cfg = common && join(common, 'config');
-    if (cfg && stat(cfg)?.isFile()) {
-      const text = readText(cfg);
+    if (cfg) {
+      // One bounded read for the remotes; configIdentities reads it again for users.
+      const text = readConfig(cfg, []);
       for (const url of remoteUrls(text)) orgs.push(...remoteOrgs(url));
-      configIdentities(cfg, home).forEach(addAuthor);
+      configIdentities(cfg, home, 0, new Set(), [], unread).forEach(addAuthor);
     }
   }
   let osUser = null;
@@ -190,5 +215,5 @@ export function knownIdentifiers({ home, projects }) {
     osUser = null;
   }
   const names = projects.map((p) => basename(p.root));
-  return { osUser, home, authors, projects: names, repos: names, orgs: [...new Set(orgs)] };
+  return { osUser, home, authors, projects: names, repos: names, orgs: [...new Set(orgs)], unread_configs: [...new Set(unread)] };
 }
