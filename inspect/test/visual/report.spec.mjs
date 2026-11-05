@@ -34,7 +34,11 @@ for (const theme of ['light', 'dark']) {
 test('mock density, print', async ({ page }) => {
   await open(page, MOCK_HTML, { theme: 'light' });
   await page.emulateMedia({ media: 'print' });
-  await expect(page).toHaveScreenshot('mock-print.png', { fullPage: true });
+  // Size the viewport to the printed page first: a fullPage capture resizes the
+  // viewport while shooting, and on Linux the print layout then flips by a few px.
+  const height = await page.evaluate(() => document.documentElement.scrollHeight);
+  await page.setViewportSize({ width: 1280, height });
+  await expect(page).toHaveScreenshot('mock-print.png');
   const hidden = await page.locator('.detail:not(:visible)').count();
   expect(hidden).toBe(0);
 });

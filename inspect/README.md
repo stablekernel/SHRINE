@@ -19,6 +19,7 @@ Status: pre-release (SP1). Install and docs cutover arrive in SP3; until then th
 - `npm test`: unit, fixture, golden, e2e
 - `npm run lint`: read-only, copy, and no-network lints
 - `npm run test:visual`: Playwright snapshots plus axe (run `npx playwright install chromium` once)
+- Linux baselines (`*-linux.png`, used by CI) come from the `mcr.microsoft.com/playwright:v1.64.1-noble` image; regenerate them there, not on a laptop OS
 - `npm run build:catalogue`: rebuild `src/catalogue/catalogue.json` from `docs/`; add `-- --golden` to refresh `test/golden/catalogue.json`
 - `UPDATE_GOLDEN=1 node scripts/test.mjs zero-history`: refresh the zero-history goldens after a reviewed change
 - Only `src/io/runfolder.mjs` writes; only `src/io/proc.mjs` spawns (git plus this package's own bin)
