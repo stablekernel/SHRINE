@@ -63,6 +63,9 @@ export function rateDifference(flagged, rest) {
 }
 
 // sessions: facts sessions; episodes: extract + link output (with .rework).
+const reworkOf = (eps) => ({ hits: eps.filter((e) => e.rework).length, n: eps.length });
+const linked = (e) => (e.commits ?? []).length > 0;
+
 export function runUsageProbes({ sessions, episodes, t = THRESHOLDS }) {
   const u = t.usage;
   const flags = new Map(episodes.map((e) => [e.id, e.flags ?? episodeFlags(e)]));
@@ -86,6 +89,9 @@ export function runUsageProbes({ sessions, episodes, t = THRESHOLDS }) {
     done_without_test: sum((x) => (x.done_without_test ? 1 : 0)),
     attributable_tokens: attrib,
     committed: episodes.filter((e) => e.committed).length,
+    // Rework N: only episodes whose commits were found in git can show rework.
+    linked_commits: episodes.filter(linked).length,
+    committed_unlinked: episodes.filter((e) => e.committed && !linked(e)).length,
     rework: episodes.filter((e) => e.rework).length,
     possible_rework: episodes.filter((e) => e.possible_rework).length,
     possible_fix: episodes.filter((e) => e.possible_fix).length,
@@ -101,7 +107,7 @@ export function runUsageProbes({ sessions, episodes, t = THRESHOLDS }) {
     ship: u.done_without_test.ship,
     hit: counts.done_claims > 0 && rate > u.done_without_test.rate,
     metric: { flagged: flagged.length, claims: counts.done_claims, rate, threshold: u.done_without_test.rate },
-    control: rateDifference({ hits: flagged.filter((e) => e.rework).length, n: flagged.length }, { hits: rest.filter((e) => e.rework).length, n: rest.length }),
+    control: rateDifference(reworkOf(flagged.filter(linked)), reworkOf(rest.filter(linked))),
     tokens: flagged.reduce((n, e) => n + e.tokens, 0),
     episode_ids: flagged.map((e) => e.id),
   };

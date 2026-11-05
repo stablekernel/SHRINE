@@ -1,6 +1,6 @@
 import { test } from 'node:test';
 import assert from 'node:assert/strict';
-import { copy, sampleCopy, SAMPLE_PROBES, emptyStates } from '../../src/copy/templates.mjs';
+import { copy, sampleCopy, SAMPLE_PROBES, SAMPLE_USAGE, emptyStates, usageLines } from '../../src/copy/templates.mjs';
 import { copyProblems, copyProblemsDeep } from '../../src/copy/rules.mjs';
 
 const KINDS = ['stale_instructions', 'oversized_instructions', 'no_owner_or_review', 'blanket_permissions', 'stack_gap', 'short_retention'];
@@ -92,4 +92,15 @@ test('the empty-state next step only asks for session history when it was not re
     assert.doesNotMatch(read.tldr_next, /run again with session history/i);
     assert.notEqual(read.tldr_next, unread.tldr_next);
   }
+});
+
+test('rework lines use episodes with linked commits as N and show unlinked commit episodes apart', () => {
+  const lines = usageLines({ ...SAMPLE_USAGE, counts: { ...SAMPLE_USAGE.counts, episodes: 31, committed: 15, linked_commits: 3, committed_unlinked: 12, rework: 1, possible_fix: 0 } });
+  const text = lines.join('\n');
+  assert.match(text, /Rework \(named reverts\) within 72 hours: 1 of 3 episodes with linked commits \(33%/);
+  assert.match(text, /Possible rework \(later-session fix\): 0 of 3 episodes with linked commits/);
+  assert.match(text, /Unlinked commits: 12 episodes ran a commit command with no commit found in git, left out of rework counts\./);
+  assert.doesNotMatch(text, /of 15 /);
+  const control = lines.find((l) => /flagged episode/.test(l));
+  assert.match(control, /episodes with linked commits/);
 });

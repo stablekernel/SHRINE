@@ -22,10 +22,12 @@ test('retries need the same input within 5 calls and no human turn between', () 
 });
 
 const at = (min) => new Date(Date.parse('2026-11-01T10:00:00Z') + min * 60000).toISOString();
-const ep = (id, { claim = true, test = false, rework = false, humans = [], tokens = 1000 } = {}) => ({
+const ep = (id, { claim = true, test = false, rework = false, humans = [], tokens = 1000, committed = rework, commits = rework ? ['c0ffee'] : [] } = {}) => ({
   id,
   tokens,
   rework,
+  committed,
+  commits,
   last_text: claim ? 'All done.' : 'Here is the plan.',
   last_text_t: at(10),
   calls: test ? [{ t: at(5), name: 'Bash', command: 'npm test', key: 'k', human_turns_before: 1 }] : [{ t: at(5), name: 'Read', command: null, key: 'r', human_turns_before: 1 }],
@@ -56,7 +58,7 @@ test('counts and kinds: done_without_test and retry_loops ship as appendix count
     { turns: 3, interrupts: 1, compactions: 0, tokens: { in: 600, out: 400, cache_read: 50 }, subagent_share: 0.5 },
     { turns: 2, interrupts: 0, compactions: 1, tokens: { in: 1000, out: 0, cache_read: 0 }, subagent_share: 0 },
   ];
-  const episodes = [ep('a', { rework: true }), ep('b'), ep('c', { test: true }), ep('d', { claim: false, rework: true })];
+  const episodes = [ep('a', { rework: true }), ep('b', { commits: ['beef01'] }), ep('c', { test: true, commits: ['beef02'] }), ep('d', { claim: false, rework: true })];
   const r = runUsageProbes({ sessions, episodes });
   assert.equal(r.counts.sessions, 2);
   assert.equal(r.counts.human_turns, 5);
@@ -73,6 +75,24 @@ test('counts and kinds: done_without_test and retry_loops ship as appendix count
   assert.equal(dwt.control.diff_points, 0);
   assert.equal(r.kinds.find((k) => k.kind === 'retry_loops').ship, 'appendix');
   assert.equal(THRESHOLDS.usage.retry_loops.ship, 'appendix');
+});
+
+test('rework N is episodes with linked commits; the control compares linked episodes only', () => {
+  const episodes = [
+    ep('a', { rework: true }),
+    ep('b', { committed: true }), // commit command ran, no commit linked in git
+    ep('c', { committed: true }),
+    ep('d', { commits: ['beef01'] }),
+    ep('e', { test: true }), // never committed
+    ep('f', { test: true }),
+    ep('g', { test: true, commits: ['beef02'] }),
+  ];
+  const r = runUsageProbes({ sessions: [], episodes });
+  assert.equal(r.counts.linked_commits, 3);
+  assert.equal(r.counts.committed_unlinked, 2);
+  const dwt = r.kinds.find((k) => k.kind === 'done_without_test');
+  assert.deepEqual(dwt.control.flagged, { hits: 1, n: 2, rate: 0.5 }, 'flagged episodes with linked commits');
+  assert.deepEqual(dwt.control.rest, { hits: 0, n: 1, rate: 0 }, 'other episodes with linked commits');
 });
 
 test('rate difference keeps N for both groups', () => {
