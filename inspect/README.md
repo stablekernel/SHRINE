@@ -16,7 +16,7 @@ Status: pre-release (SP1). Install and docs cutover arrive in SP3; until then th
 ## Develop
 
 - Node 20 or newer; no runtime dependencies
-- `npm test`: unit, fixture, golden, e2e
+- `npm test`: unit, fixture, golden, e2e; the whole run fails after 10 minutes (`SHRINE_TEST_TIMEOUT_MS`) instead of hanging
 - `npm run lint`: read-only, copy, and no-network lints
 - `npm run test:visual`: Playwright snapshots plus axe (run `npx playwright install chromium` once)
 - Linux baselines (`*-linux.png`, used by CI) come from the `mcr.microsoft.com/playwright:v1.64.1-noble` image; regenerate them there, not on a laptop OS

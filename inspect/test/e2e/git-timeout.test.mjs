@@ -11,7 +11,12 @@ import { setSpawnTimeout } from '../../src/io/proc.mjs';
 import { encodeProjectPath } from '../../src/adapters/claude-code/projects.mjs';
 import { makeHome, FIXED_NOW } from '../synth/home.mjs';
 
-test('a repo that hangs git ends the read with a visible note, not a hung run', async (t) => {
+// The spawn time limit in these tests is 1 s. A per-test limit bounds the async
+// parts; if the spawn limit ever broke, git would block spawnSync itself, and the
+// run-wide limit in scripts/test.mjs fails the suite instead of hanging it.
+const SPAWN_TEST_TIMEOUT_MS = 30_000;
+
+test('a repo that hangs git ends the read with a visible note, not a hung run', { timeout: SPAWN_TEST_TIMEOUT_MS }, async (t) => {
   if (spawnSync('mkfifo', ['--help'], { stdio: 'ignore' }).error) return t.skip('no mkfifo on this platform');
   const h = makeHome('good', { projectName: 'app' });
   const repo = join(h.tmp, 'work', 'hung');

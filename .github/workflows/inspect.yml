@@ -14,6 +14,8 @@ permissions:
 
 jobs:
   test:
+    # A hung test fails the job instead of holding a runner for hours.
+    timeout-minutes: 15
     strategy:
       fail-fast: false
       matrix:
@@ -44,6 +46,7 @@ jobs:
         run: npm test
 
   visual:
+    timeout-minutes: 15
     runs-on: ubuntu-latest
     # Same image (and Playwright version) that made the committed *-linux.png
     # baselines, so fonts and browser match and a pixel diff gates.

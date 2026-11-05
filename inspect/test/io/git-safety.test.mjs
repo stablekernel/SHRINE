@@ -6,6 +6,11 @@ import { tmpdir } from 'node:os';
 import { join } from 'node:path';
 import { firstSafeGit, git, gitInvocation, historyReadable, honorsNoLazyFetch, setGitVersion } from '../../src/io/git.mjs';
 
+// The spawn time limit in these tests is 1 s. A per-test limit bounds the async
+// parts; if the spawn limit ever broke, git would block spawnSync itself, and the
+// run-wide limit in scripts/test.mjs fails the suite instead of hanging it.
+const SPAWN_TEST_TIMEOUT_MS = 30_000;
+
 const ENV = { ...process.env, GIT_AUTHOR_NAME: 't', GIT_AUTHOR_EMAIL: 't@x', GIT_COMMITTER_NAME: 't', GIT_COMMITTER_EMAIL: 't@x' };
 const sh = (cwd, ...a) => execFileSync('git', a, { cwd, env: ENV, stdio: 'pipe' }).toString();
 const packs = (repo) => readdirSync(join(repo, '.git', 'objects', 'pack')).filter((f) => f.endsWith('.pack'));
@@ -245,7 +250,7 @@ test('a partial clone on git that ignores GIT_NO_LAZY_FETCH skips history reads;
 
 // A repo config include.path that names a FIFO blocks git on open until a writer
 // shows up. The spawn time limit kills it and the read counts as failed.
-test('a git run blocked on a FIFO include times out as a failed read', async (t) => {
+test('a git run blocked on a FIFO include times out as a failed read', { timeout: SPAWN_TEST_TIMEOUT_MS }, async (t) => {
   const { gitOut, gitTimeouts, resetGitTimeouts } = await import('../../src/io/git.mjs');
   const { setSpawnTimeout } = await import('../../src/io/proc.mjs');
   if (spawnSync('mkfifo', ['--help'], { stdio: 'ignore' }).error) return t.skip('no mkfifo on this platform');
@@ -272,7 +277,7 @@ test('a git run blocked on a FIFO include times out as a failed read', async (t)
 
 // The hung mark is per repo: folders under one hung repo cost one time limit, not one each.
 for (const version of [[2, 39, 0], [2, 50, 1]]) {
-  test(`a hung repo costs one git run, not one per folder under it (git ${version.join('.')})`, async (t) => {
+  test(`a hung repo costs one git run, not one per folder under it (git ${version.join('.')})`, { timeout: SPAWN_TEST_TIMEOUT_MS }, async (t) => {
     const { gitOut, gitTimeouts, resetGitTimeouts } = await import('../../src/io/git.mjs');
     const { setSpawnTimeout } = await import('../../src/io/proc.mjs');
     const { resetSpy, spyLog } = await import('../../src/io/fsread.mjs');
