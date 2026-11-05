@@ -47,7 +47,18 @@ const collapse = (dirs) => {
   }
   return kept.map((k) => `${k}/`).join('');
 };
-const homePath = (_m, dirs, base) => `~/${collapse(dirs.split('/').filter(Boolean))}${base}`;
+// File names the harness itself defines (adapters/claude-code) stay; any other
+// name may name a client ("acme-contract.md"), so only its extension survives.
+const TOOL_FILES = new Set(['CLAUDE.md', 'CLAUDE.local.md', 'AGENTS.md', 'MEMORY.md', 'SKILL.md', 'settings.json', 'settings.local.json', '.mcp.json', 'installed_plugins.json']);
+const SESSION_FILE = /^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}\.jsonl$/i;
+export function maskBase(base) {
+  // A sentence's closing period is not part of the name.
+  const [, name, tail] = /^(.*?)(\.*)$/.exec(base ?? '');
+  if (!name || TOOL_FILES.has(name) || SESSION_FILE.test(name) || /^<[\w-]+>$/.test(name)) return base;
+  const ext = /\.([A-Za-z0-9]{1,8})$/.exec(name.slice(1));
+  return `${ext ? `<file>.${ext[1]}` : '<file>'}${tail}`;
+}
+const homePath = (_m, dirs, base) => `~/${collapse(dirs.split('/').filter(Boolean))}${maskBase(base)}`;
 const ABS_PATH = /(?<![\w~.<>-])\/(?:[\w.@+-]+(?: [\w.@+-]+)*\/)+([\w.@+-]*)/g;
 const PROJECT_FOLDER = /(\.claude\/projects\/)[^/\s"'<>]+/g;
 
@@ -70,7 +81,9 @@ export function maskPath(value, known) {
   const rest = underHome(p, known?.home);
   if (rest != null) p = `~${rest}`;
   const segs = p.split(/[\\/]/);
-  const base = mask(segs.pop(), known);
+  const last = segs.pop();
+  // Tool names first: the host rule would read "CLAUDE.local.md" as a hostname.
+  const base = TOOL_FILES.has(last) ? last : maskBase(mask(last, known));
   const head = segs[0];
   const lead = head === '~' ? '~/' : head === '' || /^[A-Za-z]:$/.test(head) ? '/' : '';
   const dirs = lead ? segs.slice(1) : segs;
@@ -91,7 +104,7 @@ export function mask(text, known) {
   out = out.replace(IPV4, '<ip>');
   out = out.replace(HOST, '<host>');
   out = out.replace(HOME_PATH, homePath);
-  out = out.replace(ABS_PATH, (_m, base) => `<path>/${base}`);
+  out = out.replace(ABS_PATH, (_m, base) => `<path>/${maskBase(base)}`);
   return out;
 }
 

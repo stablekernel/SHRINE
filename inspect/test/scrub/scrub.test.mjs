@@ -160,7 +160,7 @@ test('free-text home and absolute paths mask folders that contain spaces', () =>
   const k = buildIdentifiers({ home: '/Users/bob' });
   const out = mask('See ~/Client Work/acme-corp/svc/CLAUDE.md and /Library/Application Support/Zorb Co/x.json now', k);
   assert.ok(!/Client|Work|acme|svc|Application|Support|Zorb/.test(out), out);
-  assert.equal(out, 'See ~/<path>/CLAUDE.md and <path>/x.json now');
+  assert.equal(out, 'See ~/<path>/CLAUDE.md and <path>/<file>.json now');
 });
 
 test('maskPath masks path-typed fields segment by segment', () => {
@@ -176,8 +176,8 @@ test('maskPath masks path-typed fields segment by segment', () => {
   for (const [input, want] of Object.entries(cases)) assert.equal(maskPath(input, k), want, input);
   assert.equal(maskPath('setup', k), 'setup');
   const deep = maskDeep({ integrity: { changed_paths: ['~/Client Work/acme/x.md'] }, skipped_files: [{ path_scrubbed: '~/A B/c d/e.md' }] }, k);
-  assert.deepEqual(deep.integrity.changed_paths, ['~/<path>/x.md']);
-  assert.equal(deep.skipped_files[0].path_scrubbed, '~/<path>/e.md');
+  assert.deepEqual(deep.integrity.changed_paths, ['~/<path>/<file>.md']);
+  assert.equal(deep.skipped_files[0].path_scrubbed, '~/<path>/<file>.md');
 });
 
 test('displayPath only shortens the home at a path boundary', () => {
@@ -201,4 +201,15 @@ test('round-2 rules run in linear time on adversarial runs', () => {
     const g = growth((n) => unit.repeat(Math.ceil(n / unit.length)));
     assert.ok(g < 10, `${unit}: 4x input took ${g.toFixed(1)}x as long`);
   }
+});
+
+test('share-safe basenames: tool file names and session ids stay, other names keep only the extension', () => {
+  const known = buildIdentifiers({ home: '/home/u' });
+  for (const name of ['CLAUDE.md', 'CLAUDE.local.md', 'AGENTS.md', 'MEMORY.md', 'SKILL.md', 'settings.json', 'settings.local.json', '.mcp.json', 'installed_plugins.json', '00000000-0000-4000-8000-000000000001.jsonl']) {
+    assert.equal(maskPath(`/home/u/.claude/x/${name}`, known), `~/.claude/<path>/${name}`);
+  }
+  assert.equal(maskPath('/home/u/.claude/projects/p/memory/initechpayroll-contract-terms.md', known), '~/.claude/<path>/<file>.md');
+  assert.equal(maskPath('docs/hooli-onboarding.md', known), '<path>/<file>.md');
+  assert.equal(maskPath('/home/u/work/Makefile', known), '~/<path>/<file>');
+  assert.equal(mask('See ~/.claude/commands/globex-release.md and /srv/acme/notes.txt.', known), 'See ~/.claude/<path>/<file>.md and <path>/<file>.txt.');
 });
