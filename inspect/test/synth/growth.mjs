@@ -1,13 +1,13 @@
 // Linear-time check that does not flake under CPU load: compares the CPU time (not
 // wall time; the code under test is synchronous) at 4x the input with the time at
-// 1x, best of 5 each, interleaved. The 1x input grows until one run takes at least
-// 2ms, so timer resolution is not what is measured. Linear code gives about 4;
-// quadratic about 16.
-// minMs and tries raise the base run time and the best-of count for callers that
-// need a clean reading (the quadratic tripwire).
+// 1x, best of 7 each, interleaved. The 1x input grows until the best of 3 runs takes
+// at least 8ms: fixed overhead and timer noise shrink next to the real work, and one
+// GC pause in one run cannot stop the search at a size too small to time. Linear
+// code gives about 4; quadratic 13-16.
+// minMs and tries are options so a test can pin the size search (growth.test.mjs).
 export const MAX_N = 1 << 18;
 
-export function growth(build, run, { minMs = 2, tries = 5 } = {}) {
+export function growth(build, run, { minMs = 8, tries = 7 } = {}) {
   const time = (s) => {
     const t = process.cpuUsage();
     run(s);
@@ -21,7 +21,8 @@ export function growth(build, run, { minMs = 2, tries = 5 } = {}) {
   let n = 1000;
   let slow = false;
   for (;;) {
-    slow = time(build(n)) >= minMs;
+    const s = build(n);
+    slow = Math.min(time(s), time(s), time(s)) >= minMs;
     if (slow || 4 * n * 2 > MAX_N) break;
     n *= 2;
   }

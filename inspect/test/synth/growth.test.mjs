@@ -25,6 +25,6 @@ test('growth keeps the 4x input within the size cap when the 1x input first gets
   growth((n) => {
     largest = Math.max(largest, n);
     return repeatTo('x')(n);
-  }, (s) => (s.length > MAX_N / 2 ? spin(3) : 0), { tries: 1 });
+  }, (s) => (s.length > MAX_N / 2 ? spin(3) : 0), { minMs: 2, tries: 1 });
   assert.ok(largest <= MAX_N, `built ${largest} chars`);
 });
