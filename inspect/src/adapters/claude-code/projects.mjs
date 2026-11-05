@@ -1,7 +1,7 @@
 // Project listing for Gate A (spec 3 phase 1, spec 10 adapter). Before consent it
 // reads filesystem metadata plus, from one session file per folder, the cwd and
 // entrypoint keys of the first line carrying cwd, within the first 10 lines.
-import { basename, dirname, join } from 'node:path';
+import { basename, dirname, join, resolve } from 'node:path';
 import { fileURLToPath } from 'node:url';
 import { exists, list, readJson, readLines, stat } from '../../io/fsread.mjs';
 import { gitOut } from '../../io/git.mjs';
@@ -41,7 +41,9 @@ function sampleMeta(file) {
 export function repoRoot(cwd) {
   const wt = cwd.match(/^(.*?)\/\.worktrees\/[^/]+/);
   if (exists(cwd)) {
-    const common = gitOut(['rev-parse', '--path-format=absolute', '--git-common-dir'], cwd);
+    // --path-format needs git 2.31; older git echoes it back, so resolve here.
+    const out = gitOut(['rev-parse', '--git-common-dir'], cwd);
+    const common = out && !out.includes('\n') ? resolve(cwd, out) : null;
     if (common) return basename(common) === '.git' ? dirname(common) : common;
     const top = gitOut(['rev-parse', '--show-toplevel'], cwd);
     if (top) return top;
