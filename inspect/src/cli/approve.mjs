@@ -100,9 +100,19 @@ export async function approveCommand({ runId, gate, choice }, io, { findRun, con
   const folder = findRun(ctx.dirs.state, runId);
   const state = readJson(folder.path('state.json'));
   if (!['A', 'B', 'C'].includes(gate)) throw new InspectError('E_GATE', `gate ${gate} does not exist`, { exit: EXIT.USAGE });
-  // Judging that stopped without finishing (Ctrl-C, a crash) resumes on the consent
-  // already given: only episodes with no valid line are judged.
-  if (gate === 'B' && state.gates.B?.choice === 'T1' && !state.gates.C && !folder.isDone('judgments') && !state.abort && !['done', 'gate_c', 'scope_changed'].includes(state.phase)) return continueRun(folder, ctx, io);
+  // A T1 run that stopped before its report (Ctrl-C, a crash) can be finished.
+  // Judging left unfinished resumes only on a fresh typed yes, and only for
+  // episodes with no valid line; any other answer or choice spawns nothing.
+  if (gate === 'B' && state.gates.B?.choice === 'T1' && !state.gates.C && !state.abort && !['done', 'gate_c', 'scope_changed'].includes(state.phase)) {
+    if (!folder.isDone('judgments')) {
+      if (choice && choice !== 'T1') {
+        throw new InspectError('E_GATE_ANSWERED', `Gate B of run ${runId} was answered T1 and judging is unfinished; nothing was judged now`, { hint: `resume with: shrine-inspect approve ${runId} B, or leave the run as it is`, exit: EXIT.USAGE });
+      }
+      const a = await prompt('Judging stopped before it finished. Resume the remaining episodes on the Gate B approval you gave? Type yes: ', { input: io.stdin, output: io.stderr });
+      if (!/^(yes|y)$/i.test(a)) throw new InspectError('E_NOT_ANSWERED', 'judging was not resumed; no model was called', { exit: EXIT.GATE_WAITING });
+    }
+    return continueRun(folder, ctx, io);
+  }
   if (state.gates[gate]) throw new InspectError('E_GATE_ANSWERED', `Gate ${gate} of run ${runId} is already answered`, { exit: EXIT.USAGE });
   const g = readJson(folder.path('gate.json'));
   if (g.gate !== gate) throw new InspectError('E_GATE', `run ${runId} is waiting at Gate ${g.gate}, not Gate ${gate}`, { exit: EXIT.USAGE });

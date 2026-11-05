@@ -3,7 +3,7 @@
 import { test } from 'node:test';
 import assert from 'node:assert/strict';
 import { createHash } from 'node:crypto';
-import { existsSync, lstatSync, readFileSync, readdirSync } from 'node:fs';
+import { existsSync, lstatSync, readFileSync, readdirSync, rmSync, writeFileSync } from 'node:fs';
 import { join, relative } from 'node:path';
 import { fakeJudge, inproc, judgeSpawns, json, lines, piped, plantedHome, runDir, runT1, silentTty, stateDir, tty } from './t1-helpers.mjs';
 
@@ -238,5 +238,30 @@ test('limited history (under 10 sessions): T1 is not offered', async () => {
   assert.equal(f.tier, 'T0');
   assert.ok(f.notes.some((n) => /needs 10 or more sessions/.test(n)));
   assert.equal(judgeSpawns(runDir(state)).length, 0);
+  h.cleanup();
+});
+
+test('interrupted judging resumes only on a fresh typed yes; B T0 or any other answer spawns nothing', async () => {
+  const h = plantedHome([['late', 12, 'aaaa']]);
+  const r = await runT1(h);
+  assert.equal(r.second.code, 0, r.second.stderr);
+  // Simulate a Ctrl-C after 2 judgments: phase back to gate_b, no judgments.done.
+  const st = json(r.dir, 'state.json');
+  writeFileSync(join(r.dir, 'state.json'), JSON.stringify({ ...st, phase: 'gate_b' }));
+  rmSync(join(r.dir, 'judgments.done'));
+  const kept = readFileSync(join(r.dir, 'judgments.jsonl'), 'utf8').split('\n').slice(0, 2).join('\n');
+  writeFileSync(join(r.dir, 'judgments.jsonl'), `${kept}\n`);
+  const log = join(r.state, 'resume-launches.log');
+  const judge = fakeJudge('auto', log);
+  const t0 = await inproc(['approve', r.runId, 'B', 'T0', '--json'], h, r.state, { stdin: tty('yes'), judge });
+  assert.equal(t0.code, 2, t0.stderr);
+  for (const stdin of [tty('no'), silentTty()]) {
+    const a = await inproc(['approve', r.runId, 'B', '--json'], h, r.state, { stdin, judge });
+    assert.equal(a.code, 3, a.stderr);
+  }
+  assert.ok(!existsSync(log), 'no judge launched without a fresh yes');
+  const yes = await inproc(['approve', r.runId, 'B', '--json'], h, r.state, { stdin: tty('yes'), judge });
+  assert.equal(yes.code, 0, yes.stderr);
+  assert.equal(readFileSync(log, 'utf8').trim().split('\n').length, 10, 'only the 10 missing episodes');
   h.cleanup();
 });
