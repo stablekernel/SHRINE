@@ -107,12 +107,22 @@ export function underHome(path, home) {
   return path.startsWith(h) && /^[\\/]/.test(path.slice(h.length)) ? path.slice(h.length) : null;
 }
 
-const LOOKS_LIKE_PATH = /^(?:~?[\\/]|[A-Za-z]:[\\/]|[^\s()*:=]+[\\/])/;
+// Locator words the scorer writes itself (the stack-gap kinds and the setup row).
+const LOCATOR_WORDS = new Set(['setup', 'hooks', 'skills', 'memory']);
+const LINE_ANCHOR = /#L\d+(?:-L?\d+)?/;
 
 // Masks a value known to be a path, segment by segment, so folder names with spaces
-// or any other characters never survive. Non-path values fall back to mask().
+// or any other characters never survive. Every value is split on separators, so a
+// relative path or a free-form value never falls back to the looser free-text
+// rules; a value with no separator is a file name. An anchor keeps only its #Lnn.
 export function maskPath(value, known) {
-  if (typeof value !== 'string' || !LOOKS_LIKE_PATH.test(value)) return mask(value, known);
+  if (typeof value !== 'string' || value === '') return value;
+  const anchor = LINE_ANCHOR.exec(value);
+  if (anchor) {
+    const before = value.slice(0, anchor.index).trimEnd();
+    return `${before ? maskPath(before, known) : ''}${anchor[0]}`;
+  }
+  if (!/[\\/]/.test(value)) return LOCATOR_WORDS.has(value) || TOOL_FILES.has(value) ? value : maskBase(mask(value, known));
   let p = value.replace(PROJECT_FOLDER, '$1<project-folder>');
   const rest = underHome(p, known?.home);
   if (rest != null) p = `~${rest}`;

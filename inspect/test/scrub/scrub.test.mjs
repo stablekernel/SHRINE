@@ -266,6 +266,24 @@ test('maskPath masks path-typed fields segment by segment', () => {
   assert.equal(deep.skipped_files[0].path_scrubbed, '~/<path>/<file>.md');
 });
 
+test('maskPath masks relative paths, bare file names, and anchors under path keys', () => {
+  const k = buildIdentifiers({ osUser: 'gavin', home: '/Users/gavin' });
+  const cases = {
+    'cheersbar notes.md': '<file>.md',
+    'initech-merger.md': '<file>.md',
+    'Hooli Plans/CLAUDE.md': '<path>/CLAUDE.md',
+    '../Initech Corp/plan.md': '<path>/<file>.md',
+    'see \\\\srv\\Initech\\plan.md now': '<path>/<file>',
+    '#L3 Initech Corp/x.md': '#L3',
+    'docs/Initech Corp/x.md#L3-L9': '<path>/<file>.md#L3-L9',
+    'CLAUDE.md': 'CLAUDE.md',
+    skills: 'skills',
+  };
+  for (const [input, want] of Object.entries(cases)) assert.equal(maskPath(input, k), want, input);
+  const out = JSON.stringify(maskDeep({ path: 'cheersbar notes.md', touched_files: ['initech-merger.md', 'Hooli Plans/CLAUDE.md'], anchor: '#L3 Initech Corp/x.md' }, k));
+  assert.doesNotMatch(out, /cheersbar|notes|initech|Initech|Hooli|merger/i, out);
+});
+
 test('displayPath only shortens the home at a path boundary', () => {
   assert.equal(displayPath('/Users/bobby/acmeco/CLAUDE.md', '/Users/bob'), '/Users/bobby/acmeco/CLAUDE.md');
   assert.equal(displayPath('/Users/bob/acmeco/CLAUDE.md', '/Users/bob'), '~/acmeco/CLAUDE.md');
