@@ -14,14 +14,15 @@ export function growth(build, run, { minMs = 2, tries = 5 } = {}) {
     const d = process.cpuUsage(t);
     return (d.user + d.system) / 1000;
   };
-  // Inputs stop at MAX_N chars: multi-megabyte strings measure allocator and cache
-  // effects (12x seen on Linux CI for a single linear match), not the regex. Code
-  // still under minMs at MAX_N cannot be quadratic, so it reads as linear.
+  // Inputs stop at MAX_N chars, the 4x input included: megabyte strings measure
+  // allocator and cache effects (11-12x seen on CI for single linear scans), not the
+  // code. Code still under minMs at MAX_N / 4 cannot be quadratic, so it reads as
+  // linear.
   let n = 1000;
   let slow = false;
   for (;;) {
     slow = time(build(n)) >= minMs;
-    if (slow || n * 2 > MAX_N) break;
+    if (slow || 4 * n * 2 > MAX_N) break;
     n *= 2;
   }
   if (!slow) return 1;
