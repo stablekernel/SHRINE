@@ -18,7 +18,16 @@ const AGENT_TOOLS = new Set(['Task', 'Agent']);
 // A fresh copy, so a short tail never pins the long reply it was cut from.
 const own = (s) => (typeof s === 'string' ? JSON.parse(JSON.stringify(s)) : s);
 
-export const endsWithQuestion = (text) => /\?\s*[*_`)"'\]]*\s*$/.test(text ?? '');
+// A `?`, then only closing marks and spaces. No regex: two `\s*` around an
+// optional run make a trailing-space check quadratic on assistant text.
+const CLOSERS = new Set(['*', '_', '`', ')', '"', "'", ']']);
+export function endsWithQuestion(text) {
+  let s = (text ?? '').trimEnd();
+  let n = s.length;
+  while (n > 0 && CLOSERS.has(s[n - 1])) n--;
+  s = s.slice(0, n).trimEnd();
+  return s.endsWith('?');
+}
 
 export function commitKind(command) {
   if (matchesAtCommand(command, COMMIT.pr)) return 'pr';

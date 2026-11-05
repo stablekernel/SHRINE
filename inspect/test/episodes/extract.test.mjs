@@ -54,9 +54,22 @@ test('command segments strip heredocs, quotes, and wrappers', () => {
   assert.ok(matchesAtCommand('for f in a; do npm test; done', ['npm test']));
 });
 
+test('heredocs and quotes: terminated ones end where the shell ends them, open ones run to the end', () => {
+  assert.deepEqual(commandSegments("git commit -m \"$(cat <<'EOF'\nnpm test\nEOF\n)\" && npm run lint"), ["git commit -m ''", 'npm run lint']);
+  assert.deepEqual(commandSegments('cat <<-EOF > a\n\tnpm test\n\tEOF\nls'), ['cat', 'ls']);
+  assert.deepEqual(commandSegments('cat <<EOF\nnpm test\nEOFX\nnpm run lint'), ['cat']);
+  assert.deepEqual(commandSegments('echo "a \\" && npm test'), ["echo ''"]);
+  assert.deepEqual(commandSegments("echo 'npm test; ls"), ["echo ''"]);
+  assert.deepEqual(commandSegments('a <<\nnpm test'), ['a <<', 'npm test']);
+});
+
 test('question detection allows trailing markup', () => {
   assert.ok(endsWithQuestion('Should I continue?'));
   assert.ok(endsWithQuestion('**Proceed?**'));
+  assert.ok(endsWithQuestion('Ready? )** \n'));
+  assert.ok(!endsWithQuestion('Is it? x'));
+  assert.ok(!endsWithQuestion(''));
+  assert.ok(!endsWithQuestion(null));
   assert.ok(!endsWithQuestion('Done. Questions? None.'));
 });
 

@@ -34,7 +34,7 @@ const keyOf = (name, input) => createHash('sha1').update(`${name}\u0000${JSON.st
 // them to tell which session made which commit.
 const SHA_HEAD = 2048;
 const SHA_LINE = /^\[[^\]\n]*\s([0-9a-f]{7,40})\]/gm;
-function commitShas(content) {
+export function commitShas(content) {
   const text = typeof content === 'string' ? content : Array.isArray(content) ? content.map((c) => (typeof c?.text === 'string' ? c.text : '')).join('\n') : '';
   return [...text.slice(0, SHA_HEAD).matchAll(SHA_LINE)].map((m) => own(m[1]));
 }
