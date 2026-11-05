@@ -165,9 +165,16 @@ export function score({ run, shrine, probes, structure, catalogue, pivots, copy,
   const pick = eligible ?? amplify[0];
   const start_with = pick ? { finding_id: pick.id, action: pick.pivot.action, minutes_to_apply: pick.pivot.minutes_to_apply, framed: Boolean(eligible) } : null;
 
+  // An area is checked only when some check that ran at this tier maps to it.
+  const checkRefs = (ids) => ids.map((e) => ref(catalogue, e)).filter(Boolean);
+  const checkedKeys = new Set([
+    ...probes.map((p) => checkRefs([p.entry_id, ...(p.see_also ?? [])])),
+    ...structure.filter((s) => s.applicable).map((s) => checkRefs([s.entry_id])),
+  ].filter((refs) => refs.length).map(coverageKey));
   const coverage = coverageAreas(catalogue).map(
     (c) => ({
       ...c,
+      checked: checkedKeys.has(c.key),
       working: working.filter((f) => f.coverage_key === c.key).length,
       amplify: amplify.filter((f) => f.coverage_key === c.key).length,
     }),

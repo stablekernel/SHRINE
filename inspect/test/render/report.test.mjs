@@ -143,14 +143,27 @@ test('coverage shows only tripped areas, grouped by SHRINE area, plus one quiet 
   const rows = [...cov.matchAll(/<th scope="row"[^>]*>[\s\S]*?<\/svg> ([^<]+)<\/th>/g)].map((m) => m[1]);
   assert.deepEqual(rows, ['Human in the Loop', 'Deliberate Currency', 'Harness Selection']);
   assert.deepEqual([...cov.matchAll(/scope="rowgroup" colspan="3"[^>]*>(\w+)</g)].map((m) => m[1]), ['Principles', 'Stack']);
-  assert.match(cov, new RegExp(`${d.coverage.length - 3} other areas showed no findings`));
+  const checked = d.coverage.filter((c) => c.checked).length;
+  assert.ok(checked >= 3 && checked < d.coverage.length, `only areas with a Tier 0 check count as checked (${checked})`);
+  assert.match(cov, new RegExp(`>${checked - 3} other checked areas? showed no findings\\. ${d.coverage.length - checked} areas have no Tier 0 check yet\\.<`));
   assert.ok(!cov.includes('Authority Cascade'), 'clean areas are hidden');
   for (const role of ['table', 'rowgroup', 'row', 'columnheader', 'rowheader', 'cell']) assert.ok(cov.includes(`role="${role}"`), `role ${role} kept for the phone grid layout`);
 });
 
 test('coverage with no finding shows only the quiet line', () => {
-  const html = renderReport(t0([]));
+  const d = t0([]);
+  const html = renderReport(d);
   const cov = html.slice(html.indexOf('id="map-h"'), html.indexOf('class="attr"'));
   assert.ok(!cov.includes('<table'));
-  assert.match(cov, /No SHRINE area showed a finding \(\d+ areas checked\)/);
+  const checked = d.coverage.filter((c) => c.checked).length;
+  assert.match(cov, new RegExp(`>No SHRINE area showed a finding \\(${checked} areas checked\\)\\. ${d.coverage.length - checked} areas have no Tier 0 check yet\\.<`));
+});
+
+test('a coverage area counts as checked only when a probe or structure check at the run tier maps to it', () => {
+  const d = t0([]);
+  const keys = new Set(d.coverage.filter((c) => c.checked).map((c) => c.key));
+  assert.ok(keys.has('human-in-the-loop') && keys.has('deliberate-currency'), [...keys].join(', '));
+  assert.ok(keys.size < d.coverage.length / 2, `most areas have no Tier 0 check (${keys.size} of ${d.coverage.length})`);
+  const none = score({ run: min.run(), shrine: min.shrine(), probes: [], structure: [], catalogue, pivots, copy });
+  assert.ok(none.coverage.every((c) => c.checked === false), 'no checks, no checked areas');
 });

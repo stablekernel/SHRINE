@@ -111,7 +111,10 @@ const AREA_GROUPS = [
 // collapse into one quiet line.
 function coverage(d, empty) {
   const tripped = d.coverage.filter((c) => c.working + c.amplify > 0);
-  const quiet = d.coverage.length - tripped.length;
+  // Areas with no check at this tier are counted apart, never as "no findings".
+  const checked = d.coverage.filter((c) => c.checked).length;
+  const quiet = checked - tripped.length;
+  const unchecked = d.coverage.length - checked;
   const max = Math.max(3, ...tripped.map((c) => Math.max(c.working, c.amplify)));
   const row = (c) =>
     `<tr role="row"><th scope="row" role="rowheader">${icon(c.icon)} ${esc(c.title)}</th><td role="cell"><div class="half left"><span>${c.working || ''}</span><i class="bar-g" style="width:${(c.working / max) * 100}%"></i></div></td><td role="cell"><div class="half"><i class="bar-w" style="width:${(c.amplify / max) * 100}%"></i><span>${c.amplify || ''}</span></div></td></tr>`;
@@ -119,7 +122,9 @@ function coverage(d, empty) {
     const rows = tripped.filter((c) => (c.group ?? 'principles') === g);
     return rows.length ? `<tbody role="rowgroup"><tr class="grp" role="row"><th scope="rowgroup" colspan="3" role="rowheader">${label}</th></tr>${rows.map(row).join('')}</tbody>` : '';
   }).join('');
-  const note = quiet ? `<p class="quiet">${quiet === d.coverage.length ? `No SHRINE area showed a finding (${pl(quiet, 'area')} checked).` : `${pl(quiet, 'other area')} showed no findings.`}</p>` : '';
+  const clear = !quiet ? '' : tripped.length ? `${pl(quiet, 'other checked area')} showed no findings.` : `No SHRINE area showed a finding (${pl(quiet, 'area')} checked).`;
+  const gap = unchecked ? `${pl(unchecked, 'area')} ${unchecked === 1 ? 'has' : 'have'} no Tier ${String(d.tier).slice(1)} check yet.` : '';
+  const note = clear || gap ? `<p class="quiet">${[clear, gap].filter(Boolean).join(' ')}</p>` : '';
   const table = tripped.length
     ? `<table class="cov" role="table"><caption class="sr-only">Findings per SHRINE area: working for you and room to amplify</caption><thead role="rowgroup"><tr role="row"><th scope="col" role="columnheader"><span class="sr-only">SHRINE area</span></th><th scope="col" role="columnheader">Working for you</th><th scope="col" role="columnheader">Room to amplify</th></tr></thead>${bodies}</table>`
     : '';

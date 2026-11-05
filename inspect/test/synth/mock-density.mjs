@@ -250,6 +250,7 @@ const working = [
 const all = [...amplify, ...working];
 const coverage = coverageAreas(cat).map((c) => ({
   ...c,
+  checked: true,
   working: all.filter((f) => f.tab === 'working' && f.coverage_key === c.key).length,
   amplify: all.filter((f) => f.tab === 'amplify' && f.coverage_key === c.key).length,
 }));

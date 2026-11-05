@@ -70,6 +70,7 @@
       "title": "Authority Cascade",
       "icon": "layers",
       "group": "principles",
+      "checked": true,
       "working": 0,
       "amplify": 0
     },
@@ -78,6 +79,7 @@
       "title": "Human in the Loop",
       "icon": "hand",
       "group": "principles",
+      "checked": true,
       "working": 0,
       "amplify": 1
     },
@@ -86,6 +88,7 @@
       "title": "Problem Before Prescription",
       "icon": "compass",
       "group": "principles",
+      "checked": false,
       "working": 0,
       "amplify": 0
     },
@@ -94,6 +97,7 @@
       "title": "Consistency as Leverage",
       "icon": "grid",
       "group": "principles",
+      "checked": false,
       "working": 0,
       "amplify": 0
     },
@@ -102,6 +106,7 @@
       "title": "Fail Fast, Recover Smart",
       "icon": "loop",
       "group": "principles",
+      "checked": false,
       "working": 0,
       "amplify": 0
     },
@@ -110,6 +115,7 @@
       "title": "Reproducibility",
       "icon": "repeat",
       "group": "principles",
+      "checked": true,
       "working": 0,
       "amplify": 1
     },
@@ -118,6 +124,7 @@
       "title": "Deliberate Currency",
       "icon": "clock",
       "group": "principles",
+      "checked": true,
       "working": 0,
       "amplify": 2
     },
@@ -126,6 +133,7 @@
       "title": "Adversarial Review",
       "icon": "book",
       "group": "patterns",
+      "checked": false,
       "working": 0,
       "amplify": 0
     },
@@ -134,6 +142,7 @@
       "title": "Chain of Thought",
       "icon": "book",
       "group": "patterns",
+      "checked": false,
       "working": 0,
       "amplify": 0
     },
@@ -142,6 +151,7 @@
       "title": "Checkpoint Gates",
       "icon": "book",
       "group": "patterns",
+      "checked": false,
       "working": 0,
       "amplify": 0
     },
@@ -150,6 +160,7 @@
       "title": "Context Handoff",
       "icon": "book",
       "group": "patterns",
+      "checked": false,
       "working": 0,
       "amplify": 0
     },
@@ -158,6 +169,7 @@
       "title": "Correction Diagnosis",
       "icon": "book",
       "group": "patterns",
+      "checked": false,
       "working": 0,
       "amplify": 0
     },
@@ -166,6 +178,7 @@
       "title": "Delegation Fit",
       "icon": "book",
       "group": "patterns",
+      "checked": false,
       "working": 0,
       "amplify": 0
     },
@@ -174,6 +187,7 @@
       "title": "Discovery Propagation",
       "icon": "book",
       "group": "patterns",
+      "checked": false,
       "working": 0,
       "amplify": 0
     },
@@ -182,6 +196,7 @@
       "title": "Dogfooding",
       "icon": "book",
       "group": "patterns",
+      "checked": false,
       "working": 0,
       "amplify": 0
     },
@@ -190,6 +205,7 @@
       "title": "Few-Shot Examples",
       "icon": "book",
       "group": "patterns",
+      "checked": false,
       "working": 0,
       "amplify": 0
     },
@@ -198,6 +214,7 @@
       "title": "Iterative Refinement",
       "icon": "book",
       "group": "patterns",
+      "checked": false,
       "working": 0,
       "amplify": 0
     },
@@ -206,6 +223,7 @@
       "title": "Mechanical Scaffolding",
       "icon": "book",
       "group": "patterns",
+      "checked": false,
       "working": 0,
       "amplify": 0
     },
@@ -214,6 +232,7 @@
       "title": "Multi-Model Consensus",
       "icon": "book",
       "group": "patterns",
+      "checked": false,
       "working": 0,
       "amplify": 0
     },
@@ -222,6 +241,7 @@
       "title": "Pipeline Orchestration",
       "icon": "book",
       "group": "patterns",
+      "checked": false,
       "working": 0,
       "amplify": 0
     },
@@ -230,6 +250,7 @@
       "title": "Progress Breadcrumbs",
       "icon": "book",
       "group": "patterns",
+      "checked": false,
       "working": 0,
       "amplify": 0
     },
@@ -238,6 +259,7 @@
       "title": "Prompt Regression Testing",
       "icon": "book",
       "group": "patterns",
+      "checked": false,
       "working": 0,
       "amplify": 0
     },
@@ -246,6 +268,7 @@
       "title": "RAG (Retrieval-Augmented Generation)",
       "icon": "book",
       "group": "patterns",
+      "checked": false,
       "working": 0,
       "amplify": 0
     },
@@ -254,6 +277,7 @@
       "title": "Reviewable Output",
       "icon": "book",
       "group": "patterns",
+      "checked": false,
       "working": 0,
       "amplify": 0
     },
@@ -262,6 +286,7 @@
       "title": "Self-Critique",
       "icon": "book",
       "group": "patterns",
+      "checked": false,
       "working": 0,
       "amplify": 0
     },
@@ -270,6 +295,7 @@
       "title": "Spec, Then Build",
       "icon": "book",
       "group": "patterns",
+      "checked": false,
       "working": 0,
       "amplify": 0
     },
@@ -278,6 +304,7 @@
       "title": "Step-Level Routing",
       "icon": "book",
       "group": "patterns",
+      "checked": false,
       "working": 0,
       "amplify": 0
     },
@@ -286,6 +313,7 @@
       "title": "Structured Output",
       "icon": "book",
       "group": "patterns",
+      "checked": false,
       "working": 0,
       "amplify": 0
     },
@@ -294,6 +322,7 @@
       "title": "Subagent Fanout",
       "icon": "book",
       "group": "patterns",
+      "checked": false,
       "working": 0,
       "amplify": 0
     },
@@ -302,6 +331,7 @@
       "title": "Task Routing",
       "icon": "book",
       "group": "patterns",
+      "checked": false,
       "working": 0,
       "amplify": 0
     },
@@ -310,6 +340,7 @@
       "title": "Unattended Runs",
       "icon": "book",
       "group": "patterns",
+      "checked": false,
       "working": 0,
       "amplify": 0
     },
@@ -318,6 +349,7 @@
       "title": "Verification Loops",
       "icon": "book",
       "group": "patterns",
+      "checked": false,
       "working": 0,
       "amplify": 0
     },
@@ -326,6 +358,7 @@
       "title": "Agent Architecture & Orchestration",
       "icon": "wrench",
       "group": "stack",
+      "checked": false,
       "working": 0,
       "amplify": 0
     },
@@ -334,6 +367,7 @@
       "title": "Cost Management",
       "icon": "wrench",
       "group": "stack",
+      "checked": false,
       "working": 0,
       "amplify": 0
     },
@@ -342,6 +376,7 @@
       "title": "Evaluation & Benchmarking",
       "icon": "wrench",
       "group": "stack",
+      "checked": false,
       "working": 0,
       "amplify": 0
     },
@@ -350,6 +385,7 @@
       "title": "Harness Selection",
       "icon": "wrench",
       "group": "stack",
+      "checked": true,
       "working": 0,
       "amplify": 1
     },
@@ -358,6 +394,7 @@
       "title": "Memory & Context Management",
       "icon": "wrench",
       "group": "stack",
+      "checked": true,
       "working": 0,
       "amplify": 1
     },
@@ -366,6 +403,7 @@
       "title": "Model Selection & Routing",
       "icon": "wrench",
       "group": "stack",
+      "checked": false,
       "working": 0,
       "amplify": 0
     },
@@ -374,6 +412,7 @@
       "title": "Observability & Logging",
       "icon": "wrench",
       "group": "stack",
+      "checked": false,
       "working": 0,
       "amplify": 0
     },
@@ -382,6 +421,7 @@
       "title": "Repository Context",
       "icon": "wrench",
       "group": "stack",
+      "checked": false,
       "working": 0,
       "amplify": 0
     },
@@ -390,6 +430,7 @@
       "title": "Skills & Prompts",
       "icon": "wrench",
       "group": "stack",
+      "checked": false,
       "working": 0,
       "amplify": 0
     },
@@ -398,6 +439,7 @@
       "title": "Tool Integration",
       "icon": "wrench",
       "group": "stack",
+      "checked": true,
       "working": 0,
       "amplify": 0
     }
