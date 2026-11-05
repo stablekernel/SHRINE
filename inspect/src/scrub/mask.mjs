@@ -13,19 +13,20 @@ export function buildIdentifiers({ osUser = null, home = null, authors = [], pro
   const vocab = new Set(vocabulary.map((w) => w.toLowerCase()));
   // Each value in both Unicode forms: "Zoë" typed as one code point (NFC) or as
   // "e" plus a combining mark (NFD) is the same name.
-  const add = (value, placeholder) => {
+  // Only project and repo names may be vocabulary-exact; people and home names are always masked.
+  const add = (value, placeholder, mayBeExact = false) => {
     if (typeof value !== 'string' || value.length < 2) return;
     for (const v of new Set([value, value.normalize('NFC'), value.normalize('NFD')])) {
-      if (!ids.some((i) => i.value === v)) ids.push({ value: v, placeholder, exact: vocab.has(v.toLowerCase()) });
+      if (!ids.some((i) => i.value === v)) ids.push({ value: v, placeholder, exact: mayBeExact && vocab.has(v.toLowerCase()) });
     }
   };
-  const numbered = (values, prefix) =>
-    [...new Set(values.filter((v) => typeof v === 'string' && v).map((v) => v.normalize('NFC')))].sort().forEach((v, i) => add(v, `<${prefix}-${i + 1}>`));
+  const numbered = (values, prefix, mayBeExact = false) =>
+    [...new Set(values.filter((v) => typeof v === 'string' && v).map((v) => v.normalize('NFC')))].sort().forEach((v, i) => add(v, `<${prefix}-${i + 1}>`, mayBeExact));
 
   numbered(authors.map((a) => a.email), 'author-email');
   numbered(authors.map((a) => a.name), 'author');
-  numbered(projects, 'project');
-  numbered(repos.filter((r) => !projects.includes(r)), 'repo');
+  numbered(projects, 'project', true);
+  numbered(repos.filter((r) => !projects.includes(r)), 'repo', true);
   numbered(orgs, 'org');
   if (osUser) add(osUser, '<user>');
   for (const seg of (home ?? '').split(/[\\/]/).filter((s) => s && !['Users', 'home', 'root'].includes(s))) {
@@ -236,7 +237,9 @@ export function mask(text, known) {
   out = out.replace(EMAIL, (m) => known?.ids.find((i) => i.value === m)?.placeholder ?? '<email>');
   for (const { value, placeholder, exact } of known?.ids ?? []) {
     if (exact) {
+      // Whole value, or a whole path segment; never inside a sentence.
       if (out === value) out = placeholder;
+      else out = out.replace(new RegExp(`(?<=/)${esc(value)}(?=/|$|[\\s"'<>])`, 'g'), placeholder);
       continue;
     }
     out = out.replace(new RegExp(`(?<![\\w-])${esc(value)}(?![\\w-])`, 'g'), placeholder);
