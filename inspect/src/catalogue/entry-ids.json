@@ -1,0 +1,37 @@
+{
+  "deliberate-currency.sov.drift": {
+    "page_id": "principles/deliberate-currency",
+    "anchor": "signal-of-violation",
+    "match": "drift: skills tuned against a retired model"
+  },
+  "human-in-the-loop.sov.undefined-boundary": {
+    "page_id": "principles/human-in-the-loop",
+    "anchor": "signal-of-violation",
+    "match": "undefined boundary:"
+  },
+  "reproducibility.sov.not-logged": {
+    "page_id": "principles/reproducibility",
+    "anchor": "signal-of-violation",
+    "match": "model version and parameters not logged"
+  },
+  "authority-cascade.sov.reopened": {
+    "page_id": "principles/authority-cascade",
+    "anchor": "signal-of-violation",
+    "match": "settled questions reopened"
+  },
+  "consistency-as-leverage.sov.idioms": {
+    "page_id": "principles/consistency-as-leverage",
+    "anchor": "signal-of-violation",
+    "match": "several idioms for one concern"
+  },
+  "memory.ap.instruction-file-grows": {
+    "page_id": "stack/memory",
+    "anchor": "anti-patterns",
+    "match": "a standing instruction file that only grows"
+  },
+  "harness.ap.under-investing": {
+    "page_id": "stack/harness",
+    "anchor": "anti-patterns",
+    "match": "under-investing in harness proficiency"
+  }
+}
