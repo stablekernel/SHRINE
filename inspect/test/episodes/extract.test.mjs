@@ -4,6 +4,7 @@ import { readFileSync } from 'node:fs';
 import { fileURLToPath } from 'node:url';
 import { extractEpisodes, commitKind, endsWithQuestion } from '../../src/episodes/extract.mjs';
 import { commandSegments, matchesAtCommand } from '../../src/probes/command-position.mjs';
+import { isTestCommand } from '../../src/probes/usage.mjs';
 
 const load = (rel) => JSON.parse(readFileSync(fileURLToPath(new URL(rel, import.meta.url)), 'utf8'));
 const labelled = load('../fixtures/segmentation/labelled.json');
@@ -57,10 +58,27 @@ test('command segments strip heredocs, quotes, and wrappers', () => {
   assert.ok(matchesAtCommand('for f in a; do npm test; done', ['npm test']));
 });
 
-test('heredocs and quotes: terminated ones end where the shell ends them, open ones run to the end', () => {
+test('heredocs end at their closing line; one with no closing line is kept as text', () => {
   assert.deepEqual(commandSegments("git commit -m \"$(cat <<'EOF'\nnpm test\nEOF\n)\" && npm run lint"), ["git commit -m ''", 'npm run lint']);
   assert.deepEqual(commandSegments('cat <<-EOF > a\n\tnpm test\n\tEOF\nls'), ['cat', 'ls']);
-  assert.deepEqual(commandSegments('cat <<EOF\nnpm test\nEOFX\nnpm run lint'), ['cat']);
+  assert.deepEqual(commandSegments('cat <<A\nx\nA\ncat <<A\ny\nA\nls'), ['cat', 'cat', 'ls']);
+  assert.deepEqual(commandSegments('cat <<EOF\nnpm test\nEOFX\nnpm run lint'), ['cat <<EOF', 'npm test', 'EOFX', 'npm run lint']);
+  assert.deepEqual(commandSegments('cat <<EOF > f\nbody\n'), ['cat <<EOF > f', 'body']);
+  assert.deepEqual(commandSegments('a <<\nnpm test'), ['a <<', 'npm test']);
+});
+
+test('here-strings and arithmetic shifts are not heredocs', () => {
+  assert.deepEqual(commandSegments('git log <<<x\nnpm test'), ['git log <<<x', 'npm test']);
+  assert.deepEqual(commandSegments('jq . <<< "$x"\ngit commit -m fix\nx'), ["jq . <<< ''", 'git commit -m fix', 'x']);
+  assert.deepEqual(commandSegments('echo $((1<<2))\nnpm test\n2'), ['echo $((1<<2))', 'npm test', '2']);
+  assert.deepEqual(commandSegments('((a <<= 1))\nnpm test\n1'), ['a <<= 1))', 'npm test', '1']);
+  assert.deepEqual(commandSegments('echo $(( (a<<b) ))\nnpm test\nb'), ['echo $(( (a<<b) ))', 'npm test', 'b']);
+  assert.deepEqual(commandSegments('x=$((1<<2)); cat <<EOF\nnpm test\nEOF\nls'), ['x=$((1<<2))', 'cat', 'ls']);
+  assert.ok(isTestCommand('echo $((1<<2))\nnpm test'));
+  assert.equal(commitKind('x=$((a<<1))\ngit commit -m wip'), 'commit');
+});
+
+test('open quotes run to the end', () => {
   assert.deepEqual(commandSegments('echo "a \\" && npm test'), ["echo ''"]);
   assert.deepEqual(commandSegments("echo 'npm test; ls"), ["echo ''"]);
   assert.deepEqual(commandSegments('a <<\nnpm test'), ['a <<', 'npm test']);
