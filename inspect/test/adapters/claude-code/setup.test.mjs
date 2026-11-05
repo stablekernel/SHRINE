@@ -153,13 +153,16 @@ test('remote urls come from url lines in a git config', async () => {
 });
 
 test('import and remote-url parsing run in linear time on adversarial files', async () => {
-  const { remoteUrls } = await import('../../../src/adapters/claude-code/setup.mjs');
+  const { configUser, remoteUrls } = await import('../../../src/adapters/claude-code/setup.mjs');
   const cases = [
     [(n) => `@a${'.'.repeat(n)}a`, (s) => resolveImports(s, '/a', '/h')],
     [(n) => `@${'a.'.repeat(n / 2)}`, (s) => resolveImports(s, '/a', '/h')],
     [repeatTo('\n'), remoteUrls],
     [repeatTo(' \n\t'), remoteUrls],
     [repeatTo('url = x '), remoteUrls],
+    [repeatTo('[user]\n\tname = "\\'), configUser],
+    [repeatTo('[a "\\"'), configUser],
+    [repeatTo('[user] name = ; " #'), configUser],
   ];
   for (const [build, run] of cases) {
     const g = growth(build, run);
@@ -248,5 +251,53 @@ test('org names are read for linked worktrees and submodules too', async () => {
     assert.deepEqual(orgs(sub), ['penetrode-group'], 'a submodule reads its own git dir config');
   } finally {
     rmSync(dir, { recursive: true, force: true });
+  }
+});
+
+test('git config users: comments, quoting, and case follow git config syntax', async () => {
+  const { configUser } = await import('../../../src/adapters/claude-code/setup.mjs');
+  assert.deepEqual(configUser('[user]\n\tname = Zoë Ångström ; work laptop\n\temail = zoe+w@initech.example # work\n'), { name: 'Zoë Ångström', email: 'zoe+w@initech.example' });
+  assert.deepEqual(configUser('[user]\n name = "Zoë \\"Z\\" Ångström"\n'), { name: 'Zoë "Z" Ångström', email: null });
+  assert.deepEqual(configUser('[User]\nName=Bob\n'), { name: 'Bob', email: null });
+  assert.deepEqual(configUser('[user]\n\tname = "A # B" ; c\n'), { name: 'A # B', email: null });
+  assert.deepEqual(configUser('[user] name = Inline\n'), { name: 'Inline', email: null });
+  assert.equal(configUser('[user "x"]\n\tname = sub\n'), null, 'a subsection is not [user]');
+});
+
+test('git config users are followed through include.path and every includeIf, bounded, regular files only', async (t) => {
+  const { execFileSync, spawnSync } = await import('node:child_process');
+  const { knownIdentifiers } = await import('../../../src/adapters/claude-code/setup.mjs');
+  const { buildIdentifiers, mask } = await import('../../../src/scrub/mask.mjs');
+  const h = makeHome('good');
+  try {
+    const nfd = 'Zoë Ångström';
+    writeFileSync(join(h.home, '.gitconfig'), [
+      '[user]', '\tname = Top Person', '[include]', '\tpath = ~/.gitconfig-a',
+      '[includeIf "gitdir:~/work/"]', '\tpath = .gitconfig-work',
+      `[includeIf "onbranch:x"]`, `\tpath = ${join(h.home, 'third.cfg')}`,
+      '[include]', '\tpath = ~/.gitconfig', // a cycle
+      '[include]', '\tpath = ~/pipe',
+    ].join('\n'));
+    writeFileSync(join(h.home, '.gitconfig-a'), `[user]\n\tname = ${nfd}\n`);
+    writeFileSync(join(h.home, '.gitconfig-work'), '[user]\n\temail = bill@initrode.example\n');
+    writeFileSync(join(h.home, 'third.cfg'), '[user]\n\tname = Third Person\n');
+    const fifo = spawnSync('mkfifo', [join(h.home, 'pipe')], { stdio: 'ignore' });
+    if (fifo.error) t.diagnostic('no mkfifo: pipe include not exercised');
+    const t0 = Date.now();
+    const ids = knownIdentifiers({ home: h.home, projects: [] });
+    assert.ok(Date.now() - t0 < 5000, 'a pipe include is never opened');
+    const names = ids.authors.map((a) => a.name).filter(Boolean);
+    const emails = ids.authors.map((a) => a.email).filter(Boolean);
+    for (const n of ['Top Person', 'Zoë Ångström'.normalize('NFC'), 'Third Person']) assert.ok(names.includes(n), `${n} in ${JSON.stringify(names)}`);
+    assert.ok(emails.includes('bill@initrode.example'), JSON.stringify(emails));
+    const known = buildIdentifiers(ids);
+    for (const form of [nfd, nfd.normalize('NFC')]) assert.doesNotMatch(mask(`by ${form} today`, known), /Zo|ngstr/);
+    // Repo config includes too.
+    execFileSync('git', ['config', 'include.path', '../extra.cfg'], { cwd: h.repo });
+    writeFileSync(join(h.repo, 'extra.cfg'), '[user]\n\tname = Repo Include\n');
+    const repoIds = knownIdentifiers({ home: null, projects: [{ root: h.repo }] });
+    assert.ok(repoIds.authors.some((a) => a.name === 'Repo Include'), JSON.stringify(repoIds.authors));
+  } finally {
+    h.cleanup();
   }
 });

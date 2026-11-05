@@ -185,7 +185,7 @@ export async function continueRun(folder, ctx, io) {
   const noHistory = projects.filter((p) => !isHung(p.root) && !isRefused(p.root) && !historyReadable(p.root)).length;
   if (noHistory) {
     const v = gitVersion()?.join('.') ?? 'unknown';
-    limits.push(`Git history was not read in ${noHistory === 1 ? '1 repo' : `${noHistory} repos`}: a partial clone, and git ${v} can fetch missing objects while reading it. Git dates there were not used and review-date checks skip those files. Only the name and email in your git config are masked as authors there; other commit authors are not known, so their names are not masked. Git ${firstSafeGit(gitVersion())} or later reads them safely.`);
+    limits.push(`Git history was not read in ${noHistory === 1 ? '1 repo' : `${noHistory} repos`}: a partial clone, and git ${v} can fetch missing objects while reading it. Git dates there were not used and review-date checks skip those files. Commit authors there are not read; the names and emails your git config files set, with every file they include, are still masked. Git ${firstSafeGit(gitVersion())} or later reads them safely.`);
     findings.git_history_skipped = noHistory;
   }
   const hung = gitTimeouts().length;

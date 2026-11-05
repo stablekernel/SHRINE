@@ -7,12 +7,16 @@ const esc = (s) => s.replace(/[.*+?^${}()|[\]\\]/g, '\\$&');
 
 export function buildIdentifiers({ osUser = null, home = null, authors = [], projects = [], repos = [], orgs = [] } = {}) {
   const ids = [];
+  // Each value in both Unicode forms: "Zoë" typed as one code point (NFC) or as
+  // "e" plus a combining mark (NFD) is the same name.
   const add = (value, placeholder) => {
     if (typeof value !== 'string' || value.length < 2) return;
-    if (!ids.some((i) => i.value === value)) ids.push({ value, placeholder });
+    for (const v of new Set([value, value.normalize('NFC'), value.normalize('NFD')])) {
+      if (!ids.some((i) => i.value === v)) ids.push({ value: v, placeholder });
+    }
   };
   const numbered = (values, prefix) =>
-    [...new Set(values.filter(Boolean))].sort().forEach((v, i) => add(v, `<${prefix}-${i + 1}>`));
+    [...new Set(values.filter((v) => typeof v === 'string' && v).map((v) => v.normalize('NFC')))].sort().forEach((v, i) => add(v, `<${prefix}-${i + 1}>`));
 
   numbered(authors.map((a) => a.email), 'author-email');
   numbered(authors.map((a) => a.name), 'author');
