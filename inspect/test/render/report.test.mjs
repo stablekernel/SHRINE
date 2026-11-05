@@ -170,3 +170,14 @@ test('a coverage area counts as checked only when a probe or structure check at 
   assert.ok(none.coverage.length > 0, 'coverage lists areas');
   assert.ok(none.coverage.every((c) => c.checked === false), 'no checks, no checked areas');
 });
+
+// The empty state printed its next step two or three times (TL;DR line, its own line,
+// and the start box). Once, in the start box, headed "Next step".
+test('empty state prints its next step once, in a "Next step" box', () => {
+  for (const [label, d] of [['one checked_clear', t0([])], ['none checked_clear', { ...t0([]), checked_clear: [] }]]) {
+    const tldr = renderReport(d).replace(/<script[\s\S]*?<\/script>/g, '').match(/id="tldr-h"[\s\S]*?<\/section>/)[0];
+    assert.equal(tldr.split('session history for usage counts').length - 1, 1, `${label}: ${tldr}`);
+    assert.match(tldr, /<div class="start"><h3>Next step<\/h3>/, label);
+    assert.doesNotMatch(tldr, /Start with one change/, label);
+  }
+});

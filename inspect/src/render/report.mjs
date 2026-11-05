@@ -80,7 +80,8 @@ function tldr(d, empty) {
   let items;
   if (d.headline.tldr.length === 0) {
     const keep = d.checked_clear[0];
-    items = `<p class="empty"><b>${esc(empty.tldr)}</b> ${esc(keep ? `Keep: ${keep.check}.` : empty.tldr_next)}</p>${empty.not_passed ? `<p class="empty">${esc(empty.not_passed)}</p>` : ''}<p class="empty">${esc(empty.tldr_next)}</p>`;
+    // The next step prints once, in the start box below.
+    items = `<p class="empty"><b>${esc(empty.tldr)}</b>${keep ? ` ${esc(`Keep: ${keep.check}.`)}` : ''}</p>${empty.not_passed ? `<p class="empty">${esc(empty.not_passed)}</p>` : ''}`;
   } else {
     items = `<ul>${d.headline.tldr
       .map((t) => {
@@ -96,7 +97,7 @@ function tldr(d, empty) {
     const h = sw.framed === false ? 'Top finding' : 'Start with one change';
     start = `<div class="start"><h3>${h}</h3><p>${esc(sw.action)} About ${pl(sw.minutes_to_apply, 'minute')}.</p><a class="btn" id="goto" href="#${esc(sw.finding_id)}" data-target="${esc(sw.finding_id)}">See the finding ${icon('arrow')}</a>${f ? `<span class="sr-only">${esc(f.title)}</span>` : ''}</div>`;
   } else {
-    start = `<div class="start"><h3>Start with one change</h3><p>${esc(empty.tldr_next)}</p></div>`;
+    start = `<div class="start"><h3>Next step</h3><p>${esc(empty.tldr_next)}</p></div>`;
   }
   return `<section aria-labelledby="tldr-h"><h2 id="tldr-h">The short version</h2><div class="tldr"><div>${items}</div>${start}</div></section>`;
 }

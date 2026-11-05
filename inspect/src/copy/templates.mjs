@@ -152,7 +152,7 @@ export function emptyStates({ checks, notPassed = 0, tier = 'T0' }) {
     not_passed: notPassed
       ? `${notPassed} ${notPassed === 1 ? 'check' : 'checks'} ran and did not pass; no Tier ${String(tier).slice(1)} finding exists for ${notPassed === 1 ? 'it' : 'them'} yet.`
       : '',
-    tldr_next: notPassed ? 'Next step: run again with session history for usage counts.' : 'Next step: keep the checks below passing, or run again with session history for usage counts.',
+    tldr_next: notPassed ? 'Run again with session history for usage counts.' : 'Keep the checks below passing, or run again with session history for usage counts.',
     tab: {
       amplify: { title: 'Nothing cleared the bar yet.', body: 'More session history or a deeper tier adds usage findings.' },
       working: { title: 'Nothing cleared the bar yet.', body: 'Praise needs measured evidence from Tier 2 or deeper. Presence alone earns nothing.' },
