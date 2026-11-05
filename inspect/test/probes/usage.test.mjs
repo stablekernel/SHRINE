@@ -79,3 +79,9 @@ test('rate difference keeps N for both groups', () => {
   assert.deepEqual(rateDifference({ hits: 3, n: 10 }, { hits: 1, n: 20 }), { flagged: { hits: 3, n: 10, rate: 0.3 }, rest: { hits: 1, n: 20, rate: 0.05 }, diff_points: 25 });
   assert.equal(rateDifference({ hits: 0, n: 0 }, { hits: 0, n: 0 }).diff_points, 0);
 });
+
+test('iteration commits are counted once per commit, however many episodes they follow', () => {
+  const e = (id, shas) => ({ id, tokens: 0, rework: false, last_text: '', last_text_t: null, calls: [], humans: [], iteration_commits: shas });
+  const r = runUsageProbes({ sessions: [], episodes: [e('a', ['s1', 's2']), e('b', ['s2', 's3'])] });
+  assert.equal(r.counts.iteration_commits, 3);
+});

@@ -108,7 +108,7 @@ test('rule v3: later-session fix over 1 hour is a candidate; same session or und
   const [a, , , , t] = linkEpisodes([first, quick, same, later, touchedOnly], new Map([[r.root, commits]]));
   assert.deepEqual(a.downstream.map((d) => `${d.kind}:${d.link}`), ['fixup:soft']);
   assert.equal(a.possible_fix, true, 'the 5-hour fix from session s2');
-  assert.equal(a.iteration_commits, 2, 'the 40-minute and same-session 3-hour fixes');
+  assert.equal(a.iteration_commits.length, 2, 'the 40-minute and same-session 3-hour fixes');
   assert.equal(a.rework, false, 'no named revert');
   assert.equal(t.rework || t.possible_fix, false, 'no commit, no follow-up');
   r.cleanup();

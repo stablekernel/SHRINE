@@ -87,7 +87,7 @@ export function linkEpisodes(episodes, commitsByRepo, { windowHours = 72 } = {})
     const own = ownOf.get(ep);
     const lastOwn = own.reduce((m, c) => Math.max(m, c.t), 0);
     const links = [];
-    let iteration = 0;
+    const iteration = [];
     const revertRes = own.map((o) => new RegExp(`This reverts commit ${o.sha.slice(0, 7)}`));
     const changed = new Set(own.flatMap((c) => c.files ?? []));
     for (const c of own.length ? commits : []) {
@@ -106,7 +106,7 @@ export function linkEpisodes(episodes, commitsByRepo, { windowHours = 72 } = {})
       // A commit no episode made counts as a later session once this session has ended.
       const laterSession = by ? by !== ep.session_id : c.t > (sessionEnd.get(ep.session_id) ?? e);
       if (laterSession && c.t - lastOwn >= HOUR) links.push({ kind: 'fixup', ref: c.sha, delta_hours: hours(d), link: 'soft' });
-      else iteration++;
+      else iteration.push(c.sha);
     }
     const files = new Set(ep.touched_files ?? []);
     if (files.size) {
@@ -125,6 +125,7 @@ export function linkEpisodes(episodes, commitsByRepo, { windowHours = 72 } = {})
       rework: links.some((l) => l.kind === 'revert'),
       possible_fix: links.some((l) => l.kind === 'fixup'),
       possible_rework: links.some((l) => l.kind === 'episode'),
+      // Shas, so a fix commit following several episodes is counted once.
       iteration_commits: iteration,
     };
   });
