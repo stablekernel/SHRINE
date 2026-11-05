@@ -259,7 +259,7 @@ export async function continueRun(folder, ctx, io) {
     findings.notes.push(...limits);
   }
   if (history) findings.skipped_files = history.skipped_files;
-  if (history?.unsupported) findings.notes.push('Session logs were approved but none could be parsed, so this report covers setup only.');
+  if (history?.unsupported) findings.notes = ['Session logs were approved but none could be parsed, so this report covers setup only.'];
   findings.diff = diffRuns(previousFindings(ctx.dirs.state, state.run_id), findings);
 
   // Phase: verify (runtime hash check of every file opened, before the report so

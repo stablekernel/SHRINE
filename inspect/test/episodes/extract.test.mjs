@@ -88,3 +88,10 @@ test('episode fields: counts, tokens, files, subagents, interrupts, humans after
   assert.equal(e.start, at(0));
   assert.equal(e.end, at(5));
 });
+
+test('the episode timeline sorts by full time across midnight and labels UTC', async () => {
+  const { episodeTimeline } = await import('../../src/cli/scan.mjs');
+  const ep = { start: '2026-11-01T23:50:00.000Z', end: '2026-11-02T00:10:00.000Z', terminal: 'commit', correction_t: null, last_text_t: null };
+  const tl = episodeTimeline(ep, { done_claim: false, tested: false });
+  assert.deepEqual(tl.map((e) => `${e.t} ${e.label_scrubbed}`), ['23:50 UTC Prompt', '00:10 UTC Commit']);
+});

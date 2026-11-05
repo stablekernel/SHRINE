@@ -22,15 +22,17 @@ export function estimateSeconds(bytes, t = THRESHOLDS) {
   return Math.ceil(bytes / (t.history.parse_mb_per_second * 1024 * 1024));
 }
 
-const hhmm = (iso) => iso.slice(11, 16);
+// UTC clock time; the report labels the timeline as UTC.
+const hhmm = (iso) => `${iso.slice(11, 16)} UTC`;
 
 // Generic labels only: no prompt text ever reaches the timeline.
 export function episodeTimeline(ep, flags) {
-  const ev = [{ t: hhmm(ep.start), label_scrubbed: 'Prompt', kind: 'neutral', event_kind: 'Prompt' }];
-  if (ep.correction_t) ev.push({ t: hhmm(ep.correction_t), label_scrubbed: 'Correction', kind: 'warn', event_kind: 'Correction' });
-  if (flags.done_claim && ep.last_text_t) ev.push({ t: hhmm(ep.last_text_t), label_scrubbed: 'Done claim', kind: flags.tested ? 'neutral' : 'warn', event_kind: 'Done claim' });
-  if (ep.terminal === 'commit' || ep.terminal === 'pr') ev.push({ t: hhmm(ep.end), label_scrubbed: 'Commit', kind: 'resolve', event_kind: 'Commit' });
-  return ev.sort((a, b) => (a.t < b.t ? -1 : a.t > b.t ? 1 : 0));
+  const ev = [{ at: ep.start, t: hhmm(ep.start), label_scrubbed: 'Prompt', kind: 'neutral', event_kind: 'Prompt' }];
+  if (ep.correction_t) ev.push({ at: ep.correction_t, t: hhmm(ep.correction_t), label_scrubbed: 'Correction', kind: 'warn', event_kind: 'Correction' });
+  if (flags.done_claim && ep.last_text_t) ev.push({ at: ep.last_text_t, t: hhmm(ep.last_text_t), label_scrubbed: 'Done claim', kind: flags.tested ? 'neutral' : 'warn', event_kind: 'Done claim' });
+  if (ep.terminal === 'commit' || ep.terminal === 'pr') ev.push({ at: ep.end, t: hhmm(ep.end), label_scrubbed: 'Commit', kind: 'resolve', event_kind: 'Commit' });
+  // Sort on the full timestamp: HH:MM text sorts wrong across midnight.
+  return ev.sort((a, b) => (a.at < b.at ? -1 : a.at > b.at ? 1 : 0)).map(({ at, ...e }) => e);
 }
 
 const sizeOf = (tokens) => (tokens < 20000 ? 'small' : tokens < 100000 ? 'medium' : 'large');

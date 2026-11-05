@@ -66,10 +66,11 @@ export function linkEpisodes(episodes, commitsByRepo, { windowHours = 72 } = {})
     const own = ep.committed ? commits.filter((c) => c.t >= s - 1000 && c.t <= e + COMMIT_SLACK_MS) : [];
     const ownSubjects = new Set(own.map((c) => c.subject));
     const links = [];
-    for (const c of commits) {
+    const revertRes = own.map((o) => new RegExp(`This reverts commit ${o.sha.slice(0, 7)}`));
+    for (const c of own.length ? commits : []) {
       const d = c.t - e;
       if (d <= 0 || d > win || own.includes(c)) continue;
-      const reverts = own.some((o) => new RegExp(`This reverts commit ${o.sha.slice(0, 7)}`).test(c.body));
+      const reverts = revertRes.some((re) => re.test(c.body));
       const fix = c.subject.match(/^(fixup|squash|amend)! (.+)$/);
       if (reverts) links.push({ kind: 'revert', ref: c.sha, delta_hours: hours(d), link: 'hard' });
       else if (fix && ownSubjects.has(fix[2])) links.push({ kind: 'fixup', ref: c.sha, delta_hours: hours(d), link: 'hard' });
