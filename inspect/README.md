@@ -14,7 +14,12 @@ Status: pre-release (SP2). Install and docs cutover arrive in SP3; until then th
   - The rest of each session is read only after `history`
 - `--session-id <id>` leaves out the session driving the run; without it, the newest session file written in the last 5 minutes is left out
 - Gate B is fixed at T0 (`--tier T0`); deeper tiers are not available yet
-- With history: usage counts (sessions, turns, interrupts, compactions, retries, subagent share, correction candidates, done claims without a prior test) in the report appendix and header
+  - After the scan it prints one "do you need more than a scan yet" line from sessions, your messages, and days spanned (also in `gate-b.json`, `scan.json`, and `--json` as `gate_b`)
+  - Under 10 sessions: "not yet", limited history; no history: "unknown"
+- With history: usage counts (sessions, human messages, interrupts, compactions, retries, subagent share, correction candidates, done claims without a prior test) in the report appendix and header
+  - Counts are human messages, not pattern hits: a message with several correction cues counts once
+  - Dropped before counting, shown in the appendix: resent messages (same text right after an interrupted or unanswered send, same session) and forked or resumed sessions (lines whose uuid an earlier session already holds; a file with nothing else is left out)
+  - One project above 60% of episodes: a line in the usage block, and "Mostly 1 project" on every rate line
   - Pattern-based counts are never findings at T0 (E5 precision: done-claim 33%, test-command 35%, identical-retry 17%)
   - `sdk-cli` sessions are never read in full; each is classified from its first lines after consent
     - Housekeeping (first prompt matches `src/probes/patterns/housekeeping.json`): left out, counted in one appendix line
@@ -24,7 +29,7 @@ Status: pre-release (SP2). Install and docs cutover arrive in SP3; until then th
     - Candidate counts, appendix only: "possible rework (later-session fix)" (a fix on the same files from a later session, at least 1 hour after the commit) and "possible rework (file overlap)"
     - Fix commits in the same session or within 1 hour are "iteration commits", never rework
   - Fewer than 10 sessions: counts only plus a "limited history" note
-- Output: one run folder under the state dir with `state.json`, `scan.json`, `facts.json`, `findings.json`, `verify.json`, `report.html`, `report.share-safe.html`, `spy.jsonl`, `gate.json` when a gate paused the run, and a `<phase>.done` marker per phase
+- Output: one run folder under the state dir with `state.json`, `scan.json`, `gate-b.json`, `facts.json`, `findings.json`, `verify.json`, `report.html`, `report.share-safe.html`, `spy.jsonl`, `gate.json` when a gate paused the run, and a `<phase>.done` marker per phase
 - `report.share-safe.html` masks names, paths, and hosts and drops session excerpts; it may mask extra words, to keep names out
 - `facts.json` holds counts, generic timeline labels, and scrubbed paths; no prompt or reply text
 - `node bin/shrine-inspect.mjs purge` deletes the state and cache dirs, only if this tool created them
@@ -32,11 +37,18 @@ Status: pre-release (SP2). Install and docs cutover arrive in SP3; until then th
 
 ## Known limits
 
-Recorded, not fixed; `test/scrub/known-limits.test.mjs` pins each one, so a change is deliberate.
+Recorded, not fixed; a test pins each one, so a change is deliberate.
+
+Masking (`test/scrub/known-limits.test.mjs`):
 
 - Share-safe may over-mask words near a path or document name: `Read ~/work/api Then Stop` gives `Read ~/<path>/<file>`
 - In free text, a path followed by a parenthesis can swallow the next word: `~/work/api (git timed out)` gives `~/<path>/<file> timed out)`
 - A lowercase name part of 4 characters or fewer after a dot is kept as an extension: `acme.corp` gives `<file>.corp`
+
+Counting (`test/adapters/claude-code/dedupe.test.mjs`):
+
+- The same prompt pasted into a new, unforked session counts again; only resends inside one session are dropped
+- Files are read oldest modified first; when a fork was last written before the session it copied, the shared lines are dropped from that later file instead (each line still counts once, but the forked-session count names the other file)
 
 ## Develop
 
