@@ -99,7 +99,9 @@ function tldr(d, empty) {
     items = `<ul>${d.headline.tldr
       .map((t) => {
         const good = t.status === 'working';
-        return `<li>${icon(good ? 'check' : 'up', `i ${good ? 'good-c' : 'warn-c'}`)}<span><span class="status ${good ? 'good' : 'warn'}">${good ? 'Working' : 'Room to amplify'}:</span> <b>${esc(/[.!?]$/.test(t.headline) ? t.headline : `${t.headline}.`)}</b> ${esc(t.sentence)}</span></li>`;
+        // A judged candidate says so in the summary too, not only in its detail.
+        const cand = byId.get(t.finding_id)?.candidate === true;
+        return `<li>${icon(good ? 'check' : 'up', `i ${good ? 'good-c' : 'warn-c'}`)}<span><span class="status ${good ? 'good' : 'warn'}">${good ? 'Working' : cand ? 'Candidate lead' : 'Room to amplify'}:</span> <b>${esc(/[.!?]$/.test(t.headline) ? t.headline : `${t.headline}.`)}</b> ${esc(t.sentence)}</span></li>`;
       })
       .join('')}</ul>`;
   }

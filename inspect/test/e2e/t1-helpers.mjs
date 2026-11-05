@@ -24,10 +24,11 @@ export const tty = (answer) => Object.assign(Readable.from([`${answer}\n`]), { i
 export const silentTty = () => Object.assign(Readable.from([]), { isTTY: true });
 export const piped = (answer = 'yes') => Object.assign(Readable.from([`${answer}\n`]), { isTTY: false });
 
-export function fakeJudge(mode = 'auto') {
+// log: a file each fake judge launch appends to (absent means it never ran).
+export function fakeJudge(mode = 'auto', log = null) {
   return {
-    available: { ok: true, bin: process.execPath },
-    invocation: { cmd: process.execPath, args: [FAKE_JUDGE, mode], env: { PATH: process.env.PATH } },
+    available: { ok: true, bin: process.execPath, version: '2.1.318' },
+    invocation: { cmd: process.execPath, args: [FAKE_JUDGE, mode], env: { PATH: process.env.PATH, ...(log ? { FAKE_JUDGE_LOG: log } : {}) } },
     parse: parseJudgeOutput,
     disclosure: ['Fake judge for tests.'],
   };

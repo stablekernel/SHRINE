@@ -78,6 +78,13 @@ Counting (`test/adapters/claude-code/dedupe.test.mjs`):
 - A message with an image is never dropped as a resend, even when the picture is the same
 - Lines with no uuid (older session formats) are never matched as copies
 
+T1 trial (recorded, not fixed):
+
+- Judge isolation is set by flags read from the harness help text (2.1.318); no zero-content probe or canary run checks it on your setup yet
+- Per-call overhead and time in the Gate B estimate are provisional, not measured
+- A correction you later reversed still gives a before and after from your own words
+- The harness version shown at Gate B comes from your newest session log, not from the installed command
+
 ## Develop
 
 - Node 20 or newer; no runtime dependencies

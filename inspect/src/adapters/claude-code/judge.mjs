@@ -33,7 +33,7 @@ const SESSION_LINK = /^(CLAUDECODE|CLAUDE_PID|CLAUDE_CODE_(ENTRYPOINT|EXECPATH|S
 // What a judge launch may still do, disclosed at Gate B (spec 7 child writes).
 export const DISCLOSURE = [
   'Each judge call is one headless claude --print call on your own login, billed to your own account like normal use.',
-  'Judge calls run with no tools, no MCP servers, no session saved, and your user, project, and local settings files ignored (so their hooks and plugins do not run). Managed (org) settings still apply.',
+  'Judge calls run with no tools, no MCP servers, and no session saved. They ask Claude Code to ignore your user, project, and local settings files and to run no hooks; this was read from its help text, not tested on your setup. Managed (org) settings still apply.',
   'Claude Code may update its own state file (~/.claude.json, startup counters) on each launch.',
 ];
 
@@ -67,6 +67,9 @@ export function judgeInvocation({ bin, schema, env = {} }) {
       '--mcp-config', '{"mcpServers":{}}',
       '--tools', '',
       '--disable-slash-commands',
+      // --restricted ignores user, project, and local settings files; this also
+      // turns hooks off through the one settings source that still applies.
+      '--settings', '{"disableAllHooks":true}',
       '--system-prompt', SYSTEM_PROMPT,
       '--json-schema', JSON.stringify(schema),
     ],

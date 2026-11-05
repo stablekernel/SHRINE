@@ -1642,6 +1642,8 @@
   "judging": {
     "planned": 12,
     "judged": 12,
+    "calls": 12,
+    "tokens_floor": false,
     "invalid": 0,
     "refusals": 0,
     "outcomes": {
@@ -1674,13 +1676,14 @@
       "minutes": 5
     },
     "lines": [
-      "12 of 12 sampled episodes judged, one model call each (fixture-model).",
+      "12 of 12 sampled episodes judged in 12 model calls, retries included (fixture-model).",
       "Outcomes: 4 resolved, 0 abandoned, 8 reworked, 0 could not tell.",
       "Corrections traced: 8 on code-flagged turns; 0 could not be attributed and are counted only.",
       "Answers rejected: 0 invalid, 0 refusals.",
       "Tokens used: 50,400 tokens on your own account, against an estimate of 52,000 to 74,000 tokens.",
       "A judged finding needs 3 episodes and a code-flagged correction in each.",
-      "Judged findings stay candidates until the judge is measured against labelled episodes."
+      "Judged findings stay candidates until the judge is measured against labelled episodes.",
+      "One project held most episodes, so the cap of 4 episodes per project was relaxed."
     ]
   }
 }

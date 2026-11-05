@@ -12,8 +12,10 @@
 // Rules for auto: every candidate human turn is a correction that supplies a
 // constraint. When a config line shares 3 or more words with it, the constraint was
 // in an instruction file (model owns it); else it was nowhere (you own it).
-import { readFileSync } from 'node:fs';
+import { appendFileSync, readFileSync } from 'node:fs';
 
+// Every launch is logged when FAKE_JUDGE_LOG names a file, so a test can prove zero spawns.
+if (process.env.FAKE_JUDGE_LOG) appendFileSync(process.env.FAKE_JUDGE_LOG, `${process.argv[2] ?? 'auto'}\n`);
 const mode = process.argv[2] ?? 'auto';
 const input = readFileSync(0, 'utf8');
 const nonce = input.match(/<data-([0-9a-f]+)>/)?.[1] ?? 'none';

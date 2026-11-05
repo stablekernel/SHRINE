@@ -106,3 +106,9 @@ test('injection: a judge that obeys the planted text is rejected; one that ignor
   assert.deepEqual(Object.keys(b.output).sort(), Object.keys(a.output).sort());
   assert.deepEqual(b.output.corrections.find((c) => c.turn_id === 't03'), a.output.corrections.find((c) => c.turn_id === 't03'));
 });
+
+test('inherited key names (__proto__, constructor) are rejected as extra keys', () => {
+  const b = bundle();
+  for (const k of ['constructor', 'toString']) assert.equal(validateJudgment({ ...good(b), [k]: 'x' }, b).ok, false, k);
+  assert.equal(validateJudgment(JSON.parse(`{"__proto__":{"a":1},${JSON.stringify(good(b)).slice(1)}`), b).ok, false);
+});

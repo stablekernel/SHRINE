@@ -52,6 +52,8 @@ export async function runWorkOrder({ order, previous = [], invoke, parse, templa
   const started = clock();
   const lines = [];
   let abort = null;
+  let calls = 0;
+  let overrun = false;
   for (const [k, item] of todo.entries()) {
     let retryError = null;
     let line = null;
@@ -63,7 +65,14 @@ export async function runWorkOrder({ order, previous = [], invoke, parse, templa
       const r = await invoke(input);
       latency += r.ms ?? 0;
       const env = parse(r.stdout);
+      calls++;
       for (const key of ['in', 'out', 'cache_read', 'cache_write']) used[key] += env.tokens[key];
+      // A call cut short (timeout, output cap, crash) reports no usage: charge at
+      // least its input size, so the token bound and the total are never low.
+      if (!env.tokens.in && !env.tokens.out && !env.tokens.cache_read && !env.tokens.cache_write) {
+        used.in += Math.ceil(Buffer.byteLength(input, 'utf8') / 4);
+        used.floor = true;
+      }
       used.total = used.in + used.out + used.cache_read + used.cache_write;
       model = env.model_id ?? model;
       if (env.limited) {
@@ -94,7 +103,11 @@ export async function runWorkOrder({ order, previous = [], invoke, parse, templa
     else if (clock() - started > limits.timeBoxMs * limits.timeBoxFactor) abort = { reason: 'time', at: item.episode_id };
     else if (invalid > order.items.length * limits.errorRate) abort = { reason: 'errors', at: item.episode_id };
     if (abort && k + 1 < todo.length) break;
-    if (abort) abort = null;
+    // Past a limit on the last item: nothing is left to stop, but the summary says so.
+    if (abort) {
+      overrun = true;
+      abort = null;
+    }
   }
-  return { lines, tokens, invalid, abort, ms: clock() - started };
+  return { lines, tokens, invalid, abort, overrun, calls, ms: clock() - started };
 }

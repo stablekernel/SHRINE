@@ -73,6 +73,7 @@ export async function prepareT1({ seed, history, setup, known, excludedIds, t, a
     tokens_high: estimate.tokens_high,
     minutes: estimate.minutes,
     eligible: sample.eligible,
+    version: adapter.available?.version ?? null,
     thin: sample.thin,
     disclosure: adapter.disclosure ?? [],
   };

@@ -301,19 +301,23 @@ const J = THRESHOLDS.judged;
 // the sample and the Gate B estimate (see mergeJudged).
 export function judgingLines(s) {
   const o = s.outcomes ?? {};
+  const x = s.sample ?? {};
+  const calls = s.calls ?? s.planned;
   const lines = [
-    `${s.judged} of ${s.planned} sampled ${pl(s.planned, 'episode')} judged, one model call each${s.model_ids?.length ? ` (${s.model_ids.join(', ')})` : ''}.`,
+    `${s.judged} of ${s.planned} sampled ${pl(s.planned, 'episode')} judged in ${calls} model ${pl(calls, 'call')}, retries included${s.model_ids?.length ? ` (${s.model_ids.join(', ')})` : ''}.`,
     `Outcomes: ${o.resolved ?? 0} resolved, ${o.abandoned ?? 0} abandoned, ${o.reworked ?? 0} reworked, ${o.unknown ?? 0} could not tell.`,
     `Corrections traced: ${s.corrections_traced} on code-flagged ${pl(s.corrections_traced, 'turn')}; ${s.unknown_verdicts} could not be attributed and are counted only.`,
     `Answers rejected: ${s.invalid} invalid, ${s.refusals ?? 0} ${pl(s.refusals ?? 0, 'refusal')}.`,
-    `Tokens used: ${num(s.tokens_used)} tokens on your own account${s.estimate ? `, against an estimate of ${num(s.estimate.tokens_low)} to ${num(s.estimate.tokens_high)} tokens` : ''}.`,
+    `Tokens used: ${s.tokens_floor ? 'at least ' : ''}${num(s.tokens_used)} tokens on your own account${s.estimate ? `, against an estimate of ${num(s.estimate.tokens_low)} to ${num(s.estimate.tokens_high)} tokens` : ''}.`,
     `A judged finding needs ${s.bar} ${pl(s.bar, 'episode')} and a code-flagged correction in each.`,
     'Judged findings stay candidates until the judge is measured against labelled episodes.',
   ];
   if (s.partial) lines.push(`Partial: ${s.judged} of ${s.planned} ${pl(s.planned, 'episode')} judged. Judging stopped early and you kept the partial results.`);
-  if (s.thin) lines.push(`Thin evidence: fewer than ${J.episodes} episodes had a correction candidate, so every one of them was judged.`);
-  if (s.small_history) lines.push(`Fewer than ${J.thin_total_episodes} episodes in the window: no control comparison at this tier.`);
-  if (s.cap_relaxed) lines.push(`One project held most episodes, so the cap of ${J.per_project} episodes per project was relaxed.`);
+  if (s.estimate && s.tokens_used > s.estimate.tokens_high) lines.push(`Tokens passed the approved upper bound of ${num(s.estimate.tokens_high)} tokens on the last call.`);
+  if (s.tokens_floor) lines.push('Some calls ended without a usage report (a timeout or a cut-off answer), so their input size was counted instead.');
+  if (x.thin) lines.push(`Thin evidence: fewer than ${J.episodes} episodes had a correction candidate, so every one of them was judged.`);
+  if (x.small_history) lines.push(`Fewer than ${J.thin_total_episodes} episodes in the window: no control comparison at this tier.`);
+  if (x.cap_relaxed) lines.push(`One project held most episodes, so the cap of ${J.per_project} episodes per project was relaxed.`);
   return lines;
 }
 
@@ -327,6 +331,7 @@ export function gateBLines(g) {
   }
   const where = g.projects?.length ? ` from ${joinAnd(g.projects)}` : '';
   lines.push(`Tier T1, Pulse: judge ${g.episodes} ${pl(g.episodes, 'episode')}${where}, dated ${(g.from ?? '').slice(0, 10)} to ${(g.to ?? '').slice(0, 10)}, about ${num(g.tokens_low)} to ${num(g.tokens_high)} tokens on your own account, about ${g.minutes} ${pl(g.minutes, 'minute')}.`);
+  if (g.version) lines.push(`Judge: Claude Code ${g.version}, the version in your newest session log.`);
   if (g.thin) lines.push(`Thin evidence: only ${g.eligible} ${pl(g.eligible, 'episode')} had a correction candidate.`);
   lines.push('The token and time figures use a per-call overhead not yet measured on your setup.');
   lines.push(`Judging stops early past ${num(g.tokens_high)} tokens, past ${Math.ceil(g.minutes * J.abort.time_box_factor)} minutes, or when over ${Math.round(J.abort.error_rate * 100)}% of answers are invalid; you then keep partial results or stop.`);
@@ -454,7 +459,7 @@ export function sampleCopy() {
     ].map(needLine),
     notes: HISTORY_NOTES,
     gaps: [1, 12].flatMap((n) => ['late_constraint', 'ignored_instruction'].map((k) => gapLabel(k, n))),
-    judging: [judgingLines(SAMPLE_JUDGING), judgingLines({ ...SAMPLE_JUDGING, partial: true, invalid: 1, refusals: 1, thin: true, small_history: true, cap_relaxed: true })],
+    judging: [judgingLines(SAMPLE_JUDGING), judgingLines({ ...SAMPLE_JUDGING, partial: true, invalid: 1, refusals: 1, calls: 13, tokens_used: 60000, tokens_floor: true, sample: { thin: true, small_history: true, cap_relaxed: true } })],
     gate_b: [gateBLines(SAMPLE_GATE_B), gateBLines({ ...SAMPLE_GATE_B, available: { ok: false, reason: 'no claude command on PATH' } })],
     caveat: 'A model read these episodes. Its accuracy is not yet measured. Treat this as a lead, not a verdict.',
   };

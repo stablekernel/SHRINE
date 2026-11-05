@@ -18,7 +18,7 @@ export function checkSchema(schema, v, path = '$', errors = []) {
     if (!v || typeof v !== 'object' || Array.isArray(v)) return err('expected object'), errors;
     for (const k of schema.required ?? []) if (!(k in v)) err(`missing ${k}`);
     for (const k of Object.keys(v)) {
-      const s = schema.properties?.[k];
+      const s = schema.properties && Object.hasOwn(schema.properties, k) ? schema.properties[k] : null;
       if (!s) {
         if (schema.additionalProperties === false) errors.push(`${path}: unexpected key`);
         continue;

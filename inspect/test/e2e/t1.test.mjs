@@ -25,7 +25,9 @@ function treeHash(root) {
 test('T1 pauses at Gate B without a terminal: zero judge spawns, no work order, the itemized offer in gate.json', async () => {
   const h = plantedHome([['late', 12, 'aaaa']]);
   const state = stateDir();
-  const r = await inproc(['run', '--tier', 'T1', '--json'], h, state, { stdin: tty('history') });
+  const log = join(state, 'judge-launches.log');
+  const judge = fakeJudge('auto', log);
+  const r = await inproc(['run', '--tier', 'T1', '--json'], h, state, { stdin: tty('history'), judge });
   assert.equal(r.code, 3, r.stderr);
   const dir = runDir(state);
   const g = json(dir, 'gate.json');
@@ -46,26 +48,35 @@ test('T1 pauses at Gate B without a terminal: zero judge spawns, no work order, 
   assert.doesNotMatch(JSON.stringify(sample), /semicolons|CSV/);
   // Silence (an ended terminal), piped stdin, and a non-yes answer all stay paused.
   const runId = dir.split('/').at(-1);
-  for (const stdin of [silentTty(), piped('yes'), tty('maybe')]) {
-    const a = await inproc(['approve', runId, 'B', '--json'], h, state, { stdin });
+  for (const stdin of [silentTty(), piped('yes'), tty('maybe'), tty('no')]) {
+    const a = await inproc(['approve', runId, 'B', '--json'], h, state, { stdin, judge });
     assert.equal(a.code, 3, a.stderr);
     assert.equal(json(dir, 'state.json').gates.B, null);
   }
+  // Same with the choice named: only a typed yes approves it.
+  const named = await inproc(['approve', runId, 'B', 'T1', '--json'], h, state, { stdin: tty('T1'), judge });
+  assert.equal(named.code, 3);
   assert.equal(lines(dir, 'judgments.jsonl').length, 0);
   assert.ok(!existsSync(join(dir, 'workorder.json')));
+  assert.ok(!existsSync(log), 'the judge never launched');
+  // The control: a yes does launch it, so the absence above is meaningful.
+  const yes = await inproc(['approve', runId, 'B', 'T1', '--json'], h, state, { stdin: tty('yes'), judge });
+  assert.equal(yes.code, 0, yes.stderr);
+  assert.equal(readFileSync(log, 'utf8').trim().split('\n').length, 12);
   h.cleanup();
 });
 
 test('T1 inline Gate B: silence leaves the run paused with zero spawns', async () => {
   const h = plantedHome([['late', 12, 'aaaa']]);
   const state = stateDir();
+  const log = join(state, 'judge-launches.log');
   // Gate A gets "history"; the same terminal then ends, so Gate B hears nothing.
-  const r = await inproc(['run', '--tier', 'T1', '--json'], h, state, { stdin: tty('history') });
+  const r = await inproc(['run', '--tier', 'T1', '--json'], h, state, { stdin: tty('history'), judge: fakeJudge('auto', log) });
   assert.equal(r.code, 3);
+  assert.match(r.stderr, /Gate B was not answered/);
   const dir = runDir(state);
   assert.equal(json(dir, 'state.json').phase, 'gate_b');
-  const spy = lines(dir, 'spy.jsonl');
-  assert.equal(spy.length, 0, 'a paused run writes no spy log yet');
+  assert.ok(!existsSync(log), 'the judge never launched');
   h.cleanup();
 });
 

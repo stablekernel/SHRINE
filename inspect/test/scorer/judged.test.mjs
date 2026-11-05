@@ -23,7 +23,7 @@ test('attribution by code, first match wins (spec 5 rules 1, 2, 4)', () => {
   assert.equal(codeAttribution(c({ attribution: { label: 'unknown', confidence: 0.5 } }), bundle()), 'unknown', 'the judge said unknown');
   assert.equal(codeAttribution(c(), bundle({ config: [{ id: 'c1', text: 'x', may_have_changed: true }] })), 'unknown', 'config may have changed');
   assert.equal(codeAttribution(c(), bundle({ config_truncated: true })), 'unknown', 'config cut short');
-  assert.equal(codeAttribution(c({ constraint_present_in: 'prompt' }), bundle()), 'model');
+  assert.equal(codeAttribution(c({ constraint_present_in: 'prompt', quotes: [{ turn_id: 't01', start: 0, end: 3 }] }), bundle()), 'model');
   assert.equal(codeAttribution(c({ constraint_present_in: 'instruction_file', config_ref: { config_id: 'c1', start: 0, end: 4 } }), bundle()), 'model');
   assert.equal(codeAttribution(c({ constraint_present_in: 'instruction_file', config_ref: null }), bundle()), 'user', 'an unverified config claim is not found');
   assert.equal(codeAttribution(c({ constraint_present_in: 'skill' }), bundle()), 'unknown');
@@ -92,4 +92,24 @@ test('golden: T1 findings JSON and HTML (UPDATE_GOLDEN=1 to refresh after a revi
   }
   assert.equal(fj, readFileSync(`${GOLDEN}findings.json`, 'utf8'));
   assert.equal(html, readFileSync(`${GOLDEN}report.html`, 'utf8'));
+});
+
+test('judging lines show thin, small-history, relaxed-cap, retries, floors, and an overrun', async () => {
+  const { judgingLines } = await import('../../src/copy/templates.mjs');
+  const base = { planned: 12, judged: 5, invalid: 0, refusals: 0, outcomes: {}, corrections_traced: 3, unknown_verdicts: 0, bar: 2, tokens_used: 90000, calls: 14, tokens_floor: true, estimate: { tokens_low: 50000, tokens_high: 70000 }, sample: { thin: true, small_history: true, cap_relaxed: true } };
+  const l = judgingLines(base).join('\n');
+  for (const re of [/Thin evidence/, /Fewer than 20 episodes/, /cap of 4 episodes per project was relaxed/, /in 14 model calls/, /at least 90,000 tokens/, /passed the approved upper bound/]) assert.match(l, re);
+});
+
+test('a judged candidate in the TLDR is labelled Candidate lead', async () => {
+  const f = t1Findings();
+  const cand = f.findings.find((x) => x.candidate);
+  f.headline.tldr = [{ status: 'amplify', headline: cand.title, sentence: 'x.', finding_id: cand.id }];
+  assert.match(renderReport(f), /Candidate lead:<\/span>/);
+});
+
+test('a constraint claimed "in the prompt" needs a quote from an earlier turn; disagreements cap a correction at 0.5', () => {
+  const b = bundle({ meta: { human_index: { t01: 0, t03: 1 } } });
+  assert.equal(codeAttribution(c({ constraint_present_in: 'prompt' }), b), 'user', 'no quote: not found');
+  assert.equal(codeAttribution(c({ constraint_present_in: 'prompt', quotes: [{ turn_id: 't01', start: 0, end: 3 }] }), b), 'model');
 });

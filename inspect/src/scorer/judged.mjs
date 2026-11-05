@@ -28,7 +28,12 @@ export function codeAttribution(c, bundle) {
   if (c.attribution.label === 'unknown' || c.constraint_present_in === 'unknown' || c.constraint_present_in === 'skill') return 'unknown';
   const unsure = bundle.config_truncated || bundle.config.some((x) => x.may_have_changed);
   if (unsure) return 'unknown';
-  if (c.constraint_present_in === 'prompt') return 'model';
+  // "In the prompt" counts only with a quote from an earlier human turn of this episode.
+  if (c.constraint_present_in === 'prompt') {
+    const at = bundle.meta.human_index[c.turn_id];
+    const earlier = c.quotes.some((q) => q.start >= 0 && bundle.meta.human_index[q.turn_id] != null && bundle.meta.human_index[q.turn_id] < at);
+    return earlier ? 'model' : 'user';
+  }
   if (c.constraint_present_in === 'instruction_file' && c.config_ref && c.config_ref.start >= 0) return 'model';
   return 'user';
 }
@@ -113,10 +118,12 @@ export function judgedFindings({ lines, order, episodes, catalogue, pivots, copy
     }
     const C = J.confidence;
     const agreeShare = list.filter((h) => h.agree).length / list.length;
-    let value = C.base + C.per_hit * Math.max(0, eps.length - bar) + (agreeShare > 0.5 ? C.agree_bonus : 0);
-    value = Math.min(value, C.candidates_max);
-    if (agreeShare < 0.5) value = Math.min(value, C.disagree_cap);
-    value = Math.round(value * 100) / 100;
+    // Per correction: the judge agreeing with code adds the bonus; a disagreement
+    // caps that correction at 0.5. The finding takes the mean.
+    const start = C.base + C.per_hit * Math.max(0, eps.length - bar);
+    const each = list.map((h) => Math.min(h.agree ? start + C.agree_bonus : Math.min(start, C.disagree_cap), C.candidates_max));
+    let value = each.reduce((n, v) => n + v, 0) / each.length;
+    value = Math.round(Math.min(value, C.candidates_max) * 100) / 100;
     const label = value >= t.confidence.label_high ? 'high' : value >= t.confidence.label_medium ? 'medium' : 'low';
     // The highest-cost hit (tokens after the correction) is the episode shown.
     const cost = (h) => h.bundle.meta.tokens_after[h.c.turn_id] ?? 0;
@@ -194,6 +201,8 @@ export function judgedFindings({ lines, order, episodes, catalogue, pivots, copy
     summary: {
       planned: order.items.length,
       judged: N,
+      calls: lines.reduce((n, l) => n + (l.attempts ?? 1), 0),
+      tokens_floor: lines.some((l) => l.tokens?.floor),
       invalid,
       refusals: lines.filter((l) => l.refusal).length,
       outcomes,

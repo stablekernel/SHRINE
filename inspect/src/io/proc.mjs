@@ -44,7 +44,8 @@ export function runJudge({ cmd, args, env, cwd, input, timeoutMs = 180_000, maxS
   checkSpawn(cmd, args);
   const t_start = Date.now();
   return new Promise((resolve) => {
-    let out = '';
+    const chunks = [];
+    let bytes = 0;
     let err = '';
     let truncated = false;
     let timedOut = false;
@@ -56,7 +57,7 @@ export function runJudge({ cmd, args, env, cwd, input, timeoutMs = 180_000, maxS
       finished = true;
       clearTimeout(timer);
       record({ op: 'spawn', cmd, args: logArgs(args), cwd, mode: 'x', t_start, judge: true });
-      resolve({ status, stdout: out, stderr: err.slice(0, 4096), timedOut, truncated, error, ms: Date.now() - t_start });
+      resolve({ status, stdout: Buffer.concat(chunks).toString('utf8'), stderr: err.slice(0, 4096), timedOut, truncated, error, ms: Date.now() - t_start });
     };
     try {
       child = spawn(cmd, args, { cwd, env, stdio: ['pipe', 'pipe', 'pipe'] });
@@ -67,14 +68,18 @@ export function runJudge({ cmd, args, env, cwd, input, timeoutMs = 180_000, maxS
       timedOut = true;
       child.kill('SIGKILL');
     }, timeoutMs);
-    child.stdout.setEncoding('utf8');
     child.stderr.setEncoding('utf8');
     child.stdout.on('data', (d) => {
-      if (out.length + d.length > maxStdout) {
+      if (truncated) return;
+      if (bytes + d.length > maxStdout) {
         truncated = true;
-        out += d.slice(0, Math.max(0, maxStdout - out.length));
+        chunks.push(d.subarray(0, Math.max(0, maxStdout - bytes)));
+        bytes = maxStdout;
         child.kill('SIGKILL');
-      } else out += d;
+      } else {
+        chunks.push(d);
+        bytes += d.length;
+      }
     });
     child.stderr.on('data', (d) => {
       if (err.length < 4096) err += d;
