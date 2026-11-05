@@ -199,7 +199,7 @@ export async function continueRun(folder, ctx, io) {
   }
   // Identifiers for the share-safe copy, read now so a git config file it could not
   // read in full shows as a run limit.
-  const ids = knownIdentifiers({ home: ctx.home, projects });
+  const ids = knownIdentifiers({ home: ctx.home, projects, env: io.env });
   const unreadCfg = ids.unread_configs.length;
   if (unreadCfg) {
     limits.push(`${unreadCfg === 1 ? '1 git config file was' : `${unreadCfg} git config files were`} not read in full (not a regular file, unreadable, or over 1 MiB). Names and emails set there, past that point, are not masked in the share-safe copy.`);

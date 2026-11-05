@@ -264,6 +264,26 @@ test('git config users: comments, quoting, and case follow git config syntax', a
   assert.equal(configUser('[user "x"]\n\tname = sub\n'), null, 'a subsection is not [user]');
 });
 
+test('git identities come from every global file git can read: XDG_CONFIG_HOME and GIT_CONFIG_GLOBAL too', async () => {
+  const { knownIdentifiers } = await import('../../../src/adapters/claude-code/setup.mjs');
+  const h = makeHome('good');
+  try {
+    const xdg = join(h.tmp, 'xdg');
+    mkdirSync(join(xdg, 'git'), { recursive: true });
+    writeFileSync(join(xdg, 'git', 'config'), '[user]\n\tname = Xdg Person\n');
+    writeFileSync(join(h.tmp, 'global.cfg'), '[user]\n\temail = global@initrode.example\n');
+    const ids = knownIdentifiers({ home: h.home, projects: [], env: { XDG_CONFIG_HOME: xdg, GIT_CONFIG_GLOBAL: join(h.tmp, 'global.cfg') } });
+    assert.ok(ids.authors.some((a) => a.name === 'Xdg Person'), JSON.stringify(ids.authors));
+    assert.ok(ids.authors.some((a) => a.email === 'global@initrode.example'), JSON.stringify(ids.authors));
+    // Without the variables, the default ~/.config/git/config is still read.
+    mkdirSync(join(h.home, '.config', 'git'), { recursive: true });
+    writeFileSync(join(h.home, '.config', 'git', 'config'), '[user]\n\tname = Default Xdg\n');
+    assert.ok(knownIdentifiers({ home: h.home, projects: [], env: {} }).authors.some((a) => a.name === 'Default Xdg'));
+  } finally {
+    h.cleanup();
+  }
+});
+
 test('git config includes that cannot be read in full are skipped or cut at 1 MiB and noted, never fatal', async (t) => {
   const { spawnSync } = await import('node:child_process');
   const { chmodSync, truncateSync } = await import('node:fs');

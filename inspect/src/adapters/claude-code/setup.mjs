@@ -1,8 +1,8 @@
 // collectSetup(): everything the T0 config probes need, read once through the
 // read-only IO layer: inventory, always-loaded size, retention, last-change dates
 // (git first, else mtime), and each repo's instruction-file layout.
-import { basename, dirname, join, relative, resolve } from 'node:path';
-import { userInfo } from 'node:os';
+import { basename, dirname, isAbsolute, join, relative, resolve } from 'node:path';
+import { devNull, userInfo } from 'node:os';
 import { exists, readHead, readLines, stat } from '../../io/fsread.mjs';
 import { gitOut, gitRead, historyReadable } from '../../io/git.mjs';
 import { inventory } from './inventory.mjs';
@@ -182,17 +182,31 @@ export function commonGitDir(root) {
   return dir;
 }
 
+// The user's global git config files, a superset of what the user's own git reads
+// (masking one file too many is harmless; one too few leaks a name): ~/.gitconfig,
+// $XDG_CONFIG_HOME/git/config (git's rule: set and not empty, else
+// ~/.config/git/config, read as well), and $GIT_CONFIG_GLOBAL when the user set it.
+// Inspect's own git runs strip GIT_*; this only widens what is masked.
+export function globalConfigs(home, env = {}) {
+  const files = [];
+  if (home) files.push(join(home, '.gitconfig'), join(home, '.config', 'git', 'config'));
+  if (env.XDG_CONFIG_HOME && isAbsolute(env.XDG_CONFIG_HOME)) files.push(join(env.XDG_CONFIG_HOME, 'git', 'config'));
+  // /dev/null is git's documented "no global config", not an unreadable file.
+  if (env.GIT_CONFIG_GLOBAL && isAbsolute(env.GIT_CONFIG_GLOBAL) && env.GIT_CONFIG_GLOBAL !== devNull) files.push(env.GIT_CONFIG_GLOBAL);
+  return [...new Set(files)];
+}
+
 // Known identifiers for share-safe masking (spec 7): OS user, home, git authors,
 // project and repo names, org names from remotes (read from the repo's git config,
 // read-only).
-export function knownIdentifiers({ home, projects }) {
+export function knownIdentifiers({ home, projects, env = {} }) {
   const authors = [];
   const orgs = [];
   const unread = [];
   const addAuthor = (a) => {
     if (a && !authors.some((x) => x.email === a.email && x.name === a.name)) authors.push(a);
   };
-  if (home) for (const cfg of [join(home, '.gitconfig'), join(home, '.config', 'git', 'config')]) configIdentities(cfg, home, 0, new Set(), [], unread).forEach(addAuthor);
+  for (const cfg of globalConfigs(home, env)) configIdentities(cfg, home, 0, new Set(), [], unread).forEach(addAuthor);
   for (const p of projects) {
     const log = gitOut(['log', '-n', '200', '--format=%an%x09%ae'], p.root);
     for (const line of (log ?? '').split('\n').filter(Boolean)) {
