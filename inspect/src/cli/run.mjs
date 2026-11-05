@@ -5,7 +5,7 @@ import { basename, join } from 'node:path';
 import { exists, readJson, resetSpy, spyLog } from '../io/fsread.mjs';
 import { createRunFolder, runFolder } from '../io/runfolder.mjs';
 import { appDirs } from '../io/paths.mjs';
-import { gitTimeouts, gitVersion, historyReadable, resetGitTimeouts } from '../io/git.mjs';
+import { firstSafeGit, gitTimeouts, gitVersion, historyReadable, resetGitTimeouts } from '../io/git.mjs';
 import { spawnTimeoutMs } from '../io/proc.mjs';
 import { detect } from '../adapters/claude-code/detect.mjs';
 import { defaultTempPatterns, listProjects } from '../adapters/claude-code/projects.mjs';
@@ -186,7 +186,7 @@ export async function continueRun(folder, ctx, io) {
   const noHistory = projects.filter((p) => !hungDirs.has(p.root) && !historyReadable(p.root)).length;
   if (noHistory) {
     const v = gitVersion()?.join('.') ?? 'unknown';
-    limits.push(`Git history was not read in ${noHistory === 1 ? '1 repo' : `${noHistory} repos`}: a partial clone, and git ${v} can fetch missing objects while reading it. Git dates there were not used and review-date checks skip those files. Only the name and email in your git config are masked as authors there; other commit authors are not known, so their names are not masked. Git 2.45.1 or later reads them safely.`);
+    limits.push(`Git history was not read in ${noHistory === 1 ? '1 repo' : `${noHistory} repos`}: a partial clone, and git ${v} can fetch missing objects while reading it. Git dates there were not used and review-date checks skip those files. Only the name and email in your git config are masked as authors there; other commit authors are not known, so their names are not masked. Git ${firstSafeGit(gitVersion())} or later reads them safely.`);
     findings.git_history_skipped = noHistory;
   }
   const hung = hungDirs.size;

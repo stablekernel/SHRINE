@@ -4,7 +4,7 @@ import { execFileSync, spawnSync } from 'node:child_process';
 import { existsSync, mkdtempSync, readdirSync, rmSync, writeFileSync } from 'node:fs';
 import { tmpdir } from 'node:os';
 import { join } from 'node:path';
-import { git, gitInvocation, historyReadable, honorsNoLazyFetch, setGitVersion } from '../../src/io/git.mjs';
+import { firstSafeGit, git, gitInvocation, historyReadable, honorsNoLazyFetch, setGitVersion } from '../../src/io/git.mjs';
 
 const ENV = { ...process.env, GIT_AUTHOR_NAME: 't', GIT_AUTHOR_EMAIL: 't@x', GIT_COMMITTER_NAME: 't', GIT_COMMITTER_EMAIL: 't@x' };
 const sh = (cwd, ...a) => execFileSync('git', a, { cwd, env: ENV, stdio: 'pipe' }).toString();
@@ -86,7 +86,7 @@ for (const kind of ['ext', 'file']) {
     }
   });
 
-  // Git before 2.44.1 / 2.45.1 ignores GIT_NO_LAZY_FETCH, so drop it to act like that git.
+  // Git before the May 2024 security releases ignores GIT_NO_LAZY_FETCH, so drop it to act like that git.
   test(`repo config cannot re-enable the ${kind} transport, for git older than GIT_NO_LAZY_FETCH`, () => {
     const { dir, clone, marker } = trappedClone(kind);
     try {
@@ -193,9 +193,23 @@ test('a GIT_* variable from the caller cannot redirect which repo git reads', as
   }
 });
 
-test('GIT_NO_LAZY_FETCH is trusted only on git 2.44.1, 2.45.1, and later', () => {
-  const cases = [[[2, 36, 6], false], [[2, 44, 0], false], [[2, 44, 1], true], [[2, 45, 0], false], [[2, 45, 1], true], [[2, 46, 0], true], [[3, 0, 0], true], [null, false]];
+// The May 2024 security releases added GIT_NO_LAZY_FETCH to every maintained line:
+// 2.39.4, 2.40.2, 2.41.1, 2.42.2, 2.43.4, 2.44.1, 2.45.1.
+test('GIT_NO_LAZY_FETCH is trusted only on the maintenance releases that honor it, and later', () => {
+  const cases = [
+    [[2, 36, 6], false], [[2, 38, 9], false],
+    [[2, 39, 3], false], [[2, 39, 4], true], [[2, 39, 5], true],
+    [[2, 40, 1], false], [[2, 40, 2], true],
+    [[2, 41, 0], false], [[2, 41, 1], true],
+    [[2, 42, 1], false], [[2, 42, 2], true],
+    [[2, 43, 3], false], [[2, 43, 4], true],
+    [[2, 44, 0], false], [[2, 44, 1], true],
+    [[2, 45, 0], false], [[2, 45, 1], true],
+    [[2, 46, 0], true], [[3, 0, 0], true], [null, false],
+  ];
   for (const [v, want] of cases) assert.equal(honorsNoLazyFetch(v), want, String(v));
+  // The note names the first safe release on the running line.
+  for (const [v, want] of [[[2, 44, 0], '2.44.1'], [[2, 43, 1], '2.43.4'], [[2, 39, 0], '2.39.4'], [[2, 30, 2], '2.39.4'], [null, '2.39.4']]) assert.equal(firstSafeGit(v), want, String(v));
 });
 
 test('config is allowed only as the fixed promisor query, and --version only bare', () => {

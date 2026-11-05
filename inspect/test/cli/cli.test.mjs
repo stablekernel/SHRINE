@@ -187,7 +187,7 @@ test('a partial clone on git without GIT_NO_LAZY_FETCH: history skipped, with a 
     assert.equal(r.code, 0, r.stderr);
     const s = JSON.parse(r.stdout);
     const findings = JSON.parse(readFileSync(join(s.run_dir, 'findings.json'), 'utf8'));
-    assert.ok(findings.notes.some((n) => n.startsWith('Git history was not read in 1 repo') && n.includes('git 2.44.0')), findings.notes.join('|'));
+    assert.ok(findings.notes.some((n) => n.startsWith('Git history was not read in 1 repo') && n.includes('git 2.44.0') && n.endsWith('Git 2.44.1 or later reads them safely.')), findings.notes.join('|'));
     // A run limit: visible near the top, never only in the collapsed tier-limits list.
     const visible = (html) => html.replace(/<script[\s\S]*?<\/script>|<style[\s\S]*?<\/style>/g, '');
     const html = visible(readFileSync(join(s.run_dir, 'report.html'), 'utf8'));
