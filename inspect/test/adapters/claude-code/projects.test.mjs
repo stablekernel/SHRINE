@@ -4,7 +4,7 @@ import { mkdtempSync, mkdirSync, writeFileSync, utimesSync, realpathSync } from 
 import { execFileSync } from 'node:child_process';
 import { tmpdir } from 'node:os';
 import { join } from 'node:path';
-import { listProjects, encodeProjectPath } from '../../../src/adapters/claude-code/projects.mjs';
+import { listProjects, encodeProjectPath, sessionInventory } from '../../../src/adapters/claude-code/projects.mjs';
 import { resetSpy, spyLog } from '../../../src/io/fsread.mjs';
 
 const NOW = Date.parse('2026-11-04T12:00:00Z');
@@ -21,7 +21,7 @@ function session(home, cwd, { id = 's1', entrypoint = 'cli', bytes = 100, ageDay
   mkdirSync(dir, { recursive: true });
   const lines = [];
   for (let i = 1; i < cwdLine; i++) lines.push(JSON.stringify({ type: 'queue-operation', content: 'SECRET-CONTENT' }));
-  lines.push(JSON.stringify({ type: 'user', cwd, entrypoint, sessionId: id, message: { content: 'SECRET-PROMPT' } }));
+  lines.push(JSON.stringify({ type: 'user', cwd, entrypoint, sessionId: id, version: '2.1.318', message: { content: 'SECRET-PROMPT' } }));
   let text = `${lines.join('\n')}\n`;
   text += 'x'.repeat(Math.max(0, bytes - text.length));
   const f = join(dir, `${id}.jsonl`);
@@ -110,6 +110,29 @@ test('default view is the top 20 by bytes in the window, rest behind show all', 
   assert.equal(r.top.length, 20);
   assert.equal(r.more, 3);
   assert.equal(r.top[0].name, 'p22');
+});
+
+test('after consent, per-session metadata excludes automation and counts its share', () => {
+  const repo = join(work, 'mix');
+  mkdirSync(repo);
+  session(home, repo, { id: 'human1', ageDays: 3 });
+  session(home, repo, { id: 'auto1', entrypoint: 'sdk-cli', ageDays: 2 });
+  session(home, repo, { id: 'human2', ageDays: 1 });
+  const bot = join(work, 'bot');
+  mkdirSync(bot);
+  session(home, bot, { id: 'auto2', entrypoint: 'sdk-cli' });
+  session(home, bot, { id: 'auto3', entrypoint: 'sdk-cli', ageDays: 2 });
+  const sub = join(home, 'projects', encodeProjectPath(repo), 'human2', 'subagents');
+  mkdirSync(sub, { recursive: true });
+  writeFileSync(join(sub, 'agent-a1.jsonl'), 'x'.repeat(500));
+  const listing = listProjects({ claudeHome: home, now: NOW, windowDays: 30, tempPatterns: TEMP });
+  assert.equal(listing.projects[0].bytes_with_subagents, listing.projects[0].bytes + 500);
+  const inv = sessionInventory(listing);
+  assert.deepEqual(inv.sessions.map((s) => s.id).sort(), ['human1', 'human2']);
+  assert.deepEqual(inv.automation, { count: 3, total: 5, share: 0.6 });
+  assert.equal(inv.sessions.find((s) => s.id === 'human2').subagent_files.length, 1);
+  assert.equal(inv.harness_version, '2.1.318');
+  assert.ok(inv.from <= inv.to);
 });
 
 test('spy log proves only one file per folder was opened, and no content kept', () => {
