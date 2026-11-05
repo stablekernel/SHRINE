@@ -320,3 +320,61 @@ test('tabs follow the ARIA pattern with arrow keys', async ({ page }) => {
 test('T2-size fixture is under 300 KB', () => {
   expect(Buffer.byteLength(MOCK_HTML)).toBeLessThan(300 * 1024);
 });
+
+// Run limits: the band near the top, with one or two notes, and the share-safe copy of
+// a partial-clone run. The banner stays one line from tablet up; the band never spills.
+const LIMIT_PARTIAL = 'Git history was not read in 1 repo: a partial clone, and git 2.44.0 can fetch missing objects while reading it. Git dates there were not used, and the stale-file and review-date checks skip those files. Commit authors there are not read; the names and emails your git config files set, with every file they include, are still masked. Git 2.44.1 or later reads them safely.';
+const LIMIT_HUNG = 'Git did not finish within 60 seconds in 1 repo and was stopped. Git reads there count as failed: no git dates or history. Repo config that blocks git (an include.path naming a pipe, for one) causes this.';
+function limitsHtml(limits, { shareSafe = false, skipped = 0 } = {}) {
+  const f = t0BadSetupFindings();
+  f.run_limits = limits;
+  f.notes.push(...limits);
+  if (skipped) f.git_history_skipped = skipped;
+  return renderReport(f, { shareSafe });
+}
+const LIMIT_VARIANTS = {
+  'one limit': limitsHtml([LIMIT_PARTIAL]),
+  'two limits': limitsHtml([LIMIT_PARTIAL, LIMIT_HUNG]),
+  'share-safe partial clone': limitsHtml([LIMIT_PARTIAL], { shareSafe: true, skipped: 1 }),
+};
+// Text lines an element renders, from its text boxes.
+const textLines = (el) => {
+  const ys = [];
+  const w = document.createTreeWalker(el, NodeFilter.SHOW_TEXT);
+  for (let n = w.nextNode(); n; n = w.nextNode()) {
+    if (!n.textContent.trim()) continue;
+    const r = document.createRange();
+    r.selectNodeContents(n);
+    for (const x of r.getClientRects()) ys.push(Math.round(x.top));
+  }
+  return new Set(ys).size;
+};
+for (const [name, html] of Object.entries(LIMIT_VARIANTS)) {
+  for (const width of [1440, 768, 375]) {
+    test(`run limits, ${name}, ${width}px: band fits, banner one line from 768px, axe clean`, async ({ page }) => {
+      await open(page, html, { theme: 'light', width, height: 900 });
+      const band = page.locator('.run-limits');
+      await expect(band).toBeVisible();
+      expect(await band.locator('p').count()).toBe(name === 'two limits' ? 2 : 1);
+      const spill = await band.evaluate((el) => {
+        const box = el.getBoundingClientRect();
+        const report = document.querySelector('.report').getBoundingClientRect();
+        const inner = [...el.querySelectorAll('p')].filter((p) => p.getBoundingClientRect().right > box.right + 0.5).length;
+        return { scroll: el.scrollWidth - el.clientWidth, outside: box.right - report.right, inner };
+      });
+      expect(spill.scroll, 'band scrolls sideways').toBeLessThanOrEqual(0);
+      expect(spill.outside, 'band ends inside the report').toBeLessThanOrEqual(0.5);
+      expect(spill.inner, 'text spills out of the band').toBe(0);
+      const overflow = await page.evaluate(() => document.documentElement.scrollWidth - document.documentElement.clientWidth);
+      expect(overflow).toBeLessThanOrEqual(0);
+      if (name.startsWith('share-safe')) {
+        const banner = page.locator('.safe-banner');
+        await expect(banner).toBeVisible();
+        if (width >= 768) expect(await banner.evaluate(textLines), 'banner lines').toBe(1);
+        await expect(page).toHaveScreenshot(`share-safe-limits-${width}.png`, { clip: { x: 0, y: 0, width, height: 420 } });
+      }
+      const r = await new AxeBuilder({ page }).withTags(['wcag2a', 'wcag2aa', 'wcag21a', 'wcag21aa', 'wcag22aa']).analyze();
+      expect(r.violations.map((v) => `${v.id}: ${v.nodes.map((n) => n.target.join(' ')).join(', ')}`)).toEqual([]);
+    });
+  }
+}
