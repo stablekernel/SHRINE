@@ -5,6 +5,8 @@
 // quadratic about 16.
 // minMs and tries raise the base run time and the best-of count for callers that
 // need a clean reading (the quadratic tripwire).
+export const MAX_N = 1 << 18;
+
 export function growth(build, run, { minMs = 2, tries = 5 } = {}) {
   const time = (s) => {
     const t = process.cpuUsage();
@@ -12,8 +14,17 @@ export function growth(build, run, { minMs = 2, tries = 5 } = {}) {
     const d = process.cpuUsage(t);
     return (d.user + d.system) / 1000;
   };
+  // Inputs stop at MAX_N chars: multi-megabyte strings measure allocator and cache
+  // effects (12x seen on Linux CI for a single linear match), not the regex. Code
+  // still under minMs at MAX_N cannot be quadratic, so it reads as linear.
   let n = 1000;
-  while (time(build(n)) < minMs && n < 5_000_000) n *= 2;
+  let slow = false;
+  for (;;) {
+    slow = time(build(n)) >= minMs;
+    if (slow || n * 2 > MAX_N) break;
+    n *= 2;
+  }
+  if (!slow) return 1;
   const small = build(n);
   const large = build(4 * n);
   let a = Infinity;
