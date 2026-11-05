@@ -163,6 +163,43 @@ test('free-text home and absolute paths mask folders that contain spaces', () =>
   assert.equal(out, 'See ~/<path>/CLAUDE.md and <path>/<file>.json now');
 });
 
+test('free-text paths mask folders with punctuation and non-ASCII letters', () => {
+  const k = buildIdentifiers({ osUser: 'bob', home: '/Users/bob', projects: ['repo'] });
+  const cases = {
+    'CLAUDE.md at /Users/bob/Clients/Acme & Sons (Legal)/repo/CLAUDE.md': 'CLAUDE.md at ~/<path>/CLAUDE.md',
+    'see /Users/bob/Clients/Café Nordström/repo/CLAUDE.md': 'see ~/<path>/CLAUDE.md',
+    "see /Users/bob/Bob's Clients/Contoso/repo/CLAUDE.md": 'see ~/<path>/CLAUDE.md',
+    'see /Users/bob/Bob’s Clients/x.md': 'see ~/<path>/<file>.md',
+    '/Volumes/Work/Acme, Inc/notes.md': '<path>/<file>.md',
+    '/Users/bob/Clients/Acme Corp': '~/<path>/<file>',
+    'at ~/Clients/Acme & Sons (Legal) today': 'at ~/<path>/<file> today',
+    'see ~/Ünïcode Örg/über-app/x.js now': 'see ~/<path>/<file>.js now',
+    'at /opt/Ünïcode Örg/Clïent/x.js': 'at <path>/<file>.js',
+    'in /srv/Acme #1 [EU]/{tmp}/a+b=c%d/x.md.': 'in <path>/<file>.md.',
+    'in C:\\Users\\bob\\Acme Co\\Kunde (alt)\\x.md here': 'in <path>/<file>.md here',
+    'in D:/Work/Acme Co/x.md': 'in <path>/<file>.md',
+    "(see /x/Acme Co/y.md) and '/srv/Zorb Co/z.txt' or \"/a/Zorb/b\"": "(see <path>/<file>.md) and '<path>/<file>.txt' or \"<path>/<file>\"",
+  };
+  for (const [input, want] of Object.entries(cases)) assert.equal(mask(input, k), want, input);
+});
+
+test('the instruction file names stay whole in free text', () => {
+  const k = buildIdentifiers({ home: '/Users/bob' });
+  assert.equal(mask('Edit CLAUDE.local.md and settings.local.json now', k), 'Edit CLAUDE.local.md and settings.local.json now');
+  assert.equal(mask('see /Users/bob/x/CLAUDE.local.md', k), 'see ~/<path>/CLAUDE.local.md');
+  assert.equal(mask('host build.local is up', k), 'host <host> is up');
+});
+
+test('maskDeep masks path values under keys outside the path list', () => {
+  const k = buildIdentifiers({ home: '/Users/bob', projects: ['repo'] });
+  const p = '/Users/bob/Acme (Client)/repo';
+  const out = maskDeep({ items: [{ line: 'x', paths: [`${p}/CLAUDE.md`, '/srv/Zorb Co/CLAUDE.md'] }, { root: p }], metric: { project: p }, cwds: [p], files: [`${p}/a b.md`] }, k);
+  const text = JSON.stringify(out);
+  for (const leak of ['Acme', 'Client', 'Zorb', 'a b']) assert.ok(!text.includes(leak), `${leak} leaked: ${text}`);
+  assert.deepEqual(out.items[0].paths, ['~/<path>/CLAUDE.md', '<path>/CLAUDE.md']);
+  assert.equal(out.items[1].root, '~/<path>/<project-1>');
+});
+
 test('maskPath masks path-typed fields segment by segment', () => {
   const k = buildIdentifiers({ home: '/Users/bob', projects: ['widget-api'] });
   const cases = {

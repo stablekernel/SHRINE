@@ -34,11 +34,19 @@ const IPV4 = /\b(?:(?:25[0-5]|2[0-4]\d|1?\d?\d)\.){3}(?:25[0-5]|2[0-4]\d|1?\d?\d
 const TLDS = 'com|net|org|io|dev|ai|app|co|us|uk|de|fr|cloud|internal|local|lan|corp|edu|gov|info|biz|xyz|sh|me|tech|example';
 const HOST = new RegExp(`\\b(?:[A-Za-z0-9](?:[A-Za-z0-9-]{0,61}[A-Za-z0-9])?\\.)+(?:${TLDS})\\b`, 'g');
 // Home paths keep only .claude and the file name; other folders name clients and repos.
-// A folder may hold single spaces ("Client Work", "Application Support") when a
-// slash follows it, so the whole folder is masked, not just its first word. The
-// file name stays space-free: in prose the words after it are not part of it.
-const SEG = String.raw`[\w.@+<>-]+(?: [\w.@+<>-]+)*`;
-const HOME_PATH = new RegExp(String.raw`(?<![\w.~<>-])~\/((?:${SEG}\/)*)([\w.@+<>-]*)`, 'g');
+// A folder is words of letters (any script), digits, and the punctuation folder
+// names carry ("Acme & Sons (Legal)", "Acme, Inc", "Café Nordström"), joined by
+// single spaces, and a slash follows it, so the whole folder is masked. An
+// apostrophe counts only between letters ("Bob's"), so quotes around a path stay.
+// The file name is stricter (no parentheses, commas, or quotes): in prose those
+// close the sentence. A file name with no extension takes on further words that
+// start with a capital, a digit, "&", or "(" ("Acme Corp"), since a folder named
+// last in prose has no slash to show where it ends. Every quantifier is bounded or
+// separated by a character the next part cannot match, so matching is linear.
+const WORD = String.raw`(?:[\p{L}\p{N}\p{M}_.@+&(),#%=!$\[\]{}<>-]|(?<=\p{L})['’](?=\p{L}))`;
+const FOLDER = String.raw`${WORD}{1,255}(?:[  ]${WORD}{1,255}){0,31}`;
+const BASE = String.raw`([\p{L}\p{N}\p{M}_.@+&#%=~<>-]{0,255})((?:[  ][\p{Lu}\p{Lt}\p{N}&(]${WORD}{0,254}){0,15})`;
+const HOME_PATH = new RegExp(String.raw`(?<![\p{L}\p{N}\p{M}_.~<>-])~\/((?:${FOLDER}\/)*)${BASE}`, 'gu');
 const collapse = (dirs) => {
   const kept = [];
   for (const seg of dirs) {
@@ -50,7 +58,8 @@ const collapse = (dirs) => {
 // File names the harness itself defines (adapters/claude-code) stay; any other
 // name may name a client ("acme-contract.md"), so only its extension survives.
 const TOOL_FILES = new Set(['CLAUDE.md', 'CLAUDE.local.md', 'AGENTS.md', 'MEMORY.md', 'SKILL.md', 'settings.json', 'settings.local.json', '.mcp.json', 'installed_plugins.json']);
-const SESSION_FILE = /^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}\.jsonl$/i;
+const TOOL_NAMES = [...TOOL_FILES];
+const SESSION_FILE =/^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}\.jsonl$/i;
 export function maskBase(base) {
   // A sentence's closing period is not part of the name.
   const [, name, tail] = /^(.*?)(\.*)$/.exec(base ?? '');
@@ -58,8 +67,13 @@ export function maskBase(base) {
   const ext = /\.([A-Za-z0-9]{1,8})$/.exec(name.slice(1));
   return `${ext ? `<file>.${ext[1]}` : '<file>'}${tail}`;
 }
-const homePath = (_m, dirs, base) => `~/${collapse(dirs.split('/').filter(Boolean))}${maskBase(base)}`;
-const ABS_PATH = /(?<![\w~.<>-])\/(?:[\w.@+-]+(?: [\w.@+-]+)*\/)+([\w.@+-]*)/g;
+// The words after a file name are part of it only when it has no extension.
+const fileName = (base, more) => `${maskBase(base)}${!base || /\.[A-Za-z0-9]{1,8}\.*$/.test(base) ? more : ''}`;
+const homePath = (_m, dirs, base, more) => `~/${collapse(dirs.split('/').filter(Boolean))}${fileName(base, more)}`;
+const ABS_PATH = new RegExp(String.raw`(?<![\p{L}\p{N}\p{M}_~.<>-])\/(?:${FOLDER}\/)+${BASE}`, 'gu');
+// Windows drive paths, with either separator.
+const WIN_PATH = new RegExp(String.raw`(?<![\p{L}\p{N}\p{M}_])[A-Za-z]:[\\/](?:${FOLDER}[\\/])+${BASE}`, 'gu');
+const otherPath = (_m, base, more) => `<path>/${fileName(base, more)}`;
 const PROJECT_FOLDER = /(\.claude\/projects\/)[^/\s"'<>]+/g;
 
 // Home prefix to "~" only at a path boundary: home /Users/bob must not turn
@@ -102,14 +116,17 @@ export function mask(text, known) {
     out = out.replace(new RegExp(`(?<![\\w-])${esc(value)}(?![\\w-])`, 'g'), placeholder);
   }
   out = out.replace(IPV4, '<ip>');
-  out = out.replace(HOST, '<host>');
+  // "CLAUDE.local.md" and "settings.local.json" are file names, not hosts.
+  out = out.replace(HOST, (m, at, s) => (TOOL_NAMES.some((n) => s.startsWith(n, at)) ? m : '<host>'));
+  out = out.replace(WIN_PATH, otherPath);
   out = out.replace(HOME_PATH, homePath);
-  out = out.replace(ABS_PATH, (_m, base) => `<path>/${maskBase(base)}`);
+  out = out.replace(ABS_PATH, otherPath);
   return out;
 }
 
-// Keys whose values are file paths: masked segment by segment.
-const PATH_KEYS = new Set(['path', 'path_scrubbed', 'locator', 'anchor', 'changed_paths', 'cwd', 'touched_files']);
+// Keys whose values are file paths (or, for project, cwds, and the like, may be):
+// masked segment by segment. A value that does not look like a path falls back to mask().
+const PATH_KEYS = new Set(['path', 'paths', 'path_scrubbed', 'locator', 'anchor', 'changed_paths', 'cwd', 'cwds', 'touched_files', 'root', 'roots', 'project', 'projects', 'repo', 'file', 'files', 'dir']);
 const KEEP = new Set(['shrine_refs', 'shrine_ref', 'shrine', 'url', 'url_pinned', 'entry_id', 'page_id', 'id', 'finding_id']);
 
 export function maskDeep(value, known, key = '') {
