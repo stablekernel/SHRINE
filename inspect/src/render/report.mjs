@@ -220,18 +220,20 @@ function timeline(f) {
   return `<div class="blk"><h4>What happened</h4><div class="tl-scroll excerpt" tabindex="0" role="group" aria-label="Episode timeline"><svg class="tl" viewBox="0 0 ${w} ${h}" role="img" aria-label="${esc(label)}">${s}</svg></div><p class="excerpt-safe">Timeline labels are hidden in the share-safe file.</p></div>`;
 }
 
-function configStrip(f) {
+function configStrip(f, historyRead) {
   const c = f.config_strip;
   if (!c) return '';
   const parts = [];
   if (c.mtime) parts.push(`Last change ${formatDate(c.mtime)}`);
   if (c.last_git_change) parts.push(`last git commit ${formatDate(c.last_git_change)}`);
-  // With no change date there is no "since" to count from.
-  if (c.mtime) parts.push(c.sessions_since == null ? 'sessions since: history not read' : `${pl(c.sessions_since, 'session')} since`);
+  // With no change date there is no "since" to count from; with history read
+  // but no known loader, there is no honest count, so none is shown.
+  if (c.mtime && c.sessions_since != null) parts.push(`${pl(c.sessions_since, 'session')} since`);
+  else if (c.mtime && !historyRead) parts.push('sessions since: history not read');
   return parts.length ? `<p class="ev">${esc(parts.join('; '))}</p>` : '';
 }
 
-function detail(f, tab, empty) {
+function detail(f, tab, empty, historyRead) {
   const warn = tab !== 'working';
   const tags = [
     `<span class="tag">${icon('wrench')}${esc(f.owner_label)}</span>`,
@@ -259,7 +261,7 @@ function detail(f, tab, empty) {
   const refs = `<div class="blk"><h4>In SHRINE</h4><div class="refs">${f.shrine_refs
     .map((r) => `<a class="ref" href="${esc(r.url ?? r.url_pinned)}">${icon('book')}${esc(r.title)} <small>${esc(r.section[0].toUpperCase() + r.section.slice(1))}${r.status === 'draft' ? ', Draft' : ''}</small></a>`)
     .join('')}</div>${f.shrine_refs.map((r) => `<blockquote class="quote">${esc(r.quote)}</blockquote>`).join('')}</div>`;
-  return `<article class="detail" id="${esc(f.id)}" aria-labelledby="${esc(f.id)}-t"><div class="tags">${tags}</div><h3 class="title" id="${esc(f.id)}-t">${esc(f.title)}</h3><p class="lead">${esc(f.lead)}</p>${configStrip(f)}${timeline(f)}<div class="blk"><h4>${warn ? 'Why this is a finding' : 'Why this counts'}</h4>${list(f.why)}</div><div class="blk"><h4>${warn ? 'Why it is a problem' : 'What to watch'}</h4>${list(f.problem)}</div><div class="blk"><h4>Evidence</h4><ul class="ev">${ev}</ul></div>${pivot}${benefit}${refs}</article>`;
+  return `<article class="detail" id="${esc(f.id)}" aria-labelledby="${esc(f.id)}-t"><div class="tags">${tags}</div><h3 class="title" id="${esc(f.id)}-t">${esc(f.title)}</h3><p class="lead">${esc(f.lead)}</p>${configStrip(f, historyRead)}${timeline(f)}<div class="blk"><h4>${warn ? 'Why this is a finding' : 'Why this counts'}</h4>${list(f.why)}</div><div class="blk"><h4>${warn ? 'Why it is a problem' : 'What to watch'}</h4>${list(f.problem)}</div><div class="blk"><h4>Evidence</h4><ul class="ev">${ev}</ul></div>${pivot}${benefit}${refs}</article>`;
 }
 
 function explorer(d, empty) {
@@ -275,7 +277,7 @@ function explorer(d, empty) {
       const body = fs.length
         ? `<div class="explore"><ul class="list" aria-label="${label} findings">${fs
             .map((f) => `<li><a class="f-btn" href="#${esc(f.id)}" data-target="${esc(f.id)}"><span class="${k === 'working' ? 'good-c' : 'warn-c'}">${icon(f.icon)}</span><span><span class="t">${esc(f.title)}</span><span class="s">${esc(f.short)}</span></span></a></li>`)
-            .join('')}</ul><div class="details">${fs.map((f) => detail(f, k, empty)).join('')}</div></div>`
+            .join('')}</ul><div class="details">${fs.map((f) => detail(f, k, empty, d.history?.read)).join('')}</div></div>`
         : `<p class="empty"><b>${esc(empty.tab[k].title)}</b> ${esc(empty.tab[k].body)}</p>`;
       return `<div role="tabpanel" id="panel-${k}" aria-labelledby="tab-${k}" tabindex="0"><h3 class="panel-h">${label} (${fs.length})</h3>${body}</div>`;
     })

@@ -245,3 +245,16 @@ test('no history: no usage block and the "History not read" chip', () => {
   assert.ok(!body.includes('Usage from session history'));
   assert.match(body, /History not read/);
 });
+
+test('config strip: unknown scope with history read hides sessions-since; history not read says so', async () => {
+  const { t0HistoryFindings } = await import('../synth/t0-findings.mjs');
+  const withStrip = (f, sessions_since) => ({ ...f, findings: f.findings.map((x, i) => (i === 0 ? { ...x, config_strip: { mtime: '2026-01-08T12:00:00.000Z', last_git_change: null, sessions_since } } : x)) });
+  const read = t0HistoryFindings();
+  assert.equal(read.history.read, true);
+  const body = outsideScripts(renderReport(withStrip(read, null)));
+  assert.match(body, /Last change /);
+  assert.doesNotMatch(body, /sessions since: history not read/);
+  assert.match(outsideScripts(renderReport(withStrip(read, 4))), /4 sessions since/);
+  const unread = { ...read, history: { ...read.history, read: false } };
+  assert.match(outsideScripts(renderReport(withStrip(unread, null))), /sessions since: history not read/);
+});
