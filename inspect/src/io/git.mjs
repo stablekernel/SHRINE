@@ -1,6 +1,8 @@
 // Allowlisted read-only git (spec 7): log, show, diff, rev-parse, status --porcelain,
 // plus two fixed reads: git --version and the promisor-config query below.
+import { delimiter, dirname, join, resolve } from 'node:path';
 import { runSync } from './proc.mjs';
+import { exists } from './fsread.mjs';
 import { InspectError } from '../cli/errors.mjs';
 
 const ALLOWED = new Set(['log', 'show', 'diff', 'rev-parse', 'status']);
@@ -87,15 +89,42 @@ export function firstSafeGit(v) {
   return b in FIRST_SAFE_PATCH ? `2.${b}.${FIRST_SAFE_PATCH[b]}` : '2.39.4';
 }
 
+// The repo a folder belongs to: the nearest folder at or above it that holds .git
+// (a folder, or a file for linked worktrees and submodules). Like git, the search
+// does not enter a GIT_CEILING_DIRECTORIES folder. null outside any repo.
+const roots = new Map();
+export function enclosingRepo(cwd) {
+  if (!cwd) return null;
+  if (!roots.has(cwd)) {
+    const ceilings = (process.env.GIT_CEILING_DIRECTORIES ?? '').split(delimiter).filter(Boolean).map((c) => resolve(c));
+    let dir = resolve(cwd);
+    let found = null;
+    for (;;) {
+      if (exists(join(dir, '.git'))) {
+        found = dir;
+        break;
+      }
+      const up = dirname(dir);
+      if (up === dir || ceilings.includes(up)) break;
+      dir = up;
+    }
+    roots.set(cwd, found);
+  }
+  return roots.get(cwd);
+}
+// Hung marks are per repo: every folder under a hung repo shares its config.
+const hungKey = (cwd) => enclosingRepo(cwd) ?? cwd;
+export const isHung = (cwd) => timedOut.has(hungKey(cwd));
+
 const partial = new Map();
 // True when this repo has a promisor remote (a partial clone): the only kind of repo
 // a read can lazy-fetch into.
 export function isPartialClone(cwd) {
-  if (!partial.has(cwd) && timedOut.has(cwd)) partial.set(cwd, true);
+  if (!partial.has(cwd) && isHung(cwd)) partial.set(cwd, true);
   if (!partial.has(cwd)) {
     const inv = gitInvocation(PROMISOR_QUERY, cwd);
     const r = runSync(inv.cmd, inv.args, { cwd, env: inv.env });
-    if (r.timedOut) timedOut.add(cwd);
+    if (r.timedOut) timedOut.add(hungKey(cwd));
     // Exit 1 is "no such key"; any other failure counts as partial, to stay safe.
     partial.set(cwd, !(r.status === 1 || (r.status === 0 && !/\S/.test(r.stdout))));
   }
@@ -107,25 +136,27 @@ export function historyReadable(cwd) {
   return honorsNoLazyFetch(gitVersion()) || !isPartialClone(cwd);
 }
 
-// Folders where a git run hit the spawn time limit. Later git runs there are
-// skipped as failed reads, so one hung repo costs one time limit, not one per call.
+// Repo roots (or, outside a repo, folders) where a git run hit the spawn time limit.
+// Later git runs anywhere under them are skipped as failed reads, so one hung repo
+// costs one time limit, not one per folder or call.
 const timedOut = new Set();
 export function gitTimeouts() {
   return [...timedOut];
 }
-// Each run starts with no folder marked as hung.
+// Each run starts with no repo marked as hung.
 export function resetGitTimeouts() {
-  for (const cwd of timedOut) partial.delete(cwd);
+  partial.clear();
+  roots.clear();
   timedOut.clear();
 }
 
 export function git(args, { cwd }) {
   const inv = gitInvocation(args, cwd);
-  if (timedOut.has(cwd)) return { ok: false, stdout: '', stderr: 'git not run: an earlier git run here timed out', skipped: true, timedOut: true };
+  if (isHung(cwd)) return { ok: false, stdout: '', stderr: 'git not run: an earlier git run in this repo timed out', skipped: true, timedOut: true };
   if (HISTORY.has(args[0]) && !historyReadable(cwd)) return { ok: false, stdout: '', stderr: 'history not read: partial clone on a git that can lazy-fetch', skipped: true };
   const r = runSync(inv.cmd, inv.args, { cwd: inv.cwd, env: inv.env });
   if (r.timedOut) {
-    timedOut.add(cwd);
+    timedOut.add(hungKey(cwd));
     return { ok: false, stdout: '', stderr: 'git timed out', timedOut: true };
   }
   return { ok: r.status === 0, stdout: r.stdout, stderr: r.stderr };

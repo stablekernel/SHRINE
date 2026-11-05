@@ -17,6 +17,11 @@ test('a repo that hangs git ends the read with a visible note, not a hung run', 
   const repo = join(h.tmp, 'work', 'hung');
   mkdirSync(join(repo, '.claude'), { recursive: true });
   writeFileSync(join(repo, 'CLAUDE.md'), '# Rules\n');
+  // Nested instruction files: each folder under the hung repo would cost its own time limit if marks were per folder.
+  for (const sub of ['svc/a', 'svc/b', 'docs/c']) {
+    mkdirSync(join(repo, sub), { recursive: true });
+    writeFileSync(join(repo, sub, 'CLAUDE.md'), '# Sub rules\n');
+  }
   const env = { ...process.env, GIT_CONFIG_GLOBAL: devNull, GIT_AUTHOR_NAME: 'a', GIT_AUTHOR_EMAIL: 'a@example.com', GIT_COMMITTER_NAME: 'a', GIT_COMMITTER_EMAIL: 'a@example.com' };
   for (const a of [['init', '-q', '-b', 'main'], ['add', '-A'], ['commit', '-qm', 'i']]) execFileSync('git', a, { cwd: repo, env });
   execFileSync('mkfifo', [join(h.tmp, 'pipe')]);
@@ -45,9 +50,9 @@ test('a repo that hangs git ends the read with a visible note, not a hung run', 
   const findings = JSON.parse(readFileSync(join(s.run_dir, 'findings.json'), 'utf8'));
   const html = readFileSync(s.report, 'utf8');
   h.cleanup();
-  const note = findings.notes.find((n) => n.startsWith('Git did not finish within 1 second in 1 folder'));
+  const note = findings.notes.find((n) => n.startsWith('Git did not finish within 1 second in 1 repo and'));
   assert.ok(note, JSON.stringify(findings.notes));
   assert.ok(!findings.notes.some((n) => n.startsWith('Git history was not read')), 'a hung folder is not reported as a partial clone');
   const visible = html.replace(/<script[\s\S]*?<\/script>|<style[\s\S]*?<\/style>/g, '');
-  assert.match(visible, /class="run-limits"[^>]*><p>Git did not finish within 1 second in 1 folder/, 'a visible run limit, not just data');
+  assert.match(visible, /class="run-limits"[^>]*><p>Git did not finish within 1 second in 1 repo and/, 'a visible run limit, not just data');
 });

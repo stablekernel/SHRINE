@@ -1,7 +1,7 @@
 import { test } from 'node:test';
 import assert from 'node:assert/strict';
 import { execFileSync, spawnSync } from 'node:child_process';
-import { existsSync, mkdtempSync, readdirSync, rmSync, writeFileSync } from 'node:fs';
+import { existsSync, mkdirSync, mkdtempSync, readdirSync, rmSync, writeFileSync } from 'node:fs';
 import { tmpdir } from 'node:os';
 import { join } from 'node:path';
 import { firstSafeGit, git, gitInvocation, historyReadable, honorsNoLazyFetch, setGitVersion } from '../../src/io/git.mjs';
@@ -269,6 +269,37 @@ test('a git run blocked on a FIFO include times out as a failed read', async (t)
     rmSync(repo, { recursive: true, force: true });
   }
 });
+
+// The hung mark is per repo: folders under one hung repo cost one time limit, not one each.
+for (const version of [[2, 39, 0], [2, 50, 1]]) {
+  test(`a hung repo costs one git run, not one per folder under it (git ${version.join('.')})`, async (t) => {
+    const { gitOut, gitTimeouts, resetGitTimeouts } = await import('../../src/io/git.mjs');
+    const { setSpawnTimeout } = await import('../../src/io/proc.mjs');
+    const { resetSpy, spyLog } = await import('../../src/io/fsread.mjs');
+    if (spawnSync('mkfifo', ['--help'], { stdio: 'ignore' }).error) return t.skip('no mkfifo on this platform');
+    const repo = mkdtempSync(join(tmpdir(), 'si-fifo-'));
+    sh(repo, 'init', '-q');
+    sh(repo, 'commit', '-q', '--allow-empty', '-m', 'one');
+    const dirs = [1, 2, 3, 4, 5, 6].map((i) => join(repo, '.claude', 'skills', `s${i}`));
+    for (const d of dirs) mkdirSync(d, { recursive: true });
+    execFileSync('mkfifo', [join(repo, 'pipe')]);
+    sh(repo, 'config', 'include.path', join(repo, 'pipe'));
+    setGitVersion(version);
+    setSpawnTimeout(1000);
+    resetSpy();
+    try {
+      for (const d of dirs) assert.equal(gitOut(['log', '-1', '--format=%cI', '--', 'SKILL.md'], d), null);
+      assert.equal(gitOut(['log', '-n', '200', '--format=%an'], repo), null);
+      assert.deepEqual(gitTimeouts(), [repo], 'one hung repo, named by its root');
+      assert.equal(spyLog().filter((e) => e.op === 'spawn' && e.cwd?.startsWith(repo)).length, 1, 'exactly one git run in the hung repo');
+    } finally {
+      setSpawnTimeout();
+      setGitVersion(undefined);
+      resetGitTimeouts();
+      rmSync(repo, { recursive: true, force: true });
+    }
+  });
+}
 
 test('git never uses a bare repo found by discovery inside a scanned folder', () => {
   const dir = mkdtempSync(join(tmpdir(), 'si-bare-'));
