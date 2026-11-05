@@ -56,7 +56,7 @@ test('mask covers home segments, emails, hostnames, IPs, and absolute paths', ()
   for (const leak of ['/Users/jdoe', 'jdoe', 'ops@corp.example.com', 'build01.acme.io', '10.1.2.3', '/opt/tools']) {
     assert.ok(!out.includes(leak), `${leak} leaked: ${out}`);
   }
-  assert.match(out, /~\/work\/<project-1>\/CLAUDE\.md/);
+  assert.match(out, /~\/<path>\/CLAUDE\.md/);
   assert.match(out, /<email>/);
   assert.match(out, /<host>/);
   assert.match(out, /<ip>/);
@@ -66,7 +66,7 @@ test('mask covers encoded project folders and dashed user names', () => {
   const k = buildIdentifiers({ home: '/Users/j.doe' });
   const out = mask('~/.claude/projects/-Users-j-doe-src-acme-shop/memory/MEMORY.md and ~/src/github/j-doe/x', k);
   assert.ok(!/j-doe|acme|shop/.test(out), out);
-  assert.match(out, /\.claude\/projects\/<project-folder>\/memory/);
+  assert.match(out, /~\/\.claude\/<path>\/MEMORY\.md/);
 });
 
 test('ticket IDs are not masked', () => {
@@ -116,4 +116,14 @@ test('new rules leave ordinary prose alone', () => {
     'Run mysql -u root -p to be prompted. curl -u needs user:password.',
     'SG.1 is a section; ya29 is a prefix. The auth flow is documented.',
   ]) assert.equal(scrubSecrets(s), s);
+});
+
+test('home paths keep only .claude and the file name', () => {
+  const k = buildIdentifiers({ home: '/Users/jdoe', projects: ['payments-api'] });
+  const s = '~/work/megaclient/payments-api/CLAUDE.md, /Users/jdoe/src/acme/app/.claude/settings.json, ~/.claude/CLAUDE.md';
+  const out = mask(s, k);
+  assert.ok(!/megaclient|acme|work|src|app\//.test(out), out);
+  assert.equal(out, '~/<path>/CLAUDE.md, ~/<path>/.claude/settings.json, ~/.claude/CLAUDE.md');
+  const deep = maskDeep({ anchor: '~/work/megaclient/x/CLAUDE.md' }, k);
+  assert.equal(deep.anchor, '~/<path>/CLAUDE.md');
 });

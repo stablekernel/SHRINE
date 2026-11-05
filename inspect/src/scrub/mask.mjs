@@ -33,6 +33,16 @@ const EMAIL = /\b[A-Za-z0-9._%+-]+@[A-Za-z0-9.-]+\.[A-Za-z]{2,}\b/g;
 const IPV4 = /\b(?:(?:25[0-5]|2[0-4]\d|1?\d?\d)\.){3}(?:25[0-5]|2[0-4]\d|1?\d?\d)\b/g;
 const TLDS = 'com|net|org|io|dev|ai|app|co|us|uk|de|fr|cloud|internal|local|lan|corp|edu|gov|info|biz|xyz|sh|me|tech|example';
 const HOST = new RegExp(`\\b(?:[A-Za-z0-9](?:[A-Za-z0-9-]{0,61}[A-Za-z0-9])?\\.)+(?:${TLDS})\\b`, 'g');
+// Home paths keep only .claude and the file name; other folders name clients and repos.
+const HOME_PATH = /(?<![\w.~<>-])~\/((?:[\w.@+<>-]+\/)*)([\w.@+<>-]*)/g;
+const homePath = (_m, dirs, base) => {
+  const kept = [];
+  for (const seg of dirs.split('/').filter(Boolean)) {
+    if (seg === '.claude') kept.push(seg);
+    else if (kept.at(-1) !== '<path>') kept.push('<path>');
+  }
+  return `~/${kept.map((k) => `${k}/`).join('')}${base}`;
+};
 const ABS_PATH = /(?<![\w~.<>-])\/(?:[\w.@+-]+\/)+([\w.@+-]*)/g;
 
 export function mask(text, known) {
@@ -46,6 +56,7 @@ export function mask(text, known) {
   }
   out = out.replace(IPV4, '<ip>');
   out = out.replace(HOST, '<host>');
+  out = out.replace(HOME_PATH, homePath);
   out = out.replace(ABS_PATH, (_m, base) => `<path>/${base}`);
   return out;
 }
