@@ -1,5 +1,5 @@
 // Golden facts per Claude Code version bucket (plan T2.4, E3: no core-key drift
-// across 21 versions, so two buckets plus a job log). Set SHRINE_UPDATE_GOLDEN=1
+// across 21 versions, so two buckets plus a job log). Set UPDATE_GOLDEN=1
 // to rewrite the goldens after a reviewed change.
 import { test } from 'node:test';
 import assert from 'node:assert/strict';
@@ -38,7 +38,7 @@ for (const [version, id, subs] of [
 ]) {
   test(`golden facts for Claude Code ${version}`, async () => {
     const got = await factsOf(id, fx(`v${version}/${id}.jsonl`), subs.map(fx));
-    if (process.env.SHRINE_UPDATE_GOLDEN === '1') writeFileSync(golden(version), `${JSON.stringify(got, null, 2)}\n`);
+    if (process.env.UPDATE_GOLDEN === '1') writeFileSync(golden(version), `${JSON.stringify(got, null, 2)}\n`);
     assert.ok(existsSync(golden(version)), `missing golden ${golden(version)}`);
     assert.deepEqual(got, JSON.parse(readFileSync(golden(version), 'utf8')));
   });
