@@ -40,3 +40,25 @@ test('every transport is refused, for git older than GIT_NO_LAZY_FETCH', () => {
   assert.equal(inv.env.GIT_NO_LAZY_FETCH, '1');
   assert.ok(inv.args.join(' ').includes('-c protocol.allow=never'));
 });
+
+test('a GIT_* variable from the caller cannot redirect which repo git reads', async () => {
+  const { repoRoot } = await import('../../src/adapters/claude-code/projects.mjs');
+  const { realpathSync } = await import('node:fs');
+  const mk = () => {
+    const r = realpathSync(mkdtempSync(join(tmpdir(), 'si-env-')));
+    sh(r, 'init', '-q');
+    sh(r, 'commit', '-q', '--allow-empty', '-m', 'x');
+    return r;
+  };
+  const a = mk();
+  const b = mk();
+  const saved = { ...process.env };
+  Object.assign(process.env, { GIT_DIR: join(b, '.git'), GIT_WORK_TREE: b, GIT_INDEX_FILE: join(b, '.git', 'index'), GIT_CONFIG_COUNT: '1', GIT_CONFIG_KEY_0: 'core.pager', GIT_CONFIG_VALUE_0: 'cat' });
+  try {
+    assert.equal(repoRoot(a), a);
+    const env = gitInvocation(['log'], a).env;
+    assert.deepEqual(Object.keys(env).filter((k) => k.startsWith('GIT_')).sort(), ['GIT_NO_LAZY_FETCH', 'GIT_OPTIONAL_LOCKS', 'GIT_TERMINAL_PROMPT', ...(saved.GIT_CEILING_DIRECTORIES ? ['GIT_CEILING_DIRECTORIES'] : [])].sort());
+  } finally {
+    for (const k of Object.keys(process.env)) if (!(k in saved)) delete process.env[k];
+  }
+});

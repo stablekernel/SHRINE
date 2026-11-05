@@ -4,7 +4,8 @@ import { InspectError } from '../cli/errors.mjs';
 
 const ALLOWED = new Set(['log', 'show', 'diff', 'rev-parse', 'status']);
 const DIFFING = new Set(['log', 'show', 'diff']);
-const WRITING_FLAGS = /^(--output|-o$|--ext-diff|--textconv)/;
+const KEEP_ENV = new Set(['GIT_CEILING_DIRECTORIES']);
+const WRITING_FLAGS =/^(--output|-o$|--ext-diff|--textconv)/;
 
 function deny(args, why) {
   throw new InspectError('E_GIT_DENIED', `refused git ${args.join(' ')}: ${why}`);
@@ -21,8 +22,10 @@ export function gitInvocation(args, cwd) {
   const noPrograms = DIFFING.has(sub) ? ['--no-ext-diff', '--no-textconv'] : [];
   // Partial clones never lazy-fetch: GIT_NO_LAZY_FETCH (git 2.44+), and every
   // transport is refused for older git.
-  const env = { ...process.env, GIT_OPTIONAL_LOCKS: '0', GIT_TERMINAL_PROMPT: '0', GIT_NO_LAZY_FETCH: '1' };
-  delete env.GIT_EXTERNAL_DIFF;
+  // Caller GIT_* vars (GIT_DIR, GIT_WORK_TREE, GIT_CONFIG_*, ...) are dropped so
+  // nothing redirects the repo or injects config; the ceiling only narrows discovery.
+  const env = Object.fromEntries(Object.entries(process.env).filter(([k]) => !k.startsWith('GIT_') || KEEP_ENV.has(k)));
+  Object.assign(env, { GIT_OPTIONAL_LOCKS: '0', GIT_TERMINAL_PROMPT: '0', GIT_NO_LAZY_FETCH: '1' });
   return {
     cmd: 'git',
     args: ['--no-pager', '-c', 'core.fsmonitor=false', '-c', 'log.showSignature=false', '-c', 'protocol.allow=never', sub, ...noPrograms, ...args.slice(1)],
