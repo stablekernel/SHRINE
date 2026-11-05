@@ -191,6 +191,42 @@ test('a repo where git log fails is history not read, not unlinked commits, and 
   }
 });
 
+test('a repo git refuses during setup keeps the not-owned reason when the linker reaches it', async () => {
+  const h = home('good', 'clean');
+  const r2 = makeRepo();
+  const iso = (ms) => new Date(ms).toISOString();
+  const T = NOW - 10 * DAY;
+  // A CLAUDE.md makes setup read this repo with git before the linker does.
+  r2.commit(iso(T - 3600000), 'base', { 'CLAUDE.md': '# Parser\n\nRun the parser tests.\n', 'src/parser.js': 'v0' });
+  addSession(h, { id: 'aeae0000-0000-4000-8000-000000000001', cwd: r2.root, startMs: T + DAY, script: PRESETS.committing(1) });
+  r2.commit(iso(T + DAY + COMMIT_AT_MS), 'parser step 1', { 'src/p1.js': 'v1' });
+  // A git that refuses every run in this one repo, as git does for another owner.
+  const bin = mkdtempSync(join(tmpdir(), 'si-fakegit-'));
+  const real = execFileSync('sh', ['-c', 'command -v git'], { encoding: 'utf8' }).trim();
+  const target = realpathSync(r2.root);
+  writeFileSync(join(bin, 'git'), `#!/bin/sh\ncase "$(pwd -P)" in '${target}'|'${target}'/*) case "$1" in --version|version) ;; *) echo "fatal: detected dubious ownership in repository at '${target}'" >&2; exit 128;; esac;; esac\nexec '${real}' "$@"\n`);
+  chmodSync(join(bin, 'git'), 0o755);
+  const path = process.env.PATH;
+  // A git that reads history safely, so the linker reaches the repo.
+  setGitVersion([2, 50, 1]);
+  try {
+    process.env.PATH = `${bin}:${path}`;
+    const r = await runWithHistory(h);
+    assert.equal(r.code, 0, r.stderr);
+    assert.ok(r.findings.run_limits.some((n) => n.startsWith('Git refused to read 1 repo owned by another user')), 'setup saw the refusal first');
+    const note = r.findings.run_limits.find((n) => n.startsWith('Git could not read commit history in 1 repo'));
+    assert.ok(note, r.findings.run_limits.join('\n'));
+    assert.match(note, /\(git refused it: the repo is owned by another user\)/);
+    assert.doesNotMatch(note, /git log failed/);
+  } finally {
+    process.env.PATH = path;
+    setGitVersion(undefined);
+    rmSync(bin, { recursive: true, force: true });
+    r2.cleanup();
+    h.cleanup();
+  }
+});
+
 for (const preset of ['clean', 'expert']) {
   test(`${preset} history on a good setup: zero findings, nothing in amplify above low`, async () => {
     const h = home('good', preset);

@@ -25,6 +25,9 @@ const COMMIT_SLACK_MS = 2 * 60000;
 function logFailure(r, root) {
   if (r.ok) return null;
   if (r.timedOut) return 'timed out';
+  // A repo refused earlier in the run is skipped with its own message, so the
+  // flag git() sets is read before the stderr text.
+  if (r.refused) return 'not owned';
   if (!isDir(root) || /not a git repository/i.test(r.stderr)) return null;
   return /dubious ownership/i.test(r.stderr) ? 'not owned' : 'failed';
 }
