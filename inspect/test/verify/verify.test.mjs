@@ -70,3 +70,17 @@ test('a repo HEAD that moves after the baseline shows as HEAD moved, by others',
   assert.equal(r.ok, true);
   assert.deepEqual(r.changed_by_others.map((c) => c.change), ['HEAD moved']);
 });
+
+test('a new pack in a scanned repo .git while HEAD stays put fails the run', async () => {
+  const { execFileSync } = await import('node:child_process');
+  const repo = mkdtempSync(join(tmpdir(), 'si-verify-git-'));
+  const env = { ...process.env, GIT_AUTHOR_NAME: 't', GIT_AUTHOR_EMAIL: 't@x', GIT_COMMITTER_NAME: 't', GIT_COMMITTER_EMAIL: 't@x' };
+  execFileSync('git', ['init', '-q'], { cwd: repo, env });
+  execFileSync('git', ['commit', '-q', '--allow-empty', '-m', 'one'], { cwd: repo, env });
+  const { heads } = baselineOf([], [repo]);
+  assert.equal(verifyRun({ files: [], heads }, []).ok, true, 'no change verifies ok');
+  writeFileSync(join(repo, '.git', 'objects', 'pack', 'pack-0000.pack'), 'x');
+  const r = verifyRun({ files: [], heads }, []);
+  assert.equal(r.ok, false);
+  assert.deepEqual(r.changed_paths, [join(repo, '.git')]);
+});
