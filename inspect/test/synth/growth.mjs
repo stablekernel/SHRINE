@@ -3,7 +3,9 @@
 // 1x, best of 5 each, interleaved. The 1x input grows until one run takes at least
 // 2ms, so timer resolution is not what is measured. Linear code gives about 4;
 // quadratic about 16.
-export function growth(build, run) {
+// minMs and tries raise the base run time and the best-of count for callers that
+// need a clean reading (the quadratic tripwire).
+export function growth(build, run, { minMs = 2, tries = 5 } = {}) {
   const time = (s) => {
     const t = process.cpuUsage();
     run(s);
@@ -11,12 +13,12 @@ export function growth(build, run) {
     return (d.user + d.system) / 1000;
   };
   let n = 1000;
-  while (time(build(n)) < 2 && n < 5_000_000) n *= 2;
+  while (time(build(n)) < minMs && n < 5_000_000) n *= 2;
   const small = build(n);
   const large = build(4 * n);
   let a = Infinity;
   let b = Infinity;
-  for (let i = 0; i < 5; i++) {
+  for (let i = 0; i < tries; i++) {
     a = Math.min(a, time(small));
     b = Math.min(b, time(large));
   }

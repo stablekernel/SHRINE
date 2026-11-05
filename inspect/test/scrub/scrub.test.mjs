@@ -90,12 +90,15 @@ test('maskDeep masks a finding anchor, which is a user file path', () => {
 const growth = (build, run = scrubSecrets) => growthOf(build, run);
 
 test('growth flags a quadratic regex', () => {
+  // An 8ms base run (not 2ms) and best of 7: fixed overhead and load noise shrink
+  // next to the n^2 term, so a true quadratic reads 13-16, clear of the bar.
+  const opts = { minMs: 8, tries: 7 };
   // Every start position runs to the end of the input before failing: O(n^2).
-  const g = growth((n) => 'x-'.repeat(n / 2), (s) => /(?:x-)+=/.test(s));
+  const g = growthOf((n) => 'x-'.repeat(n / 2), (s) => /(?:x-)+=/.test(s), opts);
   // The same limit the linear-time tests use, so they would catch this.
   assert.ok(g >= 10, `quadratic regex grew only ${g.toFixed(1)}x`);
   // The old share-safe email rule: an unbounded local part before a word boundary.
-  const old = growth(repeatTo('a.'), (s) => s.replace(/\b[A-Za-z0-9._%+-]+@[A-Za-z0-9.-]+\.[A-Za-z]{2,}\b/g, '<email>'));
+  const old = growthOf(repeatTo('a.'), (s) => s.replace(/\b[A-Za-z0-9._%+-]+@[A-Za-z0-9.-]+\.[A-Za-z]{2,}\b/g, '<email>'), opts);
   assert.ok(old >= 10, `old email rule grew only ${old.toFixed(1)}x`);
 });
 
