@@ -248,6 +248,31 @@ test('a refused repo is not counted as a partial clone, even on git that ignores
   }
 });
 
+test('a refused repo costs one git run, not one per folder under it', async () => {
+  const { gitOut, gitRefusals } = await import('../../src/io/git.mjs');
+  const { resetSpy, spyLog } = await import('../../src/io/fsread.mjs');
+  const repo = mkdtempSync(join(tmpdir(), 'si-refused-'));
+  sh(repo, 'init', '-q');
+  sh(repo, 'commit', '-q', '--allow-empty', '-m', 'one');
+  const dirs = [1, 2, 3, 4].map((i) => join(repo, '.claude', 'skills', `s${i}`));
+  for (const d of dirs) mkdirSync(d, { recursive: true });
+  resetGitTimeouts();
+  setGitTestEnv(REFUSE_ALL_REPOS);
+  setGitVersion([2, 45, 1]);
+  resetSpy();
+  try {
+    for (const d of dirs) assert.equal(gitOut(['rev-parse', 'HEAD'], d), null);
+    assert.equal(gitOut(['log', '-1', '--format=%H'], repo), null);
+    assert.deepEqual(gitRefusals(), [repo], 'one refused repo, named by its root');
+    assert.equal(spyLog().filter((e) => e.op === 'spawn' && e.cwd?.startsWith(repo)).length, 1, 'exactly one git run in the refused repo');
+  } finally {
+    setGitTestEnv();
+    setGitVersion(undefined);
+    resetGitTimeouts();
+    rmSync(repo, { recursive: true, force: true });
+  }
+});
+
 test('a partial clone on git that ignores GIT_NO_LAZY_FETCH skips history reads; others run', () => {
   const clone = partialClone('tree:0');
   const dir = join(clone, '..');
