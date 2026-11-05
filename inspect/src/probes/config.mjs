@@ -33,7 +33,11 @@ const instructionFiles = (s) => s.items.filter((i) => i.kind === 'instruction' &
 const ageDays = (iso, now) => Math.floor((now - Date.parse(iso)) / DAY);
 
 function stale(s, t) {
-  const files = s.items.filter((i) => (i.kind === 'instruction' || i.kind === 'memory') && i.last_change?.date);
+  // A file whose git history was not read (see io/git.mjs) carries its checkout
+  // time, not a change date: it is left out, as in reviewedCheck.
+  const dated = s.items.filter((i) => (i.kind === 'instruction' || i.kind === 'memory') && i.last_change?.date);
+  const files = dated.filter((i) => !i.last_change.git_skipped);
+  const skipped = dated.length - files.length;
   const items = files
     .map((i) => ({ path: i.path, age_days: ageDays(i.last_change.date, s.now), date: i.last_change.date, date_source: i.last_change.source }))
     .filter((i) => i.age_days > t.config.stale_days)
@@ -42,7 +46,7 @@ function stale(s, t) {
     applicable: files.length > 0,
     hit: items.length > 0,
     items,
-    metric: { count: items.length, total: files.length, max_age_days: items[0]?.age_days ?? 0, threshold_days: t.config.stale_days },
+    metric: { count: items.length, total: files.length, max_age_days: items[0]?.age_days ?? 0, threshold_days: t.config.stale_days, skipped },
   };
 }
 

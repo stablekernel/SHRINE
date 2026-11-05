@@ -17,7 +17,7 @@ const FINDINGS = {
     why: [
       `${m.count} of ${m.total} instruction or memory ${pl(m.total, 'file')} last changed over ${m.threshold_days} days ago.`,
       `The oldest last changed ${m.max_age_days} days ago.`,
-      'Dates come from the last git commit, or from the file time when the file is not in a repo.',
+      `Dates come from the last git commit, or from the file time when git has no commit for the file.${m.skipped ? ` ${m.skipped} ${pl(m.skipped, 'file')} in repos whose git history was not read ${m.skipped === 1 ? 'is' : 'are'} left out.` : ''}`,
     ],
     problem: [
       'Stale guidance is trusted guidance, so an outdated rule looks intentional.',
@@ -185,7 +185,7 @@ export const copy = {
 };
 
 export const SAMPLE_PROBES = {
-  stale_instructions: { metric: { count: 2, total: 5, max_age_days: 400, threshold_days: T.stale_days }, items: [] },
+  stale_instructions: { metric: { count: 2, total: 5, max_age_days: 400, threshold_days: T.stale_days, skipped: 1 }, items: [] },
   oversized_instructions: { metric: { bytes: 53248, kb: 52, threshold_kb: 40 }, items: [{ path: '~/.claude/CLAUDE.md', bytes: 46000 }] },
   no_owner_or_review: { metric: { count: 3, total: 4 }, items: [] },
   blanket_permissions: { metric: { count: 2 }, items: [{ rule: 'Bash' }, { rule: 'defaultMode: bypassPermissions' }] },

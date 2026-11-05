@@ -688,7 +688,7 @@
       "why": [
         "2 of 2 instruction or memory files last changed over 180 days ago.",
         "The oldest last changed 658 days ago.",
-        "Dates come from the last git commit, or from the file time when the file is not in a repo."
+        "Dates come from the last git commit, or from the file time when git has no commit for the file."
       ],
       "problem": [
         "Stale guidance is trusted guidance, so an outdated rule looks intentional.",

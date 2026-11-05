@@ -178,6 +178,23 @@ test('instructions_reviewed skips a file whose git history was not read, unless 
   assert.equal(check(s, 'instructions_reviewed').pass, false, 'a review line still counts');
 });
 
+// In a partial clone whose history was skipped, files are dated by checkout time:
+// neither stale nor fresh is known, so they leave both the list and the "N of M".
+test('stale_instructions leaves out files whose git history was not read', () => {
+  const skipped = (path, age) => ({ ...instr(path, { layer: 'project', age, src: 'mtime' }), last_change: { date: daysAgo(age), source: 'mtime', git_skipped: true } });
+  const s = setup();
+  s.items[1] = skipped('/r/a/CLAUDE.md', 700);
+  const p = probe(s, 'stale_instructions');
+  assert.equal(p.hit, false, JSON.stringify(p.items));
+  assert.equal(p.metric.total, 2, 'the skipped file is not counted in N of M');
+  s.items[0] = instr('/h/.claude/CLAUDE.md', { age: 400 });
+  const hit = probe(s, 'stale_instructions');
+  assert.deepEqual([hit.metric.count, hit.metric.total], [1, 2]);
+  assert.ok(!hit.items.some((i) => i.path === '/r/a/CLAUDE.md'));
+  const only = setup({ items: [skipped('/r/a/CLAUDE.md', 700)] });
+  assert.equal(probe(only, 'stale_instructions').applicable, false, 'with only skipped files the check did not run');
+});
+
 test('permissions_scoped mirrors blanket_permissions', () => {
   const s = setup({ permissions: { allow: [{ rule: 'Bash', path: 'p' }], ask: [], deny: [], defaultMode: null, skipDangerousModePermissionPrompt: null } });
   assert.equal(check(s, 'permissions_scoped').pass, false);

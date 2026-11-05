@@ -23,6 +23,9 @@ for (const kind of KINDS) {
 test('templates use metric slots', () => {
   const a = copy.finding('stale_instructions', { ...SAMPLE_PROBES.stale_instructions, metric: { ...SAMPLE_PROBES.stale_instructions.metric, max_age_days: 401 } });
   assert.match(a.short, /401 days/);
+  assert.match(a.why.join(' '), /1 file in repos whose git history was not read is left out\./);
+  const none = copy.finding('stale_instructions', { ...SAMPLE_PROBES.stale_instructions, metric: { ...SAMPLE_PROBES.stale_instructions.metric, skipped: 0 } });
+  assert.doesNotMatch(none.why.join(' '), /left out/);
   const b = copy.finding('oversized_instructions', { ...SAMPLE_PROBES.oversized_instructions, metric: { ...SAMPLE_PROBES.oversized_instructions.metric, kb: 77 } });
   assert.match(b.title, /77 KB/);
 });
