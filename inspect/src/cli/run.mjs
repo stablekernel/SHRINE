@@ -6,7 +6,7 @@ import { exists, readJson, resetSpy, spyLog } from '../io/fsread.mjs';
 import { createRunFolder, runFolder } from '../io/runfolder.mjs';
 import { appDirs } from '../io/paths.mjs';
 import { detect } from '../adapters/claude-code/detect.mjs';
-import { listProjects } from '../adapters/claude-code/projects.mjs';
+import { defaultTempPatterns, listProjects } from '../adapters/claude-code/projects.mjs';
 import { retention } from '../adapters/claude-code/retention.mjs';
 import { collectSetup, knownIdentifiers } from '../adapters/claude-code/setup.mjs';
 import { runConfigProbes } from '../probes/config.mjs';
@@ -68,7 +68,7 @@ export async function continueRun(folder, ctx, io) {
   const state = readJson(folder.path('state.json'));
   const ret = retention({ home: ctx.home });
   const claudeHome = detect({ home: ctx.home }).claude_home;
-  const listing = listProjects({ claudeHome, now: ctx.now, windowDays: ret.days });
+  const listing = listProjects({ claudeHome, now: ctx.now, windowDays: ret.days, tempPatterns: defaultTempPatterns(io.env) });
 
   if (!state.gates.A) {
     const gate = { gate: 'A', ...GATE_A, projects: listing.top.map((p) => ({ name: p.name, sessions: p.sessions, bytes: p.bytes })), more: listing.more, excluded: listing.excluded.length };

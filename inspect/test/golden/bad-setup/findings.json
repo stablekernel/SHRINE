@@ -1,0 +1,856 @@
+{
+  "schema_version": 1,
+  "run": {
+    "id": "<run-id>",
+    "started_at": "2026-11-04T12:00:00.000Z",
+    "tool_version": "0.1.0",
+    "harness": {
+      "name": "Claude Code",
+      "version": null
+    },
+    "scope": {
+      "projects": [
+        "bad-project"
+      ],
+      "from": null,
+      "to": null,
+      "history_consented": false
+    },
+    "win_definition": null,
+    "seed": null
+  },
+  "shrine": {
+    "commit": "71e82a0e6f729e88c7e40040310fd33068c067f3",
+    "manifest_sha": null,
+    "fetched_at": null
+  },
+  "tier": "T0",
+  "reviewers": 0,
+  "minutes_elapsed": 0,
+  "tokens_used": 0,
+  "headline": {
+    "counts": {
+      "amplify": 6,
+      "working": 0,
+      "worth_a_look": 0,
+      "checked_clear": 1,
+      "configured": 1,
+      "checks": 9
+    },
+    "tldr": [
+      {
+        "status": "amplify",
+        "headline": "Shell or file writes run without a pause",
+        "sentence": "Your settings approve shell commands or file writes without asking, or skip the approval prompt.",
+        "finding_id": "f-17ff11fc2ce9"
+      },
+      {
+        "status": "amplify",
+        "headline": "Instruction files unchanged for over 180 days",
+        "sentence": "Some instruction or memory files have not changed in over 180 days.",
+        "finding_id": "f-0b5ab2f16874"
+      },
+      {
+        "status": "amplify",
+        "headline": "Always-loaded instructions are 44 KB",
+        "sentence": "Every session loads these instructions before the first prompt.",
+        "finding_id": "f-038f3ca20dc9"
+      }
+    ],
+    "start_with": {
+      "finding_id": "f-17ff11fc2ce9",
+      "action": "Replace blanket allow rules with scoped ones and set the default permission mode back to ask.",
+      "minutes_to_apply": 10,
+      "framed": true
+    }
+  },
+  "coverage": [
+    {
+      "key": "authority-cascade",
+      "title": "Authority Cascade",
+      "icon": "layers",
+      "working": 0,
+      "amplify": 0
+    },
+    {
+      "key": "human-in-the-loop",
+      "title": "Human in the Loop",
+      "icon": "hand",
+      "working": 0,
+      "amplify": 1
+    },
+    {
+      "key": "problem-before-prescription",
+      "title": "Problem Before Prescription",
+      "icon": "compass",
+      "working": 0,
+      "amplify": 0
+    },
+    {
+      "key": "consistency-as-leverage",
+      "title": "Consistency as Leverage",
+      "icon": "grid",
+      "working": 0,
+      "amplify": 0
+    },
+    {
+      "key": "fail-fast-recover-smart",
+      "title": "Fail Fast, Recover Smart",
+      "icon": "loop",
+      "working": 0,
+      "amplify": 0
+    },
+    {
+      "key": "reproducibility",
+      "title": "Reproducibility",
+      "icon": "repeat",
+      "working": 0,
+      "amplify": 1
+    },
+    {
+      "key": "deliberate-currency",
+      "title": "Deliberate Currency",
+      "icon": "clock",
+      "working": 0,
+      "amplify": 2
+    },
+    {
+      "key": "patterns_and_stack",
+      "title": "Patterns and stack",
+      "icon": "wrench",
+      "working": 0,
+      "amplify": 2
+    }
+  ],
+  "attribution_stack": null,
+  "findings": [
+    {
+      "id": "f-17ff11fc2ce9",
+      "kind": "blanket_permissions",
+      "entry_id": "human-in-the-loop.sov.undefined-boundary",
+      "lens": "config",
+      "tab": "amplify",
+      "title": "Shell or file writes run without a pause",
+      "short": "5 rules approve without asking",
+      "lead": "Your settings approve shell commands or file writes without asking, or skip the approval prompt. Judgment moves from the risky step to reading diffs after the fact.",
+      "icon": "hand",
+      "provenance": "mechanical",
+      "attribution": "harness",
+      "confidence": {
+        "value": 0.9,
+        "label": "high",
+        "basis": "deterministic fact from your setup files"
+      },
+      "severity": {
+        "tokens_attributable": null,
+        "human_turns_attributable": null,
+        "delay_minutes": null,
+        "label": "high"
+      },
+      "recurrence": {
+        "hits": null,
+        "sample": null,
+        "stratum": null,
+        "control_rate": null
+      },
+      "evidence": [
+        {
+          "kind": "mechanical",
+          "locator": "~/.claude/settings.json",
+          "metric": "Bash: blanket shell allow"
+        },
+        {
+          "kind": "mechanical",
+          "locator": "~/.claude/settings.json",
+          "metric": "Write: blanket write allow"
+        },
+        {
+          "kind": "mechanical",
+          "locator": "~/.claude/settings.json",
+          "metric": "Edit(*): blanket write allow"
+        },
+        {
+          "kind": "mechanical",
+          "locator": "~/.claude/settings.json",
+          "metric": "defaultMode: bypassPermissions: bypass or auto-approve default mode"
+        },
+        {
+          "kind": "mechanical",
+          "locator": "~/.claude/settings.json",
+          "metric": "skipDangerousModePermissionPrompt: true: dangerous-mode prompt skipped"
+        }
+      ],
+      "anchor": "~/.claude/settings.json",
+      "counter_reading": null,
+      "adversarial": null,
+      "episode_ref": null,
+      "why": [
+        "Found: Bash, Write and Edit(*).",
+        "Each rule applies in every project that reads these settings."
+      ],
+      "problem": [
+        "A human checkpoint exists in name only, so out-of-scope writes are found by chance.",
+        "Approvals that never ask cannot be tuned to the risky steps."
+      ],
+      "pivot": {
+        "kind": "config",
+        "action": "Replace blanket allow rules with scoped ones and set the default permission mode back to ask.",
+        "before_scrubbed": "\"permissions\": { \"allow\": [\"Bash\", \"Write\"], \"defaultMode\": \"bypassPermissions\" }",
+        "after_scrubbed": "\"permissions\": { \"allow\": [\"Bash(npm test:*)\", \"Bash(git status:*)\"], \"defaultMode\": \"default\" }",
+        "after_marks": [],
+        "setup_note": "Keep a scoped allow list for the commands you run every day; anything outward-facing or destructive still asks.",
+        "source": "shrine_generic",
+        "minutes_to_apply": 10
+      },
+      "praise_class": null,
+      "benefit": [
+        {
+          "headline": "Judgment where it counts",
+          "sub": "You decide at the risky step only",
+          "metric": "count"
+        },
+        {
+          "headline": "5 rules to scope",
+          "sub": "Each becomes a narrow allow",
+          "metric": "count"
+        }
+      ],
+      "shrine_refs": [
+        {
+          "entry_id": "human-in-the-loop.sov.undefined-boundary",
+          "page_id": "principles/human-in-the-loop",
+          "anchor": "signal-of-violation",
+          "title": "Human in the Loop",
+          "section": "principle",
+          "status": "ratified",
+          "url": "https://stablekernel.github.io/SHRINE/principles/human-in-the-loop/#signal-of-violation",
+          "url_pinned": "https://github.com/stablekernel/SHRINE/blob/71e82a0e6f729e88c7e40040310fd33068c067f3/docs/src/content/docs/principles/human-in-the-loop.md#L38",
+          "quote": "Undefined boundary: whether a human signs off depends on who ran the agent that day"
+        }
+      ],
+      "owner_label": "Owner: Setup",
+      "timeline_gap": null,
+      "coverage_key": "human-in-the-loop",
+      "items": [
+        {
+          "path": "~/.claude/settings.json",
+          "rule": "Bash",
+          "reason": "blanket shell allow"
+        },
+        {
+          "path": "~/.claude/settings.json",
+          "rule": "Write",
+          "reason": "blanket write allow"
+        },
+        {
+          "path": "~/.claude/settings.json",
+          "rule": "Edit(*)",
+          "reason": "blanket write allow"
+        },
+        {
+          "path": "~/.claude/settings.json",
+          "rule": "defaultMode: bypassPermissions",
+          "reason": "bypass or auto-approve default mode"
+        },
+        {
+          "path": "~/.claude/settings.json",
+          "rule": "skipDangerousModePermissionPrompt: true",
+          "reason": "dangerous-mode prompt skipped"
+        }
+      ],
+      "config_strip": {
+        "mtime": null,
+        "last_git_change": null,
+        "sessions_since": null
+      }
+    },
+    {
+      "id": "f-0b5ab2f16874",
+      "kind": "stale_instructions",
+      "entry_id": "deliberate-currency.sov.stale",
+      "lens": "config",
+      "tab": "amplify",
+      "title": "Instruction files unchanged for over 180 days",
+      "short": "2 of 2 files, oldest 658 days",
+      "lead": "Some instruction or memory files have not changed in over 180 days. The agent still follows them, including any rule that no longer holds.",
+      "icon": "clock",
+      "provenance": "mechanical",
+      "attribution": "harness",
+      "confidence": {
+        "value": 0.9,
+        "label": "high",
+        "basis": "deterministic fact from your setup files"
+      },
+      "severity": {
+        "tokens_attributable": null,
+        "human_turns_attributable": null,
+        "delay_minutes": null,
+        "label": "medium"
+      },
+      "recurrence": {
+        "hits": null,
+        "sample": null,
+        "stratum": null,
+        "control_rate": null
+      },
+      "evidence": [
+        {
+          "kind": "mechanical",
+          "locator": "~/.claude/CLAUDE.md",
+          "metric": "658 days since last change"
+        },
+        {
+          "kind": "mechanical",
+          "locator": "<tmp>/work/bad-project/CLAUDE.md",
+          "metric": "658 days since last change"
+        }
+      ],
+      "anchor": "~/.claude/CLAUDE.md",
+      "counter_reading": null,
+      "adversarial": null,
+      "episode_ref": null,
+      "why": [
+        "2 of 2 instruction or memory files last changed over 180 days ago.",
+        "The oldest last changed 658 days ago.",
+        "Dates come from the last git commit, or from the file time when the file is not in a repo."
+      ],
+      "problem": [
+        "Stale guidance is trusted guidance, so an outdated rule looks intentional.",
+        "A fix you make in chat is lost when the file still says the old thing."
+      ],
+      "pivot": {
+        "kind": "instruction",
+        "action": "Open the oldest instruction file, delete what no longer holds, and note today as its review date.",
+        "before_scrubbed": "# Project rules\nUse the legacy build script for releases.\nPin the old model alias for code review.",
+        "after_scrubbed": "# Project rules\nOwner: platform team. Reviewed: (today's date)\nUse `make release` for releases.",
+        "after_marks": [],
+        "setup_note": "Set a recurring reminder at your review cadence so the next pass starts from a tripwire, not from drift.",
+        "source": "shrine_generic",
+        "minutes_to_apply": 10
+      },
+      "praise_class": null,
+      "benefit": [
+        {
+          "headline": "2 files to review",
+          "sub": "One pass clears the backlog",
+          "metric": "count"
+        },
+        {
+          "headline": "Rules you can trust",
+          "sub": "Each file carries a recent review",
+          "metric": "max_age_days"
+        }
+      ],
+      "shrine_refs": [
+        {
+          "entry_id": "deliberate-currency.sov.stale",
+          "page_id": "principles/deliberate-currency",
+          "anchor": "signal-of-violation",
+          "title": "Deliberate Currency",
+          "section": "principle",
+          "status": "ratified",
+          "url": "https://stablekernel.github.io/SHRINE/principles/deliberate-currency/#signal-of-violation",
+          "url_pinned": "https://github.com/stablekernel/SHRINE/blob/71e82a0e6f729e88c7e40040310fd33068c067f3/docs/src/content/docs/principles/deliberate-currency.md#L47",
+          "quote": "Drift: skills tuned against a retired model still load, and nobody can say who owns them"
+        }
+      ],
+      "owner_label": "Owner: Setup",
+      "timeline_gap": null,
+      "coverage_key": "deliberate-currency",
+      "items": [
+        {
+          "path": "~/.claude/CLAUDE.md",
+          "age_days": 658,
+          "date": "2025-01-15T09:00:00.000Z",
+          "date_source": "mtime"
+        },
+        {
+          "path": "<tmp>/work/bad-project/CLAUDE.md",
+          "age_days": 658,
+          "date": "2025-01-15T09:00:00.000Z",
+          "date_source": "git"
+        }
+      ],
+      "config_strip": {
+        "mtime": "2025-01-15T09:00:00.000Z",
+        "last_git_change": null,
+        "sessions_since": null
+      }
+    },
+    {
+      "id": "f-038f3ca20dc9",
+      "kind": "oversized_instructions",
+      "entry_id": "memory.ap.instruction-file-grows",
+      "lens": "config",
+      "tab": "amplify",
+      "title": "Always-loaded instructions are 44 KB",
+      "short": "44 KB every session, policy 40 KB",
+      "lead": "Every session loads these instructions before the first prompt. Rules that apply everywhere compete with rules that rarely apply.",
+      "icon": "layers",
+      "provenance": "mechanical",
+      "attribution": "harness",
+      "confidence": {
+        "value": 0.9,
+        "label": "high",
+        "basis": "deterministic fact from your setup files"
+      },
+      "severity": {
+        "tokens_attributable": null,
+        "human_turns_attributable": null,
+        "delay_minutes": null,
+        "label": "medium"
+      },
+      "recurrence": {
+        "hits": null,
+        "sample": null,
+        "stratum": null,
+        "control_rate": null
+      },
+      "evidence": [
+        {
+          "kind": "mechanical",
+          "locator": "~/.claude/CLAUDE.md",
+          "metric": "44 KB"
+        },
+        {
+          "kind": "mechanical",
+          "locator": "<tmp>/work/bad-project/CLAUDE.md",
+          "metric": "0 KB"
+        }
+      ],
+      "anchor": "~/.claude/CLAUDE.md",
+      "counter_reading": null,
+      "adversarial": null,
+      "episode_ref": null,
+      "why": [
+        "Always-loaded files total 44 KB for the largest project, over the 40 KB line.",
+        "The largest single file is 44 KB.",
+        "The 40 KB line is this tool's policy, not a SHRINE number."
+      ],
+      "problem": [
+        "Context spent on rarely used rules is context not spent on the task.",
+        "Long files hide the rules that matter most."
+      ],
+      "pivot": {
+        "kind": "instruction",
+        "action": "Move rarely used sections out of always-loaded files into skills or files loaded on demand.",
+        "before_scrubbed": "CLAUDE.md holds the whole runbook, every past incident, and the style guide, loaded every session.",
+        "after_scrubbed": "CLAUDE.md keeps the rules that apply to every task and links to a runbook skill and a style guide file read on demand.",
+        "after_marks": [],
+        "setup_note": "Measure the always-loaded size again after the move; each removed line is context every session no longer pays for.",
+        "source": "shrine_generic",
+        "minutes_to_apply": 10
+      },
+      "praise_class": null,
+      "benefit": [
+        {
+          "headline": "4 KB to move",
+          "sub": "To get under the policy line",
+          "metric": "kb"
+        },
+        {
+          "headline": "A smaller start",
+          "sub": "Every session loads less",
+          "metric": "bytes"
+        }
+      ],
+      "shrine_refs": [
+        {
+          "entry_id": "memory.ap.instruction-file-grows",
+          "page_id": "stack/memory",
+          "anchor": "anti-patterns",
+          "title": "Memory & Context Management",
+          "section": "stack",
+          "status": "draft",
+          "url": "https://stablekernel.github.io/SHRINE/stack/memory/#anti-patterns",
+          "url_pinned": "https://github.com/stablekernel/SHRINE/blob/71e82a0e6f729e88c7e40040310fd33068c067f3/docs/src/content/docs/stack/memory.md#L65",
+          "quote": "A standing instruction file that only grows"
+        }
+      ],
+      "owner_label": "Owner: Setup",
+      "timeline_gap": null,
+      "coverage_key": "patterns_and_stack",
+      "items": [
+        {
+          "path": "~/.claude/CLAUDE.md",
+          "bytes": 45021
+        },
+        {
+          "path": "<tmp>/work/bad-project/CLAUDE.md",
+          "bytes": 55
+        }
+      ],
+      "config_strip": {
+        "mtime": null,
+        "last_git_change": null,
+        "sessions_since": null
+      }
+    },
+    {
+      "id": "f-84f206b93f06",
+      "kind": "no_owner_or_review",
+      "entry_id": "deliberate-currency.sov.owner",
+      "lens": "config",
+      "tab": "amplify",
+      "title": "Instruction files have no owner or review date",
+      "short": "2 of 2 files missing a line",
+      "lead": "Some instruction files do not say who owns them or when they were last reviewed. Without an owner, nobody is asked to look again.",
+      "icon": "book",
+      "provenance": "mechanical",
+      "attribution": "harness",
+      "confidence": {
+        "value": 0.9,
+        "label": "high",
+        "basis": "deterministic fact from your setup files"
+      },
+      "severity": {
+        "tokens_attributable": null,
+        "human_turns_attributable": null,
+        "delay_minutes": null,
+        "label": "low"
+      },
+      "recurrence": {
+        "hits": null,
+        "sample": null,
+        "stratum": null,
+        "control_rate": null
+      },
+      "evidence": [
+        {
+          "kind": "mechanical",
+          "locator": "~/.claude/CLAUDE.md",
+          "metric": "missing owner and review date"
+        },
+        {
+          "kind": "mechanical",
+          "locator": "<tmp>/work/bad-project/CLAUDE.md",
+          "metric": "missing owner and review date"
+        }
+      ],
+      "anchor": "~/.claude/CLAUDE.md",
+      "counter_reading": null,
+      "adversarial": null,
+      "episode_ref": null,
+      "why": [
+        "2 of 2 instruction files lack an owner line, a review date line, or both.",
+        "The format is this tool's convention, for example Owner: and Reviewed: with a date."
+      ],
+      "problem": [
+        "Nobody is prompted to review a file that has no owner.",
+        "Without a review date, file age is the only signal, and age alone says little."
+      ],
+      "pivot": {
+        "kind": "instruction",
+        "action": "Add an owner line and a review date line to the top of each instruction file.",
+        "before_scrubbed": "# Project rules\nRun the linter before you commit.",
+        "after_scrubbed": "# Project rules\nOwner: (your name or team)\nReviewed: (today's date)\nRun the linter before you commit.",
+        "after_marks": [],
+        "setup_note": "The owner and review line format is this tool's convention; any consistent format works if it is easy to find.",
+        "source": "shrine_generic",
+        "minutes_to_apply": 10
+      },
+      "praise_class": null,
+      "benefit": [
+        {
+          "headline": "Clear ownership",
+          "sub": "Someone is asked to look again",
+          "metric": "count"
+        },
+        {
+          "headline": "2 files to update",
+          "sub": "Each needs 2 short lines",
+          "metric": "count"
+        }
+      ],
+      "shrine_refs": [
+        {
+          "entry_id": "deliberate-currency.sov.owner",
+          "page_id": "principles/deliberate-currency",
+          "anchor": "signal-of-violation",
+          "title": "Deliberate Currency",
+          "section": "principle",
+          "status": "ratified",
+          "url": "https://stablekernel.github.io/SHRINE/principles/deliberate-currency/#signal-of-violation",
+          "url_pinned": "https://github.com/stablekernel/SHRINE/blob/71e82a0e6f729e88c7e40040310fd33068c067f3/docs/src/content/docs/principles/deliberate-currency.md#L47",
+          "quote": "Drift: skills tuned against a retired model still load, and nobody can say who owns them"
+        }
+      ],
+      "owner_label": "Owner: Setup",
+      "timeline_gap": null,
+      "coverage_key": "deliberate-currency",
+      "items": [
+        {
+          "path": "~/.claude/CLAUDE.md",
+          "missing": [
+            "owner",
+            "review date"
+          ]
+        },
+        {
+          "path": "<tmp>/work/bad-project/CLAUDE.md",
+          "missing": [
+            "owner",
+            "review date"
+          ]
+        }
+      ],
+      "config_strip": {
+        "mtime": null,
+        "last_git_change": null,
+        "sessions_since": null
+      }
+    },
+    {
+      "id": "f-30465ecf6d9c",
+      "kind": "stack_gap",
+      "entry_id": "harness.ap.under-investing",
+      "lens": "config",
+      "tab": "amplify",
+      "title": "Setup has no hooks, skills or memory",
+      "short": "0 hooks, 0 skills, 0 memory files",
+      "lead": "The harness can run checks, load task skills, and keep memory across sessions. Your setup does not use at least one of these from any source, plugins included.",
+      "icon": "wrench",
+      "provenance": "mechanical",
+      "attribution": "harness",
+      "confidence": {
+        "value": 0.9,
+        "label": "high",
+        "basis": "deterministic fact from your setup files"
+      },
+      "severity": {
+        "tokens_attributable": null,
+        "human_turns_attributable": null,
+        "delay_minutes": null,
+        "label": "low"
+      },
+      "recurrence": {
+        "hits": null,
+        "sample": null,
+        "stratum": null,
+        "control_rate": null
+      },
+      "evidence": [
+        {
+          "kind": "mechanical",
+          "locator": "hooks",
+          "metric": "no hooks"
+        },
+        {
+          "kind": "mechanical",
+          "locator": "skills",
+          "metric": "no skills"
+        },
+        {
+          "kind": "mechanical",
+          "locator": "memory",
+          "metric": "no memory"
+        }
+      ],
+      "anchor": "hooks",
+      "counter_reading": null,
+      "adversarial": null,
+      "episode_ref": null,
+      "why": [
+        "Counted from user, project, and plugin sources: 0 hooks, 0 skills, 0 memory files.",
+        "This tool's own skill is not counted."
+      ],
+      "problem": [
+        "Checks you repeat by hand stay habits instead of gates.",
+        "Each session starts from scratch on what the harness could carry."
+      ],
+      "pivot": {
+        "kind": "hook",
+        "action": "Add one extension for the gap named here: a hook for a check you repeat, a skill for a task you repeat, or a memory file.",
+        "before_scrubbed": "Every session starts from the same chat prompt; the test run is typed by hand after each change.",
+        "after_scrubbed": "A post-edit hook runs the tests; a skill holds the release steps; a memory file keeps project facts across sessions.",
+        "after_marks": [],
+        "setup_note": "Start with the check you type most often; a hook turns it from a habit into a gate.",
+        "source": "shrine_generic",
+        "minutes_to_apply": 30
+      },
+      "praise_class": null,
+      "benefit": [
+        {
+          "headline": "Checks that run themselves",
+          "sub": "A hook replaces a typed command",
+          "metric": "hooks"
+        },
+        {
+          "headline": "3 gaps to close",
+          "sub": "Missing: hooks, skills and memory",
+          "metric": "missing"
+        }
+      ],
+      "shrine_refs": [
+        {
+          "entry_id": "harness.ap.under-investing",
+          "page_id": "stack/harness",
+          "anchor": "anti-patterns",
+          "title": "Harness Selection",
+          "section": "stack",
+          "status": "draft",
+          "url": "https://stablekernel.github.io/SHRINE/stack/harness/#anti-patterns",
+          "url_pinned": "https://github.com/stablekernel/SHRINE/blob/71e82a0e6f729e88c7e40040310fd33068c067f3/docs/src/content/docs/stack/harness.md#L51",
+          "quote": "Under-investing in harness proficiency"
+        }
+      ],
+      "owner_label": "Owner: Setup",
+      "timeline_gap": null,
+      "coverage_key": "patterns_and_stack",
+      "items": [
+        {
+          "missing": "hooks"
+        },
+        {
+          "missing": "skills"
+        },
+        {
+          "missing": "memory"
+        }
+      ],
+      "config_strip": null
+    },
+    {
+      "id": "f-802686cd8483",
+      "kind": "short_retention",
+      "entry_id": "reproducibility.sov.not-logged",
+      "lens": "config",
+      "tab": "amplify",
+      "title": "Session history is kept for 30 days",
+      "short": "Retention 30 days, the default",
+      "lead": "Session history older than the retention window is deleted. Comparing behavior across releases needs history that outlives one cycle.",
+      "icon": "repeat",
+      "provenance": "mechanical",
+      "attribution": "harness",
+      "confidence": {
+        "value": 0.9,
+        "label": "high",
+        "basis": "deterministic fact from your setup files"
+      },
+      "severity": {
+        "tokens_attributable": null,
+        "human_turns_attributable": null,
+        "delay_minutes": null,
+        "label": "low"
+      },
+      "recurrence": {
+        "hits": null,
+        "sample": null,
+        "stratum": null,
+        "control_rate": null
+      },
+      "evidence": [
+        {
+          "kind": "mechanical",
+          "locator": "setup",
+          "metric": null
+        }
+      ],
+      "anchor": "setup",
+      "counter_reading": null,
+      "adversarial": null,
+      "episode_ref": null,
+      "why": [
+        "History retention is 30 days, the harness default.",
+        "This finding is informational; it changes nothing about how sessions run."
+      ],
+      "problem": [
+        "Behavior shifts cannot be compared once older sessions are gone.",
+        "Later inspect runs see only the last 30 days."
+      ],
+      "pivot": {
+        "kind": "config",
+        "action": "Raise the history retention setting so past sessions stay on disk long enough to compare.",
+        "before_scrubbed": "Session history is cleared after the default window, so last quarter's behavior cannot be compared with today's.",
+        "after_scrubbed": "User settings set cleanupPeriodDays to keep 90 days of sessions for comparison.",
+        "after_marks": [],
+        "setup_note": "Retention only affects your own machine; pick a window that covers at least one full release cycle.",
+        "source": "shrine_generic",
+        "minutes_to_apply": 10
+      },
+      "praise_class": null,
+      "benefit": [
+        {
+          "headline": "A longer window",
+          "sub": "Compare behavior across releases",
+          "metric": "days"
+        }
+      ],
+      "shrine_refs": [
+        {
+          "entry_id": "reproducibility.sov.not-logged",
+          "page_id": "principles/reproducibility",
+          "anchor": "signal-of-violation",
+          "title": "Reproducibility",
+          "section": "principle",
+          "status": "ratified",
+          "url": "https://stablekernel.github.io/SHRINE/principles/reproducibility/#signal-of-violation",
+          "url_pinned": "https://github.com/stablekernel/SHRINE/blob/71e82a0e6f729e88c7e40040310fd33068c067f3/docs/src/content/docs/principles/reproducibility.md#L41",
+          "quote": "Model version and parameters not logged: behavior shifts and nobody can tell what changed"
+        }
+      ],
+      "owner_label": "Owner: Setup",
+      "timeline_gap": null,
+      "coverage_key": "reproducibility",
+      "items": [],
+      "config_strip": null
+    }
+  ],
+  "worth_a_look": [],
+  "checked_clear": [
+    {
+      "id": "f-48a05ad54902",
+      "check": "No rule line repeats across instruction layers",
+      "guards_against": "Layers that restate each other and then drift apart",
+      "entry_id": "authority-cascade.sov.reopened",
+      "title": "Authority Cascade",
+      "shrine_ref": {
+        "entry_id": "authority-cascade.sov.reopened",
+        "page_id": "principles/authority-cascade",
+        "anchor": "signal-of-violation",
+        "title": "Authority Cascade",
+        "section": "principle",
+        "status": "ratified",
+        "url": "https://stablekernel.github.io/SHRINE/principles/authority-cascade/#signal-of-violation",
+        "url_pinned": "https://github.com/stablekernel/SHRINE/blob/71e82a0e6f729e88c7e40040310fd33068c067f3/docs/src/content/docs/principles/authority-cascade.md#L43",
+        "quote": "Settled questions reopened: the same convention is argued again in each review or engagement"
+      }
+    }
+  ],
+  "dropped": [],
+  "configured": [
+    {
+      "item": "instruction files",
+      "count": 2
+    }
+  ],
+  "control_slice": null,
+  "unknowable": [
+    "Prompt quality and who owned each correction (needs Tier 1 or deeper)",
+    "Whether instructions were followed in a session (needs session history and judgment)",
+    "Contradictions between instruction files (needs judgment)",
+    "Whether a change was correct when no later commit or test touched it"
+  ],
+  "skipped_files": [],
+  "integrity": {
+    "ok": true,
+    "changed_paths": []
+  },
+  "notes": [
+    "history not read"
+  ],
+  "thresholds": {
+    "version": 1,
+    "stale_days": 180,
+    "oversized_bytes": 40960,
+    "review_days": 90,
+    "short_retention_days": 30,
+    "duplicate_line_min_chars": 12
+  },
+  "history": {
+    "consented": false,
+    "read": false,
+    "sessions": null
+  },
+  "diff": null
+}
