@@ -1,9 +1,9 @@
 // collectSetup(): everything the T0 config probes need, read once through the
 // read-only IO layer: inventory, always-loaded size, retention, last-change dates
 // (git first, else mtime), and each repo's instruction-file layout.
-import { basename, dirname, join, relative } from 'node:path';
+import { basename, dirname, join, relative, resolve } from 'node:path';
 import { userInfo } from 'node:os';
-import { exists, readText } from '../../io/fsread.mjs';
+import { exists, readLines, readText, stat } from '../../io/fsread.mjs';
 import { gitOut, gitRead, historyReadable } from '../../io/git.mjs';
 import { inventory } from './inventory.mjs';
 import { alwaysLoaded } from './always-loaded.mjs';
@@ -82,8 +82,30 @@ export function remoteOrgs(url) {
   return segs.slice(0, -1).filter((s) => s !== '_git' && s !== 'v3');
 }
 
+// The git dir that holds a work tree's shared config, found the way git finds it
+// and read as files (no git run): .git itself, or, where .git is a file (a linked
+// worktree or a submodule), the "gitdir:" it names; then that dir's commondir.
+export function commonGitDir(root) {
+  const dotGit = join(root, '.git');
+  const st = stat(dotGit);
+  if (!st) return null;
+  let dir = dotGit;
+  if (st.isFile()) {
+    const m = /^gitdir:[ \t]*(.*?)[ \t]*$/.exec(readLines(dotGit, 1, 4096)[0] ?? '');
+    if (!m?.[1]) return null;
+    dir = resolve(root, m[1]);
+  }
+  const commondir = join(dir, 'commondir');
+  if (stat(commondir)?.isFile()) {
+    const rel = (readLines(commondir, 1, 4096)[0] ?? '').trim();
+    if (rel) dir = resolve(dir, rel);
+  }
+  return dir;
+}
+
 // Known identifiers for share-safe masking (spec 7): OS user, home, git authors,
-// project and repo names, org names from remotes (read from .git/config, read-only).
+// project and repo names, org names from remotes (read from the repo's git config,
+// read-only).
 export function knownIdentifiers({ home, projects }) {
   const authors = [];
   const orgs = [];
@@ -99,8 +121,9 @@ export function knownIdentifiers({ home, projects }) {
       const [name, email] = line.split('\t');
       if (!authors.some((a) => a.email === email)) authors.push({ name, email });
     }
-    const cfg = join(p.root, '.git', 'config');
-    if (exists(cfg)) {
+    const common = commonGitDir(p.root);
+    const cfg = common && join(common, 'config');
+    if (cfg && stat(cfg)?.isFile()) {
       const text = readText(cfg);
       for (const url of remoteUrls(text)) orgs.push(...remoteOrgs(url));
       addAuthor(configUser(text));

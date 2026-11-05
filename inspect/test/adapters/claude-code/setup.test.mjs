@@ -219,3 +219,34 @@ test('a repo git refuses to read gives unknown dates, not file times', async () 
     h.cleanup();
   }
 });
+
+// A linked worktree or a submodule has a .git file, not a folder: org names come
+// from the config in the git dir it names (and that dir's commondir).
+test('org names are read for linked worktrees and submodules too', async () => {
+  const { execFileSync } = await import('node:child_process');
+  const { mkdtempSync, rmSync } = await import('node:fs');
+  const { tmpdir } = await import('node:os');
+  const { knownIdentifiers } = await import('../../../src/adapters/claude-code/setup.mjs');
+  const dir = mkdtempSync(join(tmpdir(), 'si-orgs-'));
+  const g = (cwd, ...a) => execFileSync('git', a, { cwd, stdio: 'ignore', env: { ...process.env, GIT_AUTHOR_NAME: 'a', GIT_AUTHOR_EMAIL: 'a@b.example', GIT_COMMITTER_NAME: 'a', GIT_COMMITTER_EMAIL: 'a@b.example' } });
+  try {
+    const main = join(dir, 'main');
+    mkdirSync(main);
+    g(main, 'init', '-q');
+    g(main, 'commit', '-q', '--allow-empty', '-m', 'i');
+    g(main, 'remote', 'add', 'origin', 'git@github.com:initrode-org/app.git');
+    const wt = join(dir, 'wt');
+    g(main, 'worktree', 'add', '-q', wt);
+    const sub = join(main, 'vendor', 'lib');
+    mkdirSync(join(main, 'vendor'));
+    mkdirSync(join(main, '.git', 'modules'));
+    g(main, 'init', '-q', `--separate-git-dir=${join(main, '.git', 'modules', 'lib')}`, sub);
+    g(sub, 'remote', 'add', 'origin', 'https://gitlab.example/penetrode-group/lib.git');
+    const orgs = (root) => knownIdentifiers({ home: null, projects: [{ root }] }).orgs;
+    assert.deepEqual(orgs(main), ['initrode-org'], 'control: a plain repo');
+    assert.deepEqual(orgs(wt), ['initrode-org'], 'a linked worktree reads the main config');
+    assert.deepEqual(orgs(sub), ['penetrode-group'], 'a submodule reads its own git dir config');
+  } finally {
+    rmSync(dir, { recursive: true, force: true });
+  }
+});
