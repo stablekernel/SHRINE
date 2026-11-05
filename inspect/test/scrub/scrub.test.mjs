@@ -86,13 +86,31 @@ test('maskDeep masks a finding anchor, which is a user file path', () => {
   assert.ok(!/jdoe|acme|shop/.test(out.anchor), out.anchor);
 });
 
-test('scrub runs in linear time on adversarial key-like runs', () => {
-  for (const unit of ['token-', 'a-token', 'password_', 'secret-key-', 'x-', 'mysql ', 'curl -u ']) {
-    const s = unit.repeat(Math.ceil(20000 / unit.length)) + '=' + 'v'.repeat(20);
+// Linear-time check that does not flake under CPU load: compares the time at 4x the
+// input with the time at 1x, best of 5 each, runs interleaved so load spikes hit
+// both sizes. Linear rules give about 4; a quadratic one gives about 16.
+function growth(build) {
+  const time = (s) => {
     const t = performance.now();
     scrubSecrets(s);
-    const ms = performance.now() - t;
-    assert.ok(ms < 50, `${unit}: ${ms.toFixed(0)}ms`);
+    return performance.now() - t;
+  };
+  const small = build(20000);
+  const large = build(80000);
+  time(small);
+  let a = Infinity;
+  let b = Infinity;
+  for (let i = 0; i < 5; i++) {
+    a = Math.min(a, time(small));
+    b = Math.min(b, time(large));
+  }
+  return b / Math.max(a, 0.5);
+}
+
+test('scrub runs in linear time on adversarial key-like runs', () => {
+  for (const unit of ['token-', 'a-token', 'password_', 'secret-key-', 'x-', 'mysql ', 'curl -u ']) {
+    const g = growth((n) => unit.repeat(Math.ceil(n / unit.length)) + '=' + 'v'.repeat(20));
+    assert.ok(g < 8, `${unit}: 4x input took ${g.toFixed(1)}x as long`);
   }
 });
 
@@ -171,10 +189,7 @@ test('round-2 rules leave ordinary prose alone', () => {
 
 test('round-2 rules run in linear time on adversarial runs', () => {
   for (const unit of ['eyJ-', 'eyJabcdefgh.', 'Cookie: a=', 'login x password ', ' --password ', 'docker login ', '&sig=', 'token ', 'authorization: bearer ']) {
-    const s = unit.repeat(Math.ceil(20000 / unit.length));
-    const t = performance.now();
-    scrubSecrets(s);
-    const ms = performance.now() - t;
-    assert.ok(ms < 500, `${unit}: ${ms.toFixed(0)}ms`);
+    const g = growth((n) => unit.repeat(Math.ceil(n / unit.length)));
+    assert.ok(g < 8, `${unit}: 4x input took ${g.toFixed(1)}x as long`);
   }
 });
