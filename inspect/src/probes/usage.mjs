@@ -88,6 +88,8 @@ export function runUsageProbes({ sessions, episodes, t = THRESHOLDS }) {
     committed: episodes.filter((e) => e.committed).length,
     rework: episodes.filter((e) => e.rework).length,
     possible_rework: episodes.filter((e) => e.possible_rework).length,
+    possible_fix: episodes.filter((e) => e.possible_fix).length,
+    iteration_commits: episodes.reduce((n, e) => n + (e.iteration_commits ?? 0), 0),
   };
 
   const flagged = episodes.filter((e) => flags.get(e.id).done_without_test);

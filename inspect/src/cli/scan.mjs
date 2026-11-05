@@ -101,7 +101,7 @@ export async function scanHistory({ listing, excludedIds = [], display = (p) => 
       compactions: e.compactions,
       touched_files: e.touched_files.map(display),
       commits: e.commits,
-      stratum: { recency: recencyOf(e.start, from, to), project: e.project, size: sizeOf(e.tokens), outcome: e.rework ? 'rework' : e.possible_rework ? 'possible_rework' : 'none' },
+      stratum: { recency: recencyOf(e.start, from, to), project: e.project, size: sizeOf(e.tokens), outcome: e.rework ? 'rework' : e.possible_fix ? 'possible_fix' : e.possible_rework ? 'possible_rework' : 'none' },
       downstream: e.downstream,
       live_config_refs: [],
       timeline: episodeTimeline(e, flags),

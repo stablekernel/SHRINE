@@ -17,7 +17,9 @@ Status: pre-release (SP2). Install and docs cutover arrive in SP3; until then th
     - Housekeeping (first prompt matches `src/probes/patterns/housekeeping.json`): left out, counted in one appendix line
     - Spawned work (any other `sdk-cli`): linked to the interactive session running in the same repo at that time, shown as byproducts, never judged; no parent found means "unattributed automation"
   - Before consent a folder is excluded only when its newest file is housekeeping; after consent every file is re-checked, so mixed folders keep their interactive sessions
-  - Rework within 72 hours counts only reverts and fixes (a revert or fixup naming the episode's commit, or a later `fix`/`revert` commit on a file it changed); a later episode touching the same file is a separate "possible rework (file overlap)" candidate count, never a headline number
+  - Rework within 72 hours (headline) counts named reverts only, shown with N
+    - Candidate counts, appendix only: "possible rework (later-session fix)" (a fix on the same files from a later session, at least 1 hour after the commit) and "possible rework (file overlap)"
+    - Fix commits in the same session or within 1 hour are "iteration commits", never rework
   - Fewer than 10 sessions: counts only plus a "limited history" note
 - Output: one run folder under the state dir with `state.json`, `scan.json`, `facts.json`, `findings.json`, `verify.json`, `report.html`, `report.share-safe.html`, `spy.jsonl`, `gate.json` when a gate paused the run, and a `<phase>.done` marker per phase
 - `report.share-safe.html` masks names, paths, and hosts and drops session excerpts; it may mask extra words, to keep names out

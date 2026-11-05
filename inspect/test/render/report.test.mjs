@@ -225,7 +225,9 @@ test('with history: chips for sessions and correction candidates, a usage block 
   assert.match(body, /Spawned automation: 100 sessions linked to 14 of your sessions as byproducts, not judged/);
   assert.match(body, /Unattributed automation: 20 sessions/);
   assert.match(body, /Possible rework \(file overlap\): 48 of 136 episodes/);
-  assert.match(body, /Rework \(reverts and fixes after a commit\) within 72 hours: 9 of 60 committing episodes \(15%\)/);
+  assert.match(body, /Rework \(named reverts\) within 72 hours: 2 of 60 committing episodes \(3%\)/);
+  assert.match(body, /Possible rework \(later-session fix\): 7 of 60 committing episodes/);
+  assert.match(body, /Iteration commits: 85 fix commits in the same session or within 1 hour/);
   assert.match(body, /Done claims with no test or check run before them: 4 of 12 claims\. Count only/);
   assert.match(body, /setup, repos, and local session logs parsed by code/);
   assert.ok(!f.findings.some((x) => x.lens === 'usage'));

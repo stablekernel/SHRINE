@@ -152,7 +152,7 @@ const FINDINGS = {
 const pctOf = (r) => `${Math.round(r * 100)}%`;
 function controlSentence(c) {
   if (!c || c.rest.n < THRESHOLDS.usage.control_min_episodes) return `No control baseline: fewer than ${THRESHOLDS.usage.control_min_episodes} other episodes to compare.`;
-  return `Rework (reverts and fixes) within ${THRESHOLDS.history.link_hours} hours: ${c.flagged.hits} of ${c.flagged.n} flagged ${pl(c.flagged.n, 'episode')} (${pctOf(c.flagged.rate)}), ${c.rest.hits} of ${c.rest.n} other ${pl(c.rest.n, 'episode')} (${pctOf(c.rest.rate)}).`;
+  return `Rework (named reverts) within ${THRESHOLDS.history.link_hours} hours: ${c.flagged.hits} of ${c.flagged.n} flagged ${pl(c.flagged.n, 'episode')} (${pctOf(c.flagged.rate)}), ${c.rest.hits} of ${c.rest.n} other ${pl(c.rest.n, 'episode')} (${pctOf(c.rest.rate)}).`;
 }
 
 // Appendix lines for the usage counts block. Every regex-based count says it is a count only.
@@ -172,8 +172,12 @@ export function usageLines(u) {
     if (dwt.metric.flagged > 0) lines.push(controlSentence(dwt.control));
   }
   if (c.possible_rework != null) {
-    lines.push(`Rework (reverts and fixes after a commit) within ${THRESHOLDS.history.link_hours} hours: ${c.rework} of ${c.committed ?? c.episodes} committing ${pl(c.committed ?? c.episodes, 'episode')} (${pctOf(c.committed ? c.rework / c.committed : 0)})`);
+    const n = c.committed ?? c.episodes;
+    const small = n < THRESHOLDS.usage.small_n_episodes ? `, a small sample under ${THRESHOLDS.usage.small_n_episodes} episodes` : '';
+    lines.push(`Rework (named reverts) within ${THRESHOLDS.history.link_hours} hours: ${c.rework} of ${n} committing ${pl(n, 'episode')} (${pctOf(n ? c.rework / n : 0)}${small})`);
+    if (c.possible_fix != null) lines.push(`Possible rework (later-session fix): ${c.possible_fix} of ${n} committing ${pl(n, 'episode')} had a fix commit on the same files from a later session, at least 1 hour after. Candidate count only.`);
     lines.push(`Possible rework (file overlap): ${c.possible_rework} of ${c.episodes} ${pl(c.episodes, 'episode')} had a changed file touched again within ${THRESHOLDS.history.link_hours} hours. Candidate count only.`);
+    if (c.iteration_commits != null) lines.push(`Iteration commits: ${c.iteration_commits} fix ${pl(c.iteration_commits, 'commit')} in the same session or within 1 hour. Normal iteration, not rework.`);
   }
   const a = u.automation;
   if (a?.total) {
@@ -268,7 +272,7 @@ export const SAMPLE_PROBES = {
 };
 
 export const SAMPLE_USAGE = {
-  counts: { sessions: 66, episodes: 136, committed: 60, rework: 9, possible_rework: 48, human_turns: 1171, interrupts: 22, compactions: 3, tool_calls: 5200, retries: 61, retries_per_100: 1.2, subagent_share: 0.452, correction_candidates: 40, done_claims: 12, done_without_test: 4 },
+  counts: { sessions: 66, episodes: 136, committed: 60, rework: 2, possible_fix: 7, iteration_commits: 85, possible_rework: 48, human_turns: 1171, interrupts: 22, compactions: 3, tool_calls: 5200, retries: 61, retries_per_100: 1.2, subagent_share: 0.452, correction_candidates: 40, done_claims: 12, done_without_test: 4 },
   kinds: [{ kind: 'done_without_test', ship: 'appendix', metric: { flagged: 4, claims: 12, rate: 0.33, threshold: 0.3 }, control: SAMPLE_PROBES.done_without_test.control }],
   automation: { housekeeping: 987, spawned: 120, spawned_linked: 100, spawned_parents: 14, unattributed: 20, total: 1172, share: 0.842 },
   limited: true,
