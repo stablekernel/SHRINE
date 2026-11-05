@@ -107,7 +107,7 @@ table.cov tbody:first-of-type tr.grp th { padding-top: var(--s1); }
 .tab.t-warn .n { color: var(--warn); background: var(--warn-bg); }
 .panel-h { font-size: var(--f-md); margin: var(--s4) 0 var(--s2); }
 .js .panel-h { position: absolute; width: 1px; height: 1px; overflow: hidden; clip: rect(0 0 0 0); }
-.explore { display: grid; grid-template-columns: minmax(280px, 380px) 1fr; gap: var(--s6); align-items: start; }
+.explore { display: grid; grid-template-columns: 290px minmax(0, 1fr); gap: var(--s6); align-items: start; }
 .list { display: grid; gap: 2px; margin: 0; padding: 0; list-style: none; }
 .f-btn { width: 100%; text-align: left; background: transparent; border: 1px solid transparent; border-radius: 10px; padding: 10px var(--s3); font: inherit; color: var(--text2); cursor: pointer; display: grid; grid-template-columns: 20px 1fr; gap: 10px; text-decoration: none; }
 .f-btn:hover, .f-btn[aria-current='true'] { background: var(--surface); border-color: var(--line); color: var(--text); }
@@ -168,8 +168,9 @@ table.cov tbody:first-of-type tr.grp th { padding-top: var(--s1); }
 .preview-safe .excerpt { display: none; }
 .excerpt-safe { display: none; }
 .preview-safe .excerpt-safe { display: inline; }
-/* At 80vw the finding card gets cramped beside the list below ~1100px: stack them. */
-@media (max-width: 1100px) { .explore { grid-template-columns: minmax(0, 1fr); } }
+/* At 80vw beside the 290px list, the finding card is narrower than the 460px
+   timeline at 1180px and below: stack them. */
+@media (max-width: 1180px) { .explore { grid-template-columns: minmax(0, 1fr); } }
 @media (max-width: 860px) {
   .tldr, .info, .explore, .ba, .benefit { grid-template-columns: minmax(0, 1fr); }
   section, .head, .foot, .depth { padding-left: var(--s4); padding-right: var(--s4); }

@@ -193,6 +193,20 @@ test('desktop and tablet timeline text is at least 10px and never overlaps', asy
   }
 });
 
+test('desktop timeline shows whole (no clipping in its scroll box) with text at least 10px', async ({ page }) => {
+  for (const width of [1024, 1101, 1120, 1180, 1279, 1440]) {
+    await open(page, MOCK_HTML, { theme: 'dark', width });
+    const boxes = await page.locator('.tl-scroll').evaluateAll((els) =>
+      els.filter((el) => el.getClientRects().length).map((el) => el.scrollWidth - el.clientWidth),
+    );
+    expect(boxes.length, `${width}px`).toBeGreaterThan(0);
+    expect(Math.max(...boxes), `${width}px hidden timeline px`).toBeLessThanOrEqual(0);
+    for (const svg of await page.locator('svg.tl').all()) {
+      if (await svg.isVisible()) expect((await svg.evaluate(timelineText)).px, `${width}px`).toBeGreaterThanOrEqual(10);
+    }
+  }
+});
+
 test('content is about 80% of the viewport on desktop, full-bleed on phones', async ({ page }) => {
   for (const width of [1024, 1280, 1440]) {
     await open(page, MOCK_HTML, { theme: 'dark', width });
