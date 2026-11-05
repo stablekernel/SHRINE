@@ -51,6 +51,9 @@ export const resendKey = (text) => {
   return t ? createHash('sha256').update(t).digest('hex').slice(0, 32) : null;
 };
 
+// A message with an image is never a resend: the same caption can carry a new picture.
+const humanKey = (o, c) => (Array.isArray(o.message?.content) && o.message.content.some((b) => b?.type === 'image') ? null : resendKey(c.text));
+
 function onLine(o, inSubagentFile, acc) {
   // Older versions wrote some subagent lines inline in the main file.
   const sub = inSubagentFile || o.isSidechain === true;
@@ -64,16 +67,18 @@ function onLine(o, inSubagentFile, acc) {
     // same text sent again right after a resume is a resend.
     if (o.type === 'user' && o.message) {
       const c = classifyUser(o, { subagent: sub });
-      if (c.interrupt) acc.interruptedSince = true;
+      if (c.interrupt && !sub) acc.interruptedSince = true;
       if (c.command) acc.lastHumanKey = null;
       if (c.human) {
-        acc.copied.messages++;
-        acc.lastHumanKey = resendKey(c.text);
+        const key = humanKey(o, c);
+        // A copy of a message the source already dropped as a resend is not counted again.
+        if (!(key && key === acc.lastHumanKey && (acc.interruptedSince || !acc.answered))) acc.copied.messages++;
+        acc.lastHumanKey = key;
         acc.answered = false;
         acc.interruptedSince = false;
       }
     } else if (o.type === 'assistant' && !sub && o.message?.model !== '<synthetic>' && o.isApiErrorMessage !== true) acc.answered = true;
-    else if (o.type === 'system' && o.subtype === 'compact_boundary') acc.lastHumanKey = null;
+    else if (o.type === 'system' && o.subtype === 'compact_boundary' && !sub) acc.lastHumanKey = null;
     return;
   }
   if (uuid) {
@@ -131,7 +136,7 @@ function onLine(o, inSubagentFile, acc) {
     }
     const c = classifyUser(o, { subagent: sub });
     if (c.interrupt) {
-      acc.interruptedSince = true;
+      if (!sub) acc.interruptedSince = true;
       acc.interrupts++;
       acc.timeline.push({ t, kind: 'interrupt', sub });
     }
@@ -141,7 +146,7 @@ function onLine(o, inSubagentFile, acc) {
       acc.timeline.push({ t, kind: 'command', name: c.command, sub });
     }
     if (c.human) {
-      const key = resendKey(c.text);
+      const key = humanKey(o, c);
       // Same text again counts once only when the first send got no answer or was
       // interrupted; a repeated "continue" after real work is a new message.
       if (key && key === acc.lastHumanKey && (acc.interruptedSince || !acc.answered)) {

@@ -128,3 +128,15 @@ test('known limit: copies of a session that was not read (outside the window) co
   assert.equal(r.session.turns, 2);
   assert.equal(r.dedupe.copied_lines, 0);
 });
+
+test('a message with an image is never a resend; a copy of a resend is not counted as a copied message', async () => {
+  const img = (min, uuid) => ({ ...human(min, 'look at this', uuid), message: { role: 'user', content: [{ type: 'text', text: 'look at this' }, { type: 'image', source: { type: 'base64', media_type: 'image/png', data: 'AAAA' } }] } });
+  const r = await readSession({ id: 's1', path: file([img(0, 'x1'), img(1, 'x2'), reply(2, 'r1', 'x3')]), project: 'app' });
+  assert.equal(r.session.turns, 2);
+  const seen = new Set();
+  const prefix = [human(0, 'Ship it.', 'y1', 'o'), interrupt(1, 'y2', 'o'), human(2, 'Ship it.', 'y3', 'o')];
+  const o = await readSession({ id: 'o', path: file(prefix), project: 'app' }, { seen });
+  assert.equal(o.session.turns, 1);
+  const copy = await readSession({ id: 'c', path: file(prefix), project: 'app' }, { seen });
+  assert.equal(copy.dedupe.copied_messages, 1);
+});

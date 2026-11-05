@@ -50,6 +50,8 @@ Counting (`test/adapters/claude-code/dedupe.test.mjs`):
 - The same prompt pasted into a new, unforked session counts again; only resends inside one session are dropped
 - Files are read by first-line time, then creation time, then last change; where the filesystem keeps no creation time and the original was written after its fork, the original loses the shared lines instead (each line still counts once, but a later correction there can read as an episode's first message)
 - A fork of a session older than the retention window keeps the copied lines as its own: the source file is not read, so nothing marks them as copies
+- The same holds for a fork of the session running the scan, which is never read
+- A message with an image is never dropped as a resend, even when the picture is the same
 
 ## Develop
 
