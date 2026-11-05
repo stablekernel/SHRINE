@@ -5,7 +5,7 @@ import { basename, join } from 'node:path';
 import { exists, readJson, resetSpy, spyLog } from '../io/fsread.mjs';
 import { createRunFolder, runFolder } from '../io/runfolder.mjs';
 import { appDirs } from '../io/paths.mjs';
-import { firstSafeGit, gitRefusals, gitTimeouts, gitVersion, historyReadable, isHung, isRefused, resetGitTimeouts } from '../io/git.mjs';
+import { firstSafeGit, gitRefusals, gitTimeouts, gitVersion, globalHang, historyReadable, isHung, isRefused, resetGitTimeouts } from '../io/git.mjs';
 import { spawnTimeoutMs } from '../io/proc.mjs';
 import { detect } from '../adapters/claude-code/detect.mjs';
 import { defaultTempPatterns, listProjects } from '../adapters/claude-code/projects.mjs';
@@ -189,8 +189,10 @@ export async function continueRun(folder, ctx, io) {
     findings.git_history_skipped = noHistory;
   }
   const hung = gitTimeouts().length;
-  if (hung) {
-    const secs = spawnTimeoutMs() / 1000;
+  const secs = spawnTimeoutMs() / 1000;
+  if (globalHang()) {
+    limits.push(`Git did not finish within ${secs === 1 ? '1 second' : `${secs} seconds`} reading your global git config and was stopped, so git was not run again: no git dates or history in any repo. Global config that blocks git (an include.path naming a pipe, for one) causes this.`);
+  } else if (hung) {
     limits.push(`Git did not finish within ${secs === 1 ? '1 second' : `${secs} seconds`} in ${hung === 1 ? '1 repo' : `${hung} repos`} and was stopped. Git reads there count as failed: no git dates or history. Repo config that blocks git (an include.path naming a pipe, for one) causes this.`);
   }
   const refused = gitRefusals().length;

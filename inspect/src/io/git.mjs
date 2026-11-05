@@ -1,6 +1,6 @@
 // Allowlisted read-only git (spec 7): log, show, diff, rev-parse, status --porcelain,
-// plus two fixed reads: git --version and the promisor-config query below.
-import { delimiter, dirname, join, resolve } from 'node:path';
+// plus three fixed reads: git --version, the promisor-config query, and the global-config probe below.
+import { delimiter, dirname, join, parse, resolve } from 'node:path';
 import { runSync } from './proc.mjs';
 import { exists } from './fsread.mjs';
 import { InspectError } from '../cli/errors.mjs';
@@ -11,7 +11,10 @@ const DIFFING = new Set(['log', 'show', 'diff']);
 const HISTORY = new Set(['log', 'show', 'diff', 'status']);
 // The only config read allowed: does this repo have a promisor remote (partial clone)?
 const PROMISOR_QUERY = ['config', '--get-regexp', '^(extensions\\.partialclone|remote\\..*\\.promisor)$'];
-const FIXED = [['--version'], PROMISOR_QUERY].map((a) => JSON.stringify(a));
+// Reads only the system and global config (run outside any repo), for a key no one
+// sets: it hangs only when that config blocks git (an include naming a pipe).
+const GLOBAL_PROBE = ['config', '--get', 'shrineinspect.probe'];
+const FIXED = [['--version'], PROMISOR_QUERY, GLOBAL_PROBE].map((a) => JSON.stringify(a));
 const KEEP_ENV = new Set(['GIT_CEILING_DIRECTORIES']);
 const WRITING_FLAGS =/^(--output|-o$|--ext-diff|--textconv)/;
 // The allow list also names remote helpers (a "<name>::" URL runs git-remote-<name>).
@@ -71,6 +74,7 @@ export function gitInvocation(args, cwd) {
 const FIRST_SAFE_PATCH = { 39: 4, 40: 2, 41: 1, 42: 2, 43: 4, 44: 1, 45: 1 };
 let version;
 export function gitVersion() {
+  if (version === undefined && globalHang()) return null;
   if (version === undefined) {
     const inv = gitInvocation(['--version'], undefined);
     const m = runSync(inv.cmd, inv.args, { env: inv.env }).stdout.match(/(\d+)\.(\d+)\.(\d+)/);
@@ -123,13 +127,16 @@ export function enclosingRepo(cwd) {
 // Hung and refused marks are per repo: every folder under a repo shares its config
 // and its owner.
 const hungKey = (cwd) => enclosingRepo(cwd) ?? cwd;
-export const isHung = (cwd) => timedOut.has(hungKey(cwd));
+export const isHung = (cwd) => globalHang() || timedOut.has(hungKey(cwd));
 export const isRefused = (cwd) => refused.has(hungKey(cwd));
 // Git refuses a repo owned by another user (safe.directory). The message is
 // matched in the C locale, which every git run uses.
 const REFUSAL = /detected dubious ownership/;
 function noteFailure(r, cwd) {
-  if (r.timedOut) timedOut.add(hungKey(cwd));
+  // Outside any repo git reads only the system and global config, so a time limit
+  // there is theirs, and every git run would hit it.
+  if (r.timedOut && !enclosingRepo(cwd)) globalHung = true;
+  else if (r.timedOut) timedOut.add(hungKey(cwd));
   else if (r.status !== 0 && REFUSAL.test(r.stderr)) refused.add(hungKey(cwd));
   else return false;
   return true;
@@ -140,7 +147,7 @@ const partial = new Map();
 // a read can lazy-fetch into. A hung or refused repo is not one: git is never run
 // there again, and it is reported under its own reason.
 export function isPartialClone(cwd) {
-  if (isHung(cwd) || isRefused(cwd)) return false;
+  if (!enclosingRepo(cwd) || isHung(cwd) || isRefused(cwd)) return false;
   if (!partial.has(cwd)) {
     const inv = gitInvocation(PROMISOR_QUERY, cwd);
     const r = runSync(inv.cmd, inv.args, { cwd, env: inv.env });
@@ -161,7 +168,21 @@ export function historyReadable(cwd) {
 // costs one time limit, not one per folder or call.
 const timedOut = new Set();
 export function gitTimeouts() {
-  return [...timedOut];
+  return [...timedOut].filter((k) => enclosingRepo(k));
+}
+
+// The system or global git config blocks git (probed once per run, before any other
+// git run, outside any repo): then every git run would hit the time limit, so none
+// runs, and the run pays one time limit, not one per repo.
+let globalHung;
+export function globalHang() {
+  if (globalHung === undefined) {
+    globalHung = false;
+    const root = parse(resolve('.')).root;
+    const inv = gitInvocation(GLOBAL_PROBE, root);
+    globalHung = Boolean(runSync(inv.cmd, inv.args, { cwd: root, env: inv.env }).timedOut);
+  }
+  return globalHung;
 }
 // Repo roots git refused to read (owned by another user).
 const refused = new Set();
@@ -170,6 +191,7 @@ export function gitRefusals() {
 }
 // Each run starts with no repo marked as hung or refused.
 export function resetGitTimeouts() {
+  globalHung = undefined;
   partial.clear();
   roots.clear();
   timedOut.clear();

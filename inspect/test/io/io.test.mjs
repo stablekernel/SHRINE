@@ -82,7 +82,8 @@ test('diffing git commands never run external diff or textconv programs', () => 
 
 test('git spawns are recorded in the spy log', () => {
   git(['rev-parse', '--is-inside-work-tree'], { cwd: tmpdir() });
-  const spawns = fsread.spyLog().filter((e) => e.op === 'spawn');
+  // The once-per-run global config probe may run first; the rev-parse is recorded.
+  const spawns = fsread.spyLog().filter((e) => e.op === 'spawn' && e.args.includes('rev-parse'));
   assert.equal(spawns.length, 1);
   assert.equal(spawns[0].cmd, 'git');
   assert.ok(spawns[0].t_start <= spawns[0].t, 'spawn records its start and end time');

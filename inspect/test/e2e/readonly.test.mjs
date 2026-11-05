@@ -56,9 +56,13 @@ for (const fixture of ['good', 'bad', 'plugin']) {
       if (e.op === 'spawn') {
         assert.equal(e.cmd, 'git');
         const sub = e.args.find((a, i) => i > 0 && e.args[i - 1] !== '-c' && !a.startsWith('-'));
-        // Two fixed reads besides the allowlist: the version, and the promisor-config query.
+        // Three fixed reads besides the allowlist: the version, the promisor-config
+        // query, and the global-config probe.
         const tail = e.args.slice(e.args.indexOf(sub ?? '--version'));
-        const fixed = (sub === undefined && tail.join(' ') === '--version') || (sub === 'config' && tail.length === 3 && tail[1] === '--get-regexp' && /promisor\)\$$/.test(tail[2]));
+        const fixed =
+          (sub === undefined && tail.join(' ') === '--version') ||
+          (sub === 'config' && tail.length === 3 && tail[1] === '--get-regexp' && /promisor\)\$$/.test(tail[2])) ||
+          (sub === 'config' && tail.join(' ') === 'config --get shrineinspect.probe');
         assert.ok(GIT_READ.has(sub) || fixed, `git ${sub}`);
       }
     }
