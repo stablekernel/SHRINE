@@ -4,7 +4,7 @@ import { execFileSync, spawnSync } from 'node:child_process';
 import { existsSync, mkdtempSync, readdirSync, rmSync, writeFileSync } from 'node:fs';
 import { tmpdir } from 'node:os';
 import { join } from 'node:path';
-import { git, gitInvocation } from '../../src/io/git.mjs';
+import { git, gitInvocation, historyReadable, honorsNoLazyFetch, setGitVersion } from '../../src/io/git.mjs';
 
 const ENV = { ...process.env, GIT_AUTHOR_NAME: 't', GIT_AUTHOR_EMAIL: 't@x', GIT_COMMITTER_NAME: 't', GIT_COMMITTER_EMAIL: 't@x' };
 const sh = (cwd, ...a) => execFileSync('git', a, { cwd, env: ENV, stdio: 'pipe' }).toString();
@@ -164,5 +164,41 @@ test('a GIT_* variable from the caller cannot redirect which repo git reads', as
     assert.deepEqual(Object.keys(env).filter((k) => k.startsWith('GIT_')).sort(), ['GIT_ALLOW_PROTOCOL', 'GIT_NO_LAZY_FETCH', 'GIT_OPTIONAL_LOCKS', 'GIT_TERMINAL_PROMPT', ...(saved.GIT_CEILING_DIRECTORIES ? ['GIT_CEILING_DIRECTORIES'] : [])].sort());
   } finally {
     for (const k of Object.keys(process.env)) if (!(k in saved)) delete process.env[k];
+  }
+});
+
+test('GIT_NO_LAZY_FETCH is trusted only on git 2.44.1, 2.45.1, and later', () => {
+  const cases = [[[2, 36, 6], false], [[2, 44, 0], false], [[2, 44, 1], true], [[2, 45, 0], false], [[2, 45, 1], true], [[2, 46, 0], true], [[3, 0, 0], true], [null, false]];
+  for (const [v, want] of cases) assert.equal(honorsNoLazyFetch(v), want, String(v));
+});
+
+test('config is allowed only as the fixed promisor query, and --version only bare', () => {
+  assert.throws(() => gitInvocation(['config', '--get', 'core.pager'], '.'), /allowlist/);
+  assert.throws(() => gitInvocation(['config', 'core.pager', 'x'], '.'), /allowlist/);
+  assert.throws(() => gitInvocation(['--version', '--build-options'], '.'), /allowlist/);
+  assert.equal(gitInvocation(['--version'], '.').cmd, 'git');
+});
+
+test('a partial clone on git that ignores GIT_NO_LAZY_FETCH skips history reads; others run', () => {
+  const clone = partialClone('tree:0');
+  const dir = join(clone, '..');
+  try {
+    const bundle = join(dir, 'all.bundle');
+    sh(join(dir, 'src'), 'bundle', 'create', bundle, '--all');
+    sh(clone, 'config', 'fetch.bundleURI', bundle);
+    const before = packs(clone);
+    setGitVersion([2, 44, 0]);
+    assert.equal(historyReadable(clone), false);
+    const r = git(['log', '-1', '--format=%cI', '--', 'a.txt'], { cwd: clone });
+    assert.equal(r.skipped, true);
+    assert.equal(git(['rev-parse', 'HEAD'], { cwd: clone }).ok, true, 'ref reads still run');
+    assert.deepEqual(packs(clone), before);
+    assert.equal(historyReadable(join(dir, 'src')), true, 'a full clone keeps its history');
+    assert.equal(git(['log', '-1', '--format=%H'], { cwd: join(dir, 'src') }).ok, true);
+    setGitVersion([2, 45, 1]);
+    assert.equal(historyReadable(clone), true);
+  } finally {
+    setGitVersion(undefined);
+    rmSync(dir, { recursive: true, force: true });
   }
 });

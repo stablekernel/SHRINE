@@ -7,6 +7,7 @@ import { join } from 'node:path';
 import { Readable } from 'node:stream';
 import { fileURLToPath } from 'node:url';
 import { main } from '../../src/cli/main.mjs';
+import { setGitVersion } from '../../src/io/git.mjs';
 import { diffRuns } from '../../src/diff/previous.mjs';
 import { makeHome, FIXED_NOW } from '../synth/home.mjs';
 
@@ -174,4 +175,24 @@ test('share-safe output hides folder names in home paths that contain spaces', a
     assert.ok(!html.includes(leak), `${leak} leaked into share-safe output`);
   }
   h.cleanup();
+});
+
+test('a partial clone on git without GIT_NO_LAZY_FETCH: history skipped, with a visible note', async () => {
+  const h = makeHome('good');
+  const state = mkdtempSync(join(tmpdir(), 'si-state-'));
+  spawnSync('git', ['config', 'remote.origin.promisor', 'true'], { cwd: h.repo });
+  setGitVersion([2, 44, 0]);
+  try {
+    const r = await inproc(['run', '--tier', 'T0', '--no-history', '--json'], h, state);
+    assert.equal(r.code, 0, r.stderr);
+    const s = JSON.parse(r.stdout);
+    const findings = JSON.parse(readFileSync(join(s.run_dir, 'findings.json'), 'utf8'));
+    assert.ok(findings.notes.some((n) => n.startsWith('Git history was not read in 1 repo') && n.includes('git 2.44.0')), findings.notes.join('|'));
+    assert.match(readFileSync(join(s.run_dir, 'report.html'), 'utf8'), /Git history was not read in 1 repo/);
+    const spy = readFileSync(join(s.run_dir, 'spy.jsonl'), 'utf8').split('\n').filter(Boolean).map((l) => JSON.parse(l));
+    assert.deepEqual(spy.filter((e) => e.op === 'spawn' && ['log', 'show', 'diff', 'status'].some((c) => e.args.includes(c)) && e.cwd?.startsWith(h.repo)), [], 'no history read in the repo');
+  } finally {
+    setGitVersion(undefined);
+    h.cleanup();
+  }
 });

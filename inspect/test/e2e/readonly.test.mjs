@@ -56,7 +56,10 @@ for (const fixture of ['good', 'bad', 'plugin']) {
       if (e.op === 'spawn') {
         assert.equal(e.cmd, 'git');
         const sub = e.args.find((a, i) => i > 0 && e.args[i - 1] !== '-c' && !a.startsWith('-'));
-        assert.ok(GIT_READ.has(sub), `git ${sub}`);
+        // Two fixed reads besides the allowlist: the version, and the promisor-config query.
+        const tail = e.args.slice(e.args.indexOf(sub ?? '--version'));
+        const fixed = (sub === undefined && tail.join(' ') === '--version') || (sub === 'config' && tail.length === 3 && tail[1] === '--get-regexp' && /promisor\)\$$/.test(tail[2]));
+        assert.ok(GIT_READ.has(sub) || fixed, `git ${sub}`);
       }
     }
     assert.ok(spy.some((e) => e.op === 'open'), 'spy log captured opens');

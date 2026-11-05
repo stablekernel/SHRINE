@@ -4,13 +4,16 @@
 import { basename, dirname, join, relative } from 'node:path';
 import { userInfo } from 'node:os';
 import { exists, readText } from '../../io/fsread.mjs';
-import { gitOut } from '../../io/git.mjs';
+import { gitOut, historyReadable } from '../../io/git.mjs';
 import { inventory } from './inventory.mjs';
 import { alwaysLoaded } from './always-loaded.mjs';
 import { retention } from './retention.mjs';
 
 function lastChange(item) {
   if (item.virtual || !item.mtime) return null;
+  // Partial clone on a git that can lazy-fetch: no git date, and checks that only
+  // trust a git date treat the file as not applicable.
+  if (!historyReadable(dirname(item.path))) return { date: item.mtime, source: 'mtime', git_skipped: true };
   const date = gitOut(['log', '-1', '--format=%cI', '--', basename(item.path)], dirname(item.path));
   if (date) return { date: new Date(date).toISOString(), source: 'git' };
   return { date: item.mtime, source: 'mtime' };

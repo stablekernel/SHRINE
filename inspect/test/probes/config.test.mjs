@@ -167,6 +167,17 @@ test('instructions_reviewed uses the review line, then git, never mtime alone', 
   assert.equal(check(s, 'instructions_reviewed').pass, false, 'review line wins over a newer git date');
 });
 
+test('instructions_reviewed skips a file whose git history was not read, unless it has a review line', () => {
+  const s = setup();
+  const skipped = (text) => ({ ...instr('/r/a/CLAUDE.md', { layer: 'project', text, age: 5, src: 'mtime' }), last_change: { date: daysAgo(5), source: 'mtime', git_skipped: true } });
+  s.items[1] = skipped('- no header');
+  const c = check(s, 'instructions_reviewed');
+  assert.equal(c.pass, true);
+  assert.equal(c.items.some((i) => i.path === '/r/a/CLAUDE.md'), false);
+  s.items[1] = skipped('Reviewed: 2026-01-01');
+  assert.equal(check(s, 'instructions_reviewed').pass, false, 'a review line still counts');
+});
+
 test('permissions_scoped mirrors blanket_permissions', () => {
   const s = setup({ permissions: { allow: [{ rule: 'Bash', path: 'p' }], ask: [], deny: [], defaultMode: null, skipDangerousModePermissionPrompt: null } });
   assert.equal(check(s, 'permissions_scoped').pass, false);

@@ -146,7 +146,8 @@ function layoutCheck(s) {
 }
 
 function reviewedCheck(s, t) {
-  const files = instructionFiles(s);
+  // A file whose git history was not read (see io/git.mjs) has no git date to judge.
+  const files = instructionFiles(s).filter((f) => !f.last_change?.git_skipped || ownerLine(f.text).reviewed);
   const items = files.map((f) => {
     const { reviewed } = ownerLine(f.text);
     const date = reviewed ?? (f.last_change?.source === 'git' ? f.last_change.date : null);
