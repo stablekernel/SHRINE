@@ -9,7 +9,8 @@ import { resetSpy, spyLog } from '../../../src/io/fsread.mjs';
 
 const NOW = Date.parse('2026-11-04T12:00:00Z');
 const DAY = 86400000;
-const TEMP = ['^/private/tmp/claude'];
+// Narrow on purpose: os.tmpdir() can itself sit under /private/tmp/claude-*.
+const TEMP = ['^/private/tmp/claude-501/scratch$'];
 
 function sh(cwd, ...args) {
   execFileSync('git', args, { cwd, stdio: 'ignore', env: { ...process.env, GIT_AUTHOR_NAME: 't', GIT_AUTHOR_EMAIL: 't@x', GIT_COMMITTER_NAME: 't', GIT_COMMITTER_EMAIL: 't@x' } });
