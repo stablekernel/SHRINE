@@ -166,3 +166,32 @@ test('import and remote-url parsing run in linear time on adversarial files', as
     assert.ok(g < 10, `4x input took ${g.toFixed(1)}x as long`);
   }
 });
+
+test('with git history skipped, the git config user is still masked as an author', async () => {
+  const { execFileSync } = await import('node:child_process');
+  const { knownIdentifiers, configUser } = await import('../../../src/adapters/claude-code/setup.mjs');
+  const { setGitVersion, historyReadable } = await import('../../../src/io/git.mjs');
+  const { buildIdentifiers, mask } = await import('../../../src/scrub/mask.mjs');
+  const h = makeHome('good');
+  const name = 'Peter Gibbons';
+  const email = 'peter@initech.example';
+  const g = (...a) => execFileSync('git', a, { cwd: h.repo, stdio: 'ignore' });
+  g('config', 'remote.origin.promisor', 'true');
+  g('config', 'user.name', name);
+  g('config', 'user.email', email);
+  writeFileSync(join(h.home, '.gitconfig'), '[user]\n\tname = "Milton W"\n\temail = milton@initech.example\n');
+  setGitVersion([2, 44, 0]);
+  try {
+    assert.equal(historyReadable(h.repo), false, 'control: history is skipped');
+    const ids = knownIdentifiers({ home: h.home, projects: [{ root: h.repo }] });
+    assert.ok(ids.authors.some((a) => a.name === name && a.email === email), JSON.stringify(ids.authors));
+    assert.ok(ids.authors.some((a) => a.name === 'Milton W'), 'the global git config user too');
+    const out = mask(`Owner: ${name} <${email}>, reviewed by Milton W`, buildIdentifiers(ids));
+    assert.doesNotMatch(out, /Peter|Gibbons|peter@|Milton/, out);
+  } finally {
+    setGitVersion(undefined);
+    h.cleanup();
+  }
+  assert.equal(configUser('[core]\n\tname = x\n'), null);
+  assert.deepEqual(configUser('[user]\n  email = a@b.example\n[user "x"]\n'), { name: null, email: 'a@b.example' });
+});

@@ -47,5 +47,7 @@ test('a repo that hangs git ends the read with a visible note, not a hung run', 
   h.cleanup();
   const note = findings.notes.find((n) => n.startsWith('Git did not finish within 1 second in 1 folder'));
   assert.ok(note, JSON.stringify(findings.notes));
-  assert.ok(html.includes('Git did not finish within'), 'the note is in the report');
+  assert.ok(!findings.notes.some((n) => n.startsWith('Git history was not read')), 'a hung folder is not reported as a partial clone');
+  const visible = html.replace(/<script[\s\S]*?<\/script>|<style[\s\S]*?<\/style>/g, '');
+  assert.match(visible, /class="run-limits"[^>]*><p>Git did not finish within 1 second in 1 folder/, 'a visible run limit, not just data');
 });

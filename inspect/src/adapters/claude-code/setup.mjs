@@ -53,6 +53,23 @@ export function remoteUrls(text) {
   return [...String(text ?? '').matchAll(/^[ \t]*url[ \t]*=[ \t]*(\S+)[ \t]*\r?$/gm)].map((m) => m[1]);
 }
 
+// The [user] name and email a git config file sets, read as text (no git run), so
+// the user's own git identity is masked even where git history is not read.
+export function configUser(text) {
+  const user = {};
+  let section = '';
+  for (const line of String(text ?? '').split('\n')) {
+    const head = /^[ \t]*\[([^\]\s]+)/.exec(line);
+    if (head) {
+      section = head[1].toLowerCase();
+      continue;
+    }
+    const kv = section === 'user' && /^[ \t]*(name|email)[ \t]*=(.*)$/i.exec(line);
+    if (kv) user[kv[1].toLowerCase()] = kv[2].trim().replace(/^"(.*)"$/, '$1');
+  }
+  return user.name || user.email ? { name: user.name ?? null, email: user.email ?? null } : null;
+}
+
 // Every path segment between host and repo name (nested groups, Azure org and
 // project); host-less local remotes give none.
 export function remoteOrgs(url) {
@@ -67,6 +84,12 @@ export function remoteOrgs(url) {
 export function knownIdentifiers({ home, projects }) {
   const authors = [];
   const orgs = [];
+  const addAuthor = (a) => {
+    if (a && !authors.some((x) => x.email === a.email && x.name === a.name)) authors.push(a);
+  };
+  for (const cfg of [join(home ?? '', '.gitconfig'), join(home ?? '', '.config', 'git', 'config')]) {
+    if (home && exists(cfg)) addAuthor(configUser(readText(cfg)));
+  }
   for (const p of projects) {
     const log = gitOut(['log', '-n', '200', '--format=%an%x09%ae'], p.root);
     for (const line of (log ?? '').split('\n').filter(Boolean)) {
@@ -75,7 +98,9 @@ export function knownIdentifiers({ home, projects }) {
     }
     const cfg = join(p.root, '.git', 'config');
     if (exists(cfg)) {
-      for (const url of remoteUrls(readText(cfg))) orgs.push(...remoteOrgs(url));
+      const text = readText(cfg);
+      for (const url of remoteUrls(text)) orgs.push(...remoteOrgs(url));
+      addAuthor(configUser(text));
     }
   }
   let osUser = null;

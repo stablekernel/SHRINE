@@ -178,16 +178,25 @@ export async function continueRun(folder, ctx, io) {
       plugins: setup.inventory.enabled_plugins.length,
     },
   });
-  const noHistory = projects.filter((p) => !historyReadable(p.root)).length;
+  // Run limits: what this run could not read. Shown near the top of the report, and
+  // kept in notes for readers of findings.json.
+  const limits = [];
+  // A folder where git hung is reported as hung, not as a partial clone.
+  const hungDirs = new Set(gitTimeouts());
+  const noHistory = projects.filter((p) => !hungDirs.has(p.root) && !historyReadable(p.root)).length;
   if (noHistory) {
     const v = gitVersion()?.join('.') ?? 'unknown';
-    const note = `Git history was not read in ${noHistory === 1 ? '1 repo' : `${noHistory} repos`}: a partial clone, and git ${v} can fetch missing objects while reading it. Git dates there were not used, review-date checks skip those files, and git author names are not masked. Git 2.45.1 or later reads them safely.`;
-    findings.notes.push(note);
-    findings.unknowable.push(note);
+    limits.push(`Git history was not read in ${noHistory === 1 ? '1 repo' : `${noHistory} repos`}: a partial clone, and git ${v} can fetch missing objects while reading it. Git dates there were not used and review-date checks skip those files. Only the name and email in your git config are masked as authors there; other commit authors are not known, so their names are not masked. Git 2.45.1 or later reads them safely.`);
+    findings.git_history_skipped = noHistory;
   }
-  const hung = gitTimeouts().length;
+  const hung = hungDirs.size;
   if (hung) {
-    findings.notes.push(`Git did not finish within ${spawnTimeoutMs() / 1000 === 1 ? '1 second' : `${spawnTimeoutMs() / 1000} seconds`} in ${hung === 1 ? '1 folder' : `${hung} folders`} and was stopped. Git reads there count as failed: no git dates or history. Repo config that blocks git (an include.path naming a pipe, for one) causes this.`);
+    const secs = spawnTimeoutMs() / 1000;
+    limits.push(`Git did not finish within ${secs === 1 ? '1 second' : `${secs} seconds`} in ${hung === 1 ? '1 folder' : `${hung} folders`} and was stopped. Git reads there count as failed: no git dates or history. Repo config that blocks git (an include.path naming a pipe, for one) causes this.`);
+  }
+  if (limits.length) {
+    findings.run_limits = limits;
+    findings.notes.push(...limits);
   }
   if (historyConsented) findings.notes.push('Session history was approved, but this version reads setup only; usage counts arrive in a later version.');
   findings.diff = diffRuns(previousFindings(ctx.dirs.state, state.run_id), findings);

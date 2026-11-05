@@ -112,6 +112,8 @@ export const findingsSchema = obj(
   {
     diff: nullable(obj({ new: int, cleared: int, unchanged: int })),
     notes: arr(str),
+    run_limits: arr(str),
+    git_history_skipped: int,
     thresholds: dict(any),
     history: obj({ consented: bool, read: bool, sessions: nullable(int) }),
   },

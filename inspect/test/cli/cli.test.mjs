@@ -188,7 +188,15 @@ test('a partial clone on git without GIT_NO_LAZY_FETCH: history skipped, with a 
     const s = JSON.parse(r.stdout);
     const findings = JSON.parse(readFileSync(join(s.run_dir, 'findings.json'), 'utf8'));
     assert.ok(findings.notes.some((n) => n.startsWith('Git history was not read in 1 repo') && n.includes('git 2.44.0')), findings.notes.join('|'));
-    assert.match(readFileSync(join(s.run_dir, 'report.html'), 'utf8'), /Git history was not read in 1 repo/);
+    // A run limit: visible near the top, never only in the collapsed tier-limits list.
+    const visible = (html) => html.replace(/<script[\s\S]*?<\/script>|<style[\s\S]*?<\/style>/g, '');
+    const html = visible(readFileSync(join(s.run_dir, 'report.html'), 'utf8'));
+    const at = html.indexOf('Git history was not read in 1 repo');
+    assert.ok(at > 0 && at < html.indexOf('class="depth"'), 'the note sits above the depth band');
+    assert.ok(!findings.unknowable.some((n) => n.startsWith('Git history was not read')), 'not a tier limit');
+    assert.equal(findings.git_history_skipped, 1);
+    const safe = visible(readFileSync(s.share_safe, 'utf8'));
+    assert.match(safe, /class="safe-banner">[^<]*Git history was not read in 1 repo, so other commit authors' names there are not masked\./);
     const spy = readFileSync(join(s.run_dir, 'spy.jsonl'), 'utf8').split('\n').filter(Boolean).map((l) => JSON.parse(l));
     assert.deepEqual(spy.filter((e) => e.op === 'spawn' && ['log', 'show', 'diff', 'status'].some((c) => e.args.includes(c)) && e.cwd?.startsWith(h.repo)), [], 'no history read in the repo');
   } finally {

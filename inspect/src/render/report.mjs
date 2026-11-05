@@ -64,6 +64,13 @@ function header(d) {
   return `<header class="head"><h1>Your agentic setup, measured against SHRINE</h1><div class="meta">${chips.join('')}</div></header>`;
 }
 
+// What this run could not read (a skipped or hung git read): a run limit, shown
+// up top, not a tier limit in the appendix.
+function runLimits(d) {
+  const items = d.run_limits ?? [];
+  return items.length ? `<section class="run-limits" role="note" aria-label="Run limits">${items.map((n) => `<p>${esc(n)}</p>`).join('')}</section>` : '';
+}
+
 function depth(d) {
   const n = Number(d.tier.slice(1));
   const meter = [1, 2, 3].map((i) => `<i${i <= n ? ' class="on"' : ''}></i>`).join('');
@@ -310,11 +317,13 @@ export function renderReport(findings, { shareSafe = false } = {}) {
   const integrity = d.integrity?.ok === false
     ? `<div class="integrity" role="alert"><b>Integrity check failed.</b> These files changed while inspect had them open for writing: ${d.integrity.changed_paths.map((p) => `<code class="mono">${esc(p)}</code>`).join(', ')}</div>`
     : '';
-  const banner = shareSafe ? '<p class="safe-banner">Share-safe copy: names, paths, and hosts are masked; session excerpts are removed.</p>' : '';
+  const skipped = d.git_history_skipped ?? 0;
+  const caveat = skipped ? ` Git history was not read in ${pl(skipped, 'repo')}, so other commit authors' names there are not masked.` : '';
+  const banner = shareSafe ? `<p class="safe-banner">Share-safe copy: names, paths, and hosts are masked; session excerpts are removed.${caveat}</p>` : '';
   const previewBtn = shareSafe ? '' : `<button type="button" id="preview-safe" aria-pressed="false">${PREVIEW_LABEL}</button>`;
   const chrome = `<div class="chrome"><span>shrine-inspect ${esc(d.run.tool_version)}</span><div class="controls"><div class="toggle" role="group" aria-label="Theme"><button type="button" data-theme-choice="system" aria-pressed="true">System</button><button type="button" data-theme-choice="light" aria-pressed="false">Light</button><button type="button" data-theme-choice="dark" aria-pressed="false">Dark</button></div>${previewBtn ? `<div class="toggle">${previewBtn}</div>` : ''}</div></div>`;
   const data = JSON.stringify(d).replace(/</g, '\\u003c');
-  const body = `${integrity}${banner}${chrome}<article class="report">${header(d)}${depth(d)}${tldr(d, empty)}${coverage(d, empty)}${explorer(d, empty)}${checkedClear(d)}${appendix(d)}${footer(d)}</article>`;
+  const body = `${integrity}${banner}${chrome}<article class="report">${header(d)}${runLimits(d)}${depth(d)}${tldr(d, empty)}${coverage(d, empty)}${explorer(d, empty)}${checkedClear(d)}${appendix(d)}${footer(d)}</article>`;
   return `<!doctype html>
 <html lang="en">
 <head>
