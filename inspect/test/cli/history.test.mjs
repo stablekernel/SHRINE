@@ -53,6 +53,10 @@ test('without a yes, no session log is streamed; the TTY prompt shows the itemiz
   assert.equal(r.code, 0, r.stderr);
   assert.match(r.stderr, /History if yes: 13 session files in 1 project,/);
   assert.match(r.stderr, /Estimated time with history: under 1 minute/);
+  // Exact about what Gate A read: the first lines can hold a prompt, so the text never claims none was read.
+  assert.match(r.stderr, /the first 10 lines of the newest session file per folder are read to find its folder/);
+  assert.match(r.stderr, /no prompt text is kept or shown/);
+  assert.doesNotMatch(r.stderr, /No prompt is read/);
   const dir = runDir(state);
   const spy = readFileSync(join(dir, 'spy.jsonl'), 'utf8').trim().split('\n').map((l) => JSON.parse(l));
   assert.equal(spy.filter((e) => e.stream).length, 0, 'no session log streamed');

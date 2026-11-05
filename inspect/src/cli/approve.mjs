@@ -23,7 +23,7 @@ const describe = (gate) => {
     if (gate.more) lines.push(`  and ${gate.more} more`);
   }
   if (gate.excluded) lines.push(`Excluded (temp, scratch, sdk-cli automation): ${gate.excluded} folders`);
-  lines.push('Read so far: file names, sizes, and dates, plus the cwd, entrypoint, and version keys from the first 10 lines of the newest session file per folder. No prompt is read before you answer.');
+  lines.push('Read so far: file names, sizes, and dates. Also, the first 10 lines of the newest session file per folder are read to find its folder; these lines can hold a prompt. Only the folder, entry point, and version are kept; no prompt text is kept or shown.');
   const h = gate.history;
   if (h) {
     lines.push(`History if yes: ${h.sessions} session files in ${h.projects} ${h.projects === 1 ? 'project' : 'projects'}, ${day(h.from)} to ${day(h.to)} (last ${h.window_days} days), ${size(h.bytes)} on disk.`);

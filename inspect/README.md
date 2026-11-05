@@ -9,8 +9,9 @@ Status: pre-release (SP2). Install and docs cutover arrive in SP3; until then th
 - `node bin/shrine-inspect.mjs run --tier T0 --no-history`: setup and repos only
 - Without `--no-history`, the run pauses at Gate A (exit 3) until you answer in your own terminal: `node bin/shrine-inspect.mjs approve <run> A <no-history|history>`
 - Gate A lists projects, date range, size on disk, and a size-based time estimate; every run asks again
-  - Before Gate A: file names, sizes, and dates, plus the `cwd`, `entrypoint`, and `version` keys from the first 10 lines of the newest session file per folder
-  - Prompts and the rest of each session are read only after `history`
+  - Before Gate A: file names, sizes, and dates, plus the first 10 lines of the newest session file per folder, read to find its folder
+  - Those lines can hold a prompt; only `cwd`, `entrypoint`, and `version` are kept, and no prompt text is kept or shown
+  - The rest of each session is read only after `history`
 - `--session-id <id>` leaves out the session driving the run; without it, the newest session file written in the last 5 minutes is left out
 - Gate B is fixed at T0 (`--tier T0`); deeper tiers are not available yet
 - With history: usage counts (sessions, turns, interrupts, compactions, retries, subagent share, correction candidates, done claims without a prior test) in the report appendix and header
