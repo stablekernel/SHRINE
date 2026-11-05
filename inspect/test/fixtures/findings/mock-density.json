@@ -1,0 +1,1078 @@
+{
+  "schema_version": 1,
+  "run": {
+    "id": "mock-density",
+    "started_at": "2026-11-04T09:00:00.000Z",
+    "tool_version": "0.1.0",
+    "harness": {
+      "name": "Claude Code",
+      "version": "2.1.318"
+    },
+    "scope": {
+      "projects": [
+        "project-1",
+        "project-2",
+        "project-3",
+        "project-4"
+      ],
+      "from": "2026-10-05",
+      "to": "2026-11-04",
+      "history_consented": true
+    },
+    "win_definition": null,
+    "seed": 4242
+  },
+  "shrine": {
+    "commit": "71e82a0e6f729e88c7e40040310fd33068c067f3",
+    "manifest_sha": null,
+    "fetched_at": null
+  },
+  "tier": "T2",
+  "reviewers": 5,
+  "minutes_elapsed": 22,
+  "tokens_used": 312000,
+  "headline": {
+    "counts": {
+      "amplify": 4,
+      "working": 3,
+      "worth_a_look": 1,
+      "checked_clear": 2,
+      "sessions": 38,
+      "corrections": 41
+    },
+    "tldr": [
+      {
+        "status": "amplify",
+        "headline": "Work is declared done before it is checked.",
+        "sentence": "This gap accounts for 17 of 41 corrections.",
+        "finding_id": "mock-unverified-done"
+      },
+      {
+        "status": "amplify",
+        "headline": "Constraints arrive after the first build.",
+        "sentence": "Naming them up front removes 1 correction turn per task.",
+        "finding_id": "mock-late-constraint"
+      },
+      {
+        "status": "working",
+        "headline": "Instructions layer cleanly.",
+        "sentence": "Every layer passes the cascade check across 3 layers.",
+        "finding_id": "mock-layers"
+      }
+    ],
+    "start_with": {
+      "finding_id": "mock-unverified-done",
+      "action": "Add a stop hook that runs the test target and blocks the done message on failure.",
+      "minutes_to_apply": 30,
+      "framed": true
+    }
+  },
+  "coverage": [
+    {
+      "key": "authority-cascade",
+      "title": "Authority Cascade",
+      "icon": "layers",
+      "working": 1,
+      "amplify": 0
+    },
+    {
+      "key": "human-in-the-loop",
+      "title": "Human in the Loop",
+      "icon": "hand",
+      "working": 0,
+      "amplify": 1
+    },
+    {
+      "key": "problem-before-prescription",
+      "title": "Problem Before Prescription",
+      "icon": "compass",
+      "working": 0,
+      "amplify": 1
+    },
+    {
+      "key": "consistency-as-leverage",
+      "title": "Consistency as Leverage",
+      "icon": "grid",
+      "working": 1,
+      "amplify": 0
+    },
+    {
+      "key": "fail-fast-recover-smart",
+      "title": "Fail Fast, Recover Smart",
+      "icon": "loop",
+      "working": 0,
+      "amplify": 1
+    },
+    {
+      "key": "reproducibility",
+      "title": "Reproducibility",
+      "icon": "repeat",
+      "working": 0,
+      "amplify": 0
+    },
+    {
+      "key": "deliberate-currency",
+      "title": "Deliberate Currency",
+      "icon": "clock",
+      "working": 1,
+      "amplify": 0
+    },
+    {
+      "key": "patterns_and_stack",
+      "title": "Patterns and stack",
+      "icon": "wrench",
+      "working": 0,
+      "amplify": 1
+    }
+  ],
+  "attribution_stack": {
+    "setup": 17,
+    "prompt": 11,
+    "model": 8,
+    "unknown": 5
+  },
+  "findings": [
+    {
+      "provenance": "judged",
+      "counter_reading": null,
+      "adversarial": null,
+      "episode_ref": {
+        "episode_id": "e-114-2",
+        "timeline": [
+          {
+            "t": "10:02",
+            "label_scrubbed": "Prompt: add retry to sync job",
+            "kind": "neutral",
+            "event_kind": "Prompt"
+          },
+          {
+            "t": "10:09",
+            "label_scrubbed": "Agent reports done",
+            "kind": "warn",
+            "event_kind": "Done claim"
+          },
+          {
+            "t": "13:35",
+            "label_scrubbed": "Revert commit a41f9c",
+            "kind": "warn",
+            "event_kind": "Commit"
+          },
+          {
+            "t": "14:05",
+            "label_scrubbed": "Fix committed with tests",
+            "kind": "resolve",
+            "event_kind": "Commit"
+          }
+        ]
+      },
+      "praise_class": null,
+      "timeline_gap": {
+        "from_t": "10:09",
+        "to_t": "13:35",
+        "label": "206 minutes unverified"
+      },
+      "recurrence": {
+        "hits": 9,
+        "sample": 12,
+        "stratum": "all",
+        "control_rate": 0.2
+      },
+      "id": "mock-unverified-done",
+      "lens": "usage",
+      "tab": "amplify",
+      "kind": "unverified_done",
+      "title": "Work is declared done before it is checked",
+      "short": "17 corrections, 9 of 12 episodes",
+      "lead": "Agents report success without running anything that could disprove it. Failures surface later, after other work builds on the change.",
+      "icon": "loop",
+      "attribution": "harness",
+      "confidence": {
+        "value": 0.8,
+        "label": "high",
+        "basis": "one judge pass agrees with a mechanical anchor"
+      },
+      "severity": {
+        "tokens_attributable": 61000,
+        "human_turns_attributable": 4,
+        "delay_minutes": 211,
+        "label": "high"
+      },
+      "evidence": [
+        {
+          "kind": "mechanical",
+          "locator": "commit a41f9c",
+          "metric": "reverted 206 minutes after the done claim",
+          "excerpt_scrubbed": null
+        },
+        {
+          "kind": "judge",
+          "locator": "session s-114 turn 9",
+          "metric": null,
+          "verdict": "claim not supported",
+          "judge_confidence": 0.8,
+          "excerpt_scrubbed": "Done, the retry is in place."
+        }
+      ],
+      "anchor": "commit a41f9c",
+      "why": [
+        "In 9 of 12 sampled episodes, the first test run came after the agent said done.",
+        "The same shape repeated across 3 repos, so it is a pattern, not an accident.",
+        "Mechanical anchor: commit a41f9c was reverted 206 minutes after its done claim."
+      ],
+      "problem": [
+        "Cost lands late and compounds: other work builds on the change before it is undone.",
+        "You become the verification step, spending attention on checks a machine can run.",
+        "Each late failure averaged 2 extra correction turns and 38K tokens."
+      ],
+      "pivot": {
+        "kind": "hook",
+        "action": "Add a stop hook that runs the test target and blocks the done message on failure.",
+        "before_scrubbed": "Add retry to the sync job.",
+        "after_scrubbed": "Add retry to the sync job.\nDone means: tests pass, and replaying the failed batch writes each record once.",
+        "after_marks": [
+          [
+            27,
+            107
+          ]
+        ],
+        "setup_note": "Instructions can be skipped; a hook cannot. Run the same test target the CI job runs.",
+        "source": "user_prompt",
+        "minutes_to_apply": 30
+      },
+      "benefit": [
+        {
+          "headline": "Minutes, not hours",
+          "sub": "Failures surface while context is fresh"
+        },
+        {
+          "headline": "2 turns saved",
+          "sub": "Per task that would have failed late"
+        },
+        {
+          "headline": "Less attention spent",
+          "sub": "You review results, not re-run checks"
+        }
+      ],
+      "shrine_refs": [
+        {
+          "entry_id": "principles/fail-fast-recover-smart#463f127610",
+          "page_id": "principles/fail-fast-recover-smart",
+          "anchor": "signal-of-violation",
+          "title": "Fail Fast, Recover Smart",
+          "section": "principle",
+          "status": "ratified",
+          "url": "https://stablekernel.github.io/SHRINE/principles/fail-fast-recover-smart/#signal-of-violation",
+          "url_pinned": "https://github.com/stablekernel/SHRINE/blob/71e82a0e6f729e88c7e40040310fd33068c067f3/docs/src/content/docs/principles/fail-fast-recover-smart.md#L88",
+          "quote": "Failure handling added after launch: the first outage is when someone writes the fallback"
+        },
+        {
+          "entry_id": "patterns/verification-loops#87ad7bf1f4",
+          "page_id": "patterns/verification-loops",
+          "anchor": "anti-patterns",
+          "title": "Verification Loops",
+          "section": "pattern",
+          "status": "ratified",
+          "url": "https://stablekernel.github.io/SHRINE/patterns/verification-loops/#anti-patterns",
+          "url_pinned": "https://github.com/stablekernel/SHRINE/blob/71e82a0e6f729e88c7e40040310fd33068c067f3/docs/src/content/docs/patterns/verification-loops.md#L101",
+          "quote": "The loop edits the test until it passes"
+        },
+        {
+          "entry_id": "stack/harness#66f5591777",
+          "page_id": "stack/harness",
+          "anchor": "anti-patterns",
+          "title": "Harness Selection",
+          "section": "stack",
+          "status": "draft",
+          "url": "https://stablekernel.github.io/SHRINE/stack/harness/#anti-patterns",
+          "url_pinned": "https://github.com/stablekernel/SHRINE/blob/71e82a0e6f729e88c7e40040310fd33068c067f3/docs/src/content/docs/stack/harness.md#L48",
+          "quote": "Choosing based on hype rather than fit"
+        }
+      ],
+      "owner_label": "Owner: Setup",
+      "coverage_key": "fail-fast-recover-smart"
+    },
+    {
+      "provenance": "judged",
+      "counter_reading": null,
+      "adversarial": null,
+      "episode_ref": {
+        "episode_id": "e-087-1",
+        "timeline": [
+          {
+            "t": "09:15",
+            "label_scrubbed": "Prompt: speed up orders endpoint",
+            "kind": "neutral",
+            "event_kind": "Prompt"
+          },
+          {
+            "t": "09:40",
+            "label_scrubbed": "Agent adds a cache",
+            "kind": "warn",
+            "event_kind": "Prompt"
+          },
+          {
+            "t": "09:52",
+            "label_scrubbed": "Correction: no new infrastructure",
+            "kind": "warn",
+            "event_kind": "Correction"
+          },
+          {
+            "t": "10:30",
+            "label_scrubbed": "Rebuilt with an index",
+            "kind": "resolve",
+            "event_kind": "Commit"
+          }
+        ]
+      },
+      "praise_class": null,
+      "timeline_gap": {
+        "from_t": "09:15",
+        "to_t": "09:52",
+        "label": "37 minutes before the constraint"
+      },
+      "recurrence": {
+        "hits": 7,
+        "sample": 11,
+        "stratum": "all",
+        "control_rate": null
+      },
+      "id": "mock-late-constraint",
+      "lens": "usage",
+      "tab": "amplify",
+      "kind": "late_constraint",
+      "title": "Constraints arrive after the first build",
+      "short": "11 corrections, prompt side",
+      "lead": "Prompts describe the goal but leave out the limits that decide the solution. The agent builds something reasonable, then you steer by correction.",
+      "icon": "compass",
+      "attribution": "user",
+      "confidence": {
+        "value": 0.7,
+        "label": "medium",
+        "basis": "one judge pass agrees with a mechanical anchor"
+      },
+      "severity": {
+        "tokens_attributable": 22000,
+        "human_turns_attributable": 3,
+        "delay_minutes": 35,
+        "label": "medium"
+      },
+      "evidence": [
+        {
+          "kind": "mechanical",
+          "locator": "session s-087 turn 3",
+          "metric": "correction candidate in turn 3",
+          "excerpt_scrubbed": "No new infrastructure."
+        }
+      ],
+      "anchor": "session s-087 turn 3",
+      "why": [
+        "In 7 of 11 prompt-side corrections, the late constraint was knowable before the first prompt.",
+        "Typical late constraints: no new infrastructure, keep the public API.",
+        "Mechanical anchor: 4 sessions open with a correction within the first 3 turns."
+      ],
+      "problem": [
+        "The agent solves the problem you described, not the one you have.",
+        "Steering by correction costs tokens and anchors the agent on the first idea.",
+        "The miss is quiet: the first build looks fine until the constraint is named."
+      ],
+      "pivot": {
+        "kind": "habit",
+        "action": "Name the win and the limits in the first prompt.",
+        "before_scrubbed": "Speed up the orders endpoint.",
+        "after_scrubbed": "Speed up the orders endpoint. No new infrastructure.",
+        "after_marks": [
+          [
+            30,
+            52
+          ]
+        ],
+        "setup_note": "",
+        "source": "user_prompt",
+        "minutes_to_apply": 5
+      },
+      "benefit": [
+        {
+          "headline": "1 turn saved",
+          "sub": "Per task where constraints were knowable"
+        },
+        {
+          "headline": "Better first build",
+          "sub": "The agent explores options before committing"
+        },
+        {
+          "headline": "Fewer surprises",
+          "sub": "Limits are written down, not remembered"
+        }
+      ],
+      "shrine_refs": [
+        {
+          "entry_id": "principles/problem-before-prescription#b1ed0a54fa",
+          "page_id": "principles/problem-before-prescription",
+          "anchor": "signal-of-violation",
+          "title": "Problem Before Prescription",
+          "section": "principle",
+          "status": "ratified",
+          "url": "https://stablekernel.github.io/SHRINE/principles/problem-before-prescription/#signal-of-violation",
+          "url_pinned": "https://github.com/stablekernel/SHRINE/blob/71e82a0e6f729e88c7e40040310fd33068c067f3/docs/src/content/docs/principles/problem-before-prescription.md#L69",
+          "quote": "Twenty turns of \"no, not like that\": steering by correction instead of stating constraints up front"
+        },
+        {
+          "entry_id": "patterns/spec-then-build#860578c483",
+          "page_id": "patterns/spec-then-build",
+          "anchor": "anti-patterns",
+          "title": "Spec, Then Build",
+          "section": "pattern",
+          "status": "ratified",
+          "url": "https://stablekernel.github.io/SHRINE/patterns/spec-then-build/#anti-patterns",
+          "url_pinned": "https://github.com/stablekernel/SHRINE/blob/71e82a0e6f729e88c7e40040310fd33068c067f3/docs/src/content/docs/patterns/spec-then-build.md#L106",
+          "quote": "\"Make it work\" as the only criterion"
+        }
+      ],
+      "owner_label": "Owner: You",
+      "coverage_key": "problem-before-prescription"
+    },
+    {
+      "provenance": "mechanical",
+      "counter_reading": null,
+      "adversarial": null,
+      "episode_ref": null,
+      "praise_class": null,
+      "timeline_gap": null,
+      "recurrence": {
+        "hits": null,
+        "sample": null,
+        "stratum": null,
+        "control_rate": null
+      },
+      "id": "mock-blanket",
+      "lens": "config",
+      "tab": "amplify",
+      "kind": "blanket_permissions",
+      "title": "Shell and file writes run without a pause",
+      "short": "2 blanket allow rules",
+      "lead": "Your settings allow every shell command and every file write. Judgment moves from the risky step to reading diffs after the fact.",
+      "icon": "hand",
+      "attribution": "harness",
+      "confidence": {
+        "value": 0.9,
+        "label": "high",
+        "basis": "deterministic fact from settings"
+      },
+      "severity": {
+        "tokens_attributable": null,
+        "human_turns_attributable": null,
+        "delay_minutes": null,
+        "label": "high"
+      },
+      "evidence": [
+        {
+          "kind": "mechanical",
+          "locator": "~/.claude/settings.json",
+          "metric": "allow: Bash, Write"
+        }
+      ],
+      "anchor": "~/.claude/settings.json",
+      "why": [
+        "User settings allow Bash and Write with no scope.",
+        "The default permission mode skips the prompt for edits.",
+        "These rules apply to every project in scope."
+      ],
+      "problem": [
+        "A human checkpoint exists in name only.",
+        "Out-of-scope writes are found by chance, not by a gate.",
+        "Approvals that never ask cannot be tuned."
+      ],
+      "pivot": {
+        "kind": "config",
+        "action": "Replace blanket allow rules with scoped ones.",
+        "before_scrubbed": "\"allow\": [\"Bash\", \"Write\"]",
+        "after_scrubbed": "\"allow\": [\"Bash(npm test:*)\"]",
+        "after_marks": [],
+        "setup_note": "Keep reads open; ask on writes.",
+        "source": "shrine_generic",
+        "minutes_to_apply": 10
+      },
+      "benefit": [
+        {
+          "headline": "Judgment where it counts",
+          "sub": "You decide at the risky step only"
+        },
+        {
+          "headline": "Fast approvals",
+          "sub": "One line to read, not a diff to audit"
+        },
+        {
+          "headline": "Safer by default",
+          "sub": "Out-of-scope writes are stopped"
+        }
+      ],
+      "shrine_refs": [
+        {
+          "entry_id": "human-in-the-loop.sov.undefined-boundary",
+          "page_id": "principles/human-in-the-loop",
+          "anchor": "signal-of-violation",
+          "title": "Human in the Loop",
+          "section": "principle",
+          "status": "ratified",
+          "url_pinned": "https://github.com/stablekernel/SHRINE/blob/71e82a0e6f729e88c7e40040310fd33068c067f3/docs/src/content/docs/principles/human-in-the-loop.md#L38",
+          "quote": "Undefined boundary: whether a human signs off depends on who ran the agent that day",
+          "url": "https://stablekernel.github.io/SHRINE/principles/human-in-the-loop/#signal-of-violation"
+        }
+      ],
+      "owner_label": "Owner: Setup",
+      "coverage_key": "human-in-the-loop",
+      "config_strip": {
+        "mtime": "2026-09-02",
+        "last_git_change": null,
+        "sessions_since": 38
+      }
+    },
+    {
+      "provenance": "mechanical",
+      "counter_reading": null,
+      "adversarial": null,
+      "episode_ref": null,
+      "praise_class": null,
+      "timeline_gap": null,
+      "recurrence": {
+        "hits": null,
+        "sample": null,
+        "stratum": null,
+        "control_rate": null
+      },
+      "id": "mock-oversized",
+      "lens": "config",
+      "tab": "amplify",
+      "kind": "oversized_instructions",
+      "title": "Always-loaded instructions are large",
+      "short": "52 KB loaded every session",
+      "lead": "Every session starts by loading 52 KB of instructions. Rules that matter compete with rules that rarely apply.",
+      "icon": "layers",
+      "attribution": "harness",
+      "confidence": {
+        "value": 0.9,
+        "label": "high",
+        "basis": "deterministic fact from file sizes"
+      },
+      "severity": {
+        "tokens_attributable": null,
+        "human_turns_attributable": null,
+        "delay_minutes": null,
+        "label": "medium"
+      },
+      "evidence": [
+        {
+          "kind": "mechanical",
+          "locator": "~/.claude/CLAUDE.md",
+          "metric": "52 KB always loaded"
+        }
+      ],
+      "anchor": "~/.claude/CLAUDE.md",
+      "why": [
+        "Always-loaded files total 52 KB, over the 40 KB tool policy.",
+        "The largest file holds 3 runbooks used in 1 of 10 sessions.",
+        "Imports pull in 2 more files on every start."
+      ],
+      "problem": [
+        "Context spent on rarely used rules is context not spent on the task.",
+        "Long files hide the rules that matter most.",
+        "Growth has no stopping point without a size check."
+      ],
+      "pivot": {
+        "kind": "instruction",
+        "action": "Move rarely used sections into skills loaded on demand.",
+        "before_scrubbed": "CLAUDE.md holds the whole runbook.",
+        "after_scrubbed": "CLAUDE.md links to a runbook skill.",
+        "after_marks": [],
+        "setup_note": "",
+        "source": "shrine_generic",
+        "minutes_to_apply": 10
+      },
+      "benefit": [
+        {
+          "headline": "Smaller start",
+          "sub": "Every session loads less"
+        },
+        {
+          "headline": "Clearer rules",
+          "sub": "What applies everywhere stays visible"
+        },
+        {
+          "headline": "10 minutes",
+          "sub": "One-time cost to move sections"
+        }
+      ],
+      "shrine_refs": [
+        {
+          "entry_id": "memory.ap.instruction-file-grows",
+          "page_id": "stack/memory",
+          "anchor": "anti-patterns",
+          "title": "Memory & Context Management",
+          "section": "stack",
+          "status": "draft",
+          "url_pinned": "https://github.com/stablekernel/SHRINE/blob/71e82a0e6f729e88c7e40040310fd33068c067f3/docs/src/content/docs/stack/memory.md#L65",
+          "quote": "A standing instruction file that only grows",
+          "url": "https://stablekernel.github.io/SHRINE/stack/memory/#anti-patterns"
+        }
+      ],
+      "owner_label": "Owner: Setup",
+      "coverage_key": "patterns_and_stack",
+      "config_strip": {
+        "mtime": "2026-10-30",
+        "last_git_change": "2026-10-30",
+        "sessions_since": 12
+      }
+    },
+    {
+      "provenance": "mechanical",
+      "counter_reading": null,
+      "adversarial": null,
+      "episode_ref": null,
+      "praise_class": "structure",
+      "timeline_gap": null,
+      "recurrence": {
+        "hits": null,
+        "sample": null,
+        "stratum": null,
+        "control_rate": null
+      },
+      "id": "mock-layers",
+      "lens": "config",
+      "tab": "working",
+      "kind": "structure",
+      "title": "Instructions layer cleanly",
+      "short": "3 layers, 0 repeated rules",
+      "lead": "Every item in scope passes this conformance check. The paired critique stayed under its threshold across 40 episodes.",
+      "icon": "layers",
+      "attribution": "harness",
+      "confidence": {
+        "value": 0.7,
+        "label": "medium",
+        "basis": "structure check, capped at medium"
+      },
+      "severity": {
+        "tokens_attributable": null,
+        "human_turns_attributable": null,
+        "delay_minutes": null,
+        "label": "low"
+      },
+      "evidence": [
+        {
+          "kind": "mechanical",
+          "locator": "setup",
+          "metric": "every item passes"
+        }
+      ],
+      "anchor": "setup",
+      "why": [
+        "Every item in scope passes the check.",
+        "At least 3 items were in scope.",
+        "The paired critique was measured over 40 episodes."
+      ],
+      "problem": [
+        "Keep it this way: drift starts with one exception.",
+        "A new repo or file can break the pattern unnoticed."
+      ],
+      "pivot": {
+        "kind": "config",
+        "action": "Keep the current structure.",
+        "before_scrubbed": null,
+        "after_scrubbed": null,
+        "after_marks": [],
+        "setup_note": "",
+        "source": "shrine_generic",
+        "minutes_to_apply": 5
+      },
+      "benefit": [
+        {
+          "headline": "Predictable behavior",
+          "sub": "The same rules apply every time"
+        },
+        {
+          "headline": "Cheap onboarding",
+          "sub": "New repos inherit the stack"
+        },
+        {
+          "headline": "Fewer overrides",
+          "sub": "Less correction per session"
+        }
+      ],
+      "shrine_refs": [
+        {
+          "entry_id": "authority-cascade.sov.reopened",
+          "page_id": "principles/authority-cascade",
+          "anchor": "signal-of-violation",
+          "title": "Authority Cascade",
+          "section": "principle",
+          "status": "ratified",
+          "url_pinned": "https://github.com/stablekernel/SHRINE/blob/71e82a0e6f729e88c7e40040310fd33068c067f3/docs/src/content/docs/principles/authority-cascade.md#L43",
+          "quote": "Settled questions reopened: the same convention is argued again in each review or engagement",
+          "url": "https://stablekernel.github.io/SHRINE/principles/authority-cascade/#signal-of-violation"
+        }
+      ],
+      "owner_label": "Owner: Setup",
+      "coverage_key": "authority-cascade"
+    },
+    {
+      "provenance": "mechanical",
+      "counter_reading": null,
+      "adversarial": null,
+      "episode_ref": null,
+      "praise_class": "structure",
+      "timeline_gap": null,
+      "recurrence": {
+        "hits": null,
+        "sample": null,
+        "stratum": null,
+        "control_rate": null
+      },
+      "id": "mock-layout",
+      "lens": "config",
+      "tab": "working",
+      "kind": "structure",
+      "title": "Repos share one layout",
+      "short": "4 repos, one template",
+      "lead": "Every item in scope passes this conformance check. The paired critique stayed under its threshold across 40 episodes.",
+      "icon": "grid",
+      "attribution": "harness",
+      "confidence": {
+        "value": 0.7,
+        "label": "medium",
+        "basis": "structure check, capped at medium"
+      },
+      "severity": {
+        "tokens_attributable": null,
+        "human_turns_attributable": null,
+        "delay_minutes": null,
+        "label": "low"
+      },
+      "evidence": [
+        {
+          "kind": "mechanical",
+          "locator": "setup",
+          "metric": "every item passes"
+        }
+      ],
+      "anchor": "setup",
+      "why": [
+        "Every item in scope passes the check.",
+        "At least 3 items were in scope.",
+        "The paired critique was measured over 40 episodes."
+      ],
+      "problem": [
+        "Keep it this way: drift starts with one exception.",
+        "A new repo or file can break the pattern unnoticed."
+      ],
+      "pivot": {
+        "kind": "config",
+        "action": "Keep the current structure.",
+        "before_scrubbed": null,
+        "after_scrubbed": null,
+        "after_marks": [],
+        "setup_note": "",
+        "source": "shrine_generic",
+        "minutes_to_apply": 5
+      },
+      "benefit": [
+        {
+          "headline": "Predictable behavior",
+          "sub": "The same rules apply every time"
+        },
+        {
+          "headline": "Cheap onboarding",
+          "sub": "New repos inherit the stack"
+        },
+        {
+          "headline": "Fewer overrides",
+          "sub": "Less correction per session"
+        }
+      ],
+      "shrine_refs": [
+        {
+          "entry_id": "consistency-as-leverage.sov.idioms",
+          "page_id": "principles/consistency-as-leverage",
+          "anchor": "signal-of-violation",
+          "title": "Consistency as Leverage",
+          "section": "principle",
+          "status": "ratified",
+          "url_pinned": "https://github.com/stablekernel/SHRINE/blob/71e82a0e6f729e88c7e40040310fd33068c067f3/docs/src/content/docs/principles/consistency-as-leverage.md#L40",
+          "quote": "Several idioms for one concern: agent output copies whichever file it read last",
+          "url": "https://stablekernel.github.io/SHRINE/principles/consistency-as-leverage/#signal-of-violation"
+        }
+      ],
+      "owner_label": "Owner: Setup",
+      "coverage_key": "consistency-as-leverage"
+    },
+    {
+      "provenance": "mechanical",
+      "counter_reading": null,
+      "adversarial": null,
+      "episode_ref": null,
+      "praise_class": "structure",
+      "timeline_gap": null,
+      "recurrence": {
+        "hits": null,
+        "sample": null,
+        "stratum": null,
+        "control_rate": null
+      },
+      "id": "mock-reviewed",
+      "lens": "config",
+      "tab": "working",
+      "kind": "structure",
+      "title": "Instruction files have a recent review",
+      "short": "5 files reviewed within 90 days",
+      "lead": "Every item in scope passes this conformance check. The paired critique stayed under its threshold across 40 episodes.",
+      "icon": "clock",
+      "attribution": "harness",
+      "confidence": {
+        "value": 0.7,
+        "label": "medium",
+        "basis": "structure check, capped at medium"
+      },
+      "severity": {
+        "tokens_attributable": null,
+        "human_turns_attributable": null,
+        "delay_minutes": null,
+        "label": "low"
+      },
+      "evidence": [
+        {
+          "kind": "mechanical",
+          "locator": "setup",
+          "metric": "every item passes"
+        }
+      ],
+      "anchor": "setup",
+      "why": [
+        "Every item in scope passes the check.",
+        "At least 3 items were in scope.",
+        "The paired critique was measured over 40 episodes."
+      ],
+      "problem": [
+        "Keep it this way: drift starts with one exception.",
+        "A new repo or file can break the pattern unnoticed."
+      ],
+      "pivot": {
+        "kind": "config",
+        "action": "Keep the current structure.",
+        "before_scrubbed": null,
+        "after_scrubbed": null,
+        "after_marks": [],
+        "setup_note": "",
+        "source": "shrine_generic",
+        "minutes_to_apply": 5
+      },
+      "benefit": [
+        {
+          "headline": "Predictable behavior",
+          "sub": "The same rules apply every time"
+        },
+        {
+          "headline": "Cheap onboarding",
+          "sub": "New repos inherit the stack"
+        },
+        {
+          "headline": "Fewer overrides",
+          "sub": "Less correction per session"
+        }
+      ],
+      "shrine_refs": [
+        {
+          "entry_id": "deliberate-currency.sov.stale",
+          "page_id": "principles/deliberate-currency",
+          "anchor": "signal-of-violation",
+          "title": "Deliberate Currency",
+          "section": "principle",
+          "status": "ratified",
+          "url_pinned": "https://github.com/stablekernel/SHRINE/blob/71e82a0e6f729e88c7e40040310fd33068c067f3/docs/src/content/docs/principles/deliberate-currency.md#L47",
+          "quote": "Drift: skills tuned against a retired model still load, and nobody can say who owns them",
+          "url": "https://stablekernel.github.io/SHRINE/principles/deliberate-currency/#signal-of-violation"
+        }
+      ],
+      "owner_label": "Owner: Setup",
+      "coverage_key": "deliberate-currency"
+    }
+  ],
+  "worth_a_look": [
+    {
+      "provenance": "mechanical",
+      "counter_reading": null,
+      "adversarial": null,
+      "episode_ref": null,
+      "praise_class": null,
+      "timeline_gap": null,
+      "recurrence": {
+        "hits": null,
+        "sample": null,
+        "stratum": null,
+        "control_rate": null
+      },
+      "id": "mock-worth",
+      "lens": "config",
+      "tab": "worth_a_look",
+      "kind": "oversized_instructions",
+      "title": "Compactions cluster in long sessions",
+      "short": "3 compactions in 2 sessions",
+      "lead": "Every session starts by loading 52 KB of instructions. Rules that matter compete with rules that rarely apply.",
+      "icon": "layers",
+      "attribution": "harness",
+      "confidence": {
+        "value": 0.45,
+        "label": "low",
+        "basis": "below the evidence bar"
+      },
+      "severity": {
+        "tokens_attributable": null,
+        "human_turns_attributable": null,
+        "delay_minutes": null,
+        "label": "medium"
+      },
+      "evidence": [
+        {
+          "kind": "mechanical",
+          "locator": "~/.claude/CLAUDE.md",
+          "metric": "52 KB always loaded"
+        }
+      ],
+      "anchor": "~/.claude/CLAUDE.md",
+      "why": [
+        "Always-loaded files total 52 KB, over the 40 KB tool policy.",
+        "The largest file holds 3 runbooks used in 1 of 10 sessions.",
+        "Imports pull in 2 more files on every start."
+      ],
+      "problem": [
+        "Context spent on rarely used rules is context not spent on the task.",
+        "Long files hide the rules that matter most.",
+        "Growth has no stopping point without a size check."
+      ],
+      "pivot": {
+        "kind": "instruction",
+        "action": "Move rarely used sections into skills loaded on demand.",
+        "before_scrubbed": "CLAUDE.md holds the whole runbook.",
+        "after_scrubbed": "CLAUDE.md links to a runbook skill.",
+        "after_marks": [],
+        "setup_note": "",
+        "source": "shrine_generic",
+        "minutes_to_apply": 10
+      },
+      "benefit": [
+        {
+          "headline": "Smaller start",
+          "sub": "Every session loads less"
+        },
+        {
+          "headline": "Clearer rules",
+          "sub": "What applies everywhere stays visible"
+        },
+        {
+          "headline": "10 minutes",
+          "sub": "One-time cost to move sections"
+        }
+      ],
+      "shrine_refs": [
+        {
+          "entry_id": "memory.ap.instruction-file-grows",
+          "page_id": "stack/memory",
+          "anchor": "anti-patterns",
+          "title": "Memory & Context Management",
+          "section": "stack",
+          "status": "draft",
+          "url_pinned": "https://github.com/stablekernel/SHRINE/blob/71e82a0e6f729e88c7e40040310fd33068c067f3/docs/src/content/docs/stack/memory.md#L65",
+          "quote": "A standing instruction file that only grows",
+          "url": "https://stablekernel.github.io/SHRINE/stack/memory/#anti-patterns"
+        }
+      ],
+      "owner_label": "Owner: Setup",
+      "coverage_key": "patterns_and_stack",
+      "config_strip": {
+        "mtime": "2026-10-30",
+        "last_git_change": "2026-10-30",
+        "sessions_since": 12
+      }
+    }
+  ],
+  "checked_clear": [
+    {
+      "id": "mock-cc-retention",
+      "check": "History retention covers 90 days",
+      "entry_id": "reproducibility.sov.not-logged",
+      "guards_against": "Losing the sessions you need to compare behavior over time",
+      "title": "Reproducibility",
+      "shrine_ref": {
+        "entry_id": "reproducibility.sov.not-logged",
+        "page_id": "principles/reproducibility",
+        "anchor": "signal-of-violation",
+        "title": "Reproducibility",
+        "section": "principle",
+        "status": "ratified",
+        "url_pinned": "https://github.com/stablekernel/SHRINE/blob/71e82a0e6f729e88c7e40040310fd33068c067f3/docs/src/content/docs/principles/reproducibility.md#L41",
+        "quote": "Model version and parameters not logged: behavior shifts and nobody can tell what changed",
+        "url": "https://stablekernel.github.io/SHRINE/principles/reproducibility/#signal-of-violation"
+      }
+    },
+    {
+      "id": "mock-cc-stack",
+      "check": "Hooks, skills, and memory are all configured",
+      "entry_id": "harness.ap.under-investing",
+      "guards_against": "Repeating by hand what the harness can run for you",
+      "title": "Harness",
+      "shrine_ref": {
+        "entry_id": "harness.ap.under-investing",
+        "page_id": "stack/harness",
+        "anchor": "anti-patterns",
+        "title": "Harness Selection",
+        "section": "stack",
+        "status": "draft",
+        "url_pinned": "https://github.com/stablekernel/SHRINE/blob/71e82a0e6f729e88c7e40040310fd33068c067f3/docs/src/content/docs/stack/harness.md#L51",
+        "quote": "Under-investing in harness proficiency",
+        "url": "https://stablekernel.github.io/SHRINE/stack/harness/#anti-patterns"
+      }
+    }
+  ],
+  "dropped": [
+    {
+      "id": "mock-dropped",
+      "reason": "no entry_id"
+    }
+  ],
+  "configured": [
+    {
+      "item": "hooks",
+      "count": 4,
+      "detail": "from user settings and 1 plugin"
+    },
+    {
+      "item": "skills",
+      "count": 12
+    }
+  ],
+  "control_slice": {
+    "episodes": 15,
+    "done_without_test_rate": 0.2
+  },
+  "unknowable": [
+    "Whether a change was correct when no later commit or test touched it"
+  ],
+  "skipped_files": [
+    {
+      "path_scrubbed": "~/.claude/projects/<project-2>/a.jsonl",
+      "reason": "corrupt line 1"
+    }
+  ],
+  "integrity": {
+    "ok": true,
+    "changed_paths": []
+  },
+  "diff": {
+    "new": 1,
+    "cleared": 1,
+    "unchanged": 5
+  },
+  "notes": [],
+  "history": {
+    "consented": true,
+    "read": true,
+    "sessions": 38
+  }
+}
