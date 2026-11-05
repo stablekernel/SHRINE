@@ -43,6 +43,13 @@ export function collectSetup({ home, projects, now }) {
   };
 }
 
+// url = values in a git config. Spaces are matched with [ \t], not \s: with the m
+// flag, \s also crosses newlines, so every line start would rescan a run of blank
+// lines (quadratic).
+export function remoteUrls(text) {
+  return [...String(text ?? '').matchAll(/^[ \t]*url[ \t]*=[ \t]*(\S+)[ \t]*\r?$/gm)].map((m) => m[1]);
+}
+
 // Every path segment between host and repo name (nested groups, Azure org and
 // project); host-less local remotes give none.
 export function remoteOrgs(url) {
@@ -65,7 +72,7 @@ export function knownIdentifiers({ home, projects }) {
     }
     const cfg = join(p.root, '.git', 'config');
     if (exists(cfg)) {
-      for (const m of readText(cfg).matchAll(/^\s*url\s*=\s*(\S+)\s*$/gm)) orgs.push(...remoteOrgs(m[1]));
+      for (const url of remoteUrls(readText(cfg))) orgs.push(...remoteOrgs(url));
     }
   }
   let osUser = null;

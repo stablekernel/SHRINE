@@ -4,8 +4,9 @@ import { readFileSync } from 'node:fs';
 import { fileURLToPath } from 'node:url';
 import { scrubSecrets } from '../../src/scrub/secrets.mjs';
 import { plantedCorpus } from '../synth/secrets.mjs';
-import { buildIdentifiers, mask, maskDeep, maskPath } from '../../src/scrub/mask.mjs';
+import { buildIdentifiers, mask, maskBase, maskDeep, maskPath } from '../../src/scrub/mask.mjs';
 import { displayPath } from '../../src/scorer/score.mjs';
+import { growth as growthOf, repeatTo } from '../synth/growth.mjs';
 
 const corpus = plantedCorpus();
 const body = corpus
@@ -86,34 +87,51 @@ test('maskDeep masks a finding anchor, which is a user file path', () => {
   assert.ok(!/jdoe|acme|shop/.test(out.anchor), out.anchor);
 });
 
-// Linear-time check that does not flake under CPU load: compares the CPU time (not
-// wall time; scrub is synchronous) at 4x the input with the time at 1x, best of 5
-// each, interleaved. The 1x input grows until one run takes at least 2ms, so timer
-// resolution is not what is measured. Linear rules give about 4; quadratic about 16.
-function growth(build, scrub = scrubSecrets) {
-  const time = (s) => {
-    const t = process.cpuUsage();
-    scrub(s);
-    const d = process.cpuUsage(t);
-    return (d.user + d.system) / 1000;
-  };
-  let n = 1000;
-  while (time(build(n)) < 2 && n < 5_000_000) n *= 2;
-  const small = build(n);
-  const large = build(4 * n);
-  let a = Infinity;
-  let b = Infinity;
-  for (let i = 0; i < 5; i++) {
-    a = Math.min(a, time(small));
-    b = Math.min(b, time(large));
-  }
-  return b / a;
-}
+const growth = (build, run = scrubSecrets) => growthOf(build, run);
 
 test('growth flags a quadratic regex', () => {
   // Every start position runs to the end of the input before failing: O(n^2).
   const g = growth((n) => 'x-'.repeat(n / 2), (s) => /(?:x-)+=/.test(s));
-  assert.ok(g >= 12, `quadratic regex grew only ${g.toFixed(1)}x`);
+  // The same limit the linear-time tests use, so they would catch this.
+  assert.ok(g >= 10, `quadratic regex grew only ${g.toFixed(1)}x`);
+  // The old share-safe email rule: an unbounded local part before a word boundary.
+  const old = growth(repeatTo('a.'), (s) => s.replace(/\b[A-Za-z0-9._%+-]+@[A-Za-z0-9.-]+\.[A-Za-z]{2,}\b/g, '<email>'));
+  assert.ok(old >= 10, `old email rule grew only ${old.toFixed(1)}x`);
+});
+
+test('mask runs in linear time on adversarial runs', () => {
+  const k = buildIdentifiers({ osUser: 'bob', home: '/Users/bob', projects: ['repo'] });
+  // Email, host, and IP shapes; then free-text path shapes.
+  const units = ['a.', 'a-', 'x.', 'x-x.', '1.', '1.1.', 'a@', 'a.a@', '%+', 'x.co.', '-.', '~/A ', '/a ', ' /a', '/A A', ' C:\\a', "a'b ", '/a, ', ' /a/A ', '/(a) '];
+  for (const unit of units) {
+    const g = growth(repeatTo(unit), (s) => mask(s, k));
+    assert.ok(g < 10, `${JSON.stringify(unit)}: 4x input took ${g.toFixed(1)}x as long`);
+  }
+});
+
+test('maskPath and maskBase run in linear time on long dot runs', () => {
+  const k = buildIdentifiers({ home: '/Users/bob' });
+  for (const build of [(n) => `${'.'.repeat(n)}x`, (n) => `/a/${'.'.repeat(n)}x`, (n) => `/a/x${'.'.repeat(n)}`]) {
+    const g = growth(build, (s) => maskPath(s, k));
+    assert.ok(g < 10, `4x input took ${g.toFixed(1)}x as long`);
+  }
+  const b = growth((n) => `a${'.'.repeat(n)}a`, maskBase);
+  assert.ok(b < 10, `maskBase: 4x input took ${b.toFixed(1)}x as long`);
+});
+
+test('token-shaped scrub rules run in linear time on adversarial runs', () => {
+  for (const unit of ['sk-', 'sk-ant-', 'ghp_', 'github_pat_', '-----BEGIN ', 'a://b:', 'ab+', 'Bearer ', 'eyJ', 'postgres://', 'AKIA', 'xoxb-', 'SG.', 'hvs.', 'Authorization: ', 'AccountKey=']) {
+    const g = growth(repeatTo(unit));
+    assert.ok(g < 10, `${unit}: 4x input took ${g.toFixed(1)}x as long`);
+  }
+});
+
+test('the email, host, and IP rules still mask their shapes', () => {
+  const k = buildIdentifiers({});
+  assert.equal(mask('mail jane.doe+x@mail.acme.example.com or (ops@corp.io).', k), 'mail <email> or (<email>).');
+  assert.equal(mask('hosts build01.acme.io, a.b.c.internal and x..api.dev', k), 'hosts <host>, <host> and x..<host>');
+  assert.equal(mask('ip 10.1.2.3 and 255.255.255.0.', k), 'ip <ip> and <ip>.');
+  assert.equal(mask('Run npm test; see README.md; v1.2.3 shipped.', k), 'Run npm test; see README.md; v1.2.3 shipped.');
 });
 
 test('scrub runs in linear time on adversarial key-like runs', () => {

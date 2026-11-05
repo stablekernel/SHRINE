@@ -8,6 +8,7 @@ import { inventory, nestedInstructionFiles } from '../../../src/adapters/claude-
 import { retention } from '../../../src/adapters/claude-code/retention.mjs';
 import { alwaysLoaded, resolveImports } from '../../../src/adapters/claude-code/always-loaded.mjs';
 import { resetSpy, spyLog } from '../../../src/io/fsread.mjs';
+import { growth, repeatTo } from '../../synth/growth.mjs';
 
 beforeEach(() => resetSpy());
 
@@ -141,4 +142,25 @@ test('org names from remotes take every path segment between host and repo', asy
   assert.deepEqual(remoteOrgs('https://ci@github.com:443/acme-corp/shop-api.git'), ['acme-corp']);
   assert.deepEqual(remoteOrgs('ssh://git@host.example/a/b/c/repo'), ['a', 'b', 'c']);
   assert.deepEqual(remoteOrgs('/srv/git/repo.git'), []);
+});
+
+test('remote urls come from url lines in a git config', async () => {
+  const { remoteUrls } = await import('../../../src/adapters/claude-code/setup.mjs');
+  const cfg = '[core]\n\tbare = false\n[remote "origin"]\n\turl = git@github.com:acme/app.git\n  url=https://x/y/z  \n# url = nope here\n';
+  assert.deepEqual(remoteUrls(cfg), ['git@github.com:acme/app.git', 'https://x/y/z']);
+});
+
+test('import and remote-url parsing run in linear time on adversarial files', async () => {
+  const { remoteUrls } = await import('../../../src/adapters/claude-code/setup.mjs');
+  const cases = [
+    [(n) => `@a${'.'.repeat(n)}a`, (s) => resolveImports(s, '/a', '/h')],
+    [(n) => `@${'a.'.repeat(n / 2)}`, (s) => resolveImports(s, '/a', '/h')],
+    [repeatTo('\n'), remoteUrls],
+    [repeatTo(' \n\t'), remoteUrls],
+    [repeatTo('url = x '), remoteUrls],
+  ];
+  for (const [build, run] of cases) {
+    const g = growth(build, run);
+    assert.ok(g < 10, `4x input took ${g.toFixed(1)}x as long`);
+  }
 });

@@ -29,10 +29,17 @@ export function buildIdentifiers({ osUser = null, home = null, authors = [], pro
   return { home, ids };
 }
 
-const EMAIL = /\b[A-Za-z0-9._%+-]+@[A-Za-z0-9.-]+\.[A-Za-z]{2,}\b/g;
+// Linear time on untrusted text: an email starts only where its run of local-part
+// characters starts, and both parts are bounded (64 and 253, the address limits),
+// so a long "a.a.a." run is scanned once, not once per start position.
+const EMAIL = /(?<![A-Za-z0-9._%+-])[A-Za-z0-9._%+-]{1,64}@[A-Za-z0-9.-]{1,253}\.[A-Za-z]{2,63}\b/g;
+// A fixed number of bounded parts: constant work per start.
 const IPV4 = /\b(?:(?:25[0-5]|2[0-4]\d|1?\d?\d)\.){3}(?:25[0-5]|2[0-4]\d|1?\d?\d)\b/g;
 const TLDS = 'com|net|org|io|dev|ai|app|co|us|uk|de|fr|cloud|internal|local|lan|corp|edu|gov|info|biz|xyz|sh|me|tech|example';
-const HOST = new RegExp(`\\b(?:[A-Za-z0-9](?:[A-Za-z0-9-]{0,61}[A-Za-z0-9])?\\.)+(?:${TLDS})\\b`, 'g');
+// A host starts only where its run of labels starts (not after a letter, digit,
+// hyphen, or a label's dot), so a long "x-x.x-x." run is tried once and backtracks
+// one label at a time.
+const HOST = new RegExp(`(?<![A-Za-z0-9-])(?<![A-Za-z0-9-]\\.)(?:[A-Za-z0-9](?:[A-Za-z0-9-]{0,61}[A-Za-z0-9])?\\.)+(?:${TLDS})\\b`, 'g');
 // Home paths keep only .claude and the file name; other folders name clients and repos.
 // A folder is words of letters (any script), digits, and the punctuation folder
 // names carry ("Acme & Sons (Legal)", "Acme, Inc", "Café Nordström"), joined by
@@ -61,8 +68,13 @@ const TOOL_FILES = new Set(['CLAUDE.md', 'CLAUDE.local.md', 'AGENTS.md', 'MEMORY
 const TOOL_NAMES = [...TOOL_FILES];
 const SESSION_FILE =/^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}\.jsonl$/i;
 export function maskBase(base) {
-  // A sentence's closing period is not part of the name.
-  const [, name, tail] = /^(.*?)(\.*)$/.exec(base ?? '');
+  // A sentence's closing period is not part of the name. A loop, not /(\.*)$/,
+  // which rescans every dot run to its end: quadratic on a long run of dots.
+  const s = base ?? '';
+  let end = s.length;
+  while (end > 0 && s[end - 1] === '.') end--;
+  const name = s.slice(0, end);
+  const tail = s.slice(end);
   if (!name || TOOL_FILES.has(name) || SESSION_FILE.test(name) || /^<[\w-]+>$/.test(name)) return base;
   const ext = /\.([A-Za-z0-9]{1,8})$/.exec(name.slice(1));
   return `${ext ? `<file>.${ext[1]}` : '<file>'}${tail}`;

@@ -21,7 +21,9 @@ export function resolveImports(text, baseDir, home) {
     if (fence) continue;
     const line = raw.replace(/`[^`]*`/g, '');
     for (const m of line.matchAll(/(?:^|\s)@((?:~\/|\.{0,2}\/)?[\w.\-/]+)/g)) {
-      let p = m[1].replace(/[.,;:)]+$/, '');
+      // Trailing sentence dots dropped; the lookbehind starts the match only at a
+      // run's first dot, so a long dot run inside the token is not rescanned.
+      let p = m[1].replace(/(?<!\.)\.+$/, '');
       if (!/[./]/.test(p)) continue;
       if (p.startsWith('~/')) p = join(home, p.slice(2));
       else if (!isAbsolute(p)) p = resolve(baseDir, p);
