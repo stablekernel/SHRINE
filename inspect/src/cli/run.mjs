@@ -8,7 +8,7 @@ import { appDirs } from '../io/paths.mjs';
 import { firstSafeGit, gitRefusals, gitTimeouts, gitVersion, globalHang, historyReadable, isHung, isRefused, resetGitTimeouts } from '../io/git.mjs';
 import { spawnTimeoutMs } from '../io/proc.mjs';
 import { detect } from '../adapters/claude-code/detect.mjs';
-import { defaultTempPatterns, listProjects } from '../adapters/claude-code/projects.mjs';
+import { defaultTempPatterns, encodeProjectPath, listProjects } from '../adapters/claude-code/projects.mjs';
 import { retention } from '../adapters/claude-code/retention.mjs';
 import { collectSetup, knownIdentifiers } from '../adapters/claude-code/setup.mjs';
 import { runConfigProbes } from '../probes/config.mjs';
@@ -216,7 +216,12 @@ export async function continueRun(folder, ctx, io) {
     usage,
     usageKinds: KINDS.usage_kinds,
     sessionStarts: usage ? history.sessions.map((s) => ({ start: s.start, root: history.roots.get(s.id) })) : null,
-    projectRoots: projects.map((p) => p.root),
+    projectScopes: projects.map((p) => ({
+      root: p.root,
+      memory_dir: join(claudeHome, 'projects', encodeProjectPath(p.root), 'memory'),
+      loaded: (setup.always_loaded.by_project.find((b) => b.project === p.root)?.files ?? []).map((f) => f.path),
+    })),
+    userLoaded: setup.always_loaded.user_files.map((f) => f.path),
     inventoryCounts: {
       hooks: counts('hook'),
       skills: counts('skill'),

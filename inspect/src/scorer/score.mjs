@@ -150,18 +150,28 @@ const usageThresholds = (t) => ({
 });
 
 // Sessions started on or after the config's last change, where that config was
-// live: a file inside a project root counts that project's sessions; a user-global
-// file counts all. null when history was not read or the change date is unknown.
-// sessions: [{start, root}]; roots: project roots.
-function sessionsSince(item, sessions, roots, home) {
+// live: a project's auto-memory folder counts that project's sessions; a
+// user-global file counts all; any other file counts the project that holds it
+// plus the projects whose always-loaded chain imports it. null when history was
+// not read, the change date is unknown, or no project is known to load the file.
+// sessions: [{start, root}]; scopes: [{root, memory_dir, loaded: [paths]}];
+// userLoaded: paths every session loads (the user chain and its imports).
+function sessionsSince(item, sessions, scopes, home, userLoaded) {
   if (!sessions || !item.date) return null;
   const under = (p, dir) => p === dir || p.startsWith(`${dir}/`);
-  const userGlobal = home && (under(item.path, `${home}/.claude`) || item.path === `${home}/.claude.json`);
-  const root = userGlobal ? null : roots.filter((r) => under(item.path, r)).sort((a, b) => b.length - a.length)[0];
-  return sessions.filter((s) => s.start >= item.date && (!root || s.root === root)).length;
+  const memory = scopes.find((s) => s.memory_dir && under(item.path, s.memory_dir));
+  let roots = null;
+  if (memory) roots = new Set([memory.root]);
+  else if (userLoaded.includes(item.path) || (home && (under(item.path, `${home}/.claude`) || item.path === `${home}/.claude.json`))) roots = null;
+  else {
+    const holder = scopes.map((s) => s.root).filter((r) => under(item.path, r)).sort((a, b) => b.length - a.length)[0];
+    roots = new Set([holder, ...scopes.filter((s) => (s.loaded ?? []).includes(item.path)).map((s) => s.root)].filter(Boolean));
+    if (!roots.size) return null;
+  }
+  return sessions.filter((s) => s.start >= item.date && (!roots || roots.has(s.root))).length;
 }
 
-export function score({ run, shrine, probes, structure, catalogue, pivots, copy, inventoryCounts = {}, home = null, history = { consented: false, read: false, sessions: null }, usage = null, usageKinds = {}, sessionStarts = null, projectRoots = [], thresholds = THRESHOLDS, tier = 'T0' }) {
+export function score({ run, shrine, probes, structure, catalogue, pivots, copy, inventoryCounts = {}, home = null, history = { consented: false, read: false, sessions: null }, usage = null, usageKinds = {}, sessionStarts = null, projectScopes = [], userLoaded = [], thresholds = THRESHOLDS, tier = 'T0' }) {
   const t = thresholds;
   const findings = [];
   const dropped = [];
@@ -230,7 +240,7 @@ export function score({ run, shrine, probes, structure, catalogue, pivots, copy,
       timeline_gap: null,
       coverage_key: coverageKey(refs),
       items: p.items.map((i) => (i.path ? { ...i, path: displayPath(i.path, home) } : i)),
-      config_strip: first ? { mtime: first.date ?? null, last_git_change: first.date_source === 'git' ? first.date : null, sessions_since: sessionsSince(first, sessionStarts, projectRoots, home) } : null,
+      config_strip: first ? { mtime: first.date ?? null, last_git_change: first.date_source === 'git' ? first.date : null, sessions_since: sessionsSince(first, sessionStarts, projectScopes, home, userLoaded) } : null,
     });
   }
 
