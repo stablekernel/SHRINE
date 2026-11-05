@@ -47,7 +47,9 @@ test('inventory lists every source with path, size, mtime, sha256, and source', 
   ]) {
     assert.ok(paths.includes(p), `missing ${p}`);
   }
-  for (const i of inv.items.filter((x) => !x.virtual)) {
+  const files = inv.items.filter((x) => !x.virtual);
+  assert.ok(files.length > 0, 'inventory lists files');
+  for (const i of files) {
     assert.equal(typeof i.bytes, 'number', i.path);
     assert.match(i.mtime, /^\d{4}-/, i.path);
     assert.match(i.sha256, /^[0-9a-f]{64}$/, i.path);

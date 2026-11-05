@@ -49,6 +49,7 @@ for (const fixture of ['good', 'bad', 'plugin']) {
     const { run_dir } = JSON.parse(r.stdout);
     const spy = readFileSync(join(run_dir, 'spy.jsonl'), 'utf8').trim().split('\n').map((l) => JSON.parse(l));
     const stateRoot = join(state, 'state');
+    for (const op of ['open', 'write', 'spawn']) assert.ok(spy.some((e) => e.op === op), `spy log has ${op} entries`);
     for (const e of spy) {
       if (e.op === 'write') assert.ok(e.path.startsWith(stateRoot), `write outside state: ${e.path}`);
       if (e.op === 'open') assert.equal(e.mode, 'r', e.path);

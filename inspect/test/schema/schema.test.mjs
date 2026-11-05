@@ -83,5 +83,6 @@ test('mock-density fixture is spec legal and matches the mock layout density', (
   for (const x of f.findings.filter((y) => y.tab === 'working')) assert.equal(x.praise_class, 'structure');
   for (const x of f.findings.filter((y) => y.praise_class === 'structure')) assert.notEqual(x.confidence.label, 'high');
   const timelines = f.findings.filter((x) => x.episode_ref?.timeline?.length);
+  assert.ok(timelines.length > 0, 'the mock carries timelines');
   assert.ok(timelines.every((x) => x.episode_ref.timeline.every((e) => !/\bCI\b/.test(e.label_scrubbed))), 'no CI events');
 });

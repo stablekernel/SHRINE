@@ -9,6 +9,9 @@ import { t0BadSetupFindings } from '../synth/t0-findings.mjs';
 const mock = JSON.parse(readFileSync(fileURLToPath(new URL('../fixtures/findings/mock-density.json', import.meta.url)), 'utf8'));
 const MOCK_HTML = renderReport(mock);
 const T0_HTML = renderReport(t0BadSetupFindings());
+// Count-based checks below ("no hidden detail", "every finding fits") pass on zero
+// items, so each also asserts there is something to check.
+if (mock.findings.length === 0) throw new Error('mock-density fixture has no findings');
 
 async function open(page, html, { theme, width = 1280, height = 800 } = {}) {
   await page.setViewportSize({ width, height });
@@ -39,6 +42,7 @@ test('mock density, print', async ({ page }) => {
   const height = await page.evaluate(() => document.documentElement.scrollHeight);
   await page.setViewportSize({ width: 1280, height });
   await expect(page).toHaveScreenshot('mock-print.png');
+  expect(await page.locator('.detail').count()).toBeGreaterThanOrEqual(mock.findings.length);
   const hidden = await page.locator('.detail:not(:visible)').count();
   expect(hidden).toBe(0);
 });
@@ -58,6 +62,7 @@ test('print shows the content of every appendix section', async ({ page }) => {
 test('print lets sections flow across pages', async ({ page }) => {
   await open(page, MOCK_HTML, { theme: 'light' });
   await page.emulateMedia({ media: 'print' });
+  expect(await page.locator('section').count()).toBeGreaterThan(0);
   const held = await page.evaluate(() => [...document.querySelectorAll('section')].filter((s) => getComputedStyle(s).breakInside !== 'auto').map((s) => s.getAttribute('aria-labelledby')));
   expect(held).toEqual([]);
 });
@@ -94,6 +99,7 @@ test('with scripts off the inert tab bar is hidden and every finding shows', asy
   const page = await ctx.newPage();
   await open(page, MOCK_HTML, { theme: 'light' });
   await expect(page.locator('[role="tablist"]')).toBeHidden();
+  expect(await page.locator('.detail').count()).toBeGreaterThanOrEqual(mock.findings.length);
   expect(await page.locator('.detail:not(:visible)').count()).toBe(0);
   await ctx.close();
 });
@@ -114,6 +120,7 @@ test('mock density, 375px: no horizontal scroll', async ({ page }) => {
   const overflow = await page.evaluate(() => document.documentElement.scrollWidth - document.documentElement.clientWidth);
   expect(overflow).toBeLessThanOrEqual(0);
   // .report clips overflow, so also check nothing inside a section is cut off.
+  expect(await page.locator('section').count()).toBeGreaterThan(0);
   const clipped = await page.evaluate(() => [...document.querySelectorAll('section')].filter((s) => s.scrollWidth > s.clientWidth + 1).map((s) => s.getAttribute('aria-labelledby')));
   expect(clipped).toEqual([]);
   await expect(page).toHaveScreenshot('mock-375.png', { fullPage: true });
@@ -127,10 +134,12 @@ test('390px: the integrity alert wraps a long pack path inside its box', async (
   await open(page, renderReport(m), { theme: 'light', width: 390, height: 800 });
   const overflow = await page.evaluate(() => document.documentElement.scrollWidth - document.documentElement.clientWidth);
   expect(overflow).toBeLessThanOrEqual(0);
-  const spill = await page.evaluate(() => {
+  const { codes, spill } = await page.evaluate(() => {
     const box = document.querySelector('.integrity').getBoundingClientRect();
-    return [...document.querySelectorAll('.integrity code')].filter((c) => c.getBoundingClientRect().right > box.right + 0.5).length;
+    const all = [...document.querySelectorAll('.integrity code')];
+    return { codes: all.length, spill: all.filter((c) => c.getBoundingClientRect().right > box.right + 0.5).length };
   });
+  expect(codes, 'the alert names the path in a code element').toBeGreaterThan(0);
   expect(spill).toBe(0);
   await expect(page.locator('.integrity')).toHaveScreenshot('integrity-390.png');
 });
@@ -150,18 +159,24 @@ const LONG_HTML = longContentHtml();
 const detailOverflow = (page) =>
   page.evaluate(() => {
     const right = document.querySelector('.report').getBoundingClientRect().right;
-    return [...document.querySelectorAll('.detail')].filter((d) => d.getClientRects().length && d.getBoundingClientRect().right > right + 0.5).map((d) => d.id);
+    const shown = [...document.querySelectorAll('.detail')].filter((d) => d.getClientRects().length);
+    // No visible detail is a failure, not a pass.
+    if (shown.length === 0) return ['no visible .detail'];
+    return shown.filter((d) => d.getBoundingClientRect().right > right + 0.5).map((d) => d.id);
   });
 
 test('375px: every finding detail fits inside the report', async ({ page }) => {
   await open(page, LONG_HTML, { theme: 'dark', width: 375, height: 800 });
+  let clicked = 0;
   for (const tab of ['amplify', 'working']) {
     await page.locator(`#tab-${tab}`).click();
     for (const btn of await page.locator(`#panel-${tab} .f-btn`).all()) {
       await btn.click();
+      clicked++;
       expect(await detailOverflow(page), await btn.getAttribute('data-target')).toEqual([]);
     }
   }
+  expect(clicked).toBe(mock.findings.length);
 });
 
 test('375px with scripts off: every finding detail fits inside the report', async ({ browser }) => {
@@ -189,6 +204,8 @@ test('375px: timeline text stays readable and scrolls inside its own box', async
 const timelineText = (svg) => {
   const scale = svg.getBoundingClientRect().width / svg.viewBox.baseVal.width;
   const texts = [...svg.querySelectorAll('text')];
+  // Math.min() of nothing is Infinity, which would pass ">= 10".
+  if (texts.length === 0) return { px: 0, overlaps: ['no text in timeline'] };
   const boxes = texts.map((t) => t.getBoundingClientRect());
   const hit = (a, b) => a.left < b.right && b.left < a.right && a.top < b.bottom && b.top < a.bottom;
   const overlaps = boxes.flatMap((a, i) => boxes.slice(i + 1).filter((b) => hit(a, b)).map(() => texts[i].textContent));
@@ -198,12 +215,15 @@ const timelineText = (svg) => {
 test('desktop and tablet timeline text is at least 10px and never overlaps', async ({ page }) => {
   for (const width of [768, 1024, 1280, 1440]) {
     await open(page, MOCK_HTML, { theme: 'dark', width });
+    let seen = 0;
     for (const svg of await page.locator('svg.tl').all()) {
       if (!(await svg.isVisible())) continue;
+      seen++;
       const r = await svg.evaluate(timelineText);
       expect(r.px, `${width}px`).toBeGreaterThanOrEqual(10);
       expect(r.overlaps, `${width}px`).toEqual([]);
     }
+    expect(seen, `${width}px visible timelines`).toBeGreaterThan(0);
     const overflow = await page.evaluate(() => document.documentElement.scrollWidth - document.documentElement.clientWidth);
     expect(overflow, `${width}px`).toBeLessThanOrEqual(0);
   }
@@ -217,9 +237,13 @@ test('desktop timeline shows whole (no clipping in its scroll box) with text at 
     );
     expect(boxes.length, `${width}px`).toBeGreaterThan(0);
     expect(Math.max(...boxes), `${width}px hidden timeline px`).toBeLessThanOrEqual(0);
+    let seen = 0;
     for (const svg of await page.locator('svg.tl').all()) {
-      if (await svg.isVisible()) expect((await svg.evaluate(timelineText)).px, `${width}px`).toBeGreaterThanOrEqual(10);
+      if (!(await svg.isVisible())) continue;
+      seen++;
+      expect((await svg.evaluate(timelineText)).px, `${width}px`).toBeGreaterThanOrEqual(10);
     }
+    expect(seen, `${width}px visible timelines`).toBeGreaterThan(0);
   }
 });
 
@@ -252,11 +276,14 @@ test('labels never wrap or spill on desktop widths', async ({ page }) => {
         return 1 + ys.filter((y, i) => i && y - ys[i - 1] > 10).length;
       };
       const out = [];
+      let seen = 0;
       for (const el of document.querySelectorAll('.chip, .tag, table.cov th, .benefit b, .tab, .legend li, .ba figcaption, .status, .depth b, .ref small')) {
         if (!el.getClientRects().length) continue;
+        seen++;
         const box = el.closest('.detail, section, .head, .depth').getBoundingClientRect();
         if (lines(el) > 1 || el.scrollWidth > el.clientWidth + 1 || el.getBoundingClientRect().right > box.right + 0.5) out.push(`${el.className || el.tagName}: ${el.textContent.trim().slice(0, 40)}`);
       }
+      if (seen === 0) out.push('no visible labels to check');
       return out;
     });
     expect(bad, `${width}px`).toEqual([]);

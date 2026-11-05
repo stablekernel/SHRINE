@@ -98,7 +98,9 @@ test('toggle label and share-safe file', () => {
   for (const id of ['jdoe', 'Jane Doe', 'jane@acme.example', 'shop-api', '/home/jdoe']) assert.ok(!html.includes(id), id);
   assert.ok(!html.includes(PREVIEW_LABEL));
   assert.match(html, /Share-safe copy/);
-  for (const f of safe.findings) for (const e of f.evidence) assert.equal(e.excerpt_scrubbed ?? null, null);
+  const evidence = safe.findings.flatMap((f) => f.evidence);
+  assert.ok(evidence.some((e) => e.kind !== 'mechanical'), 'the mock carries evidence that had excerpts');
+  for (const e of evidence) assert.equal(e.excerpt_scrubbed ?? null, null);
 });
 
 test('print CSS expands tabs and details', () => {
@@ -165,5 +167,6 @@ test('a coverage area counts as checked only when a probe or structure check at 
   assert.ok(keys.has('human-in-the-loop') && keys.has('deliberate-currency'), [...keys].join(', '));
   assert.ok(keys.size < d.coverage.length / 2, `most areas have no Tier 0 check (${keys.size} of ${d.coverage.length})`);
   const none = score({ run: min.run(), shrine: min.shrine(), probes: [], structure: [], catalogue, pivots, copy });
+  assert.ok(none.coverage.length > 0, 'coverage lists areas');
   assert.ok(none.coverage.every((c) => c.checked === false), 'no checks, no checked areas');
 });

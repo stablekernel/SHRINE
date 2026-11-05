@@ -62,7 +62,9 @@ test('output is a valid findings.json at schema_version 1', () => {
 });
 
 test('config findings: confidence 0.9 high, harness, amplify, mechanical', () => {
-  for (const f of run(hitsOf(...allKinds)).findings) {
+  const all = run(hitsOf(...allKinds)).findings;
+  assert.equal(all.length, allKinds.length);
+  for (const f of all) {
     assert.equal(f.confidence.value, 0.9);
     assert.equal(f.confidence.label, 'high');
     assert.equal(f.attribution, 'harness');
@@ -133,6 +135,7 @@ test('TLDR is the top 2 amplify by severity plus the third amplify', () => {
   assert.deepEqual(out.headline.tldr.map((t) => t.finding_id), out.findings.slice(0, 3).map((f) => f.id));
   assert.equal(out.findings[0].kind, 'blanket_permissions');
   assert.equal(out.findings[1].kind, 'stale_instructions');
+  assert.equal(out.headline.tldr.length, 3);
   assert.ok(out.headline.tldr.every((t) => t.status === 'amplify'));
 });
 
@@ -180,7 +183,9 @@ test('an area with a finding counts as checked even when no applicable check map
   const probes = hitsOf('blanket_permissions').map((p) => (p.kind === 'blanket_permissions' ? { ...p, applicable: false } : p));
   const out = run(probes, { structure: [] });
   assert.ok(out.findings.some((f) => f.kind === 'blanket_permissions'));
-  for (const c of out.coverage) if (c.amplify + c.working > 0) assert.equal(c.checked, true, c.key);
+  const withFinding = out.coverage.filter((c) => c.amplify + c.working > 0);
+  assert.ok(withFinding.length > 0, 'some area has a finding');
+  for (const c of withFinding) assert.equal(c.checked, true, c.key);
 });
 
 test('a failed structure check counts only when a finding cites its entry', () => {
