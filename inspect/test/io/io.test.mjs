@@ -63,6 +63,20 @@ test('git runs with optional locks off', () => {
   assert.equal(inv.env.GIT_OPTIONAL_LOCKS, '0');
 });
 
+test('diffing git commands never run external diff or textconv programs', () => {
+  process.env.GIT_EXTERNAL_DIFF = '/bin/false';
+  try {
+    for (const sub of ['diff', 'show', 'log']) {
+      const inv = gitInvocation([sub, 'HEAD'], tmpdir());
+      assert.deepEqual(inv.args.slice(3, 6), [sub, '--no-ext-diff', '--no-textconv'], sub);
+      assert.equal(inv.env.GIT_EXTERNAL_DIFF, undefined);
+    }
+    assert.deepEqual(gitInvocation(['rev-parse', 'HEAD'], tmpdir()).args.slice(3), ['rev-parse', 'HEAD']);
+  } finally {
+    delete process.env.GIT_EXTERNAL_DIFF;
+  }
+});
+
 test('git spawns are recorded in the spy log', () => {
   git(['rev-parse', '--is-inside-work-tree'], { cwd: tmpdir() });
   const spawns = fsread.spyLog().filter((e) => e.op === 'spawn');
@@ -100,6 +114,15 @@ test('purge removes only folders this tool created', () => {
   assert.equal(existsSync(state), false);
   assert.equal(existsSync(join(other, 'keep.txt')), true);
   assert.deepEqual(result.skipped, [other]);
+});
+
+test('a state dir that already held other files is never marked, so purge skips it', () => {
+  const state = tmp();
+  writeFileSync(join(state, 'mine.txt'), 'x');
+  createRunFolder(state, 'r1');
+  const result = purge([state]);
+  assert.equal(existsSync(join(state, 'mine.txt')), true);
+  assert.deepEqual(result.skipped, [state]);
 });
 
 test('paths follow macOS conventions', () => {

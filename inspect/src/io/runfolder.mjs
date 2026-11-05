@@ -7,10 +7,13 @@ import { InspectError } from '../cli/errors.mjs';
 
 const MARKER = '.shrine-inspect';
 
+// The marker goes only into a folder this tool created or found empty, so a state
+// dir pointed at an existing folder with content is never claimed (and so never purged).
 function ensureOwnedDir(dir) {
+  const existedWithContent = fs.existsSync(dir) && fs.readdirSync(dir).length > 0;
   fs.mkdirSync(dir, { recursive: true });
   const marker = join(dir, MARKER);
-  if (!fs.existsSync(marker)) {
+  if (!fs.existsSync(marker) && !existedWithContent) {
     fs.writeFileSync(marker, 'created by shrine-inspect\n');
     record({ op: 'write', path: marker, mode: 'w' });
   }
