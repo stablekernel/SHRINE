@@ -84,6 +84,44 @@ test('mock density, 375px: no horizontal scroll', async ({ page }) => {
   await expect(page).toHaveScreenshot('mock-375.png', { fullPage: true });
 });
 
+// Long citation titles and evidence paths: the widest content a finding carries.
+function longContentHtml() {
+  const m = structuredClone(mock);
+  for (const f of m.findings) {
+    f.shrine_refs.push({ ...f.shrine_refs[0], title: 'Memory & Context Management', section: 'stack', status: 'draft' });
+    f.evidence.push({ kind: 'mechanical', locator: '~/.config/agent/projects/-Users-someone-src-github-com-org-a-very-long-repository-name/memory/session-transcript.jsonl', metric: null, excerpt_scrubbed: null });
+  }
+  return renderReport(m);
+}
+const LONG_HTML = longContentHtml();
+
+// Every visible .detail must end inside .report, which clips overflow.
+const detailOverflow = (page) =>
+  page.evaluate(() => {
+    const right = document.querySelector('.report').getBoundingClientRect().right;
+    return [...document.querySelectorAll('.detail')].filter((d) => d.getClientRects().length && d.getBoundingClientRect().right > right + 0.5).map((d) => d.id);
+  });
+
+test('375px: every finding detail fits inside the report', async ({ page }) => {
+  await open(page, LONG_HTML, { theme: 'dark', width: 375, height: 800 });
+  for (const tab of ['amplify', 'working']) {
+    await page.locator(`#tab-${tab}`).click();
+    for (const btn of await page.locator(`#panel-${tab} .f-btn`).all()) {
+      await btn.click();
+      expect(await detailOverflow(page), await btn.getAttribute('data-target')).toEqual([]);
+    }
+  }
+});
+
+test('375px with scripts off: every finding detail fits inside the report', async ({ browser }) => {
+  const ctx = await browser.newContext({ javaScriptEnabled: false });
+  const page = await ctx.newPage();
+  await open(page, LONG_HTML, { theme: 'dark', width: 375, height: 800 });
+  expect(await page.locator('.detail:visible').count()).toBe(mock.findings.length);
+  expect(await detailOverflow(page)).toEqual([]);
+  await ctx.close();
+});
+
 test('T0 fixture, light', async ({ page }) => {
   await open(page, T0_HTML, { theme: 'light' });
   await expect(page).toHaveScreenshot('t0-light.png', { fullPage: true });
