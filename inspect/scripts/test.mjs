@@ -2,7 +2,10 @@
 // because directory and glob arguments differ between Node 20 and 22.
 // Tests get a private TMPDIR, removed afterwards, with git discovery capped at it,
 // so a TMPDIR that sits inside a git checkout cannot change results or leave litter.
-// User and system git config are ignored, so signing, hooks, or templates cannot leak in.
+// Git the tests run themselves ignores user and system config, so signing, hooks, or
+// templates cannot leak in. Inspect's own git runs drop every caller GIT_* var, so
+// they still read that config (a runner's safe.directory=*, for one); tests that
+// must not depend on it pass their own through setGitTestEnv (REFUSE_ALL_REPOS).
 import { spawn } from 'node:child_process';
 import { once } from 'node:events';
 import { mkdtempSync, realpathSync, rmSync } from 'node:fs';
