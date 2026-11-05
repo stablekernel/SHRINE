@@ -1,6 +1,7 @@
 // The only module that reads the filesystem. Opens read-only and records every
 // open, stat, and directory listing in the spy log (spec 7, read-only proof).
 import fs from 'node:fs';
+import readline from 'node:readline';
 import { createHash } from 'node:crypto';
 import { InspectError } from '../cli/errors.mjs';
 
@@ -88,6 +89,21 @@ export function readHead(path, maxBytes) {
     return { text: buf.subarray(0, Math.min(pos, maxBytes)).toString('utf8'), truncated: pos > maxBytes };
   } finally {
     close(fd);
+  }
+}
+
+// Streams a file line by line; never holds the whole file. The spy entry records
+// the size at open, so later growth of an append-only log is attributable.
+export async function* streamLines(path) {
+  const s = fs.statSync(path);
+  record({ op: 'open', path, mode: 'r', size: s.size, stream: true });
+  const input = fs.createReadStream(path, { flags: 'r', encoding: 'utf8', highWaterMark: 1 << 20 });
+  const rl = readline.createInterface({ input, crlfDelay: Infinity });
+  try {
+    for await (const line of rl) yield line;
+  } finally {
+    rl.close();
+    input.destroy();
   }
 }
 
