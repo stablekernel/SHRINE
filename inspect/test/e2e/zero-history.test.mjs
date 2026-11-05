@@ -46,10 +46,11 @@ function normalize(findings, h) {
 
 function golden(name, actual) {
   const path = join(GOLDEN, name, 'findings.json');
-  if (process.env.UPDATE_GOLDEN || !existsSync(path)) {
+  if (process.env.UPDATE_GOLDEN) {
     mkdirSync(join(GOLDEN, name), { recursive: true });
     writeFileSync(path, `${JSON.stringify(actual, null, 2)}\n`);
   }
+  assert.ok(existsSync(path), `golden ${name} is missing; create it with UPDATE_GOLDEN=1`);
   assert.deepEqual(actual, JSON.parse(readFileSync(path, 'utf8')));
 }
 

@@ -17,7 +17,7 @@ test('a full T0 run completes with sockets and DNS stubbed to throw', () => {
     encoding: 'utf8',
     env: {
       ...process.env,
-      NODE_OPTIONS: `--require ${STUB}`,
+      NODE_OPTIONS: `--require "${STUB}"`,
       HOME: h.home,
       SHRINE_INSPECT_STATE_DIR: join(state, 'state'),
       SHRINE_INSPECT_CACHE_DIR: join(state, 'cache'),
