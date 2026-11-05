@@ -12,7 +12,7 @@ const body = corpus
   .split('\n')
   .filter((l) => !l.startsWith('#'))
   .join('\n');
-const STOP = new Set(['Authorization', 'DefaultEndpointsProtocol', 'EndpointSuffix']);
+const STOP = new Set(['Authorization', 'authorization', 'DefaultEndpointsProtocol', 'EndpointSuffix']);
 const needles = [...new Set(body.match(/[A-Za-z0-9]{12,}/g))].filter((n) => !STOP.has(n));
 
 test('planted corpus has zero survivors after the default scrub', () => {
@@ -157,4 +157,24 @@ test('displayPath only shortens the home at a path boundary', () => {
   assert.equal(displayPath('/Users/bobby/acmeco/CLAUDE.md', '/Users/bob'), '/Users/bobby/acmeco/CLAUDE.md');
   assert.equal(displayPath('/Users/bob/acmeco/CLAUDE.md', '/Users/bob'), '~/acmeco/CLAUDE.md');
   assert.equal(displayPath('/Users/bob', '/Users/bob'), '~');
+});
+
+test('round-2 rules leave ordinary prose alone', () => {
+  for (const s of [
+    'Log in with your password manager. Pass --password when prompted.',
+    'The cookie banner text; Cookie: none set. Docker login asks for a password.',
+    'Read the token docs and the sig= parameter. A dapi prefix and hvs. prefix exist.',
+    'Use the authorization: bearer scheme. pypi-style names and the shpat prefix.',
+    'The ATATT prefix marks Atlassian tokens; sntrys_ marks Sentry ones.',
+  ]) assert.equal(scrubSecrets(s), s);
+});
+
+test('round-2 rules run in linear time on adversarial runs', () => {
+  for (const unit of ['eyJ-', 'eyJabcdefgh.', 'Cookie: a=', 'login x password ', ' --password ', 'docker login ', '&sig=', 'token ', 'authorization: bearer ']) {
+    const s = unit.repeat(Math.ceil(20000 / unit.length));
+    const t = performance.now();
+    scrubSecrets(s);
+    const ms = performance.now() - t;
+    assert.ok(ms < 500, `${unit}: ${ms.toFixed(0)}ms`);
+  }
 });

@@ -19,6 +19,7 @@ const LOWER = 'abcdefghijklmnopqrstuvwxyz';
 const UPPER = LOWER.toUpperCase();
 const DIGITS = '0123456789';
 const ALNUM = UPPER + LOWER + DIGITS;
+const HEX = DIGITS + 'abcdef';
 const j = (...parts) => parts.join('');
 
 // One line per secret class, "<label>: <text>"; the header lines start with #.
@@ -58,6 +59,26 @@ export function plantedCorpus(seed = 7) {
     `curl: curl -u ci:${a(18)} https://ci.example.com/api`,
     `docker-auth: {"auths":{"r.example.com":{"auth":"${a(32)}"}}}`,
     `spaced-assign: DB_PASS = ${a(14)}`,
+    `auth-header-lower: authorization: ${j('bear', 'er ', a(30))}`,
+    `cookie: Cookie: ${j('session', '=', a(40))}; theme=dark`,
+    `netrc: machine api.example.com login bob ${j('pass', 'word ', a(16))}`,
+    `docker-login: docker login -u bob ${j('-', 'p ', a(16))} registry.example.com`,
+    `password-flag: mytool ${j('--pass', 'word ', a(16))}`,
+    `vault: ${j('hv', 's.', a(90))}`,
+    `slack-app: ${j('xa', 'pp-1-', a(11), '-', r(13, DIGITS), '-', r(64, HEX))}`,
+    `pypi: ${j('py', 'pi-', a(60))}`,
+    `do-token: ${j('do', 'p_v1_', r(64, HEX))}`,
+    `shopify: ${j('sh', 'pat_', r(32, HEX))}`,
+    `linear: ${j('lin', '_api_', a(40))}`,
+    `databricks: ${j('da', 'pi', r(32, HEX))}`,
+    `atlassian: ${j('ATA', 'TT', a(180))}`,
+    `sentry: ${j('sn', 'trys_', a(80))}`,
+    `discord-webhook: ${j('https://discord', '.com/api/webhooks/', r(18, DIGITS), '/', a(68))}`,
+    `azure-sas: https://st.blob.core.windows.net/c?sv=2022-11-02&${j('si', 'g=', a(43))}%3D`,
+    `token-hex: ${j('tok', 'en ', r(40, HEX))}`,
+    `private-key-pgp-begin:${j(dash, 'BEGIN PGP PRIV', 'ATE KEY BLOCK', dash)}`,
+    `private-key-pgp-body: ${a(64)}`,
+    `private-key-pgp-end: ${j(dash, 'END PGP PRIV', 'ATE KEY BLOCK', dash)}`,
     `private-key-begin:${j(dash, 'BEGIN RSA PRIV', 'ATE KEY', dash)}`,
     `private-key-body: ${a(64)}`,
     `private-key-end: ${j(dash, 'END RSA PRIV', 'ATE KEY', dash)}`,

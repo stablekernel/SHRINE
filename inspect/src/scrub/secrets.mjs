@@ -14,7 +14,7 @@ const ASSIGNMENT = new RegExp(
 const PASSWORDISH = /pass|pwd/i;
 
 const RULES = [
-  ['private-key', /-----BEGIN [A-Z0-9 ]*PRIVATE KEY-----[\s\S]*?(-----END [A-Z0-9 ]*PRIVATE KEY-----|$)/g, () => R('private-key')],
+  ['private-key', /-----BEGIN [A-Z0-9 ]*PRIVATE KEY(?: BLOCK)?-----[\s\S]*?(-----END [A-Z0-9 ]*PRIVATE KEY(?: BLOCK)?-----|$)/g, () => R('private-key')],
   ['connection-string', /\b(postgres(?:ql)?|mysql|mariadb|mongodb(?:\+srv)?|redis|rediss|amqps?|mssql|sqlserver):\/\/[^\s'"<>]+/gi, () => R('connection-string')],
   ['url-credentials', /(?<![a-z0-9+.-])([a-z][a-z0-9+.-]{0,31}:\/\/)[^\s/:@'"]+:[^\s/@'"]+@/gi, (_m, scheme) => `${scheme}${R('credentials')}@`],
   ['anthropic', /\bsk-ant-[A-Za-z0-9_-]{16,}/g, () => R('api-key')],
@@ -24,7 +24,8 @@ const RULES = [
   ['slack', /\bxox[abeoprs]-[A-Za-z0-9-]{10,}/g, () => R('slack-token')],
   ['google', /\bAIza[0-9A-Za-z_-]{30,}/g, () => R('api-key')],
   ['stripe', /\b(?:sk|rk|pk)_(?:live|test)_[0-9A-Za-z]{16,}/g, () => R('api-key')],
-  ['jwt', /\beyJ[A-Za-z0-9_-]{8,}\.[A-Za-z0-9_-]{8,}\.[A-Za-z0-9_-]{8,}/g, () => R('jwt')],
+  // Segment lengths are bounded so a long "eyJ-eyJ-..." run cannot go quadratic.
+  ['jwt', /\beyJ[A-Za-z0-9_-]{8,1024}\.[A-Za-z0-9_-]{8,8192}\.[A-Za-z0-9_-]{8,1024}/g, () => R('jwt')],
   ['bearer', /\b(Bearer|Token|Basic)\s+[A-Za-z0-9._~+/=-]{16,}/g, (_m, word) => `${word} ${R('token')}`],
   ['gitlab', /\bgl(?:pat|dt|ptt|rt|cbt|oas|soat|ft|imt|agent|ffct)-[A-Za-z0-9_-]{20,}/g, () => R('gitlab-token')],
   ['npm', /\bnpm_[A-Za-z0-9]{30,}/g, () => R('npm-token')],
@@ -33,13 +34,33 @@ const RULES = [
   ['sendgrid', /\bSG\.[A-Za-z0-9_-]{16,}\.[A-Za-z0-9_-]{16,}/g, () => R('api-key')],
   ['google-oauth', /\bya29\.[A-Za-z0-9_-]{20,}/g, () => R('token')],
   ['twilio', /\bSK[0-9a-f]{32}\b/g, () => R('api-key')],
+  ['vault', /\bhv[sbr]\.[A-Za-z0-9_-]{24,}/g, () => R('vault-token')],
+  ['slack-app', /\bxapp-\d-[A-Za-z0-9-]{10,}/g, () => R('slack-token')],
+  ['pypi', /\bpypi-[A-Za-z0-9_-]{50,}/g, () => R('api-key')],
+  ['digitalocean', /\bdo[por]_v1_[a-f0-9]{64}\b/g, () => R('api-key')],
+  ['shopify', /\bshp(?:at|ca|pa|ss)_[a-fA-F0-9]{32}\b/g, () => R('api-key')],
+  ['linear', /\blin_(?:api|oauth)_[A-Za-z0-9]{32,}/g, () => R('api-key')],
+  ['databricks', /\bdapi[a-f0-9]{32}(?:-\d)?\b/g, () => R('api-key')],
+  ['atlassian', /\bATATT[A-Za-z0-9_=-]{20,}/g, () => R('api-key')],
+  ['sentry', /\bsntry[su]_[A-Za-z0-9+/=_-]{30,}/g, () => R('api-key')],
+  ['token-hex', /\b([Tt]oken\s{1,4}["']?)[0-9a-f]{40}\b/g, (_m, head) => `${head}${R('token')}`],
+  ['discord-webhook', /\bhttps:\/\/(?:ptb\.|canary\.)?discord(?:app)?\.com\/api\/webhooks\/\d+\/[A-Za-z0-9_-]+/g, () => R('webhook')],
+  ['azure-sas', /([?&]sig=)[A-Za-z0-9%+/=]{16,}/g, (_m, head) => `${head}${R('secret')}`],
   ['slack-webhook', /\bhttps:\/\/hooks\.slack\.com\/(?:services|workflows|triggers)\/[A-Za-z0-9_/-]+/g, () => R('webhook')],
+  ['auth-bearer', /\b(authorization\s{0,4}[:=]\s{0,4}["']?bearer\s{1,4})[A-Za-z0-9._~+/=-]{16,}/gi, (_m, head) => `${head}${R('token')}`],
+  ['cookie', /\b((?:Set-)?Cookie\s{0,4}:\s{0,4})[^\s=;]{1,64}=[^\r\n'"]{1,4096}/gi, (_m, head) => `${head}${R('cookie')}`],
   ['auth-header', /\b(Authorization\s{0,4}[:=]\s{0,4}["']?)(?!(?:Bearer|Token|Basic)\s)[A-Za-z0-9._~+/=-]{16,}/gi, (_m, head) => `${head}${R('token')}`],
   ['azure-key', /\b((?:Account|SharedAccess)Key\s{0,4}=\s{0,4})[A-Za-z0-9+/]{16,}={0,2}/g, (_m, head) => `${head}${R('secret')}`],
   ['docker-auth', /("auth"\s{0,4}:\s{0,4}")[A-Za-z0-9+/=]{8,}"/g, (_m, head) => `${head}${R('secret')}"`],
   // CLI passwords: mysql -p<pw> / --password=<pw>, curl -u user:<pw>. Scans are bounded.
   ['mysql-cli', /(\bmysql(?:dump|admin|sh)?\b[^\n]{0,200}?\s(?:-p|--password=))[^\s'"-][^\s'"]*/g, (_m, head) => `${head}${R('secret')}`],
   ['curl-user', /(\bcurl\b[^\n]{0,200}?\s(?:-u|--user)[\s=]{0,4}["']?[^\s:'"]{1,64}:)[^\s'"]+/g, (_m, head) => `${head}${R('secret')}`],
+  // netrc "login <user> password <pw>", docker login -p <pw>, and a bare
+  // --password <pw> (a value that is all letters must be 8+ chars, so prose like
+  // "--password when prompted" stays).
+  ['netrc', /\b(login\s{1,4}[^\s]{1,128}\s{1,4}password\s{1,4})[^\s'"]+/g, (_m, head) => `${head}${R('secret')}`],
+  ['docker-login', /(\bdocker\s{1,4}login\b[^\n]{0,200}?\s(?:-p|--password)[\s=]{1,4}["']?)[^\s'"]+/g, (_m, head) => `${head}${R('secret')}`],
+  ['password-flag', /((?:^|\s)--password\s{1,4}["']?)(?!-)(?:(?=[^\s'"]{0,128}[^A-Za-z\s'"])[^\s'"]{1,128}|[A-Za-z]{8,128})(?![^\s'"])/g, (_m, head) => `${head}${R('secret')}`],
   // Values under 8 chars are kept unless the key names a password.
   ['assignment', ASSIGNMENT, (m, key, sep, value) => (value.length < 8 && !PASSWORDISH.test(key) ? m : `${key}${sep}${R('secret')}`)],
 ];
