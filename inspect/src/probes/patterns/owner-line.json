@@ -2,5 +2,5 @@
   "version": 1,
   "description": "Owner and review-date lines in an instruction file. This format is the tool's convention, not a SHRINE rule.",
   "owner": ["^\\s*(?:[-*#>]\\s*)?\\**(?:owner|owners|maintainer|maintainers|owned by)\\**\\s*:\\s*\\S"],
-  "reviewed": ["^\\s*(?:[-*#>]\\s*)?\\**(?:reviewed|last[- ]reviewed|review date|reviewed on)\\**\\s*:\\s*\\**(\\d{4}-\\d{2}-\\d{2})"]
+  "reviewed": ["^\\s*(?:[-*#>]\\s*)?\\**(?:reviewed|last[- ]reviewed|review date|reviewed on)\\**\\s*:\\s*\\**\\s*(\\d{4}-\\d{2}-\\d{2})"]
 }

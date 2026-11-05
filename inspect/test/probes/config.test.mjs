@@ -85,11 +85,16 @@ test('no_owner_or_review: a file missing either line fails', () => {
   const p = probe(s, 'no_owner_or_review');
   assert.equal(p.hit, true);
   assert.deepEqual(p.items[0].missing, ['owner', 'review date']);
+  s.items[1] = instr('/r/a/CLAUDE.md', { text: 'Owner: team\n- rules', layer: 'project' });
+  assert.deepEqual(probe(s, 'no_owner_or_review').items[0].missing, ['review date'], 'owner alone still fails');
+  s.items[1] = instr('/r/a/CLAUDE.md', { text: 'Reviewed: 2026-10-01\n- rules', layer: 'project' });
+  assert.deepEqual(probe(s, 'no_owner_or_review').items[0].missing, ['owner'], 'review date alone still fails');
 });
 
 test('owner line patterns accept bullets, bold, and front matter', () => {
   assert.deepEqual(ownerLine('---\nowner: a\nreviewed: 2026-01-02\n---'), { owner: true, reviewed: '2026-01-02' });
   assert.deepEqual(ownerLine('- **Owner:** team\n> Last reviewed: 2026-03-04'), { owner: true, reviewed: '2026-03-04' });
+  assert.deepEqual(ownerLine('**Owner:** Jo\n**Reviewed:** 2026-01-01'), { owner: true, reviewed: '2026-01-01' });
   assert.deepEqual(ownerLine('Nobody owns this'), { owner: false, reviewed: null });
 });
 
