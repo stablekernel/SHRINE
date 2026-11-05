@@ -390,8 +390,7 @@ for (const [name, html] of Object.entries(LIMIT_VARIANTS)) {
   }
 }
 
-// Fails until the base PR's styles.css fix for .detail width at 375px lands.
-test.fixme('history report at 375px: every finding detail stays inside .report', async ({ page }) => {
+test('history report at 375px: every finding detail stays inside .report', async ({ page }) => {
   await open(page, T0_HIST_HTML, { theme: 'light', width: 375, height: 800 });
   // .report{overflow:hidden} hides document overflow, so measure each open detail.
   const right = (sel) => page.locator(sel).first().evaluate((el) => el.getBoundingClientRect().right);
