@@ -195,7 +195,10 @@ test('a failed structure check counts only when a finding cites its entry', () =
   assert.equal(drift.headline.counts.checks, clean.headline.counts.checks - 1);
   assert.equal(drift.headline.counts.not_passed, 1);
   assert.equal(clean.headline.counts.not_passed, 0);
-  assert.equal(drift.coverage.find((c) => c.key === 'consistency-as-leverage').checked, false);
+  const area = drift.coverage.find((c) => c.key === 'consistency-as-leverage');
+  assert.equal(area.checked, true, 'the check ran, so the area is not a no-check gap');
+  assert.equal(area.not_passed, 1);
+  assert.ok(clean.coverage.every((c) => c.not_passed === 0));
   const blanket = run(hitsOf('blanket_permissions'), { structure: failing(['permissions_scoped']) });
   assert.equal(blanket.headline.counts.checks, clean.headline.counts.checks);
   assert.equal(blanket.headline.counts.not_passed, 0);

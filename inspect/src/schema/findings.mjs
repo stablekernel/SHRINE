@@ -97,7 +97,7 @@ export const findingsSchema = obj(
       tldr: arr(tldrItem, { max: 3 }),
       start_with: nullable(obj({ finding_id: str, action: str, minutes_to_apply: int }, { framed: bool })),
     }),
-    coverage: arr(obj({ key: str, title: str, icon: oneOf(ICONS), group: oneOf(['principles', 'patterns', 'stack']), checked: bool, working: int, amplify: int })),
+    coverage: arr(obj({ key: str, title: str, icon: oneOf(ICONS), group: oneOf(['principles', 'patterns', 'stack']), checked: bool, working: int, amplify: int, not_passed: int })),
     attribution_stack: nullable(obj({ setup: int, prompt: int, model: int, unknown: int })),
     findings: arr(findingSchema),
     worth_a_look: arr(findingSchema),

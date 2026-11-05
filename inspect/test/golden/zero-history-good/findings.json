@@ -49,7 +49,8 @@
       "group": "principles",
       "checked": true,
       "working": 0,
-      "amplify": 0
+      "amplify": 0,
+      "not_passed": 0
     },
     {
       "key": "human-in-the-loop",
@@ -58,7 +59,8 @@
       "group": "principles",
       "checked": true,
       "working": 0,
-      "amplify": 0
+      "amplify": 0,
+      "not_passed": 0
     },
     {
       "key": "problem-before-prescription",
@@ -67,7 +69,8 @@
       "group": "principles",
       "checked": false,
       "working": 0,
-      "amplify": 0
+      "amplify": 0,
+      "not_passed": 0
     },
     {
       "key": "consistency-as-leverage",
@@ -76,7 +79,8 @@
       "group": "principles",
       "checked": false,
       "working": 0,
-      "amplify": 0
+      "amplify": 0,
+      "not_passed": 0
     },
     {
       "key": "fail-fast-recover-smart",
@@ -85,7 +89,8 @@
       "group": "principles",
       "checked": false,
       "working": 0,
-      "amplify": 0
+      "amplify": 0,
+      "not_passed": 0
     },
     {
       "key": "reproducibility",
@@ -94,7 +99,8 @@
       "group": "principles",
       "checked": true,
       "working": 0,
-      "amplify": 0
+      "amplify": 0,
+      "not_passed": 0
     },
     {
       "key": "deliberate-currency",
@@ -103,7 +109,8 @@
       "group": "principles",
       "checked": true,
       "working": 0,
-      "amplify": 0
+      "amplify": 0,
+      "not_passed": 0
     },
     {
       "key": "patterns/adversarial-review",
@@ -112,7 +119,8 @@
       "group": "patterns",
       "checked": false,
       "working": 0,
-      "amplify": 0
+      "amplify": 0,
+      "not_passed": 0
     },
     {
       "key": "patterns/chain-of-thought",
@@ -121,7 +129,8 @@
       "group": "patterns",
       "checked": false,
       "working": 0,
-      "amplify": 0
+      "amplify": 0,
+      "not_passed": 0
     },
     {
       "key": "patterns/checkpoint-gates",
@@ -130,7 +139,8 @@
       "group": "patterns",
       "checked": false,
       "working": 0,
-      "amplify": 0
+      "amplify": 0,
+      "not_passed": 0
     },
     {
       "key": "patterns/context-handoff",
@@ -139,7 +149,8 @@
       "group": "patterns",
       "checked": false,
       "working": 0,
-      "amplify": 0
+      "amplify": 0,
+      "not_passed": 0
     },
     {
       "key": "patterns/correction-diagnosis",
@@ -148,7 +159,8 @@
       "group": "patterns",
       "checked": false,
       "working": 0,
-      "amplify": 0
+      "amplify": 0,
+      "not_passed": 0
     },
     {
       "key": "patterns/delegation-fit",
@@ -157,7 +169,8 @@
       "group": "patterns",
       "checked": false,
       "working": 0,
-      "amplify": 0
+      "amplify": 0,
+      "not_passed": 0
     },
     {
       "key": "patterns/discovery-propagation",
@@ -166,7 +179,8 @@
       "group": "patterns",
       "checked": false,
       "working": 0,
-      "amplify": 0
+      "amplify": 0,
+      "not_passed": 0
     },
     {
       "key": "patterns/dogfooding",
@@ -175,7 +189,8 @@
       "group": "patterns",
       "checked": false,
       "working": 0,
-      "amplify": 0
+      "amplify": 0,
+      "not_passed": 0
     },
     {
       "key": "patterns/few-shot-examples",
@@ -184,7 +199,8 @@
       "group": "patterns",
       "checked": false,
       "working": 0,
-      "amplify": 0
+      "amplify": 0,
+      "not_passed": 0
     },
     {
       "key": "patterns/iterative-refinement",
@@ -193,7 +209,8 @@
       "group": "patterns",
       "checked": false,
       "working": 0,
-      "amplify": 0
+      "amplify": 0,
+      "not_passed": 0
     },
     {
       "key": "patterns/mechanical-scaffolding",
@@ -202,7 +219,8 @@
       "group": "patterns",
       "checked": false,
       "working": 0,
-      "amplify": 0
+      "amplify": 0,
+      "not_passed": 0
     },
     {
       "key": "patterns/multi-model-consensus",
@@ -211,7 +229,8 @@
       "group": "patterns",
       "checked": false,
       "working": 0,
-      "amplify": 0
+      "amplify": 0,
+      "not_passed": 0
     },
     {
       "key": "patterns/pipeline-orchestration",
@@ -220,7 +239,8 @@
       "group": "patterns",
       "checked": false,
       "working": 0,
-      "amplify": 0
+      "amplify": 0,
+      "not_passed": 0
     },
     {
       "key": "patterns/progress-breadcrumbs",
@@ -229,7 +249,8 @@
       "group": "patterns",
       "checked": false,
       "working": 0,
-      "amplify": 0
+      "amplify": 0,
+      "not_passed": 0
     },
     {
       "key": "patterns/prompt-regression",
@@ -238,7 +259,8 @@
       "group": "patterns",
       "checked": false,
       "working": 0,
-      "amplify": 0
+      "amplify": 0,
+      "not_passed": 0
     },
     {
       "key": "patterns/rag",
@@ -247,7 +269,8 @@
       "group": "patterns",
       "checked": false,
       "working": 0,
-      "amplify": 0
+      "amplify": 0,
+      "not_passed": 0
     },
     {
       "key": "patterns/reviewable-output",
@@ -256,7 +279,8 @@
       "group": "patterns",
       "checked": false,
       "working": 0,
-      "amplify": 0
+      "amplify": 0,
+      "not_passed": 0
     },
     {
       "key": "patterns/self-critique",
@@ -265,7 +289,8 @@
       "group": "patterns",
       "checked": false,
       "working": 0,
-      "amplify": 0
+      "amplify": 0,
+      "not_passed": 0
     },
     {
       "key": "patterns/spec-then-build",
@@ -274,7 +299,8 @@
       "group": "patterns",
       "checked": false,
       "working": 0,
-      "amplify": 0
+      "amplify": 0,
+      "not_passed": 0
     },
     {
       "key": "patterns/step-level-routing",
@@ -283,7 +309,8 @@
       "group": "patterns",
       "checked": false,
       "working": 0,
-      "amplify": 0
+      "amplify": 0,
+      "not_passed": 0
     },
     {
       "key": "patterns/structured-output",
@@ -292,7 +319,8 @@
       "group": "patterns",
       "checked": false,
       "working": 0,
-      "amplify": 0
+      "amplify": 0,
+      "not_passed": 0
     },
     {
       "key": "patterns/subagent-fanout",
@@ -301,7 +329,8 @@
       "group": "patterns",
       "checked": false,
       "working": 0,
-      "amplify": 0
+      "amplify": 0,
+      "not_passed": 0
     },
     {
       "key": "patterns/task-routing",
@@ -310,7 +339,8 @@
       "group": "patterns",
       "checked": false,
       "working": 0,
-      "amplify": 0
+      "amplify": 0,
+      "not_passed": 0
     },
     {
       "key": "patterns/unattended-runs",
@@ -319,7 +349,8 @@
       "group": "patterns",
       "checked": false,
       "working": 0,
-      "amplify": 0
+      "amplify": 0,
+      "not_passed": 0
     },
     {
       "key": "patterns/verification-loops",
@@ -328,7 +359,8 @@
       "group": "patterns",
       "checked": false,
       "working": 0,
-      "amplify": 0
+      "amplify": 0,
+      "not_passed": 0
     },
     {
       "key": "stack/agent-architecture",
@@ -337,7 +369,8 @@
       "group": "stack",
       "checked": false,
       "working": 0,
-      "amplify": 0
+      "amplify": 0,
+      "not_passed": 0
     },
     {
       "key": "stack/cost-management",
@@ -346,7 +379,8 @@
       "group": "stack",
       "checked": false,
       "working": 0,
-      "amplify": 0
+      "amplify": 0,
+      "not_passed": 0
     },
     {
       "key": "stack/evaluation",
@@ -355,7 +389,8 @@
       "group": "stack",
       "checked": false,
       "working": 0,
-      "amplify": 0
+      "amplify": 0,
+      "not_passed": 0
     },
     {
       "key": "stack/harness",
@@ -364,7 +399,8 @@
       "group": "stack",
       "checked": true,
       "working": 0,
-      "amplify": 0
+      "amplify": 0,
+      "not_passed": 0
     },
     {
       "key": "stack/memory",
@@ -373,7 +409,8 @@
       "group": "stack",
       "checked": true,
       "working": 0,
-      "amplify": 0
+      "amplify": 0,
+      "not_passed": 0
     },
     {
       "key": "stack/models",
@@ -382,7 +419,8 @@
       "group": "stack",
       "checked": false,
       "working": 0,
-      "amplify": 0
+      "amplify": 0,
+      "not_passed": 0
     },
     {
       "key": "stack/observability",
@@ -391,7 +429,8 @@
       "group": "stack",
       "checked": false,
       "working": 0,
-      "amplify": 0
+      "amplify": 0,
+      "not_passed": 0
     },
     {
       "key": "stack/repository-context",
@@ -400,7 +439,8 @@
       "group": "stack",
       "checked": false,
       "working": 0,
-      "amplify": 0
+      "amplify": 0,
+      "not_passed": 0
     },
     {
       "key": "stack/skills",
@@ -409,7 +449,8 @@
       "group": "stack",
       "checked": false,
       "working": 0,
-      "amplify": 0
+      "amplify": 0,
+      "not_passed": 0
     },
     {
       "key": "stack/tool-integration",
@@ -418,7 +459,8 @@
       "group": "stack",
       "checked": true,
       "working": 0,
-      "amplify": 0
+      "amplify": 0,
+      "not_passed": 0
     }
   ],
   "attribution_stack": null,

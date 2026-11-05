@@ -150,7 +150,8 @@ export function score({ run, shrine, probes, structure, catalogue, pivots, copy,
   // entry; otherwise it is neither clear nor a finding, and is reported apart.
   const cited = new Set(findings.flatMap((f) => f.shrine_refs.map((r) => r.entry_id)));
   const counted = structure.filter((s) => s.applicable && (s.pass || cited.has(s.entry_id)));
-  const notPassed = structure.filter((s) => s.applicable && !s.pass && !cited.has(s.entry_id)).length;
+  const failedUncited = structure.filter((s) => s.applicable && !s.pass && !cited.has(s.entry_id));
+  const notPassed = failedUncited.length;
 
   for (const s of structure) {
     if (!s.applicable || !s.pass) continue;
@@ -173,22 +174,27 @@ export function score({ run, shrine, probes, structure, catalogue, pivots, copy,
   const pick = eligible ?? amplify[0];
   const start_with = pick ? { finding_id: pick.id, action: pick.pivot.action, minutes_to_apply: pick.pivot.minutes_to_apply, framed: Boolean(eligible) } : null;
 
-  // An area is checked when some check that ran at this tier maps to it, or when
-  // it holds a finding from any source.
+  // An area is checked when some check that ran at this tier maps to it (passed,
+  // failed, or failed with no finding kind yet), or when it holds a finding from
+  // any source. A failed check with no finding marks its area not_passed, so the
+  // area is never counted as showing no findings.
   const checkRefs = (ids) => ids.map((e) => ref(catalogue, e)).filter(Boolean);
   const checkedKeys = new Set([
     ...[
       ...ran.map((p) => checkRefs([p.entry_id, ...(p.see_also ?? [])])),
       ...counted.map((s) => checkRefs([s.entry_id])),
+      ...failedUncited.map((s) => checkRefs([s.entry_id])),
     ].filter((refs) => refs.length).map(coverageKey),
     ...findings.map((f) => f.coverage_key),
   ]);
+  const notPassedKeys = failedUncited.map((s) => checkRefs([s.entry_id])).filter((refs) => refs.length).map(coverageKey);
   const coverage = coverageAreas(catalogue).map(
     (c) => ({
       ...c,
       checked: checkedKeys.has(c.key),
       working: working.filter((f) => f.coverage_key === c.key).length,
       amplify: amplify.filter((f) => f.coverage_key === c.key).length,
+      not_passed: notPassedKeys.filter((k) => k === c.key).length,
     }),
   );
 

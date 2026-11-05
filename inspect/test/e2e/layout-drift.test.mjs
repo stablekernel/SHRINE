@@ -1,6 +1,6 @@
 // Two in-scope repos with different instruction layouts: repo_layout runs and
 // fails, and no Tier 0 finding kind covers it. The report must not count it as a
-// clean check or call its area checked and clear.
+// clean check, call its area clear, or count its area as having no check.
 import { test } from 'node:test';
 import assert from 'node:assert/strict';
 import { mkdirSync, mkdtempSync, readFileSync, writeFileSync } from 'node:fs';
@@ -53,10 +53,17 @@ test('repo layout drift with no finding kind: not counted clean, area not checke
   assert.equal(checks, findings.checked_clear.length + findings.findings.length, 'checks counts only passed checks and findings');
   assert.ok(!findings.checked_clear.some((c) => c.entry_id === layout.entry_id));
   const area = findings.coverage.find((c) => c.key === 'consistency-as-leverage');
-  assert.equal(area.checked, false, 'failed check without a finding does not make its area checked');
+  assert.equal(area.checked, true, 'a check ran in the area, so it is not an unchecked gap');
+  assert.equal(area.not_passed, 1, 'the area is marked not passed, never clear');
 
   const text = html.replace(/<script[\s\S]*?<\/script>|<style[\s\S]*?<\/style>/g, '').replace(/<[^>]+>/g, ' ').replace(/\s+/g, ' ');
   if (findings.findings.length === 0) assert.match(text, new RegExp(`No findings against ${checks + 1} SHRINE checks; 1 did not pass\\.`));
   assert.doesNotMatch(text, /No setup issues found/);
   assert.match(text, /1 check ran and did not pass; no Tier 0 finding exists for it yet\./);
+  const unchecked = findings.coverage.filter((c) => !c.checked).length;
+  const quiet = findings.coverage.filter((c) => c.checked && c.working + c.amplify === 0 && !c.not_passed).length;
+  assert.ok(unchecked > 0 && unchecked < findings.coverage.length, `unchecked ${unchecked}`);
+  assert.match(text, new RegExp(`\\b${unchecked} areas? ha(s|ve) no Tier 0 check yet\\.`));
+  if (quiet) assert.match(text, new RegExp(`\\b${quiet} (other checked areas? showed no findings|areas? checked)`));
+  else assert.doesNotMatch(text, /showed no findings|No SHRINE area showed a finding/);
 });

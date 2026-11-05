@@ -114,7 +114,9 @@ function coverage(d, empty) {
   const tripped = d.coverage.filter((c) => c.working + c.amplify > 0);
   // Areas with no check at this tier are counted apart, never as "no findings".
   const checked = d.coverage.filter((c) => c.checked).length;
-  const quiet = checked - tripped.length;
+  // An area whose only check failed with no finding is checked but not quiet: the
+  // not_passed line reports it.
+  const quiet = d.coverage.filter((c) => c.checked && c.working + c.amplify === 0 && !c.not_passed).length;
   const unchecked = d.coverage.length - checked;
   const max = Math.max(3, ...tripped.map((c) => Math.max(c.working, c.amplify)));
   const row = (c) =>
