@@ -38,6 +38,16 @@
     });
   }
 
+  // Print shows every appendix section, not only the open ones.
+  var reopen = [];
+  window.addEventListener('beforeprint', function () {
+    document.querySelectorAll('details:not([open])').forEach(function (d) { d.open = true; reopen.push(d); });
+  });
+  window.addEventListener('afterprint', function () {
+    reopen.forEach(function (d) { d.open = false; });
+    reopen = [];
+  });
+
   // Tabs (ARIA tabs pattern, arrow keys).
   var tablist = document.querySelector('[role="tablist"]');
   if (!tablist) return;
@@ -73,8 +83,19 @@
     panel.querySelectorAll('.f-btn').forEach(function (b) { b.setAttribute('aria-current', String(b === btn)); });
     panel.querySelectorAll('.detail').forEach(function (d) { d.hidden = d.id !== btn.getAttribute('data-target'); });
   }
+  // A pick moves focus to the detail heading (screen readers announce it) and
+  // scrolls the detail into view when it starts off screen (stacked phone layout).
+  function reveal(btn) {
+    var d = document.getElementById(btn.getAttribute('data-target'));
+    var h = d && d.querySelector('.title');
+    if (!h) return;
+    h.tabIndex = -1;
+    h.focus({ preventScroll: true });
+    var top = d.getBoundingClientRect().top;
+    if (top < 0 || top > window.innerHeight * 0.75) d.scrollIntoView({ block: 'start' });
+  }
   document.querySelectorAll('.f-btn').forEach(function (b) {
-    b.addEventListener('click', function (e) { e.preventDefault(); show(b); });
+    b.addEventListener('click', function (e) { e.preventDefault(); show(b); reveal(b); });
   });
   var go = document.getElementById('goto');
   if (go) {
