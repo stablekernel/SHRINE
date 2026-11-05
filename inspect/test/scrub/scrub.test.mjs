@@ -388,3 +388,64 @@ test('a project named like a locator word is masked under a path key', () => {
   assert.deepEqual(maskDeep({ projects: ['skills', 'acme-api'], path: 'skills' }, known), { projects: ['<project-2>', '<project-1>'], path: '<project-2>' });
   assert.equal(maskPath('hooks', known), 'hooks', 'a locator word that is no project stays');
 });
+
+test('free text masks URL queries and fragments, IPv6 hosts, URL user and host, and non-ASCII emails', () => {
+  const k = buildIdentifiers({ osUser: 'gavin', home: '/Users/gavin' });
+  const cases = {
+    'https://h.example.com/initech/plan.md?client=Initech&k=v': 'https://<host>/<path>/<file>.md?<query>',
+    'https://h.example.com/search?q=initech+merger': 'https://<host>/<file>?<query>',
+    'https://h.example.com/a?client=Initech Corp': 'https://<host>/<file>?<query>',
+    'https://h.example.com?client=initech': 'https://<host>?<query>',
+    'see https://h.example.com/x#Initech-plan now': 'see https://<host>/<file> now',
+    'https://h.example.com/docs/#initech-section': 'https://<host>/<path>/<file>',
+    'https://h.example.com/docs/a.md?x=1#initech-section': 'https://<host>/<path>/<file>.md?<query>',
+    'https://h.example.com/#initech': 'https://<host>/<file>',
+    'https://h.example.com#initech-plan': 'https://<host>#<fragment>',
+    'http://[fe80::1]:8080/initech/api': 'http://<ip>:8080/<path>/<file>',
+    'http://[2001:db8::42]/initech/plan.md': 'http://<ip>/<path>/<file>.md',
+    'ssh://gavin@host:22/srv/initech': 'ssh://<user>@<host>:22/<path>/<file>',
+    'ssh://deploy@buildbox:22/srv/initech/x.md': 'ssh://<user>@<host>:22/<path>/<file>.md',
+    'postgres://u@db:5432/initech_prod': 'postgres://<user>@<host>:5432/<file>',
+    'redis://cache:6379/initech': 'redis://<host>:6379/<file>',
+    'git clone ssh://git@gitbox:2222/initech/payroll.git': 'git clone ssh://<user>@<host>:2222/<path>/<file>.git',
+    's3://initech-bucket/payroll/x.csv': 's3://<host>/<path>/<file>.csv',
+    'mail zoë@exämple.de now': 'mail <email> now',
+    'mail josé.núñez@initech.example': 'mail <email>',
+  };
+  for (const [input, want] of Object.entries(cases)) {
+    const out = mask(input, k);
+    assert.equal(out, want, JSON.stringify(input));
+    assert.doesNotMatch(out, /initech|gavin|buildbox|gitbox|zoë|exämple|núñez|Corp/i, input);
+  }
+});
+
+test('free text masks whole document names: parentheses and long word runs', () => {
+  const k = buildIdentifiers({ home: '/Users/gavin' });
+  const cases = {
+    'Initech Merger (draft).docx': '<file>.docx',
+    'see Initech Merger (final).docx today': '<file>.docx today',
+    'see Q3 Initech Merger Final v2.docx': '<file>.docx',
+    'Acme Initech Merger Final v2.docx': '<file>.docx',
+    'Done. Initech Board Deck Final Final.pptx is out': 'Done. <file>.pptx is out',
+    'Notes: Initech  Merger Plan Extra.pdf, then lunch': 'Notes: <file>.pdf, then lunch',
+    '**Initech Merger Notes Long.md**': '**<file>.md**',
+    'opened "Initech Merger.docx"': 'opened "<file>.docx"',
+    '[x](initech.md)': '[x](<file>.md)',
+    'see (Initech Merger Plan Long.md) now': '<file>.md) now',
+  };
+  for (const [input, want] of Object.entries(cases)) {
+    const out = mask(input, k);
+    assert.equal(out, want, JSON.stringify(input));
+    assert.doesNotMatch(out, /initech|merger|acme|board|draft|final/i, input);
+  }
+  for (const s of ['Read ~/.claude/settings.json and CLAUDE.md', 'Run npm test; see README.md; v1.2.3 shipped.', 'Move the rule into CLAUDE.md files']) assert.equal(mask(s, k), s);
+});
+
+test('round-9 free-text rules run in linear time on adversarial runs', () => {
+  const k = buildIdentifiers({ home: '/Users/bob' });
+  const units = ['<host>/?a ', '<host>/a#', '<host>/a/', '[:', '[fe80::1', 'a://', 'a://b@', 'a://b', 'é@', 'é.é@é', 'a@b:', 'a@b-c:', 'A b ', 'A (b) ', 'A b.docx', '(a).', 'a  b ', 'a:b@c:d '];
+  for (const unit of units) {
+    const g = growth(repeatTo(unit), (s) => mask(s, k));
+    assert.ok(g < 10, `${JSON.stringify(unit)}: 4x input took ${g.toFixed(1)}x as long`);
+  }
+});

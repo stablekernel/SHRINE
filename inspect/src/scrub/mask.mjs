@@ -36,7 +36,19 @@ export function buildIdentifiers({ osUser = null, home = null, authors = [], pro
 // Linear time on untrusted text: an email starts only where its run of local-part
 // characters starts, and both parts are bounded (64 and 253, the address limits),
 // so a long "a.a.a." run is scanned once, not once per start position.
-const EMAIL = /(?<![A-Za-z0-9._%+-])[A-Za-z0-9._%+-]{1,64}@[A-Za-z0-9.-]{1,253}\.[A-Za-z]{2,63}\b/g;
+// Letters in any script ("zoë@exämple.de").
+const EMAIL = /(?<![\p{L}\p{N}\p{M}._%+-])[\p{L}\p{N}\p{M}._%+-]{1,64}@[\p{L}\p{N}\p{M}.-]{1,253}\.\p{L}{2,63}(?![\p{L}\p{N}\p{M}_])/gu;
+// A bracketed IPv6 host ("http://[fe80::1]:8080/x"), with an optional zone.
+const IPV6 = /\[(?=[0-9A-Fa-f.]{0,45}:)[0-9A-Fa-f:.]{2,45}(?:%[\w.-]{1,32})?\]/g;
+// A URL's user and host ("ssh://deploy@buildbox:22/x", "s3://initech-bucket/x"): a
+// host with no TLD or a user name can name a client. Placeholders stay.
+const URL_AUTH = /(?<![\p{L}\p{N}+.-])([A-Za-z][A-Za-z0-9+.-]{0,15}:\/\/)(?:(<[\w-]{1,32}>|[^\s/?#@[\]<>]{1,64})@)?(<[\w-]{1,32}>|[^\s/?#:@[\]<>]{1,253})/gu;
+const urlAuth = (_m, scheme, user, host) => `${scheme}${user ? `${user.startsWith('<') ? user : '<user>'}@` : ''}${host.startsWith('<') ? host : '<host>'}`;
+// A query or fragment after a masked host and its path: values name clients
+// ("?client=Initech"). The run ends at whitespace, plus capitalized words after it
+// ("?client=Initech Corp").
+const QUERY = /(<(?:host|ip|email)>(?::\d{1,5})?(?:[\\/](?:<[\w-]{1,32}>|[^\s?#<>\\/])*)*)([?#])\S*(?:[  ][\p{Lu}\p{N}&(]\S*){0,15}/gu;
+const query = (_m, pre, mark) => `${pre}${mark === '?' ? '?<query>' : '#<fragment>'}`;
 // A fixed number of bounded parts: constant work per start.
 const IPV4 = /\b(?:(?:25[0-5]|2[0-4]\d|1?\d?\d)\.){3}(?:25[0-5]|2[0-4]\d|1?\d?\d)\b/g;
 const TLDS = 'com|net|org|io|dev|ai|app|co|us|uk|de|fr|cloud|internal|local|lan|corp|edu|gov|info|biz|xyz|sh|me|tech|example';
@@ -140,12 +152,22 @@ const relPath = (m, dots, prefix, first, dirs, base, more) => {
   if (!dots && ((!ext && seps < 2) || !/\p{L}/u.test(`${first}${dirs}${base}`))) return m;
   return `${first?.startsWith('.') ? prefix : ''}${segs.length ? collapse(segs) : dots}${fileName(base, more)}`;
 };
-// Document names in prose ("Initech Merger.docx", "q3 globex plan.md"). Where such a
-// name starts is unknowable, so up to three words before it go with it. Tool and
-// generic repo file names stay.
+// Document names in prose ("Initech Merger (draft).docx", "q3 globex plan.md").
+// Where such a name starts is unknowable, so every word before it back to a
+// separator (start, sentence end, comma, quote, and the like) goes with it: masking
+// prose beats leaking a name. A run starts only right after a separator, never
+// inside a run of words, so each run is scanned once. Tool and generic repo file
+// names stay.
 const DOC_EXT = 'md|mdx|markdown|txt|rtf|docx?|odt|pdf|pages|xlsx?|xlsm|ods|csv|tsv|numbers|pptx?|odp|key|eml|msg';
 const GENERIC_FILES = new Set(['README.md', 'CHANGELOG.md', 'CONTRIBUTING.md', 'LICENSE.md', 'LICENSE.txt', 'SECURITY.md', 'CODE_OF_CONDUCT.md', 'llms.txt', 'requirements.txt', 'robots.txt']);
-const BARE_NAME = new RegExp(String.raw`(?<![\p{L}\p{N}\p{M}_.~<>@:$%+&#=\\/-])(?:[\p{L}\p{N}\p{M}_&'’-]{1,64}[  ]){0,3}([\p{L}\p{N}\p{M}_][\p{L}\p{N}\p{M}_.@+&#%=-]*?)\.(${DOC_EXT})(?![\p{L}\p{N}\p{M}_-])`, 'giu');
+const DOC_SEP = String.raw`[ \t  ]{1,8}`;
+const DOC_WORD = String.raw`[\p{L}\p{N}\p{M}_&'’()-]`;
+// A run never starts with "(", and starts after "(" only where that "(" opens a
+// run itself ("[x](<file>.md)"), not inside one ("see (a b.md)"): each run is then
+// scanned from one start. The name before the extension takes at most one
+// parenthesized part ("Merger (draft)"), so it never spans "(a).(a)." runs.
+const DOC_NAME = String.raw`(?:[\p{L}\p{N}\p{M}_][\p{L}\p{N}\p{M}_.@+&#%=-]*?)?(?:\([\p{L}\p{N}\p{M}_.&'’ -]{0,64}\))?`;
+const BARE_NAME = new RegExp(String.raw`(?<![\p{L}\p{N}\p{M}_.~<>@:$%+&#=\\/'’)-]|[\p{L}\p{N}\p{M}_~<>@$%+&#=\\/'’()-]${DOC_SEP}|[\p{L}\p{N}\p{M}_ \t  ]\()(?!\()(?:${DOC_WORD}{1,255}${DOC_SEP})*(?=[\p{L}\p{N}\p{M}_(])(${DOC_NAME})\.(${DOC_EXT})(?![\p{L}\p{N}\p{M}_-])`, 'giu');
 const bareName = (m, name, ext) => (TOOL_FILES.has(`${name}.${ext}`) || GENERIC_FILES.has(`${name}.${ext}`) ? m : `<file>.${ext}`);
 
 // Home prefix to "~" only at a path boundary: home /Users/bob must not turn
@@ -206,7 +228,10 @@ export function mask(text, known) {
   out = out.replace(IPV4, '<ip>');
   // "CLAUDE.local.md" and "settings.local.json" are file names, not hosts.
   out = out.replace(HOST, (m, at, s) => (TOOL_NAMES.some((n) => s.startsWith(n, at)) ? m : '<host>'));
+  out = out.replace(IPV6, '<ip>');
+  out = out.replace(URL_AUTH, urlAuth);
   out = out.replace(REMOTE_PATH, remotePath);
+  out = out.replace(QUERY, query);
   out = out.replace(UNC_PATH, otherPath);
   out = out.replace(ENV_PATH, envPath);
   out = out.replace(USER_HOME, otherPath);
