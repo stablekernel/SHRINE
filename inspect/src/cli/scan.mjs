@@ -6,7 +6,7 @@ import { linkSpawned, sessionInventory } from '../adapters/claude-code/projects.
 import { excludeSessions } from '../adapters/claude-code/sessions.mjs';
 import { readSession } from '../adapters/claude-code/events.mjs';
 import { extractEpisodes } from '../episodes/extract.mjs';
-import { gitTimeouts, historyReadable } from '../io/git.mjs';
+import { historyReadable, isHung } from '../io/git.mjs';
 import { linkEpisodes, repoCommits } from '../episodes/link.mjs';
 import { runUsageProbes } from '../probes/usage.mjs';
 import { historyRule } from '../scorer/stats.mjs';
@@ -72,7 +72,6 @@ export async function scanHistory({ listing, excludedIds = [], display = (p) => 
   // episodes are marked so the usage counts leave them out.
   const commitsByRepo = new Map();
   const unread = { skipped_episodes: 0, failed: [] };
-  const hung = new Set(gitTimeouts());
   const markUnread = (root) => {
     let n = 0;
     for (const e of episodes) {
@@ -83,7 +82,8 @@ export async function scanHistory({ listing, excludedIds = [], display = (p) => 
     return n;
   };
   for (const root of new Set(episodes.filter((e) => e.committed).map((e) => e.repo))) {
-    if (hung.has(root)) {
+    // Per repo, so a project folder below a hung repo's root is caught too.
+    if (isHung(root)) {
       unread.failed.push({ path_scrubbed: display(root), reason: 'timed out', episodes: markUnread(root) });
       continue;
     }
