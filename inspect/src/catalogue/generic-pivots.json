@@ -47,5 +47,19 @@
     "before": "Agent: Done, the parser handles empty input now.",
     "after": "Agent: Done. npm test ran: 42 tests passed, 0 failed. The parser handles empty input now.",
     "setup_note": "A Stop hook that runs the test command makes the check automatic; the done line then quotes the result."
+  },
+  "problem-before-prescription.sov.late-constraint": {
+    "kind": "habit",
+    "action": "Put the constraints you know in the first message: what must not change, the tools to use, and what done looks like.",
+    "before": "Add a retry to the payment client.",
+    "after": "Add a retry to the payment client. Keep the public API unchanged, use the existing backoff helper, and stop after 3 attempts.",
+    "setup_note": "A constraint you state twice belongs in an instruction file or a skill, so it arrives first every time."
+  },
+  "authority-cascade.sov.rule-practice-gap": {
+    "kind": "hook",
+    "action": "Turn the rule you restated into a check that runs on its own: a hook or a test that fails when the rule is broken.",
+    "before": "CLAUDE.md: Never edit generated files.\nChat: Do not touch the generated client, I said that already.",
+    "after": "CLAUDE.md: Never edit generated files.\nHook: before an edit, block paths under the generated folder and say why.",
+    "setup_note": "When a loaded rule is not followed, enforcement beats repetition: the hook catches the miss before you do."
   }
 }

@@ -1,16 +1,89 @@
-// The only module that spawns processes. Allowlist: git, plus a self-spawn of
-// this package's own bin (for `start` in SP3). Nothing else.
-import { spawnSync } from 'node:child_process';
+// The only module that spawns processes. Allowlist: git, a self-spawn of this
+// package's own bin (for `start` in SP3), and the adapter's judge command, which
+// is allowed only after armJudge() finds a Gate B yes for T1 in facts.json.
+import { spawn, spawnSync } from 'node:child_process';
 import { fileURLToPath } from 'node:url';
-import { record } from './fsread.mjs';
+import { readJson, record } from './fsread.mjs';
 import { InspectError } from '../cli/errors.mjs';
 
 export const OWN_BIN = fileURLToPath(new URL('../../bin/shrine-inspect.mjs', import.meta.url));
 
+// The judge command and its first argument, set by armJudge(); null otherwise.
+let armed = null;
+
 export function checkSpawn(cmd, args) {
   if (cmd === 'git') return;
   if (cmd === process.execPath && args[0] === OWN_BIN) return;
+  if (armed && cmd === armed.cmd && args[0] === armed.first) return;
   throw new InspectError('E_SPAWN_DENIED', `refused to spawn ${cmd}`);
+}
+
+// Allows the judge command only when the run's facts.json records a Gate B
+// answer of T1 typed in a terminal. Anything else leaves it denied.
+export function armJudge(factsPath, { cmd, args }) {
+  let consent = null;
+  try {
+    consent = readJson(factsPath)?.consent?.B ?? null;
+  } catch {}
+  if (!consent || consent.choice !== 'T1' || consent.by !== 'tty') {
+    armed = null;
+    throw new InspectError('E_SPAWN_DENIED', 'judging needs a Gate B yes for T1 in facts.json');
+  }
+  armed = { cmd, first: args[0] };
+}
+export function disarmJudge() {
+  armed = null;
+}
+
+// Long arguments (the judge schema and prompt) are logged by size only.
+const logArgs = (args) => args.map((a) => (a.length > 120 ? `<${a.length} chars>` : a));
+
+// One judge process: input on stdin, stdout read up to maxStdout bytes, killed at
+// timeoutMs. Resolves {status, stdout, stderr, timedOut, truncated, ms}; never rejects.
+export function runJudge({ cmd, args, env, cwd, input, timeoutMs = 180_000, maxStdout = 256 << 10 }) {
+  checkSpawn(cmd, args);
+  const t_start = Date.now();
+  return new Promise((resolve) => {
+    let out = '';
+    let err = '';
+    let truncated = false;
+    let timedOut = false;
+    let child;
+    let timer = null;
+    let finished = false;
+    const done = (status, error = null) => {
+      if (finished) return;
+      finished = true;
+      clearTimeout(timer);
+      record({ op: 'spawn', cmd, args: logArgs(args), cwd, mode: 'x', t_start, judge: true });
+      resolve({ status, stdout: out, stderr: err.slice(0, 4096), timedOut, truncated, error, ms: Date.now() - t_start });
+    };
+    try {
+      child = spawn(cmd, args, { cwd, env, stdio: ['pipe', 'pipe', 'pipe'] });
+    } catch (e) {
+      return done(null, e?.code ?? 'spawn failed');
+    }
+    timer = setTimeout(() => {
+      timedOut = true;
+      child.kill('SIGKILL');
+    }, timeoutMs);
+    child.stdout.setEncoding('utf8');
+    child.stderr.setEncoding('utf8');
+    child.stdout.on('data', (d) => {
+      if (out.length + d.length > maxStdout) {
+        truncated = true;
+        out += d.slice(0, Math.max(0, maxStdout - out.length));
+        child.kill('SIGKILL');
+      } else out += d;
+    });
+    child.stderr.on('data', (d) => {
+      if (err.length < 4096) err += d;
+    });
+    child.on('error', (e) => done(null, e?.code ?? 'spawn failed'));
+    child.on('close', (code) => done(code));
+    child.stdin.on('error', () => {});
+    child.stdin.end(input);
+  });
 }
 
 // A child that never exits (git blocked reading a FIFO named by a repo's

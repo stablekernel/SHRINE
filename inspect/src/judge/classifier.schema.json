@@ -1,0 +1,62 @@
+{
+  "type": "object",
+  "additionalProperties": false,
+  "required": ["episode_id", "nonce", "outcome", "corrections"],
+  "properties": {
+    "episode_id": { "type": "string", "maxLength": 64 },
+    "nonce": { "type": "string", "maxLength": 64 },
+    "outcome": { "type": "string", "enum": ["resolved", "abandoned", "reworked", "unknown"] },
+    "corrections": {
+      "type": "array",
+      "maxItems": 12,
+      "items": {
+        "type": "object",
+        "additionalProperties": false,
+        "required": ["turn_id", "kind", "supplies_constraint", "constraint_present_in", "attribution", "sufficiency", "quotes", "entry_ids"],
+        "properties": {
+          "turn_id": { "type": "string", "maxLength": 8 },
+          "kind": { "type": "string", "enum": ["constraint", "redirect", "bug_report", "preference", "other"] },
+          "supplies_constraint": { "type": "boolean" },
+          "constraint_present_in": { "type": "string", "enum": ["prompt", "instruction_file", "skill", "none", "unknown"] },
+          "attribution": {
+            "type": "object",
+            "additionalProperties": false,
+            "required": ["label", "confidence"],
+            "properties": {
+              "label": { "type": "string", "enum": ["user", "model", "harness", "unknown"] },
+              "confidence": { "type": "number", "minimum": 0, "maximum": 1 }
+            }
+          },
+          "sufficiency": { "type": "string", "enum": ["enough", "thin", "none"] },
+          "quotes": {
+            "type": "array",
+            "maxItems": 3,
+            "items": {
+              "type": "object",
+              "additionalProperties": false,
+              "required": ["turn_id", "text"],
+              "properties": {
+                "turn_id": { "type": "string", "maxLength": 8 },
+                "text": { "type": "string", "minLength": 1, "maxLength": 200 }
+              }
+            }
+          },
+          "config_ref": {
+            "type": "object",
+            "additionalProperties": false,
+            "required": ["config_id", "text"],
+            "properties": {
+              "config_id": { "type": "string", "maxLength": 8 },
+              "text": { "type": "string", "minLength": 1, "maxLength": 200 }
+            }
+          },
+          "entry_ids": {
+            "type": "array",
+            "maxItems": 2,
+            "items": { "type": "string", "enum": ["problem-before-prescription.sov.late-constraint", "authority-cascade.sov.rule-practice-gap"] }
+          }
+        }
+      }
+    }
+  }
+}
