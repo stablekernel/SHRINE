@@ -6,33 +6,13 @@ import { classifyUser } from '../../src/adapters/claude-code/human-turn.mjs';
 import { commitShas } from '../../src/adapters/claude-code/events.mjs';
 import { sniffType } from '../../src/adapters/claude-code/stream.mjs';
 import { isCorrectionCue, isDoneClaim } from '../../src/probes/usage.mjs';
+import { growth } from '../synth/growth.mjs';
 
 // Every regex run on session, command, or tool text must be linear (or capped).
-// Compares CPU time at 4x the input with 1x, best of 5 each, interleaved; the 1x
-// input grows until one run takes at least 2ms. Linear gives about 4, quadratic 16.
-function growth(build, fn) {
-  const time = (s) => {
-    const t = process.cpuUsage();
-    fn(s);
-    const d = process.cpuUsage(t);
-    return (d.user + d.system) / 1000;
-  };
-  let n = 1000;
-  while (time(build(n)) < 2 && n < 5_000_000) n *= 2;
-  const small = build(n);
-  const large = build(4 * n);
-  let a = Infinity;
-  let b = Infinity;
-  for (let i = 0; i < 5; i++) {
-    a = Math.min(a, time(small));
-    b = Math.min(b, time(large));
-  }
-  // Still under 2ms at 5M chars: the function caps its input, so time is flat.
-  return b < 2 ? 1 : b / a;
-}
-
+// The shared growth helper compares CPU time at 4x the input with 1x; linear gives
+// about 4, quadratic about 16. The tripwire uses the hardened options.
 test('growth flags a quadratic regex', () => {
-  assert.ok(growth((n) => 'x-'.repeat(n / 2), (s) => /(?:x-)+=/.test(s)) > 10);
+  assert.ok(growth((n) => 'x-'.repeat(n / 2), (s) => /(?:x-)+=/.test(s), { minMs: 8, tries: 7 }) >= 10);
 });
 
 const user = (text) => ({ message: { content: text } });
