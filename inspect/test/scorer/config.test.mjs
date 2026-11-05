@@ -182,3 +182,17 @@ test('an area with a finding counts as checked even when no applicable check map
   assert.ok(out.findings.some((f) => f.kind === 'blanket_permissions'));
   for (const c of out.coverage) if (c.amplify + c.working > 0) assert.equal(c.checked, true, c.key);
 });
+
+test('a failed structure check counts only when a finding cites its entry', () => {
+  const failing = (names) => structure().map((s) => (names.includes(s.check) ? { ...s, pass: false } : s));
+  const clean = run(hitsOf());
+  const drift = run(hitsOf(), { structure: failing(['repo_layout']) });
+  assert.equal(drift.headline.counts.checks, clean.headline.counts.checks - 1);
+  assert.equal(drift.headline.counts.not_passed, 1);
+  assert.equal(clean.headline.counts.not_passed, 0);
+  assert.equal(drift.coverage.find((c) => c.key === 'consistency-as-leverage').checked, false);
+  const blanket = run(hitsOf('blanket_permissions'), { structure: failing(['permissions_scoped']) });
+  assert.equal(blanket.headline.counts.checks, clean.headline.counts.checks);
+  assert.equal(blanket.headline.counts.not_passed, 0);
+  assert.deepEqual(validateFindings(drift).errors, []);
+});

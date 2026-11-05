@@ -144,9 +144,13 @@ const UNKNOWABLE = [
   'Whether a change was correct when no later commit or test touched it',
 ];
 
-export function emptyStates({ checks }) {
+export function emptyStates({ checks, notPassed = 0, tier = 'T0' }) {
   return {
     tldr: `No setup issues found against ${checks} SHRINE checks.`,
+    // Checks that ran and failed with no finding kind at this tier yet.
+    not_passed: notPassed
+      ? `${notPassed} ${notPassed === 1 ? 'check' : 'checks'} ran and did not pass; no Tier ${String(tier).slice(1)} finding exists for ${notPassed === 1 ? 'it' : 'them'} yet.`
+      : '',
     tldr_next: 'Next step: keep the checks below passing, or run again with session history for usage counts.',
     tab: {
       amplify: { title: 'Nothing cleared the bar yet.', body: 'More session history or a deeper tier adds usage findings.' },
@@ -187,6 +191,6 @@ export function sampleCopy() {
     findings: Object.keys(FINDINGS).map((k) => copy.finding(k, SAMPLE_PROBES[k])),
     clear: Object.keys(CLEAR).map((k) => copy.clear(k)),
     unknowable: copy.unknowable(),
-    empty: emptyStates({ checks: 10 }),
+    empty: [emptyStates({ checks: 10, notPassed: 1 }), emptyStates({ checks: 10, notPassed: 2 })],
   };
 }

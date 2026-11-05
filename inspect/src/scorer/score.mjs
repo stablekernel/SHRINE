@@ -146,6 +146,12 @@ export function score({ run, shrine, probes, structure, catalogue, pivots, copy,
     });
   }
 
+  // A structure check that ran and failed counts only when a finding cites its
+  // entry; otherwise it is neither clear nor a finding, and is reported apart.
+  const cited = new Set(findings.flatMap((f) => f.shrine_refs.map((r) => r.entry_id)));
+  const counted = structure.filter((s) => s.applicable && (s.pass || cited.has(s.entry_id)));
+  const notPassed = structure.filter((s) => s.applicable && !s.pass && !cited.has(s.entry_id)).length;
+
   for (const s of structure) {
     if (!s.applicable || !s.pass) continue;
     const r = ref(catalogue, s.entry_id);
@@ -173,7 +179,7 @@ export function score({ run, shrine, probes, structure, catalogue, pivots, copy,
   const checkedKeys = new Set([
     ...[
       ...ran.map((p) => checkRefs([p.entry_id, ...(p.see_also ?? [])])),
-      ...structure.filter((s) => s.applicable).map((s) => checkRefs([s.entry_id])),
+      ...counted.map((s) => checkRefs([s.entry_id])),
     ].filter((refs) => refs.length).map(coverageKey),
     ...findings.map((f) => f.coverage_key),
   ]);
@@ -199,7 +205,7 @@ export function score({ run, shrine, probes, structure, catalogue, pivots, copy,
     minutes_elapsed: 0,
     tokens_used: 0,
     headline: {
-      counts: { amplify: amplify.length, working: working.length, worth_a_look: 0, checked_clear: checked_clear.length, configured: configured.length, checks: ran.length + structure.filter((s) => s.applicable).length },
+      counts: { amplify: amplify.length, working: working.length, worth_a_look: 0, checked_clear: checked_clear.length, configured: configured.length, checks: ran.length + counted.length, not_passed: notPassed },
       tldr,
       start_with,
     },

@@ -41,6 +41,9 @@ test('empty states per spec 5', () => {
   assert.match(e.tab.amplify.title, /Nothing cleared the bar yet/);
   assert.match(e.tab.working.title, /Nothing cleared the bar yet/);
   assert.equal(e.attribution, 'Needs Tier 1 or deeper');
+  assert.equal(e.not_passed, '');
+  assert.equal(emptyStates({ checks: 9, notPassed: 1 }).not_passed, '1 check ran and did not pass; no Tier 0 finding exists for it yet.');
+  assert.equal(emptyStates({ checks: 9, notPassed: 2, tier: 'T1' }).not_passed, '2 checks ran and did not pass; no Tier 1 finding exists for them yet.');
 });
 
 test('all template output passes copy lint', () => {

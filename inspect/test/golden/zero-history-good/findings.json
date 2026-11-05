@@ -35,7 +35,8 @@
       "worth_a_look": 0,
       "checked_clear": 9,
       "configured": 6,
-      "checks": 9
+      "checks": 9,
+      "not_passed": 0
     },
     "tldr": [],
     "start_with": null

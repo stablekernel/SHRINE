@@ -80,7 +80,7 @@ function tldr(d, empty) {
   let items;
   if (d.headline.tldr.length === 0) {
     const keep = d.checked_clear[0];
-    items = `<p class="empty"><b>${esc(empty.tldr)}</b> ${esc(keep ? `Keep: ${keep.check}.` : empty.tldr_next)}</p><p class="empty">${esc(empty.tldr_next)}</p>`;
+    items = `<p class="empty"><b>${esc(empty.tldr)}</b> ${esc(keep ? `Keep: ${keep.check}.` : empty.tldr_next)}</p>${empty.not_passed ? `<p class="empty">${esc(empty.not_passed)}</p>` : ''}<p class="empty">${esc(empty.tldr_next)}</p>`;
   } else {
     items = `<ul>${d.headline.tldr
       .map((t) => {
@@ -124,7 +124,7 @@ function coverage(d, empty) {
   }).join('');
   const clear = !quiet ? '' : tripped.length ? `${pl(quiet, 'other checked area')} showed no findings.` : `No SHRINE area showed a finding (${pl(quiet, 'area')} checked).`;
   const gap = unchecked ? `${pl(unchecked, 'area')} ${unchecked === 1 ? 'has' : 'have'} no Tier ${String(d.tier).slice(1)} check yet.` : '';
-  const note = clear || gap ? `<p class="quiet">${[clear, gap].filter(Boolean).join(' ')}</p>` : '';
+  const note = clear || gap || empty.not_passed ? `<p class="quiet">${[clear, empty.not_passed, gap].filter(Boolean).join(' ')}</p>` : '';
   const table = tripped.length
     ? `<table class="cov" role="table"><caption class="sr-only">Findings per SHRINE area: working for you and room to amplify</caption><thead role="rowgroup"><tr role="row"><th scope="col" role="columnheader"><span class="sr-only">SHRINE area</span></th><th scope="col" role="columnheader">Working for you</th><th scope="col" role="columnheader">Room to amplify</th></tr></thead>${bodies}</table>`
     : '';
@@ -303,7 +303,7 @@ function footer(d) {
 
 export function renderReport(findings, { shareSafe = false } = {}) {
   const d = findings;
-  const empty = emptyStates({ checks: d.headline.counts?.checks ?? d.checked_clear.length });
+  const empty = emptyStates({ checks: d.headline.counts?.checks ?? d.checked_clear.length, notPassed: d.headline.counts?.not_passed ?? 0, tier: d.tier });
   const integrity = d.integrity?.ok === false
     ? `<div class="integrity" role="alert"><b>Integrity check failed.</b> These files changed while inspect had them open for writing: ${d.integrity.changed_paths.map((p) => `<code class="mono">${esc(p)}</code>`).join(', ')}</div>`
     : '';
