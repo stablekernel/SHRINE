@@ -8,6 +8,10 @@ const KEEP_ENV = new Set(['GIT_CEILING_DIRECTORIES']);
 const WRITING_FLAGS =/^(--output|-o$|--ext-diff|--textconv)/;
 const NO_PROTOCOL = 'none';
 const NO_TRANSPORT = ['protocol.allow', ...['ext', 'file', 'ssh', 'git', 'http', 'https'].map((p) => `protocol.${p}.allow`)].flatMap((k) => ['-c', `${k}=never`]);
+// A lazy fetch reads these before any transport check: fetch.bundleURI downloads and
+// unbundles a pack (local path or http) even with every protocol refused, and
+// transfer.bundleURI does the same on an advertised URI. Neither is honored here.
+const NO_BUNDLES = ['-c', 'fetch.bundleURI=', '-c', 'transfer.bundleURI=false', '-c', 'fetch.writeCommitGraph=false'];
 
 function deny(args, why) {
   throw new InspectError('E_GIT_DENIED', `refused git ${args.join(' ')}: ${why}`);
@@ -34,7 +38,7 @@ export function gitInvocation(args, cwd) {
   Object.assign(env, { GIT_OPTIONAL_LOCKS: '0', GIT_TERMINAL_PROMPT: '0', GIT_NO_LAZY_FETCH: '1', GIT_ALLOW_PROTOCOL: NO_PROTOCOL });
   return {
     cmd: 'git',
-    args: ['--no-pager', '-c', 'core.fsmonitor=false', '-c', 'log.showSignature=false', ...NO_TRANSPORT, sub, ...noPrograms, ...args.slice(1)],
+    args: ['--no-pager', '-c', 'core.fsmonitor=false', '-c', 'log.showSignature=false', ...NO_TRANSPORT, ...NO_BUNDLES, sub, ...noPrograms, ...args.slice(1)],
     env,
     cwd,
   };
