@@ -496,7 +496,7 @@
       "lens": "config",
       "tab": "amplify",
       "title": "Shell or file writes run without a pause",
-      "short": "5 rules approve without asking",
+      "short": "3 rules and 2 settings approve without asking",
       "lead": "Your settings approve shell commands or file writes without asking, or skip the approval prompt. Judgment moves from the risky step to reading diffs after the fact.",
       "icon": "hand",
       "provenance": "mechanical",
@@ -551,7 +551,7 @@
       "episode_ref": null,
       "why": [
         "Found: Bash, Write and Edit(*).",
-        "Each rule applies in every project that reads these settings."
+        "Each one applies in every project that reads these settings."
       ],
       "problem": [
         "A human checkpoint exists in name only, so out-of-scope writes are found by chance.",
@@ -575,8 +575,8 @@
           "metric": "count"
         },
         {
-          "headline": "5 rules to scope",
-          "sub": "Each becomes a narrow allow",
+          "headline": "5 entries to scope",
+          "sub": "Each becomes a narrow allow or a prompt",
           "metric": "count"
         }
       ],

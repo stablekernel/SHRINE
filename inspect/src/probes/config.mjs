@@ -89,6 +89,7 @@ function blanket(s, t) {
     if (b.shell_tools.includes(tool) && isBlanket) items.push({ path: a.path, rule: a.rule, reason: 'blanket shell allow' });
     else if (b.write_tools.includes(tool) && isBlanket) items.push({ path: a.path, rule: a.rule, reason: 'blanket write allow' });
   }
+  const rules = items.length;
   const mode = s.permissions.defaultMode;
   if (mode && b.modes.includes(mode.value)) items.push({ path: mode.path, rule: `defaultMode: ${mode.value}`, reason: 'bypass or auto-approve default mode' });
   const skip = s.permissions.skipDangerousModePermissionPrompt;
@@ -96,7 +97,9 @@ function blanket(s, t) {
   // With no readable settings file there are no permissions to judge: not run,
   // never reported clear. A plugin hooks.json carries no permissions.
   const files = s.items.filter((i) => i.kind === 'settings' && i.source !== 'plugin' && !i.parse_error);
-  return { applicable: files.length > 0 || items.length > 0, hit: items.length > 0, items, metric: { count: items.length } };
+  // count = allow rules + settings (defaultMode, skipDangerousModePermissionPrompt),
+  // kept apart so the copy does not call a setting a rule.
+  return { applicable: files.length > 0 || items.length > 0, hit: items.length > 0, items, metric: { count: items.length, rules, settings: items.length - rules } };
 }
 
 function stackGap(s) {

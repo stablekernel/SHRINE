@@ -115,6 +115,11 @@ test('blanket_permissions: blanket shell or write allow, bypass mode, skipped pr
   assert.equal(probe(scoped, 'blanket_permissions').hit, false);
 });
 
+test('blanket_permissions metric counts allow rules and settings apart', () => {
+  const s = setup({ permissions: { allow: [{ rule: 'Bash', path: 'p' }, { rule: 'Write', path: 'p' }], ask: [], deny: [], defaultMode: { value: 'bypassPermissions', path: 'p' }, skipDangerousModePermissionPrompt: { value: true, path: 'p' } } });
+  assert.deepEqual(probe(s, 'blanket_permissions').metric, { count: 4, rules: 2, settings: 2 });
+});
+
 test('stack_gap: no hooks, skills, or memory from any source', () => {
   assert.equal(probe(setup(), 'stack_gap').hit, false);
   const s = setup();

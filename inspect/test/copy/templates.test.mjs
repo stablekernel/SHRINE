@@ -30,6 +30,20 @@ test('templates use metric slots', () => {
   assert.match(b.title, /77 KB/);
 });
 
+// A setting (defaultMode, skipDangerousModePermissionPrompt) is not a rule.
+test('blanket_permissions counts allow rules and settings apart', () => {
+  const short = (metric) => copy.finding('blanket_permissions', { metric, items: [] }).short;
+  assert.equal(short({ count: 6, rules: 4, settings: 2 }), '4 rules and 2 settings approve without asking');
+  assert.equal(short({ count: 1, rules: 1, settings: 0 }), '1 rule approves without asking');
+  assert.equal(short({ count: 2, rules: 0, settings: 2 }), '2 settings approve without asking');
+  assert.equal(short({ count: 3 }), '3 rules approve without asking');
+  const old = copy.finding('blanket_permissions', { metric: { count: 2 }, items: [{ rule: 'Bash' }, { rule: 'skipDangerousModePermissionPrompt: true' }] });
+  assert.equal(old.short, '1 rule and 1 setting approve without asking');
+  const b = copy.finding('blanket_permissions', { metric: { count: 6, rules: 4, settings: 2 }, items: [] }).benefit;
+  assert.ok(b.some((x) => x.headline === '6 entries to scope'));
+  assert.ok(!copy.finding('blanket_permissions', SAMPLE_PROBES.blanket_permissions).short.includes('2 rules'));
+});
+
 test('every clear line and the unknowable list are filled', () => {
   for (const name of [...KINDS, 'instruction_layers', 'repo_layout', 'permissions_scoped', 'instructions_reviewed']) {
     const c = copy.clear(name);

@@ -70,14 +70,19 @@ const FINDINGS = {
   }),
   blanket_permissions: ({ metric: m, items = [] }) => {
     const rules = [...new Set(items.map((i) => i.rule))].slice(0, 3);
+    // Allow rules and settings (defaultMode, skipDangerousModePermissionPrompt) are
+    // counted apart, so a setting is never called a rule.
+    const settings = m.settings ?? items.filter((i) => /^(defaultMode|skipDangerousModePermissionPrompt):/.test(i.rule)).length;
+    const allows = m.rules ?? m.count - settings;
+    const parts = [...(allows ? [`${allows} ${pl(allows, 'rule')}`] : []), ...(settings ? [`${settings} ${pl(settings, 'setting')}`] : [])];
     return {
       icon: 'hand',
       title: 'Shell or file writes run without a pause',
-      short: `${m.count} ${pl(m.count, 'rule')} approve without asking`,
+      short: `${joinAnd(parts)} ${m.count === 1 ? 'approves' : 'approve'} without asking`,
       lead: 'Your settings approve shell commands or file writes without asking, or skip the approval prompt. Judgment moves from the risky step to reading diffs after the fact.',
       why: [
         `Found: ${joinAnd(rules)}.`,
-        'Each rule applies in every project that reads these settings.',
+        'Each one applies in every project that reads these settings.',
       ],
       problem: [
         'A human checkpoint exists in name only, so out-of-scope writes are found by chance.',
@@ -85,7 +90,7 @@ const FINDINGS = {
       ],
       benefit: [
         { headline: 'Judgment where it counts', sub: 'You decide at the risky step only', metric: 'count' },
-        { headline: `${m.count} ${pl(m.count, 'rule')} to scope`, sub: 'Each becomes a narrow allow', metric: 'count' },
+        { headline: `${m.count} ${pl(m.count, 'entry', 'entries')} to scope`, sub: 'Each becomes a narrow allow or a prompt', metric: 'count' },
       ],
     };
   },
@@ -188,7 +193,7 @@ export const SAMPLE_PROBES = {
   stale_instructions: { metric: { count: 2, total: 5, max_age_days: 400, threshold_days: T.stale_days, skipped: 1 }, items: [] },
   oversized_instructions: { metric: { bytes: 53248, kb: 52, threshold_kb: 40 }, items: [{ path: '~/.claude/CLAUDE.md', bytes: 46000 }] },
   no_owner_or_review: { metric: { count: 3, total: 4 }, items: [] },
-  blanket_permissions: { metric: { count: 2 }, items: [{ rule: 'Bash' }, { rule: 'defaultMode: bypassPermissions' }] },
+  blanket_permissions: { metric: { count: 2, rules: 1, settings: 1 }, items: [{ rule: 'Bash' }, { rule: 'defaultMode: bypassPermissions' }] },
   stack_gap: { metric: { hooks: 0, skills: 0, memory: 1, missing: ['hooks', 'skills'] }, items: [] },
   short_retention: { metric: { days: 30, source: 'default', threshold_days: 30 }, items: [] },
 };
