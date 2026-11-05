@@ -290,7 +290,8 @@ function appendix(d) {
 function footer(d) {
   const bar = d.tier === 'T0' ? 'Findings need a deterministic check plus a cited SHRINE entry.' : 'Findings need 3 episodes or 20% of a stratum, plus one mechanical anchor.';
   const seed = d.run.seed != null ? `<span>Seed ${esc(d.run.seed)}</span>` : '';
-  return `<footer class="foot"><span>Read-only review. Nothing in your setup was changed.</span><span>${bar}</span><span>SHRINE commit <code class="mono">${esc(d.shrine.commit.slice(0, 12))}</code></span>${seed}<span>${FOOTER_NOTE}</span></footer>`;
+  const claim = d.integrity?.ok === false ? 'Integrity check failed: see the alert at the top.' : 'Read-only review. Nothing in your setup was changed.';
+  return `<footer class="foot"><span>${claim}</span><span>${bar}</span><span>SHRINE commit <code class="mono">${esc(d.shrine.commit.slice(0, 12))}</code></span>${seed}<span>${FOOTER_NOTE}</span></footer>`;
 }
 
 // ---- page --------------------------------------------------------------------

@@ -123,6 +123,15 @@ test('integrity failure renders a red banner naming paths', () => {
   assert.match(renderReport(bad), /role="alert"><b>Integrity check failed\.<\/b>[^<]*<code class="mono">~\/\.claude\/settings\.json/);
 });
 
+test('the footer claims nothing was changed only when the integrity check passed', () => {
+  const foot = (d) => renderReport(d).match(/<footer class="foot">[\s\S]*?<\/footer>/)[0];
+  assert.match(foot(mock), /Nothing in your setup was changed\./);
+  const bad = structuredClone(mock);
+  bad.integrity = { ok: false, changed_paths: ['~/.claude/settings.json'] };
+  assert.ok(!foot(bad).includes('Nothing in your setup was changed'), 'no false read-only claim');
+  assert.match(foot(bad), /Integrity check failed: see the alert at the top\./);
+});
+
 test('T2-size fixture renders under 300 KB', () => {
   assert.ok(Buffer.byteLength(renderReport(mock)) < 300 * 1024);
 });
