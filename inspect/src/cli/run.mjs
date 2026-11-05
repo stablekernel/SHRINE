@@ -5,7 +5,8 @@ import { basename, join } from 'node:path';
 import { exists, readJson, resetSpy, spyLog } from '../io/fsread.mjs';
 import { createRunFolder, runFolder } from '../io/runfolder.mjs';
 import { appDirs } from '../io/paths.mjs';
-import { gitVersion, historyReadable } from '../io/git.mjs';
+import { gitTimeouts, gitVersion, historyReadable, resetGitTimeouts } from '../io/git.mjs';
+import { spawnTimeoutMs } from '../io/proc.mjs';
 import { detect } from '../adapters/claude-code/detect.mjs';
 import { defaultTempPatterns, listProjects } from '../adapters/claude-code/projects.mjs';
 import { retention } from '../adapters/claude-code/retention.mjs';
@@ -47,6 +48,7 @@ export async function runCommand(opts, io) {
     throw new InspectError('E_TIER', `tier ${opts.tier ?? '(none)'} is not available in this version`, { hint: 'use --tier T0', exit: EXIT.USAGE });
   }
   resetSpy();
+  resetGitTimeouts();
   const ctx = context(io);
   const d = detect({ home: ctx.home });
   if (!d.present) throw new InspectError('E_NO_HARNESS', `no Claude Code folder at ${displayPath(d.claude_home, ctx.home)}`, { hint: 'run inspect as the user whose setup you want to check' });
@@ -182,6 +184,10 @@ export async function continueRun(folder, ctx, io) {
     const note = `Git history was not read in ${noHistory === 1 ? '1 repo' : `${noHistory} repos`}: a partial clone, and git ${v} can fetch missing objects while reading it. Git dates there were not used, review-date checks skip those files, and git author names are not masked. Git 2.45.1 or later reads them safely.`;
     findings.notes.push(note);
     findings.unknowable.push(note);
+  }
+  const hung = gitTimeouts().length;
+  if (hung) {
+    findings.notes.push(`Git did not finish within ${spawnTimeoutMs() / 1000 === 1 ? '1 second' : `${spawnTimeoutMs() / 1000} seconds`} in ${hung === 1 ? '1 folder' : `${hung} folders`} and was stopped. Git reads there count as failed: no git dates or history. Repo config that blocks git (an include.path naming a pipe, for one) causes this.`);
   }
   if (historyConsented) findings.notes.push('Session history was approved, but this version reads setup only; usage counts arrive in a later version.');
   findings.diff = diffRuns(previousFindings(ctx.dirs.state, state.run_id), findings);

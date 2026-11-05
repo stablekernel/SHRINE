@@ -228,3 +228,45 @@ test('a partial clone on git that ignores GIT_NO_LAZY_FETCH skips history reads;
     rmSync(dir, { recursive: true, force: true });
   }
 });
+
+// A repo config include.path that names a FIFO blocks git on open until a writer
+// shows up. The spawn time limit kills it and the read counts as failed.
+test('a git run blocked on a FIFO include times out as a failed read', async (t) => {
+  const { gitOut, gitTimeouts, resetGitTimeouts } = await import('../../src/io/git.mjs');
+  const { setSpawnTimeout } = await import('../../src/io/proc.mjs');
+  if (spawnSync('mkfifo', ['--help'], { stdio: 'ignore' }).error) return t.skip('no mkfifo on this platform');
+  const repo = mkdtempSync(join(tmpdir(), 'si-fifo-'));
+  sh(repo, 'init', '-q');
+  sh(repo, 'commit', '-q', '--allow-empty', '-m', 'one');
+  execFileSync('mkfifo', [join(repo, 'pipe')]);
+  sh(repo, 'config', 'include.path', join(repo, 'pipe'));
+  setSpawnTimeout(1000);
+  try {
+    const t0 = Date.now();
+    assert.equal(gitOut(['rev-parse', 'HEAD'], repo), null);
+    assert.ok(Date.now() - t0 < 10_000, 'killed at the time limit');
+    assert.deepEqual(gitTimeouts(), [repo]);
+    const t1 = Date.now();
+    assert.equal(gitOut(['log', '-1'], repo), null);
+    assert.ok(Date.now() - t1 < 500, 'later runs in a hung folder are skipped');
+  } finally {
+    setSpawnTimeout();
+    resetGitTimeouts();
+    rmSync(repo, { recursive: true, force: true });
+  }
+});
+
+test('git never uses a bare repo found by discovery inside a scanned folder', () => {
+  const dir = mkdtempSync(join(tmpdir(), 'si-bare-'));
+  try {
+    const bare = join(dir, 'planted.git');
+    sh(dir, 'init', '-q', '--bare', bare);
+    // Control: plain git discovers and uses it.
+    assert.equal(sh(bare, 'rev-parse', '--is-bare-repository').trim(), 'true');
+    const r = git(['rev-parse', '--is-bare-repository'], { cwd: bare });
+    assert.equal(r.ok, false, r.stdout);
+    assert.ok(gitInvocation(['rev-parse', 'HEAD'], dir).args.join(' ').includes('-c safe.bareRepository=explicit'));
+  } finally {
+    rmSync(dir, { recursive: true, force: true });
+  }
+});

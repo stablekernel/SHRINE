@@ -39,6 +39,8 @@ export function gitInvocation(args, cwd) {
   // protocol.<name>.allow=always, which beats -c protocol.allow=never, so the real
   // guard is GIT_ALLOW_PROTOCOL: set, it overrides all protocol config, and naming
   // only a protocol that does not exist allows none. -c per protocol backs it up.
+  // safe.bareRepository=explicit: a bare repo planted inside a scanned project
+  // (with its own config) is never picked up by discovery.
   // Caller GIT_* vars (GIT_DIR, GIT_WORK_TREE, GIT_CONFIG_*, GIT_ALLOW_PROTOCOL, ...)
   // are dropped first so nothing redirects the repo, injects config or re-allows a
   // transport; the ceiling only narrows discovery.
@@ -46,7 +48,7 @@ export function gitInvocation(args, cwd) {
   Object.assign(env, { GIT_OPTIONAL_LOCKS: '0', GIT_TERMINAL_PROMPT: '0', GIT_NO_LAZY_FETCH: '1', GIT_ALLOW_PROTOCOL: NO_PROTOCOL });
   return {
     cmd: 'git',
-    args: ['--no-pager', '-c', 'core.fsmonitor=false', '-c', 'log.showSignature=false', ...NO_TRANSPORT, ...NO_BUNDLES, sub, ...noPrograms, ...args.slice(1)],
+    args: ['--no-pager', '-c', 'safe.bareRepository=explicit', '-c', 'core.fsmonitor=false', '-c', 'log.showSignature=false', ...NO_TRANSPORT, ...NO_BUNDLES, sub, ...noPrograms, ...args.slice(1)],
     env,
     cwd,
   };
@@ -81,9 +83,11 @@ const partial = new Map();
 // True when this repo has a promisor remote (a partial clone): the only kind of repo
 // a read can lazy-fetch into.
 export function isPartialClone(cwd) {
+  if (!partial.has(cwd) && timedOut.has(cwd)) partial.set(cwd, true);
   if (!partial.has(cwd)) {
     const inv = gitInvocation(PROMISOR_QUERY, cwd);
     const r = runSync(inv.cmd, inv.args, { cwd, env: inv.env });
+    if (r.timedOut) timedOut.add(cwd);
     // Exit 1 is "no such key"; any other failure counts as partial, to stay safe.
     partial.set(cwd, !(r.status === 1 || (r.status === 0 && !/\S/.test(r.stdout))));
   }
@@ -95,10 +99,27 @@ export function historyReadable(cwd) {
   return honorsNoLazyFetch(gitVersion()) || !isPartialClone(cwd);
 }
 
+// Folders where a git run hit the spawn time limit. Later git runs there are
+// skipped as failed reads, so one hung repo costs one time limit, not one per call.
+const timedOut = new Set();
+export function gitTimeouts() {
+  return [...timedOut];
+}
+// Each run starts with no folder marked as hung.
+export function resetGitTimeouts() {
+  for (const cwd of timedOut) partial.delete(cwd);
+  timedOut.clear();
+}
+
 export function git(args, { cwd }) {
   const inv = gitInvocation(args, cwd);
+  if (timedOut.has(cwd)) return { ok: false, stdout: '', stderr: 'git not run: an earlier git run here timed out', skipped: true, timedOut: true };
   if (HISTORY.has(args[0]) && !historyReadable(cwd)) return { ok: false, stdout: '', stderr: 'history not read: partial clone on a git that can lazy-fetch', skipped: true };
   const r = runSync(inv.cmd, inv.args, { cwd: inv.cwd, env: inv.env });
+  if (r.timedOut) {
+    timedOut.add(cwd);
+    return { ok: false, stdout: '', stderr: 'git timed out', timedOut: true };
+  }
   return { ok: r.status === 0, stdout: r.stdout, stderr: r.stderr };
 }
 
