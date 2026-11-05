@@ -19,11 +19,13 @@ export function gitInvocation(args, cwd) {
   // whether it comes from repo config or the environment; signature checks (which
   // run gpg.program) are off for every command.
   const noPrograms = DIFFING.has(sub) ? ['--no-ext-diff', '--no-textconv'] : [];
-  const env = { ...process.env, GIT_OPTIONAL_LOCKS: '0', GIT_TERMINAL_PROMPT: '0' };
+  // Partial clones never lazy-fetch: GIT_NO_LAZY_FETCH (git 2.44+), and every
+  // transport is refused for older git.
+  const env = { ...process.env, GIT_OPTIONAL_LOCKS: '0', GIT_TERMINAL_PROMPT: '0', GIT_NO_LAZY_FETCH: '1' };
   delete env.GIT_EXTERNAL_DIFF;
   return {
     cmd: 'git',
-    args: ['--no-pager', '-c', 'core.fsmonitor=false', '-c', 'log.showSignature=false', sub, ...noPrograms, ...args.slice(1)],
+    args: ['--no-pager', '-c', 'core.fsmonitor=false', '-c', 'log.showSignature=false', '-c', 'protocol.allow=never', sub, ...noPrograms, ...args.slice(1)],
     env,
     cwd,
   };

@@ -68,11 +68,13 @@ test('diffing git commands never run external diff or textconv programs', () => 
   try {
     for (const sub of ['diff', 'show', 'log']) {
       const inv = gitInvocation([sub, 'HEAD'], tmpdir());
-      assert.deepEqual(inv.args.slice(5, 8), [sub, '--no-ext-diff', '--no-textconv'], sub);
+      const at = inv.args.indexOf(sub);
+      assert.deepEqual(inv.args.slice(at, at + 3), [sub, '--no-ext-diff', '--no-textconv'], sub);
       assert.ok(inv.args.join(' ').includes('-c log.showSignature=false'), sub);
       assert.equal(inv.env.GIT_EXTERNAL_DIFF, undefined);
     }
-    assert.deepEqual(gitInvocation(['rev-parse', 'HEAD'], tmpdir()).args.slice(5), ['rev-parse', 'HEAD']);
+    const rp = gitInvocation(['rev-parse', 'HEAD'], tmpdir()).args;
+    assert.deepEqual(rp.slice(rp.indexOf('rev-parse')), ['rev-parse', 'HEAD']);
   } finally {
     delete process.env.GIT_EXTERNAL_DIFF;
   }
