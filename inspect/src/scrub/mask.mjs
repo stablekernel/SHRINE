@@ -5,14 +5,18 @@
 
 const esc = (s) => s.replace(/[.*+?^${}()|[\]\\]/g, '\\$&');
 
-export function buildIdentifiers({ osUser = null, home = null, authors = [], projects = [], repos = [], orgs = [] } = {}) {
+// vocabulary: words of the tool's own copy. A name equal to one (a project called
+// "skills") is masked only where it stands alone as a whole value, so the report's
+// own labels and sentences stay readable.
+export function buildIdentifiers({ osUser = null, home = null, authors = [], projects = [], repos = [], orgs = [], vocabulary = [] } = {}) {
   const ids = [];
+  const vocab = new Set(vocabulary.map((w) => w.toLowerCase()));
   // Each value in both Unicode forms: "Zoë" typed as one code point (NFC) or as
   // "e" plus a combining mark (NFD) is the same name.
   const add = (value, placeholder) => {
     if (typeof value !== 'string' || value.length < 2) return;
     for (const v of new Set([value, value.normalize('NFC'), value.normalize('NFD')])) {
-      if (!ids.some((i) => i.value === v)) ids.push({ value: v, placeholder });
+      if (!ids.some((i) => i.value === v)) ids.push({ value: v, placeholder, exact: vocab.has(v.toLowerCase()) });
     }
   };
   const numbered = (values, prefix) =>
@@ -230,7 +234,11 @@ export function mask(text, known) {
   // to a separator or the end (not /Users/bob-acme), the underHome rule in free text.
   if (known?.home) out = out.replace(new RegExp(String.raw`(?<![\p{L}\p{N}\p{M}_.~<>\\/-])${esc(known.home.replace(/[\\/]+$/, ''))}(?=[\\/]|$)`, 'gu'), '~');
   out = out.replace(EMAIL, (m) => known?.ids.find((i) => i.value === m)?.placeholder ?? '<email>');
-  for (const { value, placeholder } of known?.ids ?? []) {
+  for (const { value, placeholder, exact } of known?.ids ?? []) {
+    if (exact) {
+      if (out === value) out = placeholder;
+      continue;
+    }
     out = out.replace(new RegExp(`(?<![\\w-])${esc(value)}(?![\\w-])`, 'g'), placeholder);
   }
   out = out.replace(IPV4, '<ip>');
@@ -256,7 +264,7 @@ export function mask(text, known) {
 // Keys whose values are file paths (or, for project, cwds, and the like, may be):
 // masked segment by segment. A value that does not look like a path falls back to mask().
 const PATH_KEYS = new Set(['path', 'paths', 'path_scrubbed', 'locator', 'anchor', 'changed_paths', 'cwd', 'cwds', 'touched_files', 'root', 'roots', 'project', 'projects', 'repo', 'file', 'files', 'dir']);
-const KEEP = new Set(['shrine_refs', 'shrine_ref', 'shrine', 'url', 'url_pinned', 'entry_id', 'page_id', 'id', 'finding_id']);
+const KEEP = new Set(['shrine_refs', 'shrine_ref', 'shrine', 'url', 'url_pinned', 'entry_id', 'page_id', 'id', 'finding_id', 'item']);
 
 export function maskDeep(value, known, key = '') {
   if (KEEP.has(key)) return value;

@@ -13,7 +13,7 @@ import { retention } from '../adapters/claude-code/retention.mjs';
 import { collectSetup, knownIdentifiers } from '../adapters/claude-code/setup.mjs';
 import { runConfigProbes } from '../probes/config.mjs';
 import { score, displayPath, TOOL_VERSION } from '../scorer/score.mjs';
-import { copy } from '../copy/templates.mjs';
+import { copy, copyVocabulary } from '../copy/templates.mjs';
 import { loadBundledCatalogue } from '../catalogue/build.mjs';
 import { renderReport, shareSafeFindings } from '../render/report.mjs';
 import { buildIdentifiers } from '../scrub/mask.mjs';
@@ -275,7 +275,7 @@ export async function continueRun(folder, ctx, io) {
   folder.markDone('findings');
 
   // Phase: report.
-  const known = buildIdentifiers(ids);
+  const known = buildIdentifiers({ ...ids, vocabulary: copyVocabulary() });
   const reportPath = folder.write('report.html', renderReport(findings));
   const safePath = folder.write('report.share-safe.html', renderReport(shareSafeFindings(findings, known, PIVOTS), { shareSafe: true }));
   folder.markDone('report');

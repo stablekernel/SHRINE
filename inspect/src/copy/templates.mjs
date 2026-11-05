@@ -280,3 +280,11 @@ export function sampleCopy() {
     notes: HISTORY_NOTES,
   };
 }
+
+// Lowercase words the report's own copy uses, for share-safe masking: a project
+// named like one of them is masked only where it stands alone.
+const LABELS = ['hooks', 'skills', 'agents', 'commands', 'servers', 'memory', 'files', 'instruction', 'plugins', 'sessions', 'episodes', 'setup', 'history'];
+export function copyVocabulary() {
+  const words = JSON.stringify(sampleCopy()).toLowerCase().match(/[a-z][a-z-]{2,}/g) ?? [];
+  return [...new Set([...words, ...LABELS])];
+}
