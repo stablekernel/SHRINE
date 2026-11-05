@@ -3,15 +3,17 @@
 // run; any other change is reported as "changed during run, not by inspect".
 // Append-only session logs only record growth, attributed to other sessions.
 // Each scanned repo's .git is also snapshotted (pack list, objects/bundles,
-// loose-object folders; index, HEAD, FETCH_HEAD, and packed-refs mtimes). Any
-// object written during one of inspect's own git runs in that repo fails the run
-// (a lazy fetch, or a bundle URI it applied), unless a pack was removed or
-// FETCH_HEAD moved (a user repack or fetch). Index, HEAD, ref, and other object
-// changes come from the user (git add, stash, fetch, repack, gc, maintenance, an
-// IDE refresh) and are reported as changed by others.
+// loose-object folders; index, HEAD, FETCH_HEAD, and packed-refs mtimes). Only a
+// partial clone can lazy-fetch, so only there does a new .pack, .promisor, or
+// bundle entry written during one of inspect's own git runs fail the run (a lazy
+// fetch, or a bundle URI it applied), unless a pack was removed or FETCH_HEAD
+// moved (a user repack or fetch). A lazy fetch writes packs, never loose objects.
+// Every other change comes from the user (a commit in a sibling worktree, git
+// add, stash, fetch, repack, gc --auto, an IDE refresh) and is reported as
+// changed by others.
 import { resolve, sep } from 'node:path';
 import { exists, list, readBytes, sha256, stat } from '../io/fsread.mjs';
-import { gitOut } from '../io/git.mjs';
+import { gitOut, isPartialClone } from '../io/git.mjs';
 
 // name -> mtime for the entries of a folder, skipping in-flight tmp_* files.
 function entries(dir, keep = () => true) {
@@ -29,6 +31,7 @@ function gitState(root) {
   const objects = resolve(common, 'objects');
   return {
     common,
+    partial: isPartialClone(root),
     // tmp_* entries are packs still being written by some other git process.
     packs: entries(resolve(objects, 'pack')),
     bundles: entries(resolve(objects, 'bundles')),
@@ -55,16 +58,20 @@ function inRun(m, r) {
   const grain = m % 1000 === 0 ? 2000 : 1000;
   return m >= Math.floor(r.t_start / grain) * grain - SLACK_MS && m <= r.t + SLACK_MS;
 }
-// A lazy fetch (or the bundle URI it applies first) adds objects and never writes
-// FETCH_HEAD; a repack or gc also removes packs. The user or an IDE can fetch in
-// the same clone, so inspect is blamed only when a new or touched object entry's
-// mtime falls inside one of its own git runs in that repo.
+// A lazy fetch (or the bundle URI it applies first) adds a pack or bundle and never
+// writes FETCH_HEAD; a repack or gc also removes packs. The user or an IDE can
+// write objects in the same repo (or a worktree sharing it) at any time, so
+// inspect is blamed only in a partial clone, and only when a new pack, promisor,
+// or bundle entry's mtime falls inside one of its own git runs in that repo.
 function objectsWritten(a, b, runs) {
+  if (!a.partial && !b.partial) return false;
   if (a.fetch_head !== b.fetch_head) return false;
   if (Object.keys(a.packs).some((n) => !(n in b.packs))) return false;
-  const touched = OBJECT_KEYS.flatMap((k) => Object.entries(b[k]).filter(([n, m]) => a[k][n] !== m).map(([, m]) => m));
-  if (b.bundles_dir !== a.bundles_dir) touched.push(b.bundles_dir);
-  return touched.some((m) => m != null && runs.some((r) => inRun(m, r)));
+  const added = [
+    ...Object.entries(b.packs).filter(([n]) => !(n in a.packs) && /\.(pack|promisor)$/.test(n)),
+    ...Object.entries(b.bundles).filter(([n]) => !(n in a.bundles)),
+  ].map(([, m]) => m);
+  return added.some((m) => m != null && runs.some((r) => inRun(m, r)));
 }
 
 function gitRunsIn(spy, root) {

@@ -77,6 +77,7 @@ test('a new promisor pack while HEAD and FETCH_HEAD stay put (lazy fetch) fails 
   const env = { ...process.env, GIT_AUTHOR_NAME: 't', GIT_AUTHOR_EMAIL: 't@x', GIT_COMMITTER_NAME: 't', GIT_COMMITTER_EMAIL: 't@x' };
   execFileSync('git', ['init', '-q'], { cwd: repo, env });
   execFileSync('git', ['commit', '-q', '--allow-empty', '-m', 'one'], { cwd: repo, env });
+  execFileSync('git', ['config', 'remote.origin.promisor', 'true'], { cwd: repo, env });
   const { heads } = baselineOf([], [repo]);
   assert.equal(verifyRun({ files: [], heads }, []).ok, true, 'no change verifies ok');
   const t_start = Date.now();
@@ -102,17 +103,16 @@ test('a promisor pack made between inspect git runs (a user lazy fetch) is repor
 });
 
 // A repo-config bundle URI (old git, no GIT_NO_LAZY_FETCH) unbundles a plain pack
-// with no .promisor sidecar, an http one also fills objects/bundles, and a small
-// fetch can land loose objects: any of them inside an inspect git run is inspect's.
+// with no .promisor sidecar, and an http one also fills objects/bundles: either
+// inside an inspect git run in a partial clone is inspect's.
 for (const [label, write] of [
   ['a plain pack', (git) => writeFileSync(join(git, 'objects', 'pack', 'pack-0000.pack'), 'x')],
-  ['a bundles folder', (git) => mkdirSync(join(git, 'objects', 'bundles'))],
-  ['a loose object', (git) => {
-    mkdirSync(join(git, 'objects', 'ab'), { recursive: true });
-    writeFileSync(join(git, 'objects', 'ab', 'cdef'), 'x');
+  ['a bundle', (git) => {
+    mkdirSync(join(git, 'objects', 'bundles'));
+    writeFileSync(join(git, 'objects', 'bundles', 'b-0000.bundle'), 'x');
   }],
 ]) {
-  test(`${label} written inside an inspect git run fails the run`, async () => {
+  test(`${label} written inside an inspect git run in a partial clone fails the run`, async () => {
     const { execFileSync } = await import('node:child_process');
     const { repo } = gitRepo(execFileSync);
     const { heads } = baselineOf([], [repo]);
@@ -121,6 +121,17 @@ for (const [label, write] of [
     const r = verifyRun({ files: [], heads }, [inspectGit(repo, t_start, Date.now())]);
     assert.equal(r.ok, false);
     assert.deepEqual(r.changed_paths, [join(repo, '.git')]);
+  });
+
+  test(`${label} written inside an inspect git run in a full clone is reported, not blamed`, async () => {
+    const { execFileSync } = await import('node:child_process');
+    const { repo } = gitRepo(execFileSync, { partial: false });
+    const { heads } = baselineOf([], [repo]);
+    const t_start = Date.now();
+    write(join(repo, '.git'));
+    const r = verifyRun({ files: [], heads }, [inspectGit(repo, t_start, Date.now())]);
+    assert.equal(r.ok, true);
+    assert.deepEqual(r.changed_by_others.map((c) => c.change), ['.git changed']);
   });
 
   test(`${label} written between inspect git runs is reported, not blamed on inspect`, async () => {
@@ -174,13 +185,48 @@ test('a fetch with --no-write-fetch-head during the scan is reported, not blamed
   assert.deepEqual(r.changed_by_others.map((c) => c.change), ['.git changed']);
 });
 
-function gitRepo(execFileSync) {
+// A partial clone by default: the only kind of repo a lazy fetch can write to.
+function gitRepo(execFileSync, { partial = true } = {}) {
   const repo = mkdtempSync(join(tmpdir(), 'si-verify-user-'));
   const env = { ...process.env, GIT_AUTHOR_NAME: 't', GIT_AUTHOR_EMAIL: 't@x', GIT_COMMITTER_NAME: 't', GIT_COMMITTER_EMAIL: 't@x' };
   const g = (...a) => execFileSync('git', a, { cwd: repo, env, stdio: 'ignore' });
   g('init', '-q');
   g('commit', '-q', '--allow-empty', '-m', 'one');
+  if (partial) g('config', 'remote.origin.promisor', 'true');
   return { repo, g };
+}
+
+test('a loose object written inside an inspect git run in a partial clone is reported, not blamed', async () => {
+  const { execFileSync } = await import('node:child_process');
+  const { repo } = gitRepo(execFileSync);
+  const { heads } = baselineOf([], [repo]);
+  const t_start = Date.now();
+  mkdirSync(join(repo, '.git', 'objects', 'ab'), { recursive: true });
+  writeFileSync(join(repo, '.git', 'objects', 'ab', 'cdef'), 'x');
+  const r = verifyRun({ files: [], heads }, [inspectGit(repo, t_start, Date.now())]);
+  assert.equal(r.ok, true);
+  assert.deepEqual(r.changed_by_others.map((c) => c.change), ['.git changed']);
+});
+
+// A commit in a sibling worktree writes objects into the shared store while inspect
+// runs git in this one: the user's write, not a lazy fetch.
+for (const partial of [true, false]) {
+  test(`a commit in a sibling worktree during an inspect git run is reported, not blamed (${partial ? 'partial' : 'full'} clone)`, async () => {
+    const { execFileSync } = await import('node:child_process');
+    const { repo, g } = gitRepo(execFileSync, { partial });
+    const wt = `${repo}-wt`;
+    g('worktree', 'add', '-q', wt);
+    const { heads } = baselineOf([], [repo]);
+    const t_start = Date.now();
+    writeFileSync(join(wt, 'n.txt'), 'n');
+    const env = { ...process.env, GIT_AUTHOR_NAME: 't', GIT_AUTHOR_EMAIL: 't@x', GIT_COMMITTER_NAME: 't', GIT_COMMITTER_EMAIL: 't@x' };
+    for (const a of [['add', 'n.txt'], ['commit', '-q', '-m', 'n']]) execFileSync('git', a, { cwd: wt, env, stdio: 'ignore' });
+    const r = verifyRun({ files: [], heads }, [inspectGit(repo, t_start, Date.now())]);
+    rmSync(wt, { recursive: true, force: true });
+    assert.equal(r.ok, true);
+    assert.deepEqual(r.changed_paths, []);
+    assert.deepEqual(r.changed_by_others.map((c) => c.change), ['.git changed']);
+  });
 }
 
 test('a user git add during the scan is reported, not blamed on inspect', async () => {

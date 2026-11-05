@@ -78,16 +78,21 @@ export function honorsNoLazyFetch(v) {
 }
 
 const partial = new Map();
-// True when git can read this repo's history without risking a lazy fetch.
-export function historyReadable(cwd) {
-  if (honorsNoLazyFetch(gitVersion())) return true;
+// True when this repo has a promisor remote (a partial clone): the only kind of repo
+// a read can lazy-fetch into.
+export function isPartialClone(cwd) {
   if (!partial.has(cwd)) {
     const inv = gitInvocation(PROMISOR_QUERY, cwd);
     const r = runSync(inv.cmd, inv.args, { cwd, env: inv.env });
     // Exit 1 is "no such key"; any other failure counts as partial, to stay safe.
     partial.set(cwd, !(r.status === 1 || (r.status === 0 && !/\S/.test(r.stdout))));
   }
-  return !partial.get(cwd);
+  return partial.get(cwd);
+}
+
+// True when git can read this repo's history without risking a lazy fetch.
+export function historyReadable(cwd) {
+  return honorsNoLazyFetch(gitVersion()) || !isPartialClone(cwd);
 }
 
 export function git(args, { cwd }) {
