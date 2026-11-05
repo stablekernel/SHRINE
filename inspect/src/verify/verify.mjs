@@ -35,8 +35,16 @@ function gitState(root) {
 }
 
 const sameState = (a, b) => ['packs', 'index', 'head', 'fetch_head', 'refs'].every((k) => a[k] === b[k]);
-// Slack around each inspect git run for coarse filesystem mtimes.
+// Slack around each inspect git run for clock and timestamp jitter.
 const SLACK_MS = 250;
+// Coarse filesystems truncate mtimes to the second (HFS+, NFS, some ext4) or to
+// two seconds (FAT, exFAT), so a pack written during a run can carry an mtime
+// before the run's start. The low bound drops to the start of the run's second,
+// or of its two-second slot when the mtime itself is a whole second.
+function inRun(m, r) {
+  const grain = m % 1000 === 0 ? 2000 : 1000;
+  return m >= Math.floor(r.t_start / grain) * grain - SLACK_MS && m <= r.t + SLACK_MS;
+}
 // A lazy fetch only adds a pack with a .promisor sidecar and never writes
 // FETCH_HEAD. A repack or gc also removes packs; plain fetches add no .promisor.
 // The user or an IDE can lazy-fetch in the same clone, so inspect is blamed only
@@ -49,7 +57,7 @@ function lazyFetch(a, b, runs) {
   return [...after]
     .filter((n) => n.endsWith('.promisor') && !before.has(n))
     .map((n) => stat(resolve(a.common, 'objects', 'pack', n))?.mtimeMs)
-    .some((m) => m != null && runs.some((r) => m >= r.t_start - SLACK_MS && m <= r.t + SLACK_MS));
+    .some((m) => m != null && runs.some((r) => inRun(m, r)));
 }
 
 function gitRunsIn(spy, root) {

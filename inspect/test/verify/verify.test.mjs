@@ -190,3 +190,41 @@ test('a new promisor pack while another pack is removed is a user repack, not in
   assert.equal(r.ok, true);
   assert.deepEqual(r.changed_by_others.map((c) => c.change), ['.git changed']);
 });
+
+// Coarse filesystems truncate mtimes: HFS+, NFS, and some ext4 to 1s; FAT and exFAT to 2s.
+// A pack written during a run that starts late in a second still has to be blamed.
+test('a lazy fetch on a coarse-mtime filesystem is blamed on inspect wherever the run starts in the second', async () => {
+  const { execFileSync } = await import('node:child_process');
+  const { utimesSync } = await import('node:fs');
+  const S = 1_700_000_000_000; // an even second
+  for (const [label, mtime, runSecond] of [['1s', S + 1000, S + 1000], ['2s', S, S + 1000]]) {
+    for (const off of [100, 400, 700]) {
+      const { repo } = gitRepo(execFileSync);
+      const { heads } = baselineOf([], [repo]);
+      const pack = join(repo, '.git', 'objects', 'pack');
+      for (const ext of ['pack', 'promisor']) {
+        writeFileSync(join(pack, `pack-0000.${ext}`), 'x');
+        utimesSync(join(pack, `pack-0000.${ext}`), mtime / 1000, mtime / 1000);
+      }
+      const t_start = runSecond + off;
+      const r = verifyRun({ files: [], heads }, [inspectGit(repo, t_start, t_start + 20)]);
+      assert.equal(r.ok, false, `${label} truncation, run +${off}ms into the second`);
+    }
+  }
+});
+
+test('a whole-second promisor pack from before the run window is not blamed on inspect', async () => {
+  const { execFileSync } = await import('node:child_process');
+  const { utimesSync } = await import('node:fs');
+  const S = 1_700_000_000_000;
+  const { repo } = gitRepo(execFileSync);
+  const { heads } = baselineOf([], [repo]);
+  const pack = join(repo, '.git', 'objects', 'pack');
+  for (const ext of ['pack', 'promisor']) {
+    writeFileSync(join(pack, `pack-0000.${ext}`), 'x');
+    utimesSync(join(pack, `pack-0000.${ext}`), S / 1000, S / 1000);
+  }
+  const r = verifyRun({ files: [], heads }, [inspectGit(repo, S + 2500, S + 2600)]);
+  assert.equal(r.ok, true);
+  assert.deepEqual(r.changed_by_others.map((c) => c.change), ['.git changed']);
+});
