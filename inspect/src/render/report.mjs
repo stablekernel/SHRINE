@@ -176,7 +176,7 @@ function timeline(f) {
   });
   if (gi >= 0 && gj > gi) s += `<text class="gap" x="${pad + step * ((gi + gj) / 2)}" y="${y + 52}" text-anchor="middle">${esc(gap.label)}</text>`;
   const label = `Episode timeline: ${ev.map((e) => `${e.t} ${e.label_scrubbed}`).join('; ')}${gap ? `. Gap: ${gap.label}` : ''}`;
-  return `<div class="blk"><h4>What happened</h4><svg class="tl excerpt" viewBox="0 0 ${w} ${h}" role="img" aria-label="${esc(label)}">${s}</svg><p class="excerpt-safe">Timeline labels are hidden in the share-safe file.</p></div>`;
+  return `<div class="blk"><h4>What happened</h4><div class="tl-scroll excerpt" tabindex="0" role="group" aria-label="Episode timeline"><svg class="tl" viewBox="0 0 ${w} ${h}" role="img" aria-label="${esc(label)}">${s}</svg></div><p class="excerpt-safe">Timeline labels are hidden in the share-safe file.</p></div>`;
 }
 
 function configStrip(f) {

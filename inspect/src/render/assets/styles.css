@@ -128,7 +128,9 @@ table.cov tbody:first-of-type tr.grp th { padding-top: var(--s1); }
 .ev { font-size: var(--f-xs); color: var(--muted); }
 .ev code { overflow-wrap: anywhere; }
 .ev code, .mono { font-family: ui-monospace, SFMono-Regular, Menlo, monospace; font-size: var(--f-xs); }
-.tl { width: 100%; height: auto; display: block; margin-top: var(--s1); }
+/* The timeline scrolls inside its own box on phones so its text keeps full size. */
+.tl-scroll { overflow-x: auto; margin-top: var(--s1); }
+.tl { width: 100%; height: auto; display: block; }
 .tl text { fill: var(--text2); font-size: 11.5px; font-family: inherit; }
 .tl .dim { fill: var(--muted); }
 .tl .ln { stroke: var(--line); stroke-width: 2; }
@@ -176,6 +178,8 @@ table.cov tbody:first-of-type tr.grp th { padding-top: var(--s1); }
   table.cov th[scope='row'], table.cov tr.grp th { grid-column: 1 / -1; }
   table.cov thead th:first-child { position: absolute; width: 1px; height: 1px; overflow: hidden; clip: rect(0 0 0 0); }
   table.cov thead th:nth-child(2), table.cov thead th:nth-child(3) { width: auto; }
+  .tl { width: 760px; max-width: none; }
+  .tl text { font-size: 11.5px; }
   /* Refs are citations, not labels: they may wrap so long titles stay in the card. */
   .ref { white-space: normal; }
 }
@@ -196,6 +200,7 @@ table.cov tbody:first-of-type tr.grp th { padding-top: var(--s1); }
   [hidden] { display: block !important; }
   .panel-h, .js .panel-h { position: static; width: auto; height: auto; clip: auto; overflow: visible; }
   .explore { display: block; }
+  .tl-scroll { overflow: visible; }
   .detail { break-inside: avoid; break-before: page; border-color: #999; }
   details > *:not(summary) { display: block; }
   details::details-content { content-visibility: visible; display: block; }

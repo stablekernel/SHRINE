@@ -149,6 +149,20 @@ test('375px with scripts off: every finding detail fits inside the report', asyn
   await ctx.close();
 });
 
+test('375px: timeline text stays readable and scrolls inside its own box', async ({ page }) => {
+  await open(page, MOCK_HTML, { theme: 'dark', width: 375, height: 800 });
+  const tl = page.locator('svg.tl:visible').first();
+  const px = await tl.evaluate((svg) => {
+    const scale = svg.getBoundingClientRect().width / svg.viewBox.baseVal.width;
+    return Math.min(...[...svg.querySelectorAll('text')].map((t) => parseFloat(getComputedStyle(t).fontSize) * scale));
+  });
+  expect(px).toBeGreaterThanOrEqual(10);
+  const overflow = await page.evaluate(() => document.documentElement.scrollWidth - document.documentElement.clientWidth);
+  expect(overflow).toBeLessThanOrEqual(0);
+  const r = await new AxeBuilder({ page }).include('.tl-scroll').analyze();
+  expect(r.violations.map((v) => v.id)).toEqual([]);
+});
+
 test('T0 fixture, light', async ({ page }) => {
   await open(page, T0_HTML, { theme: 'light' });
   await expect(page).toHaveScreenshot('t0-light.png', { fullPage: true });
