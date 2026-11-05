@@ -10,10 +10,10 @@ const ids = load('entry-ids.json');
 const kinds = load('t0-kinds.json');
 const PIVOT_KINDS = new Set(['habit', 'instruction', 'skill', 'hook', 'gate', 'config']);
 
-const t0Ids = [...new Set(Object.values(kinds.kinds).map((k) => k.entry_ids[0]))];
+const t0Ids = [...new Set(Object.values({ ...kinds.kinds, ...kinds.usage_kinds }).map((k) => k.entry_ids[0]))];
 
 test('every T0 kind cites entry ids that exist in entry-ids.json', () => {
-  for (const [kind, k] of Object.entries({ ...kinds.kinds, ...kinds.structure })) {
+  for (const [kind, k] of Object.entries({ ...kinds.kinds, ...kinds.usage_kinds, ...kinds.structure })) {
     for (const id of k.entry_ids) assert.ok(ids[id], `${kind}: ${id} missing`);
   }
 });

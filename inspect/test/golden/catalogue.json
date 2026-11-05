@@ -165,7 +165,7 @@
           "line": 88
         },
         {
-          "entry_id": "principles/fail-fast-recover-smart#6f735d6781",
+          "entry_id": "fail-fast-recover-smart.sov.no-mid-run-checks",
           "text": "No mid-run checks: a bad intermediate output surfaces steps later as an unrelated error",
           "anchor": "signal-of-violation",
           "line": 89
@@ -761,7 +761,7 @@
           "line": 87
         },
         {
-          "entry_id": "patterns/progress-breadcrumbs#c548bd9fd5",
+          "entry_id": "progress-breadcrumbs.ap.done-without-evidence",
           "text": "Breadcrumbs without evidence: \"done\" with no command, run, or commit",
           "anchor": "anti-patterns",
           "line": 88
@@ -3226,6 +3226,28 @@
       "url": "https://stablekernel.github.io/SHRINE/stack/harness/#anti-patterns",
       "url_pinned": "https://github.com/stablekernel/SHRINE/blob/71e82a0e6f729e88c7e40040310fd33068c067f3/docs/src/content/docs/stack/harness.md#L51",
       "quote": "Under-investing in harness proficiency"
+    },
+    "progress-breadcrumbs.ap.done-without-evidence": {
+      "entry_id": "progress-breadcrumbs.ap.done-without-evidence",
+      "page_id": "patterns/progress-breadcrumbs",
+      "anchor": "anti-patterns",
+      "title": "Progress Breadcrumbs",
+      "section": "pattern",
+      "status": "ratified",
+      "url": "https://stablekernel.github.io/SHRINE/patterns/progress-breadcrumbs/#anti-patterns",
+      "url_pinned": "https://github.com/stablekernel/SHRINE/blob/71e82a0e6f729e88c7e40040310fd33068c067f3/docs/src/content/docs/patterns/progress-breadcrumbs.md#L88",
+      "quote": "Breadcrumbs without evidence: \"done\" with no command, run, or commit"
+    },
+    "fail-fast-recover-smart.sov.no-mid-run-checks": {
+      "entry_id": "fail-fast-recover-smart.sov.no-mid-run-checks",
+      "page_id": "principles/fail-fast-recover-smart",
+      "anchor": "signal-of-violation",
+      "title": "Fail Fast, Recover Smart",
+      "section": "principle",
+      "status": "ratified",
+      "url": "https://stablekernel.github.io/SHRINE/principles/fail-fast-recover-smart/#signal-of-violation",
+      "url_pinned": "https://github.com/stablekernel/SHRINE/blob/71e82a0e6f729e88c7e40040310fd33068c067f3/docs/src/content/docs/principles/fail-fast-recover-smart.md#L89",
+      "quote": "No mid-run checks: a bad intermediate output surfaces steps later as an unrelated error"
     }
   }
 }

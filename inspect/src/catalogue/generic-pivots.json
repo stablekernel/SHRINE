@@ -40,5 +40,12 @@
     "before": "Session history is cleared after the default window, so last quarter's behavior cannot be compared with today's.",
     "after": "User settings set cleanupPeriodDays to keep 90 days of sessions for comparison.",
     "setup_note": "Retention only affects your own machine; pick a window that covers at least one full release cycle."
+  },
+  "progress-breadcrumbs.ap.done-without-evidence": {
+    "kind": "gate",
+    "action": "Make the agent run your test command before it reports done, and cite the run in the reply.",
+    "before": "Agent: Done, the parser handles empty input now.",
+    "after": "Agent: Done. npm test ran: 42 tests passed, 0 failed. The parser handles empty input now.",
+    "setup_note": "A Stop hook that runs the test command makes the check automatic; the done line then quotes the result."
   }
 }

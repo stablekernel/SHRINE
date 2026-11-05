@@ -8,6 +8,9 @@
     "stack_gap": { "lens": "config", "entry_ids": ["harness.ap.under-investing"] },
     "short_retention": { "lens": "config", "entry_ids": ["reproducibility.sov.not-logged"] }
   },
+  "usage_kinds": {
+    "done_without_test": { "lens": "usage", "entry_ids": ["progress-breadcrumbs.ap.done-without-evidence", "fail-fast-recover-smart.sov.no-mid-run-checks"] }
+  },
   "structure": {
     "instruction_layers": { "entry_ids": ["authority-cascade.sov.reopened"] },
     "repo_layout": { "entry_ids": ["consistency-as-leverage.sov.idioms"] },

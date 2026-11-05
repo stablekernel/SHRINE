@@ -52,6 +52,7 @@ export function extractEpisodes(session, timeline, { idleMinutes = 30 } = {}) {
     calls: [],
     humans: [],
     last_text: '',
+    last_text_t: null,
     events: [],
   });
   const finish = (terminal) => {
@@ -84,6 +85,7 @@ export function extractEpisodes(session, timeline, { idleMinutes = 30 } = {}) {
       if (!e.sub) cur.assistant_turns++;
     } else if (e.kind === 'assistant_text' && !e.sub) {
       cur.last_text = e.text;
+      cur.last_text_t = e.t;
       lastQuestion = endsWithQuestion(e.text);
     } else if (e.kind === 'tool_use') {
       cur.calls.push({ t: e.t, name: e.name, command: e.command ?? null, key: e.key, sub: e.sub === true, human_turns_before: cur.human_turns });

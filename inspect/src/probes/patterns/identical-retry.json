@@ -1,0 +1,5 @@
+{
+  "version": 2,
+  "note": "A retry is a tool call with the same tool and byte-identical input as one of the previous 5 calls in the episode, with no human turn between. Clean-room precision 17% (E5): polling, re-reads after a change, and watcher re-arms look the same. Appendix count only.",
+  "window": 5
+}

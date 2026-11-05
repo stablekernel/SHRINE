@@ -1,0 +1,28 @@
+{
+  "version": 2,
+  "note": "Scope: last 600 chars of the last assistant text in an episode, case-insensitive. A hit is dropped when a negation or a condition sits earlier in the same sentence. Clean-room precision of version 1 was 33% (E5), so this list feeds an appendix count only.",
+  "patterns": [
+    "\\b(all )?(done|finished|complete|completed)\\b[.!:]",
+    "\\b(is|are|now) (done|complete|finished|fixed|working|in place|implemented)\\b",
+    "\\b(i(?:'ve| have)|we(?:'ve| have)) (implemented|fixed|added|updated|completed|finished|made the change)",
+    "\\bready (for|to) (review|merge|ship|use)\\b",
+    "\\bshould (now )?work\\b",
+    "\\ball set\\b"
+  ],
+  "negation": "\\b(not|never|no longer|nothing|isn't|aren't|wasn't|weren't|hasn't|haven't|didn't|cannot|can't)\\b",
+  "conditional": "\\b(if|once|when|after|until|unless|before|whether)\\b",
+  "positive": [
+    "All done.",
+    "The parser is now fixed and the tests pass.",
+    "I've implemented the retry logic in client.ts.",
+    "This is ready for review.",
+    "Everything should now work."
+  ],
+  "negative": [
+    "The migration is not done yet.",
+    "Once the build is complete, I will run the tests.",
+    "If the cache is warm, the job is done in seconds.",
+    "I have not finished the second step.",
+    "Next I will look at the parser."
+  ]
+}
