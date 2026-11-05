@@ -143,7 +143,7 @@ table.cov tbody:first-of-type tr.grp th { padding-top: var(--s1); }
 .ba .a figcaption { color: var(--good); background: var(--good-bg); }
 .ba pre { margin: 0; padding: var(--s3); font: var(--f-xs)/1.55 ui-monospace, SFMono-Regular, Menlo, monospace; color: var(--text2); white-space: pre-wrap; overflow-wrap: anywhere; }
 .ba mark { background: var(--good-bg); color: var(--text); padding: 0 3px; border-radius: 3px; }
-.benefit { display: grid; grid-template-columns: repeat(3, 1fr); gap: var(--s3); margin-top: 6px; }
+.benefit { display: grid; grid-template-columns: repeat(auto-fit, minmax(15rem, 1fr)); gap: var(--s3); margin-top: 6px; }
 .benefit div { background: var(--bg); border: 1px solid var(--line); border-radius: 10px; padding: var(--s3); font-size: var(--f-sm); color: var(--text2); }
 .benefit b { display: block; color: var(--text); font-size: var(--f-md); margin-bottom: 2px; }
 .refs { display: flex; gap: var(--s2); flex-wrap: wrap; }
@@ -167,12 +167,13 @@ table.cov tbody:first-of-type tr.grp th { padding-top: var(--s1); }
   .detail { padding: var(--s4); }
   .tl text { font-size: 10px; }
 }
-/* Phones: each coverage label gets its own unwrapped line, its two bars below. */
+/* Phones: each coverage label gets its own unwrapped line, its two bars below.
+   report.mjs sets ARIA table roles so the grid display keeps table semantics. */
 @media (max-width: 560px) {
   table.cov, table.cov thead, table.cov tbody { display: block; }
   table.cov tr { display: grid; grid-template-columns: 1fr 1fr; }
   table.cov th[scope='row'], table.cov tr.grp th { grid-column: 1 / -1; }
-  table.cov thead th:first-child { display: none; }
+  table.cov thead th:first-child { position: absolute; width: 1px; height: 1px; overflow: hidden; clip: rect(0 0 0 0); }
   table.cov thead th:nth-child(2), table.cov thead th:nth-child(3) { width: auto; }
 }
 @media (prefers-reduced-motion: reduce) { * { transition: none !important; scroll-behavior: auto !important; } }

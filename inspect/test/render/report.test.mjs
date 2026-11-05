@@ -131,11 +131,12 @@ test('coverage shows only tripped areas, grouped by SHRINE area, plus one quiet 
   const d = t0(['stale_instructions', 'blanket_permissions', 'stack_gap']);
   const html = renderReport(d);
   const cov = html.slice(html.indexOf('id="map-h"'), html.indexOf('class="attr"'));
-  const rows = [...cov.matchAll(/<th scope="row">[\s\S]*?<\/svg> ([^<]+)<\/th>/g)].map((m) => m[1]);
+  const rows = [...cov.matchAll(/<th scope="row"[^>]*>[\s\S]*?<\/svg> ([^<]+)<\/th>/g)].map((m) => m[1]);
   assert.deepEqual(rows, ['Human in the Loop', 'Deliberate Currency', 'Harness Selection']);
-  assert.deepEqual([...cov.matchAll(/scope="rowgroup" colspan="3">(\w+)</g)].map((m) => m[1]), ['Principles', 'Stack']);
+  assert.deepEqual([...cov.matchAll(/scope="rowgroup" colspan="3"[^>]*>(\w+)</g)].map((m) => m[1]), ['Principles', 'Stack']);
   assert.match(cov, new RegExp(`${d.coverage.length - 3} other areas showed no findings`));
   assert.ok(!cov.includes('Authority Cascade'), 'clean areas are hidden');
+  for (const role of ['table', 'rowgroup', 'row', 'columnheader', 'rowheader', 'cell']) assert.ok(cov.includes(`role="${role}"`), `role ${role} kept for the phone grid layout`);
 });
 
 test('coverage with no finding shows only the quiet line', () => {

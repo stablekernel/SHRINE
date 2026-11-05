@@ -114,14 +114,14 @@ function coverage(d, empty) {
   const quiet = d.coverage.length - tripped.length;
   const max = Math.max(3, ...tripped.map((c) => Math.max(c.working, c.amplify)));
   const row = (c) =>
-    `<tr><th scope="row">${icon(c.icon)} ${esc(c.title)}</th><td><div class="half left"><span>${c.working || ''}</span><i class="bar-g" style="width:${(c.working / max) * 100}%"></i></div></td><td><div class="half"><i class="bar-w" style="width:${(c.amplify / max) * 100}%"></i><span>${c.amplify || ''}</span></div></td></tr>`;
+    `<tr role="row"><th scope="row" role="rowheader">${icon(c.icon)} ${esc(c.title)}</th><td role="cell"><div class="half left"><span>${c.working || ''}</span><i class="bar-g" style="width:${(c.working / max) * 100}%"></i></div></td><td role="cell"><div class="half"><i class="bar-w" style="width:${(c.amplify / max) * 100}%"></i><span>${c.amplify || ''}</span></div></td></tr>`;
   const bodies = AREA_GROUPS.map(([g, label]) => {
     const rows = tripped.filter((c) => (c.group ?? 'principles') === g);
-    return rows.length ? `<tbody><tr class="grp"><th scope="rowgroup" colspan="3">${label}</th></tr>${rows.map(row).join('')}</tbody>` : '';
+    return rows.length ? `<tbody role="rowgroup"><tr class="grp" role="row"><th scope="rowgroup" colspan="3" role="rowheader">${label}</th></tr>${rows.map(row).join('')}</tbody>` : '';
   }).join('');
   const note = quiet ? `<p class="quiet">${quiet === d.coverage.length ? `No SHRINE area showed a finding (${pl(quiet, 'area')} checked).` : `${pl(quiet, 'other area')} showed no findings.`}</p>` : '';
   const table = tripped.length
-    ? `<table class="cov"><caption class="sr-only">Findings per SHRINE area: working for you and room to amplify</caption><thead><tr><th scope="col"><span class="sr-only">SHRINE area</span></th><th scope="col">Working for you</th><th scope="col">Room to amplify</th></tr></thead>${bodies}</table>`
+    ? `<table class="cov" role="table"><caption class="sr-only">Findings per SHRINE area: working for you and room to amplify</caption><thead role="rowgroup"><tr role="row"><th scope="col" role="columnheader"><span class="sr-only">SHRINE area</span></th><th scope="col" role="columnheader">Working for you</th><th scope="col" role="columnheader">Room to amplify</th></tr></thead>${bodies}</table>`
     : '';
   let attr;
   const a = d.attribution_stack;
