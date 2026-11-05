@@ -52,7 +52,13 @@ const HOST = new RegExp(`(?<![A-Za-z0-9-])(?<![A-Za-z0-9-]\\.)(?:[A-Za-z0-9](?:[
 // separated by a character the next part cannot match, so matching is linear.
 const WORD = String.raw`(?:[\p{L}\p{N}\p{M}_.@+&(),#%=!$\[\]{}<>-]|(?<=\p{L})['’](?=\p{L}))`;
 const FOLDER = String.raw`${WORD}{1,255}(?:[  ]${WORD}{1,255}){0,31}`;
-const BASE = String.raw`([\p{L}\p{N}\p{M}_.@+&#%=~<>-]{0,255})((?:[  ][\p{Lu}\p{Lt}\p{N}&(]${WORD}{0,254}){0,15})`;
+// A name with no extension also takes on lowercase words when a later word in the
+// same run ends in an extension ("q3 globex merger.md"): the shortest such run, up
+// to 8 words. An extension needs a letter, so "v1.2" does not end the run.
+const NAME_CH = String.raw`[\p{L}\p{N}\p{M}_.@+&#%=~<>-]`;
+const EXT_END = String.raw`\.(?=[A-Za-z0-9]{0,7}[A-Za-z])[A-Za-z0-9]{1,8}(?=\.*(?!${NAME_CH}))`;
+const EXT_RUN = String.raw`(?:[  ]${NAME_CH}{1,255}){0,7}?[  ]${NAME_CH}{0,255}?${EXT_END}`;
+const BASE = String.raw`(${NAME_CH}{0,255})(${EXT_RUN}|(?:[  ][\p{Lu}\p{Lt}\p{N}&(]${WORD}{0,254}){0,15})`;
 const HOME_PATH = new RegExp(String.raw`(?<![\p{L}\p{N}\p{M}_.~<>-])~\/((?:${FOLDER}\/)*)${BASE}`, 'gu');
 const collapse = (dirs) => {
   const kept = [];
@@ -79,8 +85,12 @@ export function maskBase(base) {
   const ext = /\.([A-Za-z0-9]{1,8})$/.exec(name.slice(1));
   return `${ext ? `<file>.${ext[1]}` : '<file>'}${tail}`;
 }
-// The words after a file name are part of it only when it has no extension.
-const fileName = (base, more) => `${maskBase(base)}${!base || /\.[A-Za-z0-9]{1,8}\.*$/.test(base) ? more : ''}`;
+// The words after a file name are part of it only when it has no extension; a run
+// that ends in an extension is masked as one name with that extension.
+const fileName = (base, more) => {
+  if (!base || /\.[A-Za-z0-9]{1,8}\.*$/.test(base)) return `${maskBase(base)}${more}`;
+  return /\.[A-Za-z0-9]{1,8}$/.test(more) ? maskBase(`${base}${more}`) : maskBase(base);
+};
 const homePath = (_m, dirs, base, more) => `~/${collapse(dirs.split('/').filter(Boolean))}${fileName(base, more)}`;
 const ABS_PATH = new RegExp(String.raw`(?<![\p{L}\p{N}\p{M}_~.<>-])\/(?:${FOLDER}\/)+${BASE}`, 'gu');
 // Windows drive paths, with either separator.
@@ -122,7 +132,9 @@ export function mask(text, known) {
   if (typeof text !== 'string' || text === '') return text;
   // Claude Code project folders encode the full cwd (home, org, and repo names).
   let out = text.replace(PROJECT_FOLDER, '$1<project-folder>');
-  if (known?.home) out = out.replace(new RegExp(`${esc(known.home)}(?=/|\\b|$)`, 'g'), '~');
+  // The home only where a path starts (not inside /Volumes/x/Users/bob) and only up
+  // to a separator or the end (not /Users/bob-acme), the underHome rule in free text.
+  if (known?.home) out = out.replace(new RegExp(String.raw`(?<![\p{L}\p{N}\p{M}_.~<>\\/-])${esc(known.home.replace(/[\\/]+$/, ''))}(?=[\\/]|$)`, 'gu'), '~');
   out = out.replace(EMAIL, (m) => known?.ids.find((i) => i.value === m)?.placeholder ?? '<email>');
   for (const { value, placeholder } of known?.ids ?? []) {
     out = out.replace(new RegExp(`(?<![\\w-])${esc(value)}(?![\\w-])`, 'g'), placeholder);

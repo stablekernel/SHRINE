@@ -103,7 +103,7 @@ test('growth flags a quadratic regex', () => {
 test('mask runs in linear time on adversarial runs', () => {
   const k = buildIdentifiers({ osUser: 'bob', home: '/Users/bob', projects: ['repo'] });
   // Email, host, and IP shapes; then free-text path shapes.
-  const units = ['a.', 'a-', 'x.', 'x-x.', '1.', '1.1.', 'a@', 'a.a@', '%+', 'x.co.', '-.', '~/A ', '/a ', ' /a', '/A A', ' C:\\a', "a'b ", '/a, ', ' /a/A ', '/(a) '];
+  const units = ['a.', 'a-', 'x.', 'x-x.', '1.', '1.1.', 'a@', 'a.a@', '%+', 'x.co.', '-.', '~/A ', '/a ', ' /a', '/A A', ' C:\\a', "a'b ", '/a, ', ' /a/A ', '/(a) ', '/a x ', '/a a.a ', '/a a.1 '];
   for (const unit of units) {
     const g = growth(repeatTo(unit), (s) => mask(s, k));
     assert.ok(g < 10, `${JSON.stringify(unit)}: 4x input took ${g.toFixed(1)}x as long`);
@@ -200,6 +200,36 @@ test('free-text paths mask folders with punctuation and non-ASCII letters', () =
     "(see /x/Acme Co/y.md) and '/srv/Zorb Co/z.txt' or \"/a/Zorb/b\"": "(see <path>/<file>.md) and '<path>/<file>.txt' or \"<path>/<file>\"",
   };
   for (const [input, want] of Object.entries(cases)) assert.equal(mask(input, k), want, input);
+});
+
+test('free-text home replacement only matches the home at a path boundary', () => {
+  const k = buildIdentifiers({ osUser: 'gavin', home: '/Users/gavin' });
+  const cases = {
+    'see /Users/gavin-acme/notes/x.md': 'see <path>/<file>.md',
+    'see /Users/gavinacme/x.md': 'see <path>/<file>.md',
+    'see /Volumes/Bk/Users/gavin/Hooli Inc/plan.md': 'see <path>/<file>.md',
+    'see /Users/gavin/Hooli Inc/plan.md now': 'see ~/<path>/<file>.md now',
+    'home is /Users/gavin': 'home is ~',
+  };
+  for (const [input, want] of Object.entries(cases)) assert.equal(mask(input, k), want, input);
+});
+
+test('a file name with lowercase words in free text is masked up to its extension', () => {
+  const k = buildIdentifiers({ home: '/Users/bob' });
+  const cases = {
+    '/Users/bob/Docs/q3 globex merger.md': '~/<path>/<file>.md',
+    'see /srv/Docs/q3 globex merger.md, then': 'see <path>/<file>.md, then',
+    'it is /srv/Docs/q3 globex merger.md.': 'it is <path>/<file>.md.',
+    'at C:\\Docs\\q3 globex merger.docx': 'at <path>/<file>.docx',
+    'see /a/b/notes v1.2 globex.md here': 'see <path>/<file>.md here',
+    'in /Volumes/Hooli Backup now': 'in <path>/<file> now',
+    'at ~/Client Work/Initech Corp.': 'at ~/<path>/<file>',
+  };
+  for (const [input, want] of Object.entries(cases)) {
+    const out = mask(input, k);
+    assert.equal(out, want, input);
+    assert.doesNotMatch(out, /globex|merger|Hooli|Initech/, input);
+  }
 });
 
 test('the instruction file names stay whole in free text', () => {
