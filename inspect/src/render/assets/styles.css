@@ -6,7 +6,7 @@
 :root {
   --bg: #151f29; --bg2: #121a23; --surface: #1a2733; --line: #2d3f4f;
   --text: #f0f4f8; --text2: #c9d5e0; --muted: #8fa3b5;
-  --accent: #00ced1; --accent-text: #5eead4; --accent-low: #0d3b4c; --on-accent: #04282a;
+  --accent: #00ced1; --accent-text: #5eead4; --accent-low: #0d3b4c; --on-accent: #04282a; --btn: #00ced1;
   --good: #2dd4bf; --good-bg: rgba(45, 212, 191, 0.13);
   --warn: #f5b455; --warn-bg: rgba(245, 180, 85, 0.13);
   --neutral: #8fa3b5; --bad: #f08a7a; --bad-bg: rgba(240, 138, 122, 0.14);
@@ -18,7 +18,7 @@
   :root:not([data-theme='dark']) {
     --bg: #f8fafc; --bg2: #f1f5f9; --surface: #ffffff; --line: #e2e8f0;
     --text: #0f172a; --text2: #1e293b; --muted: #475569;
-    --accent: #0d9488; --accent-text: #0f766e; --accent-low: #ccfbf1; --on-accent: #ffffff;
+    --accent: #0d9488; --accent-text: #0f766e; --accent-low: #ccfbf1; --on-accent: #ffffff; --btn: #0f766e;
     --good: #0f766e; --good-bg: #ccfbf1; --warn: #9a4a07; --warn-bg: #fef3c7;
     --neutral: #475569; --bad: #b4412f; --bad-bg: #fde8e4;
     color-scheme: light;
@@ -27,7 +27,7 @@
 :root[data-theme='light'] {
   --bg: #f8fafc; --bg2: #f1f5f9; --surface: #ffffff; --line: #e2e8f0;
   --text: #0f172a; --text2: #1e293b; --muted: #475569;
-  --accent: #0d9488; --accent-text: #0f766e; --accent-low: #ccfbf1; --on-accent: #ffffff;
+  --accent: #0d9488; --accent-text: #0f766e; --accent-low: #ccfbf1; --on-accent: #ffffff; --btn: #0f766e;
   --good: #0f766e; --good-bg: #ccfbf1; --warn: #9a4a07; --warn-bg: #fef3c7;
   --neutral: #475569; --bad: #b4412f; --bad-bg: #fde8e4;
   color-scheme: light;
@@ -74,7 +74,7 @@ h3 { margin: 0 0 var(--s2); font-size: var(--f-md); }
 .empty b { color: var(--text); }
 .start { background: var(--surface); border: 1px solid var(--line); border-radius: 12px; padding: var(--s4) var(--s4); align-self: start; }
 .start p { margin: 0 0 var(--s3); color: var(--text2); font-size: var(--f-sm); }
-.btn { display: inline-flex; align-items: center; gap: var(--s2); background: var(--accent); color: var(--on-accent); border: 0; border-radius: 8px; padding: var(--s2) var(--s3); font: inherit; font-size: var(--f-sm); font-weight: 600; text-decoration: none; cursor: pointer; }
+.btn { display: inline-flex; align-items: center; gap: var(--s2); background: var(--btn); color: var(--on-accent); border: 0; border-radius: 8px; padding: var(--s2) var(--s3); font: inherit; font-size: var(--f-sm); font-weight: 600; text-decoration: none; cursor: pointer; }
 .info { display: grid; grid-template-columns: 1.5fr 1fr; gap: var(--s8); align-items: start; }
 table.cov { width: 100%; border-collapse: collapse; font-size: var(--f-sm); color: var(--text2); table-layout: fixed; }
 table.cov th, table.cov td { padding: 3px 0; font-weight: 400; text-align: left; }
