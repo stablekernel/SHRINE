@@ -1,0 +1,78 @@
+import { test } from 'node:test';
+import assert from 'node:assert/strict';
+import { repoCommits, linkEpisodes } from '../../src/episodes/link.mjs';
+import { resetSpy, spyLog } from '../../src/io/fsread.mjs';
+import { makeRepo } from '../synth/repos.mjs';
+
+const H = 3600000;
+const T0 = Date.parse('2026-10-20T10:00:00Z');
+const iso = (ms) => new Date(ms).toISOString();
+const ep = (id, startMs, endMs, extra = {}) => ({ id, repo: null, start: iso(startMs), end: iso(endMs), committed: false, touched_files: [], ...extra });
+
+test('reverts by SHA and fixups link to the episode that made the commit; amends are ignored', () => {
+  const r = makeRepo();
+  const base = r.commit(iso(T0 - 48 * H), 'base');
+  const agent = r.commit(iso(T0 + 10 * 60000), 'add parser', { 'src/p.js': 'v1' });
+  r.amend(iso(T0 + 12 * 60000), 'amended');
+  const amended = r.git(['rev-parse', 'HEAD']);
+  r.commit(iso(T0 + 5 * H), `fixup! add parser`, { 'src/q.js': 'v2' });
+  r.revert(iso(T0 + 30 * H), amended);
+  r.commit(iso(T0 + 100 * H), 'fixup! add parser', { 'src/r.js': 'late' });
+  const commits = repoCommits(r.root, { since: T0 - 72 * H, until: T0 + 200 * H });
+  assert.ok(!commits.some((c) => c.sha === agent), 'the pre-amend commit is not in history');
+  assert.ok(commits.some((c) => c.sha === base));
+  const e = ep('e1', T0, T0 + 15 * 60000, { repo: r.root, committed: true });
+  const [out] = linkEpisodes([e], new Map([[r.root, commits]]));
+  assert.deepEqual(out.commits, [amended]);
+  const kinds = out.downstream.map((d) => d.kind).sort();
+  assert.deepEqual(kinds, ['fixup', 'revert'], 'the fixup after 72h is not linked');
+  assert.ok(out.downstream.every((d) => d.link === 'hard' && d.delta_hours <= 72));
+  assert.equal(out.rework, true);
+  r.cleanup();
+});
+
+test('an episode with no commit tool call claims no commits', () => {
+  const r = makeRepo();
+  r.commit(iso(T0 + 60000), 'human commit');
+  const commits = repoCommits(r.root, { since: T0 - H, until: T0 + H });
+  const [out] = linkEpisodes([ep('e1', T0, T0 + 5 * 60000, { repo: r.root })], new Map([[r.root, commits]]));
+  assert.deepEqual(out.commits, []);
+  assert.equal(out.rework, false);
+  r.cleanup();
+});
+
+test('a later episode re-touching a file within 72h is a soft link; after 72h it is not', () => {
+  const f = '/w/repo/src/a.js';
+  const e1 = ep('e1', T0, T0 + H, { repo: '/w/repo', touched_files: [f] });
+  const e2 = ep('e2', T0 + 10 * H, T0 + 11 * H, { repo: '/w/repo', touched_files: [f, '/w/repo/b.js'] });
+  const e3 = ep('e3', T0 + 90 * H, T0 + 91 * H, { repo: '/w/repo', touched_files: ['/w/repo/b.js'] });
+  const e4 = ep('e4', T0 + 2 * H, T0 + 3 * H, { repo: '/w/other', touched_files: [f] });
+  const out = linkEpisodes([e1, e2, e3, e4], new Map());
+  assert.deepEqual(out[0].downstream, [{ kind: 'episode', ref: 'e2', delta_hours: 9, link: 'soft' }]);
+  assert.deepEqual(out[1].downstream, [], 'e3 is 79 hours after e2');
+  assert.equal(out[3].downstream.length, 0, 'other repo never links');
+});
+
+test('downstream keeps at most 5 links, nearest first', () => {
+  const f = '/w/r/x.js';
+  const eps = [ep('e0', T0, T0 + H, { repo: '/w/r', touched_files: [f] })];
+  for (let i = 1; i <= 7; i++) eps.push(ep(`e${i}`, T0 + (i + 1) * H, T0 + (i + 1) * H + 60000, { repo: '/w/r', touched_files: [f] }));
+  const [first] = linkEpisodes(eps, new Map());
+  assert.equal(first.downstream.length, 5);
+  assert.deepEqual(first.downstream.map((d) => d.ref), ['e1', 'e2', 'e3', 'e4', 'e5']);
+});
+
+test('the linker runs only allowlisted read-only git', () => {
+  const r = makeRepo();
+  r.commit(iso(T0), 'one');
+  resetSpy();
+  repoCommits(r.root, { since: T0 - H, until: T0 + H });
+  const spawns = spyLog().filter((e) => e.op === 'spawn');
+  assert.ok(spawns.length >= 1);
+  for (const s of spawns) {
+    assert.equal(s.cmd, 'git');
+    assert.ok(s.args.includes('log'));
+  }
+  assert.deepEqual(repoCommits('/nowhere/at/all', { since: 0, until: 1 }), []);
+  r.cleanup();
+});
