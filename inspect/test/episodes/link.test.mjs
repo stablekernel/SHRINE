@@ -75,9 +75,12 @@ test('the linker runs only allowlisted read-only git', () => {
   repoCommits(r.root, { since: T0 - H, until: T0 + H });
   const spawns = spyLog().filter((e) => e.op === 'spawn');
   assert.ok(spawns.length >= 1);
+  assert.ok(spawns.some((s) => s.args.includes('log')), 'the linker ran git log');
   for (const s of spawns) {
     assert.equal(s.cmd, 'git');
-    assert.ok(s.args.includes('log'));
+    // Besides log: the two fixed reads that decide whether history is safe to read.
+    const fixed = s.args.at(-1) === '--version' || (s.args.includes('config') && s.args.includes('--get-regexp'));
+    assert.ok(s.args.includes('log') || fixed, s.args.join(' '));
   }
   assert.deepEqual(repoCommits('/nowhere/at/all', { since: 0, until: 1 }), []);
   r.cleanup();
