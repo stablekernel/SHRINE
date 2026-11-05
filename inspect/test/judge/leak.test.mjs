@@ -19,6 +19,8 @@ const sid = (i) => `dddd0000-0000-4000-8000-${String(i).padStart(12, '0')}`;
 test('T1 leak: zero secret survivors, zero absolute paths, zero OS user or author names in every T1 output', async () => {
   const h = plantedHome([]);
   const user = userInfo().username;
+  // Whole word only: a CI user named "runner" is also part of this tool's own "judge_runner".
+  const userRe = new RegExp(`(?<![\\w-])${user.replace(/[.*+?^${}()|[\]\\]/g, '\\$&')}(?![\\w-])`);
   for (let i = 0; i < 12; i++) {
     const secrets = body.slice((i * 4) % body.length, ((i * 4) % body.length) + 4).join(' and ');
     const script = [
@@ -46,14 +48,14 @@ test('T1 leak: zero secret survivors, zero absolute paths, zero OS user or autho
     if (f === 'facts.json' || f === 'findings.json') continue; // scrubbed display paths (~/...) are kept there, as at T0
     assert.ok(!text.includes(h.home), `home path in ${f}`);
     assert.ok(!text.includes(h.tmp), `fixture path in ${f}`);
-    assert.ok(!text.includes(user), `OS user in ${f}`);
+    assert.doesNotMatch(text, userRe, `OS user in ${f}`);
   }
   // What the judge saw: no OS user, no author name, no absolute path.
   const order = readFileSync(join(r.dir, 'workorder.json'), 'utf8');
-  assert.ok(!order.includes(user), 'OS user in the work order');
+  assert.doesNotMatch(order, userRe, 'OS user in the work order');
   assert.ok(!order.includes('Fixture Author'), 'git author in the work order');
   assert.doesNotMatch(order, /"\/(Users|home|private|var|tmp)\//);
   const safe = readFileSync(join(r.dir, 'report.share-safe.html'), 'utf8');
-  assert.ok(!safe.includes(user), 'OS user in the share-safe file');
+  assert.doesNotMatch(safe, userRe, 'OS user in the share-safe file');
   h.cleanup();
 });
