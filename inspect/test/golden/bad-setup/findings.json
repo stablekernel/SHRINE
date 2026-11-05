@@ -42,7 +42,7 @@
         "status": "amplify",
         "headline": "Shell or file writes run without a pause",
         "sentence": "Your settings approve shell commands or file writes without asking, or skip the approval prompt.",
-        "finding_id": "f-17ff11fc2ce9"
+        "finding_id": "f-7961be7d7bc2"
       },
       {
         "status": "amplify",
@@ -58,7 +58,7 @@
       }
     ],
     "start_with": {
-      "finding_id": "f-17ff11fc2ce9",
+      "finding_id": "f-7961be7d7bc2",
       "action": "Replace blanket allow rules with scoped ones and set the default permission mode back to ask.",
       "minutes_to_apply": 10,
       "framed": true
@@ -125,9 +125,9 @@
   "attribution_stack": null,
   "findings": [
     {
-      "id": "f-17ff11fc2ce9",
+      "id": "f-7961be7d7bc2",
       "kind": "blanket_permissions",
-      "entry_id": "human-in-the-loop.sov.undefined-boundary",
+      "entry_id": "tool-integration.ap.no-approval-step",
       "lens": "config",
       "tab": "amplify",
       "title": "Shell or file writes run without a pause",
@@ -216,6 +216,17 @@
         }
       ],
       "shrine_refs": [
+        {
+          "entry_id": "tool-integration.ap.no-approval-step",
+          "page_id": "stack/tool-integration",
+          "anchor": "anti-patterns",
+          "title": "Tool Integration",
+          "section": "stack",
+          "status": "draft",
+          "url": "https://stablekernel.github.io/SHRINE/stack/tool-integration/#anti-patterns",
+          "url_pinned": "https://github.com/stablekernel/SHRINE/blob/71e82a0e6f729e88c7e40040310fd33068c067f3/docs/src/content/docs/stack/tool-integration.md#L77",
+          "quote": "Outward-facing actions with no approval step"
+        },
         {
           "entry_id": "human-in-the-loop.sov.undefined-boundary",
           "page_id": "principles/human-in-the-loop",

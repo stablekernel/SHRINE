@@ -20,7 +20,7 @@
     "after": "CLAUDE.md keeps the rules that apply to every task and links to a runbook skill and a style guide file read on demand.",
     "setup_note": "Measure the always-loaded size again after the move; each removed line is context every session no longer pays for."
   },
-  "human-in-the-loop.sov.undefined-boundary": {
+  "tool-integration.ap.no-approval-step": {
     "kind": "config",
     "action": "Replace blanket allow rules with scoped ones and set the default permission mode back to ask.",
     "before": "\"permissions\": { \"allow\": [\"Bash\", \"Write\"], \"defaultMode\": \"bypassPermissions\" }",

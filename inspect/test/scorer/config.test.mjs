@@ -28,6 +28,7 @@ const stubCopy = {
 const probe = (kind, hit, over = {}) => ({
   kind,
   entry_id: KINDS.kinds[kind].entry_ids[0],
+  see_also: KINDS.kinds[kind].entry_ids.slice(1),
   hit,
   items: hit ? [{ path: '/home/u/.claude/CLAUDE.md', age_days: 200 }] : [],
   metric: {},
@@ -116,6 +117,12 @@ test('coverage counts by coverage_key: 7 principles plus patterns and stack', ()
   const by = Object.fromEntries(out.coverage.map((c) => [c.key, c.amplify]));
   assert.equal(by['deliberate-currency'], 2);
   assert.equal(by.patterns_and_stack, 1);
+});
+
+test('see_also entries join shrine_refs and a principle among them sets coverage_key', () => {
+  const f = run(hitsOf('blanket_permissions')).findings.find((x) => x.kind === 'blanket_permissions');
+  assert.deepEqual(f.shrine_refs.map((r) => r.entry_id), ['tool-integration.ap.no-approval-step', 'human-in-the-loop.sov.undefined-boundary']);
+  assert.equal(f.coverage_key, 'human-in-the-loop');
 });
 
 test('TLDR is the top 2 amplify by severity plus the third amplify', () => {

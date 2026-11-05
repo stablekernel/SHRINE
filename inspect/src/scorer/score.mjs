@@ -74,6 +74,7 @@ export function score({ run, shrine, probes, structure, catalogue, pivots, copy,
       dropped.push({ id, reason: p.entry_id ? `entry_id ${p.entry_id} not in catalogue` : 'no entry_id' });
       continue;
     }
+    const refs = [r, ...(p.see_also ?? []).map((e) => ref(catalogue, e)).filter(Boolean)];
     const pivot = pivots[p.entry_id];
     const label = t.severity.config[p.kind] ?? t.severity.config.default;
     const c = copy.finding(p.kind, p);
@@ -113,10 +114,10 @@ export function score({ run, shrine, probes, structure, catalogue, pivots, copy,
       },
       praise_class: null,
       benefit: c.benefit,
-      shrine_refs: [r],
+      shrine_refs: refs,
       owner_label: 'Owner: Setup',
       timeline_gap: null,
-      coverage_key: coverageKey([r]),
+      coverage_key: coverageKey(refs),
       items: p.items.map((i) => (i.path ? { ...i, path: displayPath(i.path, home) } : i)),
       config_strip: first ? { mtime: first.date ?? null, last_git_change: first.date_source === 'git' ? first.date : null, sessions_since: history.sessions } : null,
     });

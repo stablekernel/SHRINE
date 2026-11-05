@@ -1531,7 +1531,7 @@
           "line": 76
         },
         {
-          "entry_id": "stack/tool-integration#b2b79f64d7",
+          "entry_id": "tool-integration.ap.no-approval-step",
           "text": "Outward-facing actions with no approval step",
           "anchor": "anti-patterns",
           "line": 77
@@ -3160,6 +3160,17 @@
       "url": "https://stablekernel.github.io/SHRINE/principles/human-in-the-loop/#signal-of-violation",
       "url_pinned": "https://github.com/stablekernel/SHRINE/blob/71e82a0e6f729e88c7e40040310fd33068c067f3/docs/src/content/docs/principles/human-in-the-loop.md#L38",
       "quote": "Undefined boundary: whether a human signs off depends on who ran the agent that day"
+    },
+    "tool-integration.ap.no-approval-step": {
+      "entry_id": "tool-integration.ap.no-approval-step",
+      "page_id": "stack/tool-integration",
+      "anchor": "anti-patterns",
+      "title": "Tool Integration",
+      "section": "stack",
+      "status": "draft",
+      "url": "https://stablekernel.github.io/SHRINE/stack/tool-integration/#anti-patterns",
+      "url_pinned": "https://github.com/stablekernel/SHRINE/blob/71e82a0e6f729e88c7e40040310fd33068c067f3/docs/src/content/docs/stack/tool-integration.md#L77",
+      "quote": "Outward-facing actions with no approval step"
     },
     "reproducibility.sov.not-logged": {
       "entry_id": "reproducibility.sov.not-logged",

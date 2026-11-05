@@ -41,14 +41,21 @@ function setup(over = {}) {
 const probe = (s, kind) => runConfigProbes(s).probes.find((p) => p.kind === kind);
 const check = (s, name) => runConfigProbes(s).structure.find((c) => c.check === name);
 
-test('every probe returns kind, entry_id, hit, items, metric', () => {
+test('every probe returns kind, entry_id, see_also, hit, items, metric', () => {
   const { probes } = runConfigProbes(setup());
   assert.equal(probes.length, 6);
   for (const p of probes) {
-    assert.deepEqual(Object.keys(p).sort(), ['entry_id', 'hit', 'items', 'kind', 'metric']);
+    assert.deepEqual(Object.keys(p).sort(), ['entry_id', 'hit', 'items', 'kind', 'metric', 'see_also']);
     assert.ok(p.entry_id);
+    assert.ok(Array.isArray(p.see_also));
   }
   assert.ok(probes.every((p) => p.hit === false), 'clean setup raises nothing');
+});
+
+test('blanket_permissions cites the approval-step anti-pattern first, Human in the Loop second', () => {
+  const p = runConfigProbes(setup()).probes.find((x) => x.kind === 'blanket_permissions');
+  assert.equal(p.entry_id, 'tool-integration.ap.no-approval-step');
+  assert.deepEqual(p.see_also, ['human-in-the-loop.sov.undefined-boundary']);
 });
 
 test('stale_instructions: pass and fail, git date first, mtime fallback', () => {

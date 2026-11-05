@@ -11,6 +11,9 @@ const OWNER = load('./patterns/owner-line.json');
 const DAY = 86400000;
 const entry = (kind) => KINDS.kinds[kind].entry_ids[0];
 const structureEntry = (check) => KINDS.structure[check].entry_ids[0];
+// Further entries a kind cites after its primary one (for example the principle a
+// stack anti-pattern serves, so coverage still counts it).
+const seeAlso = (kind) => KINDS.kinds[kind].entry_ids.slice(1);
 
 export function ownerLine(text) {
   const lines = (text ?? '').split('\n');
@@ -156,7 +159,7 @@ export function runConfigProbes(setup, t = THRESHOLDS) {
     stack_gap: stackGap(setup),
     short_retention: shortRetention(setup, t),
   };
-  const probes = Object.entries(raw).map(([kind, r]) => ({ kind, entry_id: entry(kind), hit: r.hit, items: r.items, metric: r.metric }));
+  const probes = Object.entries(raw).map(([kind, r]) => ({ kind, entry_id: entry(kind), see_also: seeAlso(kind), hit: r.hit, items: r.items, metric: r.metric }));
   const checks = {
     instruction_layers: layersCheck(setup, t),
     repo_layout: layoutCheck(setup),
