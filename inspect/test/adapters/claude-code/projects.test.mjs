@@ -87,7 +87,7 @@ test('removed worktree folders fall back to stripping /.worktrees/<name>', () =>
   assert.equal(r.projects[0].root, repo);
 });
 
-test('temp folders and housekeeping folders are excluded before consent; spawned work stays in scope', () => {
+test('before consent, temp folders and sdk-cli folders are excluded from cwd and entrypoint alone; the prompt is not used', () => {
   session(home, '/private/tmp/claude-501/scratch', { id: 't' });
   const bot = join(work, 'bot');
   mkdirSync(bot);
@@ -95,10 +95,13 @@ test('temp folders and housekeeping folders are excluded before consent; spawned
   const scribe = join(work, 'scribe');
   mkdirSync(scribe);
   session(home, scribe, { id: 'notes', entrypoint: 'sdk-cli', prompt: 'Write scribe notes' });
+  const human = join(work, 'human');
+  mkdirSync(human);
+  session(home, human, { id: 'h' });
   const r = listProjects({ claudeHome: home, now: NOW, windowDays: 30, tempPatterns: TEMP });
-  assert.deepEqual(r.projects.map((p) => p.name), ['scribe']);
-  assert.deepEqual(r.excluded.map((e) => e.reason).sort(), ['housekeeping', 'temp']);
-  assert.ok(!JSON.stringify(r).includes('Analyze this'), 'only a boolean is kept from the prompt');
+  assert.deepEqual(r.projects.map((p) => p.name), ['human']);
+  assert.deepEqual(r.excluded.map((e) => e.reason).sort(), ['automation', 'automation', 'temp'], 'housekeeping and spawned look the same before consent');
+  assert.ok(!JSON.stringify(r).includes('Analyze this'));
 });
 
 test('default view is the top 20 by bytes in the window, rest behind show all', () => {
@@ -133,7 +136,7 @@ test('after consent every file is re-checked: housekeeping counted, spawned link
   writeFileSync(join(sub, 'agent-a1.jsonl'), 'x'.repeat(500));
   const listing = listProjects({ claudeHome: home, now: NOW, windowDays: 30, tempPatterns: TEMP });
   assert.equal(listing.projects[0].bytes_with_subagents, listing.projects[0].bytes + 500);
-  assert.equal(listing.excluded[0].reason, 'housekeeping');
+  assert.equal(listing.excluded[0].reason, 'automation');
   const inv = sessionInventory(listing);
   assert.deepEqual(inv.sessions.map((s) => s.id).sort(), ['botHuman', 'human1', 'human2']);
   assert.equal(inv.sessions.find((s) => s.id === 'botHuman').project, 'bot');

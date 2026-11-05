@@ -1,10 +1,11 @@
 // Project listing for Gate A (spec 3 phase 1, spec 10 adapter). Before consent it
-// reads filesystem metadata plus, from one session file per folder, the cwd and
-// entrypoint keys within the first 10 lines, and whether the first prompt starts
-// with a known housekeeping prefix (a boolean; no prompt text is kept).
+// reads filesystem metadata plus, from one session file per folder, the cwd,
+// entrypoint, and version keys within the first 10 lines. A folder whose newest
+// file is sdk-cli is excluded as automation; its files are re-checked after consent.
 //
-// Session classes: interactive (read for usage), housekeeping (sdk-cli tool
-// upkeep, counted only), spawned (other sdk-cli work, linked to a parent session
+// Session classes, after consent: interactive (read for usage), housekeeping
+// (sdk-cli whose first prompt starts with a known prefix; counted only; a boolean,
+// no prompt text is kept), spawned (other sdk-cli work, linked to a parent session
 // as a byproduct, never judged).
 import { basename, dirname, join, resolve } from 'node:path';
 import { fileURLToPath } from 'node:url';
@@ -30,13 +31,16 @@ export function isTempPath(cwd, patterns = TEMP.patterns) {
   return patterns.some((p) => new RegExp(p).test(cwd));
 }
 
-function sampleMeta(file, prefixes = HOUSEKEEPING.prefixes) {
+// consented: false (Gate A) returns only cwd, entrypoint, and version, with kind
+// 'automation' for any sdk-cli file. consented: true also reads the start time and
+// the first prompt, to tell housekeeping from spawned work.
+function sampleMeta(file, { consented = false, prefixes = HOUSEKEEPING.prefixes } = {}) {
   const s = (v) => (typeof v === 'string' ? v : null);
   let meta = null;
   let firstPrompt = null;
   let start = null;
   for (const line of readLines(file, MAX_CWD_LINES)) {
-    if (!line.includes('"cwd"') && !line.includes('"type":"user"')) continue;
+    if (!line.includes('"cwd"') && !(consented && line.includes('"type":"user"'))) continue;
     let o;
     try {
       o = JSON.parse(line);
@@ -44,13 +48,19 @@ function sampleMeta(file, prefixes = HOUSEKEEPING.prefixes) {
       continue; // a corrupt line is skipped; the next one may carry cwd
     }
     if (!meta && typeof o.cwd === 'string') meta = { cwd: o.cwd, entrypoint: s(o.entrypoint), version: s(o.version) };
+    if (!consented) {
+      if (meta) break;
+      continue;
+    }
     if (!start && typeof o.timestamp === 'string') start = o.timestamp;
     if (firstPrompt === null && o.type === 'user' && !o.toolUseResult) firstPrompt = userText(o).trimStart();
     if (meta && firstPrompt !== null) break;
   }
   if (!meta) return null;
+  if (meta.entrypoint !== 'sdk-cli') return { ...meta, start, kind: 'interactive' };
+  if (!consented) return { ...meta, start, kind: 'automation' };
   const housekeeping = firstPrompt !== null && prefixes.some((p) => firstPrompt.startsWith(p));
-  return { ...meta, start, kind: meta.entrypoint !== 'sdk-cli' ? 'interactive' : housekeeping ? 'housekeeping' : 'spawned' };
+  return { ...meta, start, kind: housekeeping ? 'housekeeping' : 'spawned' };
 }
 
 // Main repo root for a cwd: git common dir when the folder exists, else strip a
@@ -97,9 +107,9 @@ export function listProjects({ claudeHome, now = Date.now(), windowDays = 30, te
       excluded.push({ folder: folder.name, cwd: meta.cwd, reason: 'temp', sessions: files.length, bytes, files });
       continue;
     }
-    if (meta.kind === 'housekeeping') {
+    if (meta.kind === 'automation') {
       // Kept so that, after consent, every file here is re-checked one by one.
-      excluded.push({ folder: folder.name, cwd: meta.cwd, reason: 'housekeeping', sessions: files.length, bytes, files });
+      excluded.push({ folder: folder.name, cwd: meta.cwd, reason: 'automation', sessions: files.length, bytes, files });
       continue;
     }
     // Subagent transcripts sit in <session>/subagents/; metadata only, for the size estimate.
@@ -131,7 +141,7 @@ export function subagentFiles(sessionPath) {
 }
 
 // After Gate A consent: classifies every session file in scope, plus every file
-// in folders excluded as housekeeping (a mixed folder keeps its interactive
+// in folders excluded as automation (a mixed folder keeps its interactive
 // sessions). Only interactive sessions are returned for reading.
 export function sessionInventory(listing) {
   const sessions = [];
@@ -145,7 +155,7 @@ export function sessionInventory(listing) {
   };
   const groups = [
     ...listing.projects.map((p) => ({ files: p.files ?? [], project: p })),
-    ...listing.excluded.filter((e) => e.reason === 'housekeeping').map((e) => ({ files: e.files ?? [], project: null })),
+    ...listing.excluded.filter((e) => e.reason === 'automation').map((e) => ({ files: e.files ?? [], project: null })),
     // Temp and scratch folders: only their sdk-cli files are classified; interactive
     // sessions there stay unread.
     ...listing.excluded.filter((e) => e.reason === 'temp').map((e) => ({ files: e.files ?? [], project: null, temp: true })),
@@ -153,7 +163,7 @@ export function sessionInventory(listing) {
   for (const g of groups) {
     for (const f of g.files) {
       total++;
-      const meta = sampleMeta(f.path);
+      const meta = sampleMeta(f.path, { consented: true });
       const id = basename(f.path, '.jsonl');
       const root = g.project?.root ?? (meta ? rootOf(meta.cwd) : null);
       if (meta?.kind === 'housekeeping') {

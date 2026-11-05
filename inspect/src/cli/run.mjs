@@ -103,7 +103,7 @@ export async function continueRun(folder, ctx, io) {
     bytes: historyBytes,
     estimate_seconds: estimateSeconds(historyBytes),
     window_days: ret.days,
-    recheck_sessions: listing.excluded.filter((e) => e.reason === 'housekeeping' || e.reason === 'temp').reduce((n, e) => n + e.sessions, 0),
+    recheck_sessions: listing.excluded.filter((e) => e.reason === 'automation' || e.reason === 'temp').reduce((n, e) => n + e.sessions, 0),
   };
 
   if (!state.gates.A) {

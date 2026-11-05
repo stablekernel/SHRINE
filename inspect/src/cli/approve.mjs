@@ -22,7 +22,8 @@ const describe = (gate) => {
     for (const p of gate.projects) lines.push(`  ${p.name}: ${p.sessions} session files, ${Math.round(p.bytes / 1024)} KB`);
     if (gate.more) lines.push(`  and ${gate.more} more`);
   }
-  if (gate.excluded) lines.push(`Excluded (temp, scratch, housekeeping automation): ${gate.excluded} folders`);
+  if (gate.excluded) lines.push(`Excluded (temp, scratch, sdk-cli automation): ${gate.excluded} folders`);
+  lines.push('Read so far: file names, sizes, and dates, plus the cwd, entrypoint, and version keys from the first 10 lines of the newest session file per folder. No prompt is read before you answer.');
   const h = gate.history;
   if (h) {
     lines.push(`History if yes: ${h.sessions} session files in ${h.projects} ${h.projects === 1 ? 'project' : 'projects'}, ${day(h.from)} to ${day(h.to)} (last ${h.window_days} days), ${size(h.bytes)} on disk.`);

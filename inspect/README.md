@@ -8,7 +8,9 @@ Status: pre-release (SP2). Install and docs cutover arrive in SP3; until then th
 
 - `node bin/shrine-inspect.mjs run --tier T0 --no-history`: setup and repos only
 - Without `--no-history`, the run pauses at Gate A (exit 3) until you answer in your own terminal: `node bin/shrine-inspect.mjs approve <run> A <no-history|history>`
-- Gate A lists projects, date range, size on disk, and a size-based time estimate; history is read only after `history`, and every run asks again
+- Gate A lists projects, date range, size on disk, and a size-based time estimate; every run asks again
+  - Before Gate A: file names, sizes, and dates, plus the `cwd`, `entrypoint`, and `version` keys from the first 10 lines of the newest session file per folder
+  - Prompts and the rest of each session are read only after `history`
 - `--session-id <id>` leaves out the session driving the run; without it, the newest session file written in the last 5 minutes is left out
 - Gate B is fixed at T0 (`--tier T0`); deeper tiers are not available yet
 - With history: usage counts (sessions, turns, interrupts, compactions, retries, subagent share, correction candidates, done claims without a prior test) in the report appendix and header
@@ -16,7 +18,7 @@ Status: pre-release (SP2). Install and docs cutover arrive in SP3; until then th
   - `sdk-cli` sessions are never read in full; each is classified from its first lines after consent
     - Housekeeping (first prompt matches `src/probes/patterns/housekeeping.json`): left out, counted in one appendix line
     - Spawned work (any other `sdk-cli`): linked to the interactive session running in the same repo at that time, shown as byproducts, never judged; no parent found means "unattributed automation"
-  - Before consent a folder is excluded only when its newest file is housekeeping; after consent every file is re-checked, so mixed folders keep their interactive sessions
+  - Before consent a folder is excluded as automation when its newest file is `sdk-cli` (entrypoint only, no prompt); after consent every file is re-checked, so mixed folders keep their interactive sessions
   - Rework within 72 hours (headline) counts named reverts only, shown with N
     - Candidate counts, appendix only: "possible rework (later-session fix)" (a fix on the same files from a later session, at least 1 hour after the commit) and "possible rework (file overlap)"
     - Fix commits in the same session or within 1 hour are "iteration commits", never rework
