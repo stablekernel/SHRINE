@@ -9,11 +9,14 @@ import { createHash } from 'node:crypto';
 import { fileURLToPath } from 'node:url';
 import { readJson } from '../io/fsread.mjs';
 import { matchesAtCommand } from '../probes/command-position.mjs';
+import { isCorrectionCue, isTestCommand } from '../probes/usage.mjs';
 
 const load = (rel) => readJson(fileURLToPath(new URL(rel, import.meta.url)));
 const COMMIT = load('../probes/patterns/commit.json');
 const SWITCH = load('../probes/patterns/task-switch.json');
 const AGENT_TOOLS = new Set(['Task', 'Agent']);
+// A fresh copy, so a short tail never pins the long reply it was cut from.
+const own = (s) => (typeof s === 'string' ? JSON.parse(JSON.stringify(s)) : s);
 
 export const endsWithQuestion = (text) => /\?\s*[*_`)"'\]]*\s*$/.test(text ?? '');
 
@@ -53,11 +56,11 @@ export function extractEpisodes(session, timeline, { idleMinutes = 30 } = {}) {
     humans: [],
     last_text: '',
     last_text_t: null,
-    events: [],
+    last_kind: null,
   });
   const finish = (terminal) => {
     if (!cur) return;
-    const { touched, closed_by, ...rest } = cur;
+    const { touched, closed_by, last_kind, ...rest } = cur;
     out.push({ ...rest, terminal, touched_files: [...touched].sort() });
     cur = null;
   };
@@ -72,23 +75,23 @@ export function extractEpisodes(session, timeline, { idleMinutes = 30 } = {}) {
     if (e.kind === 'human') {
       if (cur?.closed_by) finish(cur.closed_by);
       if (!cur) cur = open(e);
-      const prev = cur.events.at(-1);
-      cur.humans.push({ t: e.t, text: e.text, index: cur.human_turns, after_interrupt: prev?.kind === 'interrupt' });
+      // Only derived flags are kept, never the text, so episodes stay small across a large history.
+      cur.humans.push({ t: e.t, index: cur.human_turns, after_interrupt: cur.last_kind === 'interrupt', cue: isCorrectionCue(e.text) });
       cur.human_turns++;
       lastQuestion = false;
     }
     if (!cur) continue;
     cur.end = e.t ?? cur.end;
-    cur.events.push({ t: e.t, kind: e.kind, sub: e.sub === true });
+    cur.last_kind = e.kind;
     if (e.kind === 'usage') {
       cur.tokens += e.tokens;
       if (!e.sub) cur.assistant_turns++;
     } else if (e.kind === 'assistant_text' && !e.sub) {
-      cur.last_text = e.text;
+      cur.last_text = own(e.text);
       cur.last_text_t = e.t;
       lastQuestion = endsWithQuestion(e.text);
     } else if (e.kind === 'tool_use') {
-      cur.calls.push({ t: e.t, name: e.name, command: e.command ?? null, key: e.key, sub: e.sub === true, human_turns_before: cur.human_turns });
+      cur.calls.push({ t: e.t, name: e.name, test: e.name === 'Bash' && isTestCommand(e.command), key: e.key, sub: e.sub === true, human_turns_before: cur.human_turns });
       for (const f of e.files ?? []) cur.touched.add(f);
       if (!e.sub && AGENT_TOOLS.has(e.name)) cur.subagents++;
       const k = e.name === 'Bash' ? commitKind(e.command) : null;

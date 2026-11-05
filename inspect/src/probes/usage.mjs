@@ -48,8 +48,8 @@ export function countRetries(calls, window = PATTERNS.retry.window) {
 
 export function episodeFlags(ep) {
   const claim = isDoneClaim(ep.last_text);
-  const tested = ep.calls.some((c) => c.name === 'Bash' && (!ep.last_text_t || c.t <= ep.last_text_t) && isTestCommand(c.command));
-  const corrections = ep.humans.filter((h) => h.index > 0 && (h.after_interrupt || isCorrectionCue(h.text))).length;
+  const tested = ep.calls.some((c) => (!ep.last_text_t || c.t <= ep.last_text_t) && (c.test ?? (c.name === 'Bash' && isTestCommand(c.command))));
+  const corrections = ep.humans.filter((h) => h.index > 0 && (h.after_interrupt || (h.cue ?? isCorrectionCue(h.text)))).length;
   return { done_claim: claim, tested, done_without_test: claim && !tested, corrections, retries: countRetries(ep.calls), tool_calls: ep.calls.length };
 }
 

@@ -14,8 +14,10 @@ const MAX_HUMAN = 1000;
 const MAX_ASSISTANT = 600;
 const MAX_COMMAND = 2000;
 
-const tail = (s, n) => (s.length > n ? s.slice(-n) : s);
-const head = (s, n) => (s.length > n ? s.slice(0, n) : s);
+// Cut copies are flattened, so a short cut never pins the long string it came from.
+const own = (s) => JSON.parse(JSON.stringify(s));
+const tail = (s, n) => own(s.length > n ? s.slice(-n) : s);
+const head = (s, n) => own(s.length > n ? s.slice(0, n) : s);
 const keyOf = (name, input) => createHash('sha1').update(`${name}\u0000${JSON.stringify(input ?? null)}`).digest('hex').slice(0, 16);
 
 function onLine(o, sub, acc) {

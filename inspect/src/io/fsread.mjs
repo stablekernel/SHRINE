@@ -97,7 +97,7 @@ export function readHead(path, maxBytes) {
 export async function* streamLines(path) {
   const s = fs.statSync(path);
   record({ op: 'open', path, mode: 'r', size: s.size, stream: true });
-  const input = fs.createReadStream(path, { flags: 'r', encoding: 'utf8', highWaterMark: 1 << 20 });
+  const input = fs.createReadStream(path, { flags: 'r', encoding: 'utf8', highWaterMark: 1 << 16 });
   const rl = readline.createInterface({ input, crlfDelay: Infinity });
   try {
     for await (const line of rl) yield line;
