@@ -239,7 +239,7 @@ export function mask(text, known) {
     if (exact) {
       // Whole value, or a whole path segment; never inside a sentence.
       if (out === value) out = placeholder;
-      else out = out.replace(new RegExp(`(?<=/)${esc(value)}(?=/|$|[\\s"'<>])`, 'g'), placeholder);
+      else out = out.replace(new RegExp(`(?<=[/\\\\])${esc(value)}(?![\\w-]|\\.\\w)`, 'g'), placeholder);
       continue;
     }
     out = out.replace(new RegExp(`(?<![\\w-])${esc(value)}(?![\\w-])`, 'g'), placeholder);

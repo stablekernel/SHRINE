@@ -497,3 +497,12 @@ test('a vocabulary-named project is still masked as a path segment; people are n
   assert.equal(mask('see ~/w/skills', k), 'see ~/w/<project-1>');
   assert.equal(mask('run setup now', k), 'run <author-1> now');
 });
+
+test('a vocabulary-named project is masked in paths followed by punctuation', async () => {
+  const { copyVocabulary } = await import('../../src/copy/templates.mjs');
+  const k = buildIdentifiers({ projects: ['skills'], vocabulary: copyVocabulary() });
+  for (const s of ['/opt/code/skills.', 'see /opt/x/skills, then', '(/opt/x/skills)', '/opt/x/skills:12', 'C:\\code\\skills']) {
+    assert.ok(!/skills/.test(mask(s, k)), `${s} -> ${mask(s, k)}`);
+  }
+  assert.equal(mask('/opt/x/skills.md', k), '<path>/skills.md', 'a different file name is not the project');
+});
