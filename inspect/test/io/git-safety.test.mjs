@@ -27,11 +27,26 @@ function partialClone(filter = 'blob:none') {
   return clone;
 }
 
+// On git that ignores GIT_NO_LAZY_FETCH, git() skips history reads in a partial
+// clone and never runs git, so a test through it would pass with every guard gone.
+// Claim a trusted version so git really runs; on old git the transport guards then
+// carry the test alone.
+function gitRuns(args, cwd) {
+  setGitVersion([2, 45, 1]);
+  try {
+    const r = git(args, { cwd });
+    assert.notEqual(r.skipped, true, 'git did not run');
+    return r;
+  } finally {
+    setGitVersion(undefined);
+  }
+}
+
 test('git never lazy-fetches missing objects from a promisor remote', () => {
   const clone = partialClone();
   try {
     const before = packs(clone);
-    const r = git(['show', 'HEAD~1:a.txt'], { cwd: clone });
+    const r = gitRuns(['show', 'HEAD~1:a.txt'], clone);
     assert.equal(r.ok, false, 'old blob must stay missing');
     assert.deepEqual(packs(clone), before);
   } finally {
@@ -64,7 +79,7 @@ for (const kind of ['ext', 'file']) {
   test(`repo config cannot re-enable the ${kind} transport for a lazy fetch`, () => {
     const { dir, clone, marker } = trappedClone(kind);
     try {
-      for (const args of LAZY_READS) git(args, { cwd: clone });
+      for (const args of LAZY_READS) gitRuns(args, clone);
       assert.equal(existsSync(marker), false, 'inspect git ran the remote command');
     } finally {
       rmSync(dir, { recursive: true, force: true });
