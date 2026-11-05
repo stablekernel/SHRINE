@@ -2,15 +2,23 @@
 // file that changed while the spy log shows a write open by inspect fails the
 // run; any other change is reported as "changed during run, not by inspect".
 // Append-only session logs only record growth, attributed to other sessions.
-// Each scanned repo's .git is also snapshotted (pack list; index, HEAD, FETCH_HEAD,
-// and packed-refs mtimes). Only the lazy-fetch signature fails the run: a new
-// promisor pack written during one of inspect's own git runs in that repo, no pack
-// removed, and no FETCH_HEAD update. Index, HEAD, ref, and
-// other pack changes come from the user (git add, stash, fetch, repack, gc,
-// maintenance, an IDE refresh) and are reported as changed by others.
+// Each scanned repo's .git is also snapshotted (pack list, objects/bundles,
+// loose-object folders; index, HEAD, FETCH_HEAD, and packed-refs mtimes). Any
+// object written during one of inspect's own git runs in that repo fails the run
+// (a lazy fetch, or a bundle URI it applied), unless a pack was removed or
+// FETCH_HEAD moved (a user repack or fetch). Index, HEAD, ref, and other object
+// changes come from the user (git add, stash, fetch, repack, gc, maintenance, an
+// IDE refresh) and are reported as changed by others.
 import { resolve, sep } from 'node:path';
 import { exists, list, readBytes, sha256, stat } from '../io/fsread.mjs';
 import { gitOut } from '../io/git.mjs';
+
+// name -> mtime for the entries of a folder, skipping in-flight tmp_* files.
+function entries(dir, keep = () => true) {
+  const out = {};
+  for (const e of list(dir)) if (!e.name.startsWith('tmp_') && keep(e.name)) out[e.name] = stat(resolve(dir, e.name))?.mtimeMs ?? null;
+  return out;
+}
 
 function gitState(root) {
   const dir = gitOut(['rev-parse', '--absolute-git-dir'], root);
@@ -18,15 +26,15 @@ function gitState(root) {
   if (!dir || !commonOut) return null;
   const common = resolve(root, commonOut);
   const mtime = (p) => stat(p)?.mtimeMs ?? null;
-  // tmp_* entries are packs still being written by some other git process.
-  const packs = list(resolve(common, 'objects', 'pack'))
-    .map((e) => e.name)
-    .filter((n) => !n.startsWith('tmp_'))
-    .sort()
-    .join('\n');
+  const objects = resolve(common, 'objects');
   return {
     common,
-    packs,
+    // tmp_* entries are packs still being written by some other git process.
+    packs: entries(resolve(objects, 'pack')),
+    bundles: entries(resolve(objects, 'bundles')),
+    // Loose objects land in two-hex-digit folders; a new object bumps the folder mtime.
+    loose: entries(objects, (n) => /^[0-9a-f]{2}$/.test(n)),
+    bundles_dir: mtime(resolve(objects, 'bundles')),
     index: mtime(resolve(dir, 'index')),
     head: mtime(resolve(dir, 'HEAD')),
     fetch_head: mtime(resolve(common, 'FETCH_HEAD')),
@@ -34,7 +42,9 @@ function gitState(root) {
   };
 }
 
-const sameState = (a, b) => ['packs', 'index', 'head', 'fetch_head', 'refs'].every((k) => a[k] === b[k]);
+const OBJECT_KEYS = ['packs', 'bundles', 'loose'];
+const sameMap = (a, b) => JSON.stringify(a) === JSON.stringify(b);
+const sameState = (a, b) => OBJECT_KEYS.every((k) => sameMap(a[k], b[k])) && ['bundles_dir', 'index', 'head', 'fetch_head', 'refs'].every((k) => a[k] === b[k]);
 // Slack around each inspect git run for clock and timestamp jitter.
 const SLACK_MS = 250;
 // Coarse filesystems truncate mtimes to the second (HFS+, NFS, some ext4) or to
@@ -45,19 +55,16 @@ function inRun(m, r) {
   const grain = m % 1000 === 0 ? 2000 : 1000;
   return m >= Math.floor(r.t_start / grain) * grain - SLACK_MS && m <= r.t + SLACK_MS;
 }
-// A lazy fetch only adds a pack with a .promisor sidecar and never writes
-// FETCH_HEAD. A repack or gc also removes packs; plain fetches add no .promisor.
-// The user or an IDE can lazy-fetch in the same clone, so inspect is blamed only
-// when the new pack's mtime falls inside one of its own git runs in that repo.
-function lazyFetch(a, b, runs) {
+// A lazy fetch (or the bundle URI it applies first) adds objects and never writes
+// FETCH_HEAD; a repack or gc also removes packs. The user or an IDE can fetch in
+// the same clone, so inspect is blamed only when a new or touched object entry's
+// mtime falls inside one of its own git runs in that repo.
+function objectsWritten(a, b, runs) {
   if (a.fetch_head !== b.fetch_head) return false;
-  const before = new Set(a.packs.split('\n'));
-  const after = new Set(b.packs.split('\n'));
-  if ([...before].some((n) => n && !after.has(n))) return false;
-  return [...after]
-    .filter((n) => n.endsWith('.promisor') && !before.has(n))
-    .map((n) => stat(resolve(a.common, 'objects', 'pack', n))?.mtimeMs)
-    .some((m) => m != null && runs.some((r) => inRun(m, r)));
+  if (Object.keys(a.packs).some((n) => !(n in b.packs))) return false;
+  const touched = OBJECT_KEYS.flatMap((k) => Object.entries(b[k]).filter(([n, m]) => a[k][n] !== m).map(([, m]) => m));
+  if (b.bundles_dir !== a.bundles_dir) touched.push(b.bundles_dir);
+  return touched.some((m) => m != null && runs.some((r) => inRun(m, r)));
 }
 
 function gitRunsIn(spy, root) {
@@ -96,7 +103,7 @@ export function verifyRun(baseline, spy) {
     if (now !== h.head) changed.push({ path: h.root, change: 'HEAD moved', by: 'others' });
     else if (h.git) {
       const after = gitState(h.root);
-      if (after && !sameState(h.git, after)) changed.push({ path: h.git.common, change: '.git changed', by: lazyFetch(h.git, after, gitRunsIn(spy, resolve(h.root))) ? 'inspect' : 'others' });
+      if (after && !sameState(h.git, after)) changed.push({ path: h.git.common, change: '.git changed', by: objectsWritten(h.git, after, gitRunsIn(spy, resolve(h.root))) ? 'inspect' : 'others' });
     }
   }
   const byInspect = changed.filter((c) => c.by === 'inspect');

@@ -1,6 +1,6 @@
 import { test } from 'node:test';
 import assert from 'node:assert/strict';
-import { mkdtempSync, writeFileSync, statSync, readFileSync, readdirSync, rmSync } from 'node:fs';
+import { mkdirSync, mkdtempSync, writeFileSync, statSync, readFileSync, readdirSync, rmSync } from 'node:fs';
 import { createHash } from 'node:crypto';
 import { tmpdir } from 'node:os';
 import { join } from 'node:path';
@@ -101,17 +101,50 @@ test('a promisor pack made between inspect git runs (a user lazy fetch) is repor
   assert.deepEqual(r.changed_by_others.map((c) => c.change), ['.git changed']);
 });
 
-test('a new pack with no promisor sidecar, or an in-flight tmp pack, is not blamed on inspect', async () => {
+// A repo-config bundle URI (old git, no GIT_NO_LAZY_FETCH) unbundles a plain pack
+// with no .promisor sidecar, an http one also fills objects/bundles, and a small
+// fetch can land loose objects: any of them inside an inspect git run is inspect's.
+for (const [label, write] of [
+  ['a plain pack', (git) => writeFileSync(join(git, 'objects', 'pack', 'pack-0000.pack'), 'x')],
+  ['a bundles folder', (git) => mkdirSync(join(git, 'objects', 'bundles'))],
+  ['a loose object', (git) => {
+    mkdirSync(join(git, 'objects', 'ab'), { recursive: true });
+    writeFileSync(join(git, 'objects', 'ab', 'cdef'), 'x');
+  }],
+]) {
+  test(`${label} written inside an inspect git run fails the run`, async () => {
+    const { execFileSync } = await import('node:child_process');
+    const { repo } = gitRepo(execFileSync);
+    const { heads } = baselineOf([], [repo]);
+    const t_start = Date.now();
+    write(join(repo, '.git'));
+    const r = verifyRun({ files: [], heads }, [inspectGit(repo, t_start, Date.now())]);
+    assert.equal(r.ok, false);
+    assert.deepEqual(r.changed_paths, [join(repo, '.git')]);
+  });
+
+  test(`${label} written between inspect git runs is reported, not blamed on inspect`, async () => {
+    const { execFileSync } = await import('node:child_process');
+    const { repo } = gitRepo(execFileSync);
+    const { heads } = baselineOf([], [repo]);
+    const now = Date.now();
+    write(join(repo, '.git'));
+    const r = verifyRun({ files: [], heads }, [inspectGit(repo, now - 60_000, now - 59_000)]);
+    assert.equal(r.ok, true);
+    assert.deepEqual(r.changed_by_others.map((c) => c.change), ['.git changed']);
+  });
+}
+
+test('an in-flight tmp pack is not blamed on inspect', async () => {
   const { execFileSync } = await import('node:child_process');
   const { repo } = gitRepo(execFileSync);
   const { heads } = baselineOf([], [repo]);
   const t_start = Date.now();
-  writeFileSync(join(repo, '.git', 'objects', 'pack', 'pack-0000.pack'), 'x');
   writeFileSync(join(repo, '.git', 'objects', 'pack', 'tmp_pack_abc123'), 'x');
   writeFileSync(join(repo, '.git', 'objects', 'pack', 'tmp_pack_def456.promisor'), 'x');
   const r = verifyRun({ files: [], heads }, [inspectGit(repo, t_start, Date.now())]);
   assert.equal(r.ok, true);
-  assert.deepEqual(r.changed_by_others.map((c) => c.change), ['.git changed']);
+  assert.deepEqual(r.changed_paths, []);
 });
 
 test('a user repack during the scan is reported, not blamed on inspect', async () => {
@@ -227,4 +260,39 @@ test('a whole-second promisor pack from before the run window is not blamed on i
   const r = verifyRun({ files: [], heads }, [inspectGit(repo, S + 2500, S + 2600)]);
   assert.equal(r.ok, true);
   assert.deepEqual(r.changed_by_others.map((c) => c.change), ['.git changed']);
+});
+
+// Real git: a tree:0 clone whose repo config names a local bundle. With the lazy-fetch
+// and bundle guards stripped (old git, or a future bypass) the unbundled pack has no
+// .promisor sidecar; verify must still blame the run it landed in.
+test('a real bundle-URI pack written during an unguarded git run fails the run', async () => {
+  const { execFileSync, spawnSync } = await import('node:child_process');
+  const { gitInvocation } = await import('../../src/io/git.mjs');
+  const dir = mkdtempSync(join(tmpdir(), 'si-verify-bundle-'));
+  const env = { ...process.env, GIT_AUTHOR_NAME: 't', GIT_AUTHOR_EMAIL: 't@x', GIT_COMMITTER_NAME: 't', GIT_COMMITTER_EMAIL: 't@x' };
+  const g = (cwd, ...a) => execFileSync('git', a, { cwd, env, stdio: 'ignore' });
+  try {
+    g(dir, 'init', '-q', 'src');
+    for (const v of ['one', 'two']) {
+      writeFileSync(join(dir, 'src', 'a.txt'), v);
+      g(join(dir, 'src'), 'add', 'a.txt');
+      g(join(dir, 'src'), 'commit', '-q', '-m', v);
+    }
+    g(join(dir, 'src'), 'config', 'uploadpack.allowFilter', 'true');
+    g(join(dir, 'src'), 'bundle', 'create', join(dir, 'all.bundle'), '--all');
+    g(dir, 'clone', '-q', '--filter=tree:0', '--no-local', `file://${join(dir, 'src')}`, 'clone');
+    const clone = join(dir, 'clone');
+    g(clone, 'config', 'fetch.bundleURI', join(dir, 'all.bundle'));
+    const { heads } = baselineOf([], [clone]);
+    const inv = gitInvocation(['log', '-1', '--format=%cI', '--', 'a.txt'], clone);
+    delete inv.env.GIT_NO_LAZY_FETCH;
+    const args = inv.args.filter((a, i) => !/bundleURI/.test(a) && !/bundleURI/.test(inv.args[i + 1] ?? ''));
+    const t_start = Date.now();
+    spawnSync(inv.cmd, args, { cwd: clone, env: inv.env, stdio: 'pipe' });
+    const r = verifyRun({ files: [], heads }, [inspectGit(clone, t_start, Date.now())]);
+    assert.equal(r.ok, false, 'control: the stripped run must write a pack');
+    assert.deepEqual(r.changed_paths, [join(clone, '.git')]);
+  } finally {
+    rmSync(dir, { recursive: true, force: true });
+  }
 });
