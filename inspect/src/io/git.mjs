@@ -137,13 +137,14 @@ function noteFailure(r, cwd) {
 
 const partial = new Map();
 // True when this repo has a promisor remote (a partial clone): the only kind of repo
-// a read can lazy-fetch into.
+// a read can lazy-fetch into. A hung or refused repo is not one: git is never run
+// there again, and it is reported under its own reason.
 export function isPartialClone(cwd) {
-  if (!partial.has(cwd) && (isHung(cwd) || isRefused(cwd))) partial.set(cwd, true);
+  if (isHung(cwd) || isRefused(cwd)) return false;
   if (!partial.has(cwd)) {
     const inv = gitInvocation(PROMISOR_QUERY, cwd);
     const r = runSync(inv.cmd, inv.args, { cwd, env: inv.env });
-    noteFailure(r, cwd);
+    if (noteFailure(r, cwd)) return false;
     // Exit 1 is "no such key"; any other failure counts as partial, to stay safe.
     partial.set(cwd, !(r.status === 1 || (r.status === 0 && !/\S/.test(r.stdout))));
   }
@@ -180,9 +181,11 @@ export function resetGitTimeouts() {
 // yet) is an answer, not a failure.
 export function git(args, { cwd }) {
   const inv = gitInvocation(args, cwd);
+  // The partial-clone check runs first: its own git run can be the one that hangs or
+  // is refused, and then the checks below skip this run.
+  if (HISTORY.has(args[0]) && !historyReadable(cwd)) return { ok: false, stdout: '', stderr: 'history not read: partial clone on a git that can lazy-fetch', skipped: true, failed: true };
   if (isHung(cwd)) return { ok: false, stdout: '', stderr: 'git not run: an earlier git run in this repo timed out', skipped: true, timedOut: true, failed: true };
   if (isRefused(cwd)) return { ok: false, stdout: '', stderr: 'git not run: git refused this repo earlier', skipped: true, refused: true, failed: true };
-  if (HISTORY.has(args[0]) && !historyReadable(cwd)) return { ok: false, stdout: '', stderr: 'history not read: partial clone on a git that can lazy-fetch', skipped: true, failed: true };
   const r = runSync(inv.cmd, inv.args, { cwd: inv.cwd, env: inv.env });
   if (noteFailure(r, cwd)) return { ok: false, stdout: '', stderr: r.timedOut ? 'git timed out' : r.stderr, timedOut: r.timedOut, refused: !r.timedOut, failed: true };
   if (r.error) return { ok: false, stdout: '', stderr: String(r.error.message), failed: true };

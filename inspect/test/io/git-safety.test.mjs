@@ -4,7 +4,8 @@ import { execFileSync, spawnSync } from 'node:child_process';
 import { existsSync, mkdirSync, mkdtempSync, readdirSync, rmSync, writeFileSync } from 'node:fs';
 import { tmpdir } from 'node:os';
 import { join } from 'node:path';
-import { firstSafeGit, git, gitInvocation, historyReadable, honorsNoLazyFetch, setGitVersion } from '../../src/io/git.mjs';
+import { firstSafeGit, git, gitInvocation, historyReadable, honorsNoLazyFetch, isPartialClone, isRefused, resetGitTimeouts, setGitTestEnv, setGitVersion } from '../../src/io/git.mjs';
+import { REFUSE_ALL_REPOS } from '../synth/home.mjs';
 
 // The spawn time limit in these tests is 1 s. A per-test limit bounds the async
 // parts; if the spawn limit ever broke, git would block spawnSync itself, and the
@@ -222,6 +223,29 @@ test('config is allowed only as the fixed promisor query, and --version only bar
   assert.throws(() => gitInvocation(['config', 'core.pager', 'x'], '.'), /allowlist/);
   assert.throws(() => gitInvocation(['--version', '--build-options'], '.'), /allowlist/);
   assert.equal(gitInvocation(['--version'], '.').cmd, 'git');
+});
+
+test('a refused repo is not counted as a partial clone, even on git that ignores GIT_NO_LAZY_FETCH', () => {
+  const clone = partialClone('tree:0');
+  const dir = join(clone, '..');
+  resetGitTimeouts();
+  setGitTestEnv(REFUSE_ALL_REPOS);
+  setGitVersion([2, 44, 0]);
+  try {
+    // Refused first by a ref read (history reads wait on the partial-clone check).
+    const r = git(['rev-parse', 'HEAD'], { cwd: clone });
+    assert.equal(r.refused, true, r.stderr);
+    assert.equal(isRefused(clone), true);
+    assert.equal(isPartialClone(clone), false, 'refused, not partial');
+    assert.equal(historyReadable(clone), true, 'git is not run there anyway');
+    assert.equal(git(['log', '-1', '--format=%cI'], { cwd: clone }).refused, true, 'a history read reports the refusal');
+    assert.equal(isPartialClone(join(dir, 'src')), false);
+  } finally {
+    setGitTestEnv();
+    setGitVersion(undefined);
+    resetGitTimeouts();
+    rmSync(dir, { recursive: true, force: true });
+  }
 });
 
 test('a partial clone on git that ignores GIT_NO_LAZY_FETCH skips history reads; others run', () => {
