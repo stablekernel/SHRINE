@@ -1,0 +1,4 @@
+{
+  "enabledPlugins": { "guard@market": true, "disabled@market": false },
+  "cleanupPeriodDays": 60
+}
