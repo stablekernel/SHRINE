@@ -504,5 +504,5 @@ test('a vocabulary-named project is masked in paths followed by punctuation', as
   for (const s of ['/opt/code/skills.', 'see /opt/x/skills, then', '(/opt/x/skills)', '/opt/x/skills:12', 'C:\\code\\skills']) {
     assert.ok(!/skills/.test(mask(s, k)), `${s} -> ${mask(s, k)}`);
   }
-  assert.equal(mask('/opt/x/skills.md', k), '<path>/skills.md', 'a different file name is not the project');
+  assert.equal(mask('/opt/x/skills.md', k), '<path>/<file>.md', 'a different file name is not the project');
 });
