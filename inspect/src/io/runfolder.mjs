@@ -52,6 +52,13 @@ export function runFolder(dir) {
       fs.appendFileSync(p, line.endsWith('\n') ? line : `${line}\n`);
       record({ op: 'write', path: p, mode: 'a' });
     },
+    // An empty folder inside the run folder (the judge's working directory).
+    workDir(rel) {
+      const p = inside(rel);
+      fs.mkdirSync(p, { recursive: true });
+      record({ op: 'write', path: p, mode: 'w' });
+      return p;
+    },
     markDone: (phase) => write(`${phase}.done`, `${new Date().toISOString()}\n`),
     isDone: (phase) => fs.existsSync(inside(`${phase}.done`)),
   };
