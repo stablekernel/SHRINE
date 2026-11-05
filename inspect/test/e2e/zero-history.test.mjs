@@ -38,7 +38,7 @@ async function runT0(fixture) {
 function normalize(findings, h) {
   const text = JSON.stringify(findings).split(h.tmp).join('<tmp>');
   return JSON.parse(text, (k, v) => {
-    if (k === 'id' && typeof v === 'string' && /^\d{8}-\d{6}Z-/.test(v)) return '<run-id>';
+    if (k === 'id' && typeof v === 'string' && /^\d{8}-\d{9}Z-/.test(v)) return '<run-id>';
     if (typeof v === 'string' && /^\d{4}-\d{2}-\d{2}T[\d:.]+Z$/.test(v) && !FIXED_DATES.has(v) && v !== FIXED_NOW) return '<copy-time>';
     return v;
   });

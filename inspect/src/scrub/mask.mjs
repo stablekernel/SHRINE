@@ -20,7 +20,10 @@ export function buildIdentifiers({ osUser = null, home = null, authors = [], pro
   numbered(repos.filter((r) => !projects.includes(r)), 'repo');
   numbered(orgs, 'org');
   if (osUser) add(osUser, '<user>');
-  for (const seg of (home ?? '').split(/[\\/]/).filter((s) => s && !['Users', 'home', 'root'].includes(s))) add(seg, '<user>');
+  for (const seg of (home ?? '').split(/[\\/]/).filter((s) => s && !['Users', 'home', 'root'].includes(s))) {
+    add(seg, '<user>');
+    add(seg.replace(/[^A-Za-z0-9-]/g, '-'), '<user>');
+  }
   // Longest first, so "shop-api-v2" is masked before "shop-api".
   ids.sort((a, b) => b.value.length - a.value.length);
   return { home, ids };
@@ -34,7 +37,8 @@ const ABS_PATH = /(?<![\w~.<>-])\/(?:[\w.@+-]+\/)+([\w.@+-]*)/g;
 
 export function mask(text, known) {
   if (typeof text !== 'string' || text === '') return text;
-  let out = text;
+  // Claude Code project folders encode the full cwd (home, org, and repo names).
+  let out = text.replace(/(\.claude\/projects\/)[^/\s"'<>]+/g, '$1<project-folder>');
   if (known?.home) out = out.replace(new RegExp(`${esc(known.home)}(?=/|\\b|$)`, 'g'), '~');
   out = out.replace(EMAIL, (m) => known?.ids.find((i) => i.value === m)?.placeholder ?? '<email>');
   for (const { value, placeholder } of known?.ids ?? []) {

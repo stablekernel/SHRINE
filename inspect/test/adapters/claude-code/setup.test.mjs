@@ -3,7 +3,8 @@ import assert from 'node:assert/strict';
 import { join } from 'node:path';
 import { makeHome } from '../../synth/home.mjs';
 import { detect } from '../../../src/adapters/claude-code/detect.mjs';
-import { inventory } from '../../../src/adapters/claude-code/inventory.mjs';
+import { mkdirSync, writeFileSync } from 'node:fs';
+import { inventory, nestedInstructionFiles } from '../../../src/adapters/claude-code/inventory.mjs';
 import { retention } from '../../../src/adapters/claude-code/retention.mjs';
 import { alwaysLoaded, resolveImports } from '../../../src/adapters/claude-code/always-loaded.mjs';
 import { resetSpy, spyLog } from '../../../src/io/fsread.mjs';
@@ -75,6 +76,19 @@ test('a plugin-shipped hook counts as a hook from source plugin', () => {
   assert.equal(hooks[0].source, 'plugin');
   assert.equal(hooks[0].loaded_by, 'plugin:guard@market');
   assert.equal(count(inv.items, 'skill'), 0, 'only the own skill is installed, so no skills');
+  h.cleanup();
+});
+
+test('nested CLAUDE.md files are found only inside a repo, never under the home folder or nested repos', () => {
+  const h = makeHome('good');
+  mkdirSync(join(h.repo, 'api'), { recursive: true });
+  writeFileSync(join(h.repo, 'api', 'CLAUDE.md'), 'Owner: t\n');
+  mkdirSync(join(h.repo, 'vendored', '.git'), { recursive: true });
+  writeFileSync(join(h.repo, 'vendored', 'CLAUDE.md'), 'x');
+  assert.deepEqual(nestedInstructionFiles(h.repo, h.home), [join(h.repo, 'api', 'CLAUDE.md')]);
+  mkdirSync(join(h.home, 'src'), { recursive: true });
+  writeFileSync(join(h.home, 'src', 'CLAUDE.md'), 'x');
+  assert.deepEqual(nestedInstructionFiles(h.home, h.home), []);
   h.cleanup();
 });
 

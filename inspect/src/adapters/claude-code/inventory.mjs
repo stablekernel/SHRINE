@@ -145,7 +145,7 @@ export function inventory({ home, projects = [], managedPath = managedSettingsPa
     addMarkdownDir(join(root, '.claude', 'commands'), 'command', 'project', 'project', 'on-demand', { recursive: true });
     addSkills(join(root, '.claude', 'skills'), 'project', 'project', 'on-demand');
     addMcpJson(join(root, '.mcp.json'), 'project', 'project', 'project-servers');
-    for (const nested of nestedInstructionFiles(root)) addFile(nested, 'instruction', 'project', 'project', 'nested');
+    for (const nested of nestedInstructionFiles(root, home)) addFile(nested, 'instruction', 'project', 'project', 'nested');
     for (const cwd of new Set([root, ...(p.cwds ?? [])])) {
       addMarkdownDir(join(claudeHome, 'projects', encodeProjectPath(cwd), 'memory'), 'memory', 'user', 'user', 'auto-memory');
     }
@@ -210,19 +210,28 @@ function readInstalledPlugins(claudeHome) {
   }
 }
 
-// CLAUDE.md files below the repo root (loaded when the agent works in that folder).
-function nestedInstructionFiles(root, depth = 0, dir = root) {
-  if (depth > 6) return [];
+// CLAUDE.md files below a git repo root (loaded when the agent works in that
+// folder). Only inside a repo, never the home folder, never into nested repos,
+// and within a fixed folder budget.
+const NESTED_DIR_BUDGET = 3000;
+export function nestedInstructionFiles(root, home) {
+  if (root === home || !exists(join(root, '.git'))) return [];
   const out = [];
-  for (const e of list(dir)) {
-    if (e.dir) {
-      if (SKIP_DIRS.has(e.name) || (e.name.startsWith('.') && e.name !== '.claude')) continue;
-      if (dir === root && e.name === '.claude') continue;
-      out.push(...nestedInstructionFiles(root, depth + 1, join(dir, e.name)));
-    } else if (dir !== root && e.name === 'CLAUDE.md') {
-      out.push(join(dir, e.name));
+  let budget = NESTED_DIR_BUDGET;
+  const walk = (dir, depth) => {
+    if (depth > 6 || budget-- <= 0) return;
+    for (const e of list(dir)) {
+      if (e.dir) {
+        if (SKIP_DIRS.has(e.name) || e.name.startsWith('.')) continue;
+        const sub = join(dir, e.name);
+        if (exists(join(sub, '.git'))) continue;
+        walk(sub, depth + 1);
+      } else if (dir !== root && e.name === 'CLAUDE.md') {
+        out.push(join(dir, e.name));
+      }
     }
-  }
+  };
+  walk(root, 0);
   return out;
 }
 

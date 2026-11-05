@@ -31,8 +31,13 @@ export function context(io) {
   return { dirs: appDirs({ env: io.env, home: io.home }), home: io.home, now };
 }
 
-function newRunId(now) {
-  const t = new Date(now).toISOString().replace(/[-:]/g, '').replace(/\.\d+Z$/, 'Z').replace('T', '-');
+// Run ids sort by wall-clock creation time (ms), so "previous run" is well defined
+// even when SHRINE_INSPECT_NOW pins the analysis clock.
+let lastIdMs = 0;
+function newRunId() {
+  const ms = Math.max(Date.now(), lastIdMs + 1);
+  lastIdMs = ms;
+  const t = new Date(ms).toISOString().replace(/[-:]/g, '').replace('T', '-').replace('.', '');
   return `${t}-${randomBytes(2).toString('hex')}`;
 }
 
@@ -44,7 +49,7 @@ export async function runCommand(opts, io) {
   const ctx = context(io);
   const d = detect({ home: ctx.home });
   if (!d.present) throw new InspectError('E_NO_HARNESS', `no Claude Code folder at ${displayPath(d.claude_home, ctx.home)}`, { hint: 'run inspect as the user whose setup you want to check' });
-  const runId = newRunId(ctx.now);
+  const runId = newRunId();
   const folder = createRunFolder(ctx.dirs.state, runId);
   const state = {
     run_id: runId,

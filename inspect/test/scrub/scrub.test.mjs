@@ -62,6 +62,13 @@ test('mask covers home segments, emails, hostnames, IPs, and absolute paths', ()
   assert.match(out, /<ip>/);
 });
 
+test('mask covers encoded project folders and dashed user names', () => {
+  const k = buildIdentifiers({ home: '/Users/j.doe' });
+  const out = mask('~/.claude/projects/-Users-j-doe-src-acme-shop/memory/MEMORY.md and ~/src/github/j-doe/x', k);
+  assert.ok(!/j-doe|acme|shop/.test(out), out);
+  assert.match(out, /\.claude\/projects\/<project-folder>\/memory/);
+});
+
 test('ticket IDs are not masked', () => {
   assert.match(mask('Fixes ABC-123 and PROJ-9', ids), /ABC-123 and PROJ-9/);
 });
