@@ -20,9 +20,10 @@ export function record(entry) {
   log.push({ ...entry, t: Date.now() });
 }
 
-export function open(path, mode = 'r') {
+// tag: extra spy fields, e.g. {bounded: true} for readLines.
+export function open(path, mode = 'r', tag = {}) {
   if (mode !== 'r') throw new InspectError('E_WRITE_MODE', `refused to open ${path} in mode ${mode}`);
-  record({ op: 'open', path, mode: 'r' });
+  record({ ...tag, op: 'open', path, mode: 'r' });
   return fs.openSync(path, 'r');
 }
 
@@ -55,9 +56,10 @@ export function sha256File(path) {
   return sha256(readBytes(path));
 }
 
-// First maxLines lines, reading at most maxBytes; never the whole file.
+// First maxLines lines, reading at most maxBytes; never the whole file. The spy
+// entry is tagged bounded, so tests can tell it from a full read.
 export function readLines(path, maxLines, maxBytes = 1 << 20) {
-  const fd = open(path);
+  const fd = open(path, 'r', { bounded: true });
   try {
     const chunk = Buffer.alloc(64 * 1024);
     let text = '';

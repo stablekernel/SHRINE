@@ -56,6 +56,10 @@ test('without a yes, no session log is streamed; the TTY prompt shows the itemiz
   const dir = runDir(state);
   const spy = readFileSync(join(dir, 'spy.jsonl'), 'utf8').trim().split('\n').map((l) => JSON.parse(l));
   assert.equal(spy.filter((e) => e.stream).length, 0, 'no session log streamed');
+  // Any other open of a session log (readBytes, readText) would be a full read.
+  const sessionOpens = spy.filter((e) => e.op === 'open' && /\/projects\/.*\.jsonl$/.test(e.path));
+  assert.ok(sessionOpens.length > 0, 'Gate A sampled cwd');
+  assert.deepEqual(sessionOpens.filter((e) => e.bounded !== true), [], 'session logs opened only through the bounded readLines path');
   const facts = json(dir, 'facts.json');
   assert.deepEqual(facts.sessions, []);
   assert.equal(facts.consent.A.choice, 'no-history');
