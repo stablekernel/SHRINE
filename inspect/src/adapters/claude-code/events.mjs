@@ -32,7 +32,9 @@ const keyOf = (name, input) => createHash('sha1').update(`${name}\u0000${JSON.st
 function onLine(o, inSubagentFile, acc) {
   // Older versions wrote some subagent lines inline in the main file.
   const sub = inSubagentFile || o.isSidechain === true;
-  const t = o.timestamp ?? acc.lastT;
+  // Only a parsable string timestamp counts; anything else falls back to the last good one.
+  const valid = typeof o.timestamp === 'string' && !Number.isNaN(Date.parse(o.timestamp));
+  const t = valid ? o.timestamp : acc.lastT;
   if (t) {
     acc.lastT = t;
     if (!acc.start || t < acc.start) acc.start = t;

@@ -85,3 +85,18 @@ test('a split response keeps the largest usage per requestId', async () => {
   assert.deepEqual(session.tokens, { in: 5, out: 40, cache_read: 0 });
   assert.equal(timeline.find((e) => e.kind === 'usage').tokens, 45);
 });
+
+test('a malformed timestamp (number, object, or unparsable string) never becomes session start or end', async () => {
+  const p = join(dir, 's6.jsonl');
+  write(p, [
+    { ...user(0, 'go', { promptSource: 'typed' }), timestamp: 1700000000000 },
+    asst(1, 'ra', [{ type: 'text', text: 'a' }]),
+    { ...asst(2, 'rb', [{ type: 'text', text: 'b' }]), timestamp: { at: 'x' } },
+    { ...asst(3, 'rc', [{ type: 'text', text: 'c' }]), timestamp: 'zzzz-not-a-date' },
+    asst(4, 'rd', [{ type: 'text', text: 'd' }]),
+  ]);
+  const { session, timeline } = await readSession({ id: 's6', path: p, project: 'app' });
+  assert.equal(session.start, at(1));
+  assert.equal(session.end, at(4));
+  for (const e of timeline) assert.ok(e.t == null || (typeof e.t === 'string' && !Number.isNaN(Date.parse(e.t))), JSON.stringify(e.t));
+});
