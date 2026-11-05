@@ -103,6 +103,18 @@ test('toggle label and share-safe file', () => {
   for (const e of evidence) assert.equal(e.excerpt_scrubbed ?? null, null);
 });
 
+test('share-safe copy masks skipped-file paths', () => {
+  const known = buildIdentifiers({ osUser: 'jdoe', home: '/home/jdoe' });
+  const raw = structuredClone(mock);
+  // Relative and bare names: free-text masking alone would leave these as they are.
+  raw.skipped_files = [{ path_scrubbed: '~/Client Work/Initech Corp/merger notes.md', reason: 'corrupt line 1' }, { path_scrubbed: 'initech/plans', reason: 'corrupt line 2' }, { path_scrubbed: 'Globex Corp', reason: 'corrupt line 3' }];
+  const safe = shareSafeFindings(raw, known, pivots);
+  assert.deepEqual(safe.skipped_files.map((s) => s.path_scrubbed), ['~/<path>/<file>.md', '<path>/<file>', '<file>']);
+  const html = renderReport(safe, { shareSafe: true });
+  assert.ok(html.includes('~/&lt;path&gt;/&lt;file&gt;.md'), 'the masked path is shown');
+  for (const id of ['Initech', 'initech', 'Globex', 'Client Work', 'merger']) assert.ok(!html.includes(id), id);
+});
+
 test('print CSS expands tabs and details', () => {
   const html = renderReport(mock);
   const print = html.slice(html.indexOf('@media print'));
