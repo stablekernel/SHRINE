@@ -104,3 +104,14 @@ test('rework lines use episodes with linked commits as N and show unlinked commi
   const control = lines.find((l) => /flagged episode/.test(l));
   assert.match(control, /episodes with linked commits/);
 });
+
+test('control sentence labels a small flagged group and drops an empty one', () => {
+  const dwt = (flagged) => ({ ...SAMPLE_PROBES.done_without_test, control: { flagged, rest: { hits: 2, n: 40, rate: 0.05 }, diff_points: 0 } });
+  const one = copy.finding('done_without_test', dwt({ hits: 1, n: 1, rate: 1 })).why.join(' ');
+  assert.match(one, /1 of 1 flagged episode with linked commits \(100%, a small sample under 15 episodes\)/);
+  const none = copy.finding('done_without_test', dwt({ hits: 0, n: 0, rate: 0 })).why.join(' ');
+  assert.doesNotMatch(none, /0 of 0/);
+  assert.match(none, /No control comparison: no flagged episode has a linked commit\./);
+  const big = copy.finding('done_without_test', dwt({ hits: 3, n: 20, rate: 0.15 })).why.join(' ');
+  assert.match(big, /3 of 20 flagged episodes with linked commits \(15%\)/);
+});

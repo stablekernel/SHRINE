@@ -152,7 +152,9 @@ const FINDINGS = {
 const pctOf = (r) => `${Math.round(r * 100)}%`;
 function controlSentence(c) {
   if (!c || c.rest.n < THRESHOLDS.usage.control_min_episodes) return `No control baseline: fewer than ${THRESHOLDS.usage.control_min_episodes} other episodes with linked commits to compare.`;
-  return `Rework (named reverts) within ${THRESHOLDS.history.link_hours} hours: ${c.flagged.hits} of ${c.flagged.n} flagged ${pl(c.flagged.n, 'episode')} with linked commits (${pctOf(c.flagged.rate)}), ${c.rest.hits} of ${c.rest.n} other ${pl(c.rest.n, 'episode')} with linked commits (${pctOf(c.rest.rate)}).`;
+  if (!c.flagged.n) return 'No control comparison: no flagged episode has a linked commit.';
+  const small = c.flagged.n < THRESHOLDS.usage.small_n_episodes ? `, a small sample under ${THRESHOLDS.usage.small_n_episodes} episodes` : '';
+  return `Rework (named reverts) within ${THRESHOLDS.history.link_hours} hours: ${c.flagged.hits} of ${c.flagged.n} flagged ${pl(c.flagged.n, 'episode')} with linked commits (${pctOf(c.flagged.rate)}${small}), ${c.rest.hits} of ${c.rest.n} other ${pl(c.rest.n, 'episode')} with linked commits (${pctOf(c.rest.rate)}).`;
 }
 
 // Appendix lines for the usage counts block. Every regex-based count says it is a count only.
