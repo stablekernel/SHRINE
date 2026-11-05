@@ -49,6 +49,8 @@ test('a later episode re-touching a file within 72h is a soft link; after 72h it
   const e4 = ep('e4', T0 + 2 * H, T0 + 3 * H, { repo: '/w/other', touched_files: [f] });
   const out = linkEpisodes([e1, e2, e3, e4], new Map());
   assert.deepEqual(out[0].downstream, [{ kind: 'episode', ref: 'e2', delta_hours: 9, link: 'soft' }]);
+  assert.equal(out[0].rework, false, 'file overlap alone is not rework');
+  assert.equal(out[0].possible_rework, true);
   assert.deepEqual(out[1].downstream, [], 'e3 is 79 hours after e2');
   assert.equal(out[3].downstream.length, 0, 'other repo never links');
 });
@@ -84,4 +86,22 @@ test('soft links scale: 20000 episodes link in under 2 seconds', () => {
   const out = linkEpisodes(eps, new Map());
   assert.ok(Date.now() - t < 2000, `${Date.now() - t} ms`);
   assert.ok(out[0].downstream.length > 0);
+});
+
+test('a fix or revert follow-up counts only after an episode commit and only on its files; file touches alone never do', () => {
+  const r = makeRepo();
+  r.commit(iso(T0 - H), 'base', { 'src/a.js': 'v0', 'src/b.js': 'v0' });
+  r.commit(iso(T0 + 10 * 60000), 'feat: parser', { 'src/a.js': 'v1' });
+  r.commit(iso(T0 + 2 * H), 'fix(parser): handle empty input', { 'src/a.js': 'v2' });
+  r.commit(iso(T0 + 3 * H), 'Revert the b change', { 'src/b.js': 'v1' });
+  r.commit(iso(T0 + 4 * H), 'feat: unrelated', { 'src/a.js': 'v3' });
+  const commits = repoCommits(r.root, { since: T0 - 2 * H, until: T0 + 80 * H });
+  assert.deepEqual(commits.find((c) => c.subject.startsWith('fix(parser)')).files, ['src/a.js']);
+  const committed = ep('ec', T0, T0 + 15 * 60000, { repo: r.root, committed: true });
+  const touchedOnly = ep('et', T0, T0 + 15 * 60000, { repo: r.root, touched_files: [`${r.root}/src/b.js`] });
+  const [c, t] = linkEpisodes([committed, touchedOnly], new Map([[r.root, commits]]));
+  assert.deepEqual(c.downstream.map((d) => d.kind), ['fixup'], 'the revert touches b.js, not in the episode commit');
+  assert.equal(c.rework, true);
+  assert.equal(t.rework, false, 'no commit, no follow-up rework');
+  r.cleanup();
 });

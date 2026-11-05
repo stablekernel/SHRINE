@@ -86,17 +86,28 @@ for (const preset of ['clean', 'expert']) {
   });
 }
 
-test('automation sessions add no findings and show as one appendix line with count and share', async () => {
+test('sdk-cli sessions: housekeeping counted, spawned work linked as byproducts or unattributed, mixed folders keep interactive sessions', async () => {
   const h = home('good', 'clean');
-  // An automation-only folder plus automation sessions mixed into the project folder.
-  addHistory(h, 'planted', { nowMs: NOW, prefix: 'bbbb', entrypoint: 'sdk-cli', count: 4, cwd: join(h.tmp, 'work', 'bot') });
-  addHistory(h, 'planted', { nowMs: NOW - DAY / 2, prefix: 'cccc', entrypoint: 'sdk-cli', count: 3 });
+  const bot = join(h.tmp, 'work', 'bot');
+  // A folder whose newest file is housekeeping, with one older interactive session in it.
+  addHistory(h, 'clean', { nowMs: NOW, prefix: 'dddd', count: 1, cwd: bot });
+  addHistory(h, 'housekeeping', { nowMs: NOW, prefix: 'bbbb', entrypoint: 'sdk-cli', count: 4, first: 5, cwd: bot });
+  // In the project folder: 3 spawned during clean sessions, 1 spawned with no parent, 1 housekeeping.
+  addHistory(h, 'spawned', { nowMs: NOW, prefix: 'cccc', entrypoint: 'sdk-cli', count: 3, offsetMs: 60000 });
+  addHistory(h, 'spawned', { nowMs: NOW, prefix: 'eeee', entrypoint: 'sdk-cli', count: 1, offsetMs: 6 * 3600000 });
+  addHistory(h, 'housekeeping', { nowMs: NOW, prefix: 'ffff', entrypoint: 'sdk-cli', count: 1, offsetMs: 7 * 3600000 });
   const r = await runWithHistory(h);
   assert.equal(r.code, 0, r.stderr);
   assert.deepEqual(r.findings.findings, []);
-  assert.deepEqual(r.findings.usage.automation, { count: 7, total: 20, share: 0.35 });
-  assert.ok(r.findings.usage.lines.includes('Automation sessions left out: 7 of 20 sessions (35%)'));
-  assert.equal(r.findings.usage.counts.done_without_test, 0, 'planted automation sessions are never read');
+  assert.deepEqual(r.findings.usage.automation, { housekeeping: 5, spawned: 4, total: 23, share: 0.217, spawned_linked: 3, spawned_parents: 3, unattributed: 1 });
+  const lines = r.findings.usage.lines;
+  assert.ok(lines.includes('Housekeeping automation left out: 5 of 23 sessions (22%)'));
+  assert.ok(lines.includes('Spawned automation: 3 sessions linked to 3 of your sessions as byproducts, not judged'));
+  assert.ok(lines.includes('Unattributed automation: 1 session with no parent session found, not read'));
+  assert.equal(r.findings.usage.counts.sessions, 13, '12 clean plus the interactive session in the housekeeping folder');
+  assert.equal(r.facts.sessions.filter((s) => s.byproducts > 0).length, 3);
+  const streamed = r.spy.filter((e) => e.stream).map((e) => e.path);
+  assert.ok(!streamed.some((p) => /\/(bbbb|cccc|eeee|ffff)/.test(p)), 'sdk-cli sessions are never read in full');
   h.cleanup();
 });
 

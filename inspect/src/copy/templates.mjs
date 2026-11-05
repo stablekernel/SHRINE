@@ -152,7 +152,7 @@ const FINDINGS = {
 const pctOf = (r) => `${Math.round(r * 100)}%`;
 function controlSentence(c) {
   if (!c || c.rest.n < THRESHOLDS.usage.control_min_episodes) return `No control baseline: fewer than ${THRESHOLDS.usage.control_min_episodes} other episodes to compare.`;
-  return `Rework within ${THRESHOLDS.history.link_hours} hours: ${c.flagged.hits} of ${c.flagged.n} flagged ${pl(c.flagged.n, 'episode')} (${pctOf(c.flagged.rate)}), ${c.rest.hits} of ${c.rest.n} other ${pl(c.rest.n, 'episode')} (${pctOf(c.rest.rate)}).`;
+  return `Rework (reverts and fixes) within ${THRESHOLDS.history.link_hours} hours: ${c.flagged.hits} of ${c.flagged.n} flagged ${pl(c.flagged.n, 'episode')} (${pctOf(c.flagged.rate)}), ${c.rest.hits} of ${c.rest.n} other ${pl(c.rest.n, 'episode')} (${pctOf(c.rest.rate)}).`;
 }
 
 // Appendix lines for the usage counts block. Every regex-based count says it is a count only.
@@ -171,8 +171,15 @@ export function usageLines(u) {
     lines.push(`Done claims with no test or check run before them: ${dwt.metric.flagged} of ${dwt.metric.claims} ${pl(dwt.metric.claims, 'claim')}. Count only: the claim pattern is not precise enough for a finding.`);
     if (dwt.metric.flagged > 0) lines.push(controlSentence(dwt.control));
   }
-  if (u.automation?.total) {
-    lines.push(`Automation sessions left out: ${u.automation.count} of ${u.automation.total} ${pl(u.automation.total, 'session')} (${pctOf(u.automation.share)})`);
+  if (c.possible_rework != null) {
+    lines.push(`Rework (reverts and fixes after a commit) within ${THRESHOLDS.history.link_hours} hours: ${c.rework} of ${c.committed ?? c.episodes} committing ${pl(c.committed ?? c.episodes, 'episode')} (${pctOf(c.committed ? c.rework / c.committed : 0)})`);
+    lines.push(`Possible rework (file overlap): ${c.possible_rework} of ${c.episodes} ${pl(c.episodes, 'episode')} had a changed file touched again within ${THRESHOLDS.history.link_hours} hours. Candidate count only.`);
+  }
+  const a = u.automation;
+  if (a?.total) {
+    lines.push(`Housekeeping automation left out: ${a.housekeeping} of ${a.total} ${pl(a.total, 'session')} (${pctOf(a.share)})`);
+    if (a.spawned_linked) lines.push(`Spawned automation: ${a.spawned_linked} ${pl(a.spawned_linked, 'session')} linked to ${a.spawned_parents} of your sessions as byproducts, not judged`);
+    if (a.unattributed) lines.push(`Unattributed automation: ${a.unattributed} ${pl(a.unattributed, 'session')} with no parent session found, not read`);
   }
   if (u.limited) lines.push(`Limited history: ${c.sessions} ${pl(c.sessions, 'session')}, fewer than ${THRESHOLDS.history.limited_sessions} sessions, so these counts may not reflect usual work.`);
   if (u.excluded_own) lines.push('The session driving this run was left out.');
@@ -261,9 +268,9 @@ export const SAMPLE_PROBES = {
 };
 
 export const SAMPLE_USAGE = {
-  counts: { sessions: 66, episodes: 136, human_turns: 1171, interrupts: 22, compactions: 3, tool_calls: 5200, retries: 61, retries_per_100: 1.2, subagent_share: 0.452, correction_candidates: 40, done_claims: 12, done_without_test: 4 },
+  counts: { sessions: 66, episodes: 136, committed: 60, rework: 9, possible_rework: 48, human_turns: 1171, interrupts: 22, compactions: 3, tool_calls: 5200, retries: 61, retries_per_100: 1.2, subagent_share: 0.452, correction_candidates: 40, done_claims: 12, done_without_test: 4 },
   kinds: [{ kind: 'done_without_test', ship: 'appendix', metric: { flagged: 4, claims: 12, rate: 0.33, threshold: 0.3 }, control: SAMPLE_PROBES.done_without_test.control }],
-  automation: { count: 1069, total: 1135, share: 0.942 },
+  automation: { housekeeping: 987, spawned: 120, spawned_linked: 100, spawned_parents: 14, unattributed: 20, total: 1172, share: 0.842 },
   limited: true,
   excluded_own: true,
 };

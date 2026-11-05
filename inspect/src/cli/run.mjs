@@ -91,7 +91,7 @@ export async function continueRun(folder, ctx, io) {
   let listing = listProjects({ claudeHome, now: frozen?.now ?? ctx.now, windowDays: ret.days, tempPatterns: defaultTempPatterns(io.env) });
   if (frozen) listing = freezeListing(listing, new Set(frozen.files));
   else {
-    state.frozen = { now: ctx.now, files: listing.projects.flatMap((p) => p.files.map((f) => f.path)) };
+    state.frozen = { now: ctx.now, files: [...listing.projects, ...listing.excluded].flatMap((p) => (p.files ?? []).map((f) => f.path)) };
     state.own = ownSession(listing, { sessionId: state.session_id, now: ctx.now }) ?? false;
   }
   const historyBytes = listing.projects.reduce((n, p) => n + (p.bytes_with_subagents ?? p.bytes), 0);
@@ -103,6 +103,7 @@ export async function continueRun(folder, ctx, io) {
     bytes: historyBytes,
     estimate_seconds: estimateSeconds(historyBytes),
     window_days: ret.days,
+    recheck_sessions: listing.excluded.filter((e) => e.reason === 'housekeeping' || e.reason === 'temp').reduce((n, e) => n + e.sessions, 0),
   };
 
   if (!state.gates.A) {

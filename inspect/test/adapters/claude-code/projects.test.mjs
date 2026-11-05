@@ -4,7 +4,7 @@ import { mkdtempSync, mkdirSync, writeFileSync, utimesSync, realpathSync } from 
 import { execFileSync } from 'node:child_process';
 import { tmpdir } from 'node:os';
 import { join } from 'node:path';
-import { listProjects, encodeProjectPath, sessionInventory } from '../../../src/adapters/claude-code/projects.mjs';
+import { listProjects, encodeProjectPath, sessionInventory, linkSpawned } from '../../../src/adapters/claude-code/projects.mjs';
 import { resetSpy, spyLog } from '../../../src/io/fsread.mjs';
 
 const NOW = Date.parse('2026-11-04T12:00:00Z');
@@ -16,12 +16,13 @@ function sh(cwd, ...args) {
   execFileSync('git', args, { cwd, stdio: 'ignore', env: { ...process.env, GIT_AUTHOR_NAME: 't', GIT_AUTHOR_EMAIL: 't@x', GIT_COMMITTER_NAME: 't', GIT_COMMITTER_EMAIL: 't@x' } });
 }
 
-function session(home, cwd, { id = 's1', entrypoint = 'cli', bytes = 100, ageDays = 1, cwdLine = 2 } = {}) {
+const HK = 'Analyze this conversation and determine: the goal';
+function session(home, cwd, { id = 's1', entrypoint = 'cli', bytes = 100, ageDays = 1, cwdLine = 2, prompt = 'SECRET-PROMPT' } = {}) {
   const dir = join(home, 'projects', encodeProjectPath(cwd));
   mkdirSync(dir, { recursive: true });
   const lines = [];
   for (let i = 1; i < cwdLine; i++) lines.push(JSON.stringify({ type: 'queue-operation', content: 'SECRET-CONTENT' }));
-  lines.push(JSON.stringify({ type: 'user', cwd, entrypoint, sessionId: id, version: '2.1.318', message: { content: 'SECRET-PROMPT' } }));
+  lines.push(JSON.stringify({ type: 'user', cwd, entrypoint, sessionId: id, version: '2.1.318', message: { content: prompt } }));
   let text = `${lines.join('\n')}\n`;
   text += 'x'.repeat(Math.max(0, bytes - text.length));
   const f = join(dir, `${id}.jsonl`);
@@ -86,14 +87,18 @@ test('removed worktree folders fall back to stripping /.worktrees/<name>', () =>
   assert.equal(r.projects[0].root, repo);
 });
 
-test('temp folders and sdk-cli sessions are excluded and listed', () => {
+test('temp folders and housekeeping folders are excluded before consent; spawned work stays in scope', () => {
   session(home, '/private/tmp/claude-501/scratch', { id: 't' });
-  const repo = join(work, 'bot');
-  mkdirSync(repo);
-  session(home, repo, { id: 'auto', entrypoint: 'sdk-cli' });
+  const bot = join(work, 'bot');
+  mkdirSync(bot);
+  session(home, bot, { id: 'auto', entrypoint: 'sdk-cli', prompt: HK });
+  const scribe = join(work, 'scribe');
+  mkdirSync(scribe);
+  session(home, scribe, { id: 'notes', entrypoint: 'sdk-cli', prompt: 'Write scribe notes' });
   const r = listProjects({ claudeHome: home, now: NOW, windowDays: 30, tempPatterns: TEMP });
-  assert.equal(r.projects.length, 0);
-  assert.deepEqual(r.excluded.map((e) => e.reason).sort(), ['automation', 'temp']);
+  assert.deepEqual(r.projects.map((p) => p.name), ['scribe']);
+  assert.deepEqual(r.excluded.map((e) => e.reason).sort(), ['housekeeping', 'temp']);
+  assert.ok(!JSON.stringify(r).includes('Analyze this'), 'only a boolean is kept from the prompt');
 });
 
 test('default view is the top 20 by bytes in the window, rest behind show all', () => {
@@ -112,27 +117,62 @@ test('default view is the top 20 by bytes in the window, rest behind show all', 
   assert.equal(r.top[0].name, 'p22');
 });
 
-test('after consent, per-session metadata excludes automation and counts its share', () => {
+test('after consent every file is re-checked: housekeeping counted, spawned linked or unattributed, mixed folders keep interactive sessions', () => {
   const repo = join(work, 'mix');
   mkdirSync(repo);
   session(home, repo, { id: 'human1', ageDays: 3 });
-  session(home, repo, { id: 'auto1', entrypoint: 'sdk-cli', ageDays: 2 });
+  session(home, repo, { id: 'spawn1', entrypoint: 'sdk-cli', prompt: 'Write scribe notes', ageDays: 2 });
   session(home, repo, { id: 'human2', ageDays: 1 });
   const bot = join(work, 'bot');
   mkdirSync(bot);
-  session(home, bot, { id: 'auto2', entrypoint: 'sdk-cli' });
-  session(home, bot, { id: 'auto3', entrypoint: 'sdk-cli', ageDays: 2 });
+  session(home, bot, { id: 'hk1', entrypoint: 'sdk-cli', prompt: HK });
+  session(home, bot, { id: 'hk2', entrypoint: 'sdk-cli', prompt: HK, ageDays: 2 });
+  session(home, bot, { id: 'botHuman', ageDays: 3 });
   const sub = join(home, 'projects', encodeProjectPath(repo), 'human2', 'subagents');
   mkdirSync(sub, { recursive: true });
   writeFileSync(join(sub, 'agent-a1.jsonl'), 'x'.repeat(500));
   const listing = listProjects({ claudeHome: home, now: NOW, windowDays: 30, tempPatterns: TEMP });
   assert.equal(listing.projects[0].bytes_with_subagents, listing.projects[0].bytes + 500);
+  assert.equal(listing.excluded[0].reason, 'housekeeping');
   const inv = sessionInventory(listing);
-  assert.deepEqual(inv.sessions.map((s) => s.id).sort(), ['human1', 'human2']);
-  assert.deepEqual(inv.automation, { count: 3, total: 5, share: 0.6 });
+  assert.deepEqual(inv.sessions.map((s) => s.id).sort(), ['botHuman', 'human1', 'human2']);
+  assert.equal(inv.sessions.find((s) => s.id === 'botHuman').project, 'bot');
+  assert.deepEqual(inv.automation, { housekeeping: 2, spawned: 1, total: 6, share: 0.333 });
+  assert.deepEqual(inv.spawned.map((s) => s.id), ['spawn1']);
   assert.equal(inv.sessions.find((s) => s.id === 'human2').subagent_files.length, 1);
   assert.equal(inv.harness_version, '2.1.318');
-  assert.ok(inv.from <= inv.to);
+});
+
+test('temp folders: after consent only their sdk-cli files are classified; spawned ones there link by time alone', () => {
+  const tmpRoot = '/private/tmp/claude-501/scratch';
+  session(home, tmpRoot, { id: 'tmpHuman', ageDays: 2 });
+  session(home, tmpRoot, { id: 'tmpScribe', entrypoint: 'sdk-cli', prompt: 'Write scribe notes', ageDays: 1 });
+  session(home, tmpRoot, { id: 'tmpHk', entrypoint: 'sdk-cli', prompt: HK, ageDays: 3 });
+  const listing = listProjects({ claudeHome: home, now: NOW, windowDays: 30, tempPatterns: TEMP });
+  assert.equal(listing.excluded[0].reason, 'temp');
+  const inv = sessionInventory(listing);
+  assert.deepEqual(inv.sessions, [], 'interactive temp sessions stay unread');
+  assert.deepEqual(inv.spawned.map((s) => [s.id, s.temp]), [['tmpScribe', true]]);
+  assert.deepEqual(inv.automation, { housekeeping: 1, spawned: 1, total: 2, share: 0.5 });
+  const r = linkSpawned([{ id: 'x', root: tmpRoot, temp: true, start: '2026-11-01T10:40:00Z' }], [{ id: 'p', root: '/w/r', start: '2026-11-01T10:00:00Z', end: '2026-11-01T11:00:00Z' }]);
+  assert.equal(r.linked, 1);
+});
+
+test('spawned sessions link to the session running in the same repo at that time; others are unattributed', () => {
+  const sessions = [
+    { id: 'a', root: '/w/r', start: '2026-11-01T10:00:00Z', end: '2026-11-01T11:00:00Z' },
+    { id: 'b', root: '/w/r', start: '2026-11-01T10:30:00Z', end: '2026-11-01T12:00:00Z' },
+  ];
+  const spawned = [
+    { id: 's1', root: '/w/r', start: '2026-11-01T10:40:00Z' },
+    { id: 's2', root: '/w/r', start: '2026-11-01T12:03:00Z' },
+    { id: 's3', root: '/w/other', start: '2026-11-01T10:40:00Z' },
+    { id: 's4', root: '/w/r', start: '2026-11-01T15:00:00Z' },
+  ];
+  const r = linkSpawned(spawned, sessions);
+  assert.deepEqual([...r.parents], [['b', 2]], 'latest-starting parent wins; 5 minutes of slack');
+  assert.equal(r.linked, 2);
+  assert.equal(r.unattributed, 2);
 });
 
 test('spy log proves only one file per folder was opened, and no content kept', () => {

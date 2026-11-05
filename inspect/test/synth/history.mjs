@@ -88,12 +88,15 @@ export const PRESETS = {
     ['edit', `src/p${i}.js`],
     ['text', 'The parser is now fixed.'],
   ],
+  // sdk-cli presets: tool housekeeping, and work spawned by a skill.
+  housekeeping: () => [['human', 'Analyze this conversation and determine: the goal and outcome.'], ['text', 'Goal: refactor.']],
+  spawned: (i) => [['human', `Write scribe notes for session ${i}.`], ['text', 'Notes written.']],
 };
 
-export function addHistory(h, preset, { count = 12, nowMs, prefix = 'aaaa', entrypoint = 'cli', cwd } = {}) {
+export function addHistory(h, preset, { count = 12, nowMs, prefix = 'aaaa', entrypoint = 'cli', cwd, offsetMs = 0, first = 0 } = {}) {
   const files = [];
-  for (let i = 0; i < count; i++) {
-    const startMs = nowMs - (20 - i) * DAY;
+  for (let i = first; i < first + count; i++) {
+    const startMs = nowMs - (20 - i) * DAY + offsetMs;
     files.push(addSession(h, { id: sid(prefix, i), startMs, script: PRESETS[preset](i), entrypoint, cwd }));
   }
   return files;

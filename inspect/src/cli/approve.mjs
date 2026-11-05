@@ -22,12 +22,13 @@ const describe = (gate) => {
     for (const p of gate.projects) lines.push(`  ${p.name}: ${p.sessions} session files, ${Math.round(p.bytes / 1024)} KB`);
     if (gate.more) lines.push(`  and ${gate.more} more`);
   }
-  if (gate.excluded) lines.push(`Excluded (temp, scratch, automation): ${gate.excluded} folders`);
+  if (gate.excluded) lines.push(`Excluded (temp, scratch, housekeeping automation): ${gate.excluded} folders`);
   const h = gate.history;
   if (h) {
     lines.push(`History if yes: ${h.sessions} session files in ${h.projects} ${h.projects === 1 ? 'project' : 'projects'}, ${day(h.from)} to ${day(h.to)} (last ${h.window_days} days), ${size(h.bytes)} on disk.`);
     lines.push(`Estimated time with history: ${eta(h.estimate_seconds)} to parse, from file size at a rate measured during development (a lower bound). Read locally; nothing leaves it.`);
   }
+  if (h?.recheck_sessions) lines.push(`If yes, ${h.recheck_sessions} session files in excluded automation, temp, and scratch folders are re-checked from their first lines; only interactive sessions outside temp folders are read in full.`);
   if (gate.own_session) lines.push(`Left out: session ${gate.own_session.id.slice(0, 8)} (${gate.own_session.reason === 'flag' ? 'named by --session-id' : 'still being written, likely the one running this'}).`);
   if (gate.tier?.note) lines.push(gate.tier.note);
   lines.push(`Choices: ${gate.choices.join(', ')}`);

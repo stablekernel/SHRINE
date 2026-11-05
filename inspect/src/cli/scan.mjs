@@ -2,7 +2,7 @@
 // Gate A says yes: reads the consented session logs by streaming, normalizes
 // events, cuts episodes, links git outcomes, and runs the usage probes. Nothing
 // here calls a model or opens a socket.
-import { sessionInventory } from '../adapters/claude-code/projects.mjs';
+import { linkSpawned, sessionInventory } from '../adapters/claude-code/projects.mjs';
 import { excludeSessions } from '../adapters/claude-code/sessions.mjs';
 import { readSession } from '../adapters/claude-code/events.mjs';
 import { extractEpisodes } from '../episodes/extract.mjs';
@@ -50,6 +50,7 @@ export async function scanHistory({ listing, excludedIds = [], display = (p) => 
   const sessions = [];
   const episodes = [];
   const skipped = [];
+  const roots = new Map();
   let readable = 0;
   for (const [i, meta] of metas.entries()) {
     const r = await readSession(meta);
@@ -60,6 +61,7 @@ export async function scanHistory({ listing, excludedIds = [], display = (p) => 
     if (r.kind !== 'session') continue;
     readable++;
     sessions.push(r.session);
+    roots.set(r.session.id, meta.root);
     for (const ep of extractEpisodes(r.session, r.timeline, { idleMinutes: t.history.idle_minutes })) episodes.push({ ...ep, repo: meta.root });
   }
 
@@ -71,6 +73,10 @@ export async function scanHistory({ listing, excludedIds = [], display = (p) => 
     const until = maxOf(mine.map((e) => Date.parse(e.end))) + t.history.link_hours * HOUR;
     commitsByRepo.set(root, repoCommits(root, { since, until }));
   }
+  // Spawned sdk-cli work: a byproduct of the parent session, never judged.
+  const spawn = linkSpawned(inv.spawned, sessions.map((x) => ({ id: x.id, root: roots.get(x.id), start: x.start, end: x.end })));
+  for (const x of sessions) x.byproducts = spawn.parents.get(x.id) ?? 0;
+  const automation = { ...inv.automation, spawned_linked: spawn.linked, spawned_parents: spawn.parents.size, unattributed: spawn.unattributed };
   const linked = linkEpisodes(episodes, commitsByRepo, { windowHours: t.history.link_hours });
   const probes = runUsageProbes({ sessions, episodes: linked, t });
   const rule = historyRule({ consented: true, sessions: sessions.length }, t);
@@ -95,7 +101,7 @@ export async function scanHistory({ listing, excludedIds = [], display = (p) => 
       compactions: e.compactions,
       touched_files: e.touched_files.map(display),
       commits: e.commits,
-      stratum: { recency: recencyOf(e.start, from, to), project: e.project, size: sizeOf(e.tokens), outcome: e.rework ? 'rework' : 'none' },
+      stratum: { recency: recencyOf(e.start, from, to), project: e.project, size: sizeOf(e.tokens), outcome: e.rework ? 'rework' : e.possible_rework ? 'possible_rework' : 'none' },
       downstream: e.downstream,
       live_config_refs: [],
       timeline: episodeTimeline(e, flags),
@@ -114,6 +120,6 @@ export async function scanHistory({ listing, excludedIds = [], display = (p) => 
     episodes: factsEpisodes,
     skipped_files: skipped,
     unsupported: metas.length > 0 && readable === 0 && skipped.length > 0,
-    usage: { ...probes, rule, automation: inv.automation, excluded_own: excludedIds.length > 0 && inv.sessions.length !== metas.length },
+    usage: { ...probes, rule, automation, excluded_own: excludedIds.length > 0 && inv.sessions.length !== metas.length },
   };
 }

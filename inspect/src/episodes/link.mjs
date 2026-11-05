@@ -1,7 +1,10 @@
-// Minimal git linker for T0 (spec 4 outcome anchors, plan T2.7). Links an
-// episode to later rework within 72 hours: reverts of its commits by SHA, fixup
-// or squash commits naming them, and later episodes that touch the same file.
-// Amended commits leave history, so they are never counted.
+// Minimal git linker for T0 (spec 4 outcome anchors, plan T2.7). Rework within
+// 72 hours counts only reverts and fixes, and only for an episode that made a
+// commit: a revert naming one of its commits, a fixup or squash commit naming
+// one, or a later commit whose subject starts with "fix" or "revert" and touches
+// a file in one of its commits. A later
+// episode touching the same file is only "possible rework (file overlap)", a
+// candidate count. Amended commits leave history, so they are never counted.
 import { gitOut } from '../io/git.mjs';
 
 const RS = '\x1e';
@@ -17,7 +20,7 @@ const COMMIT_SLACK_MS = 2 * 60000;
 // repo never pushes the output past the spawn buffer.
 export function repoCommits(root, { since, until }) {
   const range = ['--all', '--no-merges', `--since=@${Math.floor(since / 1000)}`, `--until=@${Math.ceil(until / 1000)}`];
-  const out = gitOut(['log', ...range, `--format=${RS}%H${US}%ct${US}%s`], root);
+  const out = gitOut(['log', ...range, '--name-only', `--format=${RS}%H${US}%ct${US}%s${US}`], root);
   if (!out) return [];
   const reverts = new Map();
   const rv = gitOut(['log', ...range, '--grep=This reverts commit', `--format=${RS}%H${US}%b`], root) ?? '';
@@ -29,16 +32,18 @@ export function repoCommits(root, { since, until }) {
     .split(RS)
     .filter(Boolean)
     .map((rec) => {
-      const [sha, ct, subject] = rec.split(US);
+      const [sha, ct, subject, names] = rec.split(US);
       const id = sha.trim();
-      return { sha: id, t: Number(ct) * 1000, subject: (subject ?? '').trim(), body: reverts.get(id) ?? '' };
+      const files = (names ?? '').split('\n').map((f) => f.trim()).filter(Boolean);
+      return { sha: id, t: Number(ct) * 1000, subject: (subject ?? '').trim(), body: reverts.get(id) ?? '', files };
     });
 }
 
 const hours = (ms) => Math.round((ms / HOUR) * 10) / 10;
 
 // episodes: [{id, repo, start, end, committed, touched_files}]; commitsByRepo:
-// Map(root -> repoCommits()). Returns copies with commits, downstream, rework.
+// Map(root -> repoCommits()). Returns copies with commits, downstream, rework
+// (reverts and fixes only), and possible_rework (file overlap only).
 export function linkEpisodes(episodes, commitsByRepo, { windowHours = 72 } = {}) {
   const win = windowHours * HOUR;
   const ms = (e) => ({ s: Date.parse(e.start), e: Date.parse(e.end) });
@@ -67,13 +72,17 @@ export function linkEpisodes(episodes, commitsByRepo, { windowHours = 72 } = {})
     const ownSubjects = new Set(own.map((c) => c.subject));
     const links = [];
     const revertRes = own.map((o) => new RegExp(`This reverts commit ${o.sha.slice(0, 7)}`));
+    // A fix or revert follow-up needs a commit from this episode and a file in it.
+    const changed = new Set(own.flatMap((c) => c.files ?? []));
     for (const c of own.length ? commits : []) {
       const d = c.t - e;
       if (d <= 0 || d > win || own.includes(c)) continue;
       const reverts = revertRes.some((re) => re.test(c.body));
       const fix = c.subject.match(/^(fixup|squash|amend)! (.+)$/);
+      const followUp = /^(fix|revert)\b/i.test(c.subject) && (c.files ?? []).some((f) => changed.has(f));
       if (reverts) links.push({ kind: 'revert', ref: c.sha, delta_hours: hours(d), link: 'hard' });
       else if (fix && ownSubjects.has(fix[2])) links.push({ kind: 'fixup', ref: c.sha, delta_hours: hours(d), link: 'hard' });
+      else if (followUp) links.push({ kind: /^revert/i.test(c.subject) ? 'revert' : 'fixup', ref: c.sha, delta_hours: hours(d), link: 'hard' });
     }
     const files = new Set(ep.touched_files ?? []);
     if (files.size) {
@@ -85,6 +94,6 @@ export function linkEpisodes(episodes, commitsByRepo, { windowHours = 72 } = {})
       }
     }
     links.sort((a, b) => a.delta_hours - b.delta_hours || a.ref.localeCompare(b.ref));
-    return { ...ep, commits: own.map((c) => c.sha), downstream: links.slice(0, MAX_LINKS), rework: links.length > 0 };
+    return { ...ep, commits: own.map((c) => c.sha), downstream: links.slice(0, MAX_LINKS), rework: links.some((l) => l.link === 'hard'), possible_rework: links.some((l) => l.kind === 'episode') };
   });
 }

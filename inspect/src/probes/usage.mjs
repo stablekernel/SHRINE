@@ -85,6 +85,9 @@ export function runUsageProbes({ sessions, episodes, t = THRESHOLDS }) {
     done_claims: sum((x) => (x.done_claim ? 1 : 0)),
     done_without_test: sum((x) => (x.done_without_test ? 1 : 0)),
     attributable_tokens: attrib,
+    committed: episodes.filter((e) => e.committed).length,
+    rework: episodes.filter((e) => e.rework).length,
+    possible_rework: episodes.filter((e) => e.possible_rework).length,
   };
 
   const flagged = episodes.filter((e) => flags.get(e.id).done_without_test);

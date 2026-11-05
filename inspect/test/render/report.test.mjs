@@ -221,7 +221,11 @@ test('with history: chips for sessions and correction candidates, a usage block 
   assert.match(body, /<span class="chip">66 sessions reviewed<\/span>/);
   assert.match(body, /<span class="chip">40 correction candidates<\/span>/);
   assert.match(body, /<summary>Usage from session history<\/summary>/);
-  assert.match(body, /Automation sessions left out: 1069 of 1135 sessions \(94%\)/);
+  assert.match(body, /Housekeeping automation left out: 987 of 1172 sessions \(84%\)/);
+  assert.match(body, /Spawned automation: 100 sessions linked to 14 of your sessions as byproducts, not judged/);
+  assert.match(body, /Unattributed automation: 20 sessions/);
+  assert.match(body, /Possible rework \(file overlap\): 48 of 136 episodes/);
+  assert.match(body, /Rework \(reverts and fixes after a commit\) within 72 hours: 9 of 60 committing episodes \(15%\)/);
   assert.match(body, /Done claims with no test or check run before them: 4 of 12 claims\. Count only/);
   assert.match(body, /setup, repos, and local session logs parsed by code/);
   assert.ok(!f.findings.some((x) => x.lens === 'usage'));
