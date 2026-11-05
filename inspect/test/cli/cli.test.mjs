@@ -156,3 +156,22 @@ test('purge removes state and cache dirs only', async () => {
   assert.ok(existsSync(h.claudeHome));
   h.cleanup();
 });
+
+test('share-safe output hides folder names in home paths that contain spaces', async () => {
+  const h = makeHome('good', {
+    projectName: 'zz-widget-api',
+    repoUnderHome: 'Zorblax Client Work/quux corp',
+    repoFiles: { 'svc/fizz billing/CLAUDE.md': '# Billing service\n\nRun the billing tests before commit.\n' },
+  });
+  const state = mkdtempSync(join(tmpdir(), 'si-state-'));
+  const r = await inproc(['run', '--tier', 'T0', '--no-history', '--json'], h, state);
+  assert.equal(r.code, 0, r.stderr);
+  const dir = JSON.parse(r.stdout).run_dir;
+  const full = readFileSync(join(dir, 'report.html'), 'utf8');
+  assert.match(full, /fizz billing/, 'the planted nested file is in the full report');
+  const html = readFileSync(join(dir, 'report.share-safe.html'), 'utf8');
+  for (const leak of ['Zorblax', 'Client Work', 'quux', 'zz-widget-api', 'fizz', 'svc/']) {
+    assert.ok(!html.includes(leak), `${leak} leaked into share-safe output`);
+  }
+  h.cleanup();
+});

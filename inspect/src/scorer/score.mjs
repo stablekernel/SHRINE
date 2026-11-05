@@ -3,6 +3,7 @@
 // Re-runnable from stored inputs; no IO.
 import { createHash } from 'node:crypto';
 import { scrubSecrets } from '../scrub/secrets.mjs';
+import { underHome } from '../scrub/mask.mjs';
 import { THRESHOLDS } from '../probes/config.mjs';
 
 export const TOOL_VERSION = '0.1.0';
@@ -28,7 +29,8 @@ export function findingId(kind, entryId, itemKey) {
 
 export function displayPath(path, home) {
   if (typeof path !== 'string') return path;
-  const p = home && path.startsWith(home) ? `~${path.slice(home.length)}` : path;
+  const rest = underHome(path, home);
+  const p = rest != null ? `~${rest}` : path;
   return scrubSecrets(p);
 }
 

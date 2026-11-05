@@ -33,7 +33,9 @@ function git(cwd, args, date = new Date()) {
   });
 }
 
-export function makeHome(name, { projectName = `${name}-project`, sessionMtime = new Date() } = {}) {
+// repoFiles plants extra files in the project before the commit.
+// repoUnderHome puts the project inside the home (e.g. 'Client Work/acme') instead of a sibling work folder.
+export function makeHome(name, { projectName = `${name}-project`, sessionMtime = new Date(), repoUnderHome = null, repoFiles = {} } = {}) {
   const tmp = realpathSync(mkdtempSync(join(tmpdir(), `si-${name}-`)));
   const home = join(tmp, 'home');
   const claudeHome = join(home, '.claude');
@@ -44,8 +46,12 @@ export function makeHome(name, { projectName = `${name}-project`, sessionMtime =
     writeFileSync(installed, readFileSync(installed, 'utf8').replaceAll('${CLAUDE_HOME}', claudeHome));
   }
 
-  const repo = join(tmp, 'work', projectName);
+  const repo = repoUnderHome ? join(home, repoUnderHome, projectName) : join(tmp, 'work', projectName);
   cpSync(join(FIXTURES, name, 'project'), repo, { recursive: true });
+  for (const [rel, text] of Object.entries(repoFiles)) {
+    mkdirSync(join(repo, rel, '..'), { recursive: true });
+    writeFileSync(join(repo, rel), text);
+  }
   const bad = name === 'bad';
   const commitDate = bad ? OLD : new Date('2026-10-25T09:00:00Z');
   git(repo, ['init', '-q', '-b', 'main']);

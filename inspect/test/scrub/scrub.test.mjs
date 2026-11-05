@@ -4,7 +4,8 @@ import { readFileSync } from 'node:fs';
 import { fileURLToPath } from 'node:url';
 import { scrubSecrets } from '../../src/scrub/secrets.mjs';
 import { plantedCorpus } from '../synth/secrets.mjs';
-import { buildIdentifiers, mask, maskDeep } from '../../src/scrub/mask.mjs';
+import { buildIdentifiers, mask, maskDeep, maskPath } from '../../src/scrub/mask.mjs';
+import { displayPath } from '../../src/scorer/score.mjs';
 
 const corpus = plantedCorpus();
 const body = corpus
@@ -126,4 +127,34 @@ test('home paths keep only .claude and the file name', () => {
   assert.equal(out, '~/<path>/CLAUDE.md, ~/<path>/.claude/settings.json, ~/.claude/CLAUDE.md');
   const deep = maskDeep({ anchor: '~/work/megaclient/x/CLAUDE.md' }, k);
   assert.equal(deep.anchor, '~/<path>/CLAUDE.md');
+});
+
+test('free-text home and absolute paths mask folders that contain spaces', () => {
+  const k = buildIdentifiers({ home: '/Users/bob' });
+  const out = mask('See ~/Client Work/acme-corp/svc/CLAUDE.md and /Library/Application Support/Zorb Co/x.json now', k);
+  assert.ok(!/Client|Work|acme|svc|Application|Support|Zorb/.test(out), out);
+  assert.equal(out, 'See ~/<path>/CLAUDE.md and <path>/x.json now');
+});
+
+test('maskPath masks path-typed fields segment by segment', () => {
+  const k = buildIdentifiers({ home: '/Users/bob', projects: ['widget-api'] });
+  const cases = {
+    '/Users/bob/Mobile Documents/acme-corp/widget-api/CLAUDE.md': '~/<path>/CLAUDE.md',
+    '~/My Drive/acme (old)/.claude/settings.json': '~/<path>/.claude/settings.json',
+    '/Volumes/Data/acmeco/repo/CLAUDE.md': '<path>/CLAUDE.md',
+    'svc/billing/CLAUDE.md': '<path>/CLAUDE.md',
+    '.claude/settings.json': '.claude/settings.json',
+    '~/.claude/CLAUDE.md': '~/.claude/CLAUDE.md',
+  };
+  for (const [input, want] of Object.entries(cases)) assert.equal(maskPath(input, k), want, input);
+  assert.equal(maskPath('setup', k), 'setup');
+  const deep = maskDeep({ integrity: { changed_paths: ['~/Client Work/acme/x.md'] }, skipped_files: [{ path_scrubbed: '~/A B/c d/e.md' }] }, k);
+  assert.deepEqual(deep.integrity.changed_paths, ['~/<path>/x.md']);
+  assert.equal(deep.skipped_files[0].path_scrubbed, '~/<path>/e.md');
+});
+
+test('displayPath only shortens the home at a path boundary', () => {
+  assert.equal(displayPath('/Users/bobby/acmeco/CLAUDE.md', '/Users/bob'), '/Users/bobby/acmeco/CLAUDE.md');
+  assert.equal(displayPath('/Users/bob/acmeco/CLAUDE.md', '/Users/bob'), '~/acmeco/CLAUDE.md');
+  assert.equal(displayPath('/Users/bob', '/Users/bob'), '~');
 });
