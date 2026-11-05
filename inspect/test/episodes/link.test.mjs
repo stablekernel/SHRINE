@@ -94,13 +94,31 @@ test('the file-list log turns off rename detection, so a partial clone never fet
   r.cleanup();
 });
 
-test('soft links scale: 20000 episodes link in under 2 seconds', () => {
-  const eps = [];
-  for (let i = 0; i < 20000; i++) eps.push(ep(`e${i}`, T0 + i * 600000, T0 + i * 600000 + 300000, { repo: `/w/r${i % 4}`, touched_files: [`/w/r${i % 4}/f${i % 50}.js`] }));
-  const t = Date.now();
-  const out = linkEpisodes(eps, new Map());
-  assert.ok(Date.now() - t < 2000, `${Date.now() - t} ms`);
-  assert.ok(out[0].downstream.length > 0);
+// Guards against an all-pairs scan: 8 times the episodes costs about 8 times the
+// work when linear, 64 times when quadratic. Best-of-3 CPU time, so other test
+// files running in parallel do not skew it; observed ratios are 6 to 11.
+test('soft links scale linearly: 8 times the episodes costs well under 64 times the CPU', () => {
+  const mk = (n) => {
+    const eps = [];
+    for (let i = 0; i < n; i++) eps.push(ep(`e${i}`, T0 + i * 600000, T0 + i * 600000 + 300000, { repo: `/w/r${i % 4}`, touched_files: [`/w/r${i % 4}/f${i % 50}.js`] }));
+    return eps;
+  };
+  const cpu = (eps) => {
+    let best = Infinity;
+    for (let k = 0; k < 3; k++) {
+      const c = process.cpuUsage();
+      linkEpisodes(eps, new Map());
+      const d = process.cpuUsage(c);
+      best = Math.min(best, d.user + d.system);
+    }
+    return best;
+  };
+  cpu(mk(2000));
+  const small = cpu(mk(5000));
+  const large = mk(40000);
+  const ratio = cpu(large) / small;
+  assert.ok(ratio < 24, `ratio ${ratio.toFixed(1)}`);
+  assert.ok(linkEpisodes(large, new Map())[0].downstream.length > 0);
 });
 
 // A teammate commit on another ref, as a fetch leaves it.

@@ -18,6 +18,7 @@ async function runT0(fixture) {
   const out = [];
   const err = [];
   const t0 = performance.now();
+  const c0 = process.cpuUsage();
   const code = await main(['run', '--tier', 'T0', '--no-history', '--json'], {
     env: { ...process.env, SHRINE_INSPECT_STATE_DIR: join(state, 'state'), SHRINE_INSPECT_CACHE_DIR: join(state, 'cache'), SHRINE_INSPECT_NOW: FIXED_NOW, SHRINE_INSPECT_TEMP_PATTERNS: '["^/nowhere/"]' },
     home: h.home,
@@ -26,12 +27,23 @@ async function runT0(fixture) {
     stderr: { write: (s) => err.push(s) },
   });
   const ms = performance.now() - t0;
+  const c = process.cpuUsage(c0);
+  const cpuMs = (c.user + c.system) / 1000;
   assert.equal(code, 0, err.join(''));
   const s = JSON.parse(out.join(''));
   const findings = JSON.parse(readFileSync(join(s.run_dir, 'findings.json'), 'utf8'));
   const html = readFileSync(s.report, 'utf8');
   h.cleanup();
-  return { h, findings, html, ms };
+  return { h, findings, html, ms, cpuMs };
+}
+
+// The plan's 5-second budget is held on CPU time, which other test files running
+// in parallel barely move; wall time there can grow several-fold. The wall ceiling
+// is 30 seconds (about 150 times a normal run), so a hang or a stray network or
+// full-history wait still fails.
+function assertFast({ ms, cpuMs }) {
+  assert.ok(cpuMs < 5000, `cpu ${cpuMs} ms`);
+  assert.ok(ms < 30000, `runtime ${ms} ms`);
 }
 
 // Replace run-specific values (temp paths, run id, copy-time mtimes) with markers.
@@ -55,8 +67,9 @@ function golden(name, actual) {
 }
 
 test('good setup, zero history: useful report, every passing check listed, no amplify above low', async () => {
-  const { h, findings, html, ms } = await runT0('good');
-  assert.ok(ms < 5000, `runtime ${ms} ms`);
+  const run = await runT0('good');
+  const { h, findings, html } = run;
+  assertFast(run);
   assert.ok(findings.findings.every((f) => f.tab !== 'amplify' || f.severity.label === 'low'));
   const passing = findings.headline.counts.checks - findings.findings.length;
   assert.equal(findings.checked_clear.length, passing);
@@ -69,8 +82,9 @@ test('good setup, zero history: useful report, every passing check listed, no am
 });
 
 test('bad setup: stale, blanket, oversized, stack_gap surface as mechanical findings; zero praise', async () => {
-  const { h, findings, ms } = await runT0('bad');
-  assert.ok(ms < 5000, `runtime ${ms} ms`);
+  const run = await runT0('bad');
+  const { h, findings } = run;
+  assertFast(run);
   const kinds = findings.findings.map((f) => f.kind);
   for (const k of ['stale_instructions', 'blanket_permissions', 'oversized_instructions', 'stack_gap']) assert.ok(kinds.includes(k), k);
   assert.ok(findings.findings.every((f) => f.provenance === 'mechanical'));
