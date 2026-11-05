@@ -1,7 +1,7 @@
 import { test } from 'node:test';
 import assert from 'node:assert/strict';
-import { execFileSync } from 'node:child_process';
-import { mkdtempSync, readdirSync, writeFileSync } from 'node:fs';
+import { execFileSync, spawnSync } from 'node:child_process';
+import { existsSync, mkdtempSync, readdirSync, rmSync, writeFileSync } from 'node:fs';
 import { tmpdir } from 'node:os';
 import { join } from 'node:path';
 import { git, gitInvocation } from '../../src/io/git.mjs';
@@ -10,7 +10,7 @@ const ENV = { ...process.env, GIT_AUTHOR_NAME: 't', GIT_AUTHOR_EMAIL: 't@x', GIT
 const sh = (cwd, ...a) => execFileSync('git', a, { cwd, env: ENV, stdio: 'pipe' }).toString();
 const packs = (repo) => readdirSync(join(repo, '.git', 'objects', 'pack')).filter((f) => f.endsWith('.pack'));
 
-function partialClone() {
+function partialClone(filter = 'blob:none') {
   const dir = mkdtempSync(join(tmpdir(), 'si-lazy-'));
   const src = join(dir, 'src');
   sh(dir, 'init', '-q', src);
@@ -23,23 +23,69 @@ function partialClone() {
   sh(dir, 'clone', '-q', '--bare', src, bare);
   sh(bare, 'config', 'uploadpack.allowFilter', 'true');
   const clone = join(dir, 'clone');
-  sh(dir, 'clone', '-q', '--filter=blob:none', '--no-local', `file://${bare}`, clone);
+  sh(dir, 'clone', '-q', `--filter=${filter}`, '--no-local', `file://${bare}`, clone);
   return clone;
 }
 
 test('git never lazy-fetches missing objects from a promisor remote', () => {
   const clone = partialClone();
-  const before = packs(clone);
-  const r = git(['show', 'HEAD~1:a.txt'], { cwd: clone });
-  assert.equal(r.ok, false, 'old blob must stay missing');
-  assert.deepEqual(packs(clone), before);
+  try {
+    const before = packs(clone);
+    const r = git(['show', 'HEAD~1:a.txt'], { cwd: clone });
+    assert.equal(r.ok, false, 'old blob must stay missing');
+    assert.deepEqual(packs(clone), before);
+  } finally {
+    rmSync(join(clone, '..'), { recursive: true, force: true });
+  }
 });
 
-test('every transport is refused, for git older than GIT_NO_LAZY_FETCH', () => {
-  const inv = gitInvocation(['log', '-1'], tmpdir());
-  assert.equal(inv.env.GIT_NO_LAZY_FETCH, '1');
-  assert.ok(inv.args.join(' ').includes('-c protocol.allow=never'));
-});
+// A tree:0 partial clone whose repo config re-enables a transport and points the
+// promisor remote at a script. The script only touches a marker inside the temp dir.
+function trappedClone(kind) {
+  const clone = partialClone('tree:0');
+  const dir = join(clone, '..');
+  const marker = join(dir, 'PWNED');
+  const script = join(dir, 'trap.sh');
+  writeFileSync(script, `touch '${marker}'\nexit 1\n`);
+  if (kind === 'ext') {
+    sh(clone, 'config', 'protocol.ext.allow', 'always');
+    sh(clone, 'config', 'remote.origin.url', `ext::sh ${script}`);
+  } else {
+    sh(clone, 'config', 'protocol.file.allow', 'always');
+    sh(clone, 'config', 'remote.origin.uploadpack', `sh ${script} #`);
+  }
+  return { dir, clone, marker };
+}
+
+// The linker's history walk plus a per-file lookup: both need trees a tree:0 clone lacks.
+const LAZY_READS = [['log', '--all', '--no-renames', '--name-only', '--format=%H'], ['log', '-1', '--format=%H', '--', 'a.txt']];
+
+for (const kind of ['ext', 'file']) {
+  test(`repo config cannot re-enable the ${kind} transport for a lazy fetch`, () => {
+    const { dir, clone, marker } = trappedClone(kind);
+    try {
+      for (const args of LAZY_READS) git(args, { cwd: clone });
+      assert.equal(existsSync(marker), false, 'inspect git ran the remote command');
+    } finally {
+      rmSync(dir, { recursive: true, force: true });
+    }
+  });
+
+  // Git before 2.44.1 / 2.45.1 ignores GIT_NO_LAZY_FETCH, so drop it to act like that git.
+  test(`repo config cannot re-enable the ${kind} transport, for git older than GIT_NO_LAZY_FETCH`, () => {
+    const { dir, clone, marker } = trappedClone(kind);
+    try {
+      for (const args of LAZY_READS) {
+        const inv = gitInvocation(args, clone);
+        delete inv.env.GIT_NO_LAZY_FETCH;
+        spawnSync(inv.cmd, inv.args, { cwd: inv.cwd, env: inv.env, stdio: 'pipe' });
+      }
+      assert.equal(existsSync(marker), false, 'inspect git ran the remote command');
+    } finally {
+      rmSync(dir, { recursive: true, force: true });
+    }
+  });
+}
 
 test('a GIT_* variable from the caller cannot redirect which repo git reads', async () => {
   const { repoRoot } = await import('../../src/adapters/claude-code/projects.mjs');
@@ -53,11 +99,12 @@ test('a GIT_* variable from the caller cannot redirect which repo git reads', as
   const a = mk();
   const b = mk();
   const saved = { ...process.env };
-  Object.assign(process.env, { GIT_DIR: join(b, '.git'), GIT_WORK_TREE: b, GIT_INDEX_FILE: join(b, '.git', 'index'), GIT_CONFIG_COUNT: '1', GIT_CONFIG_KEY_0: 'core.pager', GIT_CONFIG_VALUE_0: 'cat' });
+  Object.assign(process.env, { GIT_DIR: join(b, '.git'), GIT_WORK_TREE: b, GIT_INDEX_FILE: join(b, '.git', 'index'), GIT_CONFIG_COUNT: '1', GIT_CONFIG_KEY_0: 'core.pager', GIT_CONFIG_VALUE_0: 'cat', GIT_ALLOW_PROTOCOL: 'ext:file' });
   try {
     assert.equal(repoRoot(a), a);
     const env = gitInvocation(['log'], a).env;
-    assert.deepEqual(Object.keys(env).filter((k) => k.startsWith('GIT_')).sort(), ['GIT_NO_LAZY_FETCH', 'GIT_OPTIONAL_LOCKS', 'GIT_TERMINAL_PROMPT', ...(saved.GIT_CEILING_DIRECTORIES ? ['GIT_CEILING_DIRECTORIES'] : [])].sort());
+    assert.equal(env.GIT_ALLOW_PROTOCOL, 'none');
+    assert.deepEqual(Object.keys(env).filter((k) => k.startsWith('GIT_')).sort(), ['GIT_ALLOW_PROTOCOL', 'GIT_NO_LAZY_FETCH', 'GIT_OPTIONAL_LOCKS', 'GIT_TERMINAL_PROMPT', ...(saved.GIT_CEILING_DIRECTORIES ? ['GIT_CEILING_DIRECTORIES'] : [])].sort());
   } finally {
     for (const k of Object.keys(process.env)) if (!(k in saved)) delete process.env[k];
   }

@@ -6,6 +6,8 @@ const ALLOWED = new Set(['log', 'show', 'diff', 'rev-parse', 'status']);
 const DIFFING = new Set(['log', 'show', 'diff']);
 const KEEP_ENV = new Set(['GIT_CEILING_DIRECTORIES']);
 const WRITING_FLAGS =/^(--output|-o$|--ext-diff|--textconv)/;
+const NO_PROTOCOL = 'none';
+const NO_TRANSPORT = ['protocol.allow', ...['ext', 'file', 'ssh', 'git', 'http', 'https'].map((p) => `protocol.${p}.allow`)].flatMap((k) => ['-c', `${k}=never`]);
 
 function deny(args, why) {
   throw new InspectError('E_GIT_DENIED', `refused git ${args.join(' ')}: ${why}`);
@@ -20,15 +22,19 @@ export function gitInvocation(args, cwd) {
   // whether it comes from repo config or the environment; signature checks (which
   // run gpg.program) are off for every command.
   const noPrograms = DIFFING.has(sub) ? ['--no-ext-diff', '--no-textconv'] : [];
-  // Partial clones never lazy-fetch: GIT_NO_LAZY_FETCH (git 2.44+), and every
-  // transport is refused for older git.
-  // Caller GIT_* vars (GIT_DIR, GIT_WORK_TREE, GIT_CONFIG_*, ...) are dropped so
-  // nothing redirects the repo or injects config; the ceiling only narrows discovery.
+  // Partial clones never lazy-fetch: GIT_NO_LAZY_FETCH (git 2.44.1+). Older git
+  // ignores that var, so every transport is refused too. Repo config can set
+  // protocol.<name>.allow=always, which beats -c protocol.allow=never, so the real
+  // guard is GIT_ALLOW_PROTOCOL: set, it overrides all protocol config, and naming
+  // only a protocol that does not exist allows none. -c per protocol backs it up.
+  // Caller GIT_* vars (GIT_DIR, GIT_WORK_TREE, GIT_CONFIG_*, GIT_ALLOW_PROTOCOL, ...)
+  // are dropped first so nothing redirects the repo, injects config or re-allows a
+  // transport; the ceiling only narrows discovery.
   const env = Object.fromEntries(Object.entries(process.env).filter(([k]) => !k.startsWith('GIT_') || KEEP_ENV.has(k)));
-  Object.assign(env, { GIT_OPTIONAL_LOCKS: '0', GIT_TERMINAL_PROMPT: '0', GIT_NO_LAZY_FETCH: '1' });
+  Object.assign(env, { GIT_OPTIONAL_LOCKS: '0', GIT_TERMINAL_PROMPT: '0', GIT_NO_LAZY_FETCH: '1', GIT_ALLOW_PROTOCOL: NO_PROTOCOL });
   return {
     cmd: 'git',
-    args: ['--no-pager', '-c', 'core.fsmonitor=false', '-c', 'log.showSignature=false', '-c', 'protocol.allow=never', sub, ...noPrograms, ...args.slice(1)],
+    args: ['--no-pager', '-c', 'core.fsmonitor=false', '-c', 'log.showSignature=false', ...NO_TRANSPORT, sub, ...noPrograms, ...args.slice(1)],
     env,
     cwd,
   };
