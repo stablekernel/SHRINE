@@ -1,0 +1,115 @@
+// History scan for T0 (spec 3 phases 2, 4, 5; plan T2.10). Runs only after
+// Gate A says yes: reads the consented session logs by streaming, normalizes
+// events, cuts episodes, links git outcomes, and runs the usage probes. Nothing
+// here calls a model or opens a socket.
+import { sessionInventory } from '../adapters/claude-code/projects.mjs';
+import { excludeSessions } from '../adapters/claude-code/sessions.mjs';
+import { readSession } from '../adapters/claude-code/events.mjs';
+import { extractEpisodes } from '../episodes/extract.mjs';
+import { linkEpisodes, repoCommits } from '../episodes/link.mjs';
+import { episodeFlags, runUsageProbes } from '../probes/usage.mjs';
+import { historyRule } from '../scorer/stats.mjs';
+import { THRESHOLDS } from '../probes/config.mjs';
+
+const HOUR = 3600000;
+
+// Seconds to parse `bytes` at the measured E2 rate; a lower bound (episodes and
+// git links add time).
+export function estimateSeconds(bytes, t = THRESHOLDS) {
+  return Math.ceil(bytes / (t.history.parse_mb_per_second * 1024 * 1024));
+}
+
+const hhmm = (iso) => iso.slice(11, 16);
+
+// Generic labels only: no prompt text ever reaches the timeline.
+export function episodeTimeline(ep, flags) {
+  const ev = [{ t: hhmm(ep.start), label_scrubbed: 'Prompt', kind: 'neutral', event_kind: 'Prompt' }];
+  const corr = ep.humans.find((h) => h.index > 0 && flags.corrections > 0);
+  if (corr) ev.push({ t: hhmm(corr.t), label_scrubbed: 'Correction', kind: 'warn', event_kind: 'Correction' });
+  if (flags.done_claim && ep.last_text_t) ev.push({ t: hhmm(ep.last_text_t), label_scrubbed: 'Done claim', kind: flags.tested ? 'neutral' : 'warn', event_kind: 'Done claim' });
+  if (ep.terminal === 'commit' || ep.terminal === 'pr') ev.push({ t: hhmm(ep.end), label_scrubbed: 'Commit', kind: 'resolve', event_kind: 'Commit' });
+  return ev.sort((a, b) => (a.t < b.t ? -1 : a.t > b.t ? 1 : 0));
+}
+
+const sizeOf = (tokens) => (tokens < 20000 ? 'small' : tokens < 100000 ? 'medium' : 'large');
+
+function recencyOf(start, from, to) {
+  const span = Math.max(1, to - from);
+  const x = (Date.parse(start) - from) / span;
+  return x >= 2 / 3 ? 'newest' : x >= 1 / 3 ? 'middle' : 'oldest';
+}
+
+// listing: listProjects(); excludedIds: own session ids. display: path scrubber.
+export async function scanHistory({ listing, excludedIds = [], display = (p) => p, t = THRESHOLDS, onProgress = () => {} }) {
+  const inv = sessionInventory(listing);
+  const metas = excludeSessions(inv.sessions, excludedIds);
+  const sessions = [];
+  const episodes = [];
+  const skipped = [];
+  let readable = 0;
+  for (const [i, meta] of metas.entries()) {
+    const r = await readSession(meta);
+    for (const f of r.files) {
+      if (f.kind === 'unreadable' || f.kind === 'core_missing') skipped.push({ path_scrubbed: display(f.path), reason: f.kind === 'unreadable' ? 'could not be read' : 'core keys missing' });
+    }
+    onProgress(i + 1, metas.length);
+    if (r.kind !== 'session') continue;
+    readable++;
+    sessions.push(r.session);
+    for (const ep of extractEpisodes(r.session, r.timeline, { idleMinutes: t.history.idle_minutes })) episodes.push({ ...ep, repo: meta.root });
+  }
+
+  // Git outcome links, one log per repo over the episode span plus the link window.
+  const commitsByRepo = new Map();
+  for (const root of new Set(episodes.filter((e) => e.committed).map((e) => e.repo))) {
+    const mine = episodes.filter((e) => e.repo === root);
+    const since = Math.min(...mine.map((e) => Date.parse(e.start)));
+    const until = Math.max(...mine.map((e) => Date.parse(e.end))) + t.history.link_hours * HOUR;
+    commitsByRepo.set(root, repoCommits(root, { since, until }));
+  }
+  const linked = linkEpisodes(episodes, commitsByRepo, { windowHours: t.history.link_hours });
+  const probes = runUsageProbes({ sessions, episodes: linked, t });
+  const rule = historyRule({ consented: true, sessions: sessions.length }, t);
+
+  const from = sessions.length ? Math.min(...sessions.map((s) => Date.parse(s.start))) : 0;
+  const to = sessions.length ? Math.max(...sessions.map((s) => Date.parse(s.end))) : 0;
+  const factsEpisodes = linked.map((e) => {
+    const flags = probes.flags.get(e.id);
+    return {
+      id: e.id,
+      session_id: e.session_id,
+      root_turn_id: e.root_turn_id,
+      start: e.start,
+      end: e.end,
+      terminal: e.terminal,
+      human_turns: e.human_turns,
+      assistant_turns: e.assistant_turns,
+      interrupts: e.interrupts,
+      permission_answers: 0,
+      tokens: e.tokens,
+      subagents: e.subagents,
+      compactions: e.compactions,
+      touched_files: e.touched_files.map(display),
+      commits: e.commits,
+      stratum: { recency: recencyOf(e.start, from, to), project: e.project, size: sizeOf(e.tokens), outcome: e.rework ? 'rework' : 'none' },
+      downstream: e.downstream,
+      live_config_refs: [],
+      timeline: episodeTimeline(e, flags),
+      excerpts: { root_prompt_scrubbed: null, corrections_scrubbed: [] },
+      flags: { done_claim: flags.done_claim, tested: flags.tested, corrections: flags.corrections, retries: flags.retries },
+    };
+  });
+  const byId = new Map(factsEpisodes.map((e) => [e.id, e]));
+  for (const k of probes.kinds) {
+    const first = k.episode_ids.map((id) => byId.get(id)).find(Boolean);
+    if (first) k.episode_ref = { episode_id: first.id, timeline: first.timeline };
+  }
+  return {
+    inventory: inv,
+    sessions,
+    episodes: factsEpisodes,
+    skipped_files: skipped,
+    unsupported: metas.length > 0 && readable === 0 && skipped.length > 0,
+    usage: { ...probes, rule, automation: inv.automation, excluded_own: excludedIds.length > 0 && inv.sessions.length !== metas.length },
+  };
+}

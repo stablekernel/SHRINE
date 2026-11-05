@@ -24,9 +24,13 @@ import { findingsSchema } from '../schema/findings.mjs';
 import { fileURLToPath } from 'node:url';
 import { baselineOf, verifyRun } from '../verify/verify.mjs';
 import { InspectError, EXIT } from './errors.mjs';
-import { askGate, GATE_A } from './approve.mjs';
+import { askGate, GATE_A, GATE_B_NOTE } from './approve.mjs';
+import { estimateSeconds, scanHistory } from './scan.mjs';
+import { ownSession } from '../adapters/claude-code/sessions.mjs';
+import { tierProposal } from '../scorer/stats.mjs';
 
 const PIVOTS = readJson(fileURLToPath(new URL('../catalogue/generic-pivots.json', import.meta.url)));
+const KINDS = readJson(fileURLToPath(new URL('../catalogue/t0-kinds.json', import.meta.url)));
 
 export function context(io) {
   const now = io.env.SHRINE_INSPECT_NOW ? Date.parse(io.env.SHRINE_INSPECT_NOW) : Date.now();
@@ -54,11 +58,14 @@ export async function runCommand(opts, io) {
   if (!d.present) throw new InspectError('E_NO_HARNESS', `no Claude Code folder at ${displayPath(d.claude_home, ctx.home)}`, { hint: 'run inspect as the user whose setup you want to check' });
   const runId = newRunId();
   const folder = createRunFolder(ctx.dirs.state, runId);
+  const at = new Date(ctx.now).toISOString();
   const state = {
     run_id: runId,
     tier: 'T0',
-    started_at: new Date(ctx.now).toISOString(),
-    gates: { A: opts.noHistory ? { choice: 'no-history', by: 'flag', at: new Date(ctx.now).toISOString() } : null },
+    started_at: at,
+    session_id: opts.sessionId ?? null,
+    // Gate B: T0 is the only tier in this version, chosen by --tier on the command line.
+    gates: { A: opts.noHistory ? { choice: 'no-history', by: 'flag', at } : null, B: { choice: 'T0', by: 'flag', at } },
   };
   folder.writeJson('state.json', state);
   return continueRun(folder, ctx, io);
@@ -77,9 +84,30 @@ export async function continueRun(folder, ctx, io) {
   const ret = retention({ home: ctx.home });
   const claudeHome = detect({ home: ctx.home }).claude_home;
   const listing = listProjects({ claudeHome, now: ctx.now, windowDays: ret.days, tempPatterns: defaultTempPatterns(io.env) });
+  // Decided once, from file metadata, so the resumed run excludes the same session.
+  state.own ??= ownSession(listing, { sessionId: state.session_id, now: ctx.now });
+  const historyBytes = listing.projects.reduce((n, p) => n + (p.bytes_with_subagents ?? p.bytes), 0);
+  const itemized = {
+    projects: listing.projects.length,
+    sessions: listing.projects.reduce((n, p) => n + p.sessions, 0),
+    from: listing.projects.length ? listing.projects.map((p) => p.first_mtime).sort()[0] : null,
+    to: listing.projects.length ? listing.projects.map((p) => p.last_mtime).sort().at(-1) : null,
+    bytes: historyBytes,
+    estimate_seconds: estimateSeconds(historyBytes),
+    window_days: ret.days,
+  };
 
   if (!state.gates.A) {
-    const gate = { gate: 'A', ...GATE_A, projects: listing.top.map((p) => ({ name: p.name, sessions: p.sessions, bytes: p.bytes })), more: listing.more, excluded: listing.excluded.length };
+    const gate = {
+      gate: 'A',
+      ...GATE_A,
+      projects: listing.top.map((p) => ({ name: p.name, sessions: p.sessions, bytes: p.bytes })),
+      more: listing.more,
+      excluded: listing.excluded.length,
+      history: itemized,
+      own_session: state.own ? { id: state.own.id, project: state.own.project, reason: state.own.reason } : null,
+      tier: { offered: 'T0', note: GATE_B_NOTE },
+    };
     folder.writeJson('gate.json', gate);
     state.phase = 'gate_a';
     folder.writeJson('state.json', state);
@@ -96,21 +124,28 @@ export async function continueRun(folder, ctx, io) {
   const historyConsented = state.gates.A.choice === 'history';
   const scope = listing.projects;
   const projects = scope.map((p) => ({ root: p.root, cwds: p.cwds }));
+  const display = (p) => displayPath(p, ctx.home);
+  const excludedIds = state.own ? [state.own.id] : [];
+
+  // Phase: history (only after Gate A says yes). Repo HEADs are taken first so
+  // the verify step can tell whether one moved during the scan.
+  const { heads } = baselineOf([], projects.map((p) => p.root));
+  const history = historyConsented ? await scanHistory({ listing, excludedIds, display }) : null;
+  const usage = history && !history.unsupported && history.sessions.length > 0 ? history.usage : null;
+
   const run = {
     id: state.run_id,
     started_at: state.started_at,
     tool_version: TOOL_VERSION,
-    harness: { name: 'Claude Code', version: null },
-    scope: { projects: scope.map((p) => p.name), from: null, to: null, history_consented: historyConsented },
+    harness: { name: 'Claude Code', version: history?.inventory.harness_version ?? null },
+    scope: { projects: scope.map((p) => p.name), from: history?.inventory.from ?? null, to: history?.inventory.to ?? null, history_consented: historyConsented },
     win_definition: null,
     seed: null,
   };
   const catalogue = loadBundledCatalogue();
   const shrine = { commit: catalogue.shrine.commit, manifest_sha: null, fetched_at: null };
 
-  // Phase: scan (setup, config probes). Repo HEADs are taken first so the verify
-  // step can tell whether one moved during the scan.
-  const { heads } = baselineOf([], projects.map((p) => p.root));
+  // Phase: scan (setup, config probes).
   const setup = collectSetup({ home: ctx.home, projects, now: ctx.now });
   const probes = runConfigProbes(setup);
   if (!folder.isDone('scan')) {
@@ -123,7 +158,8 @@ export async function continueRun(folder, ctx, io) {
       retention: ret,
       probes: probes.probes.map((p) => ({ kind: p.kind, entry_id: p.entry_id, hit: p.hit, metric: p.metric })),
       structure: probes.structure.map((s) => ({ check: s.check, applicable: s.applicable, pass: s.pass })),
-      tier_proposal: 'T0',
+      history: { consented: historyConsented, ...itemized, rule: usage?.rule ?? (historyConsented ? 'setup_only' : null), usage_kinds: usage ? usage.kinds.map((k) => ({ kind: k.kind, ship: k.ship, hit: k.hit, metric: k.metric })) : [] },
+      tier_proposal: tierProposal(),
     });
     folder.markDone('scan');
   }
@@ -147,10 +183,11 @@ export async function continueRun(folder, ctx, io) {
         loaded_by: i.loaded_by,
       })),
       repos: projects.map((p) => ({ id: basename(p.root), commits_in_window: 0, commits_before_window: 0, reverts: [], fixups: [], test_command_present: null, work_left_open: [] })),
-      sessions: [],
-      episodes: [],
-      metrics: {},
+      sessions: usage ? history.sessions : [],
+      episodes: usage ? history.episodes : [],
+      metrics: usage ? { usage: usage.counts, automation: usage.automation, rule: usage.rule } : {},
       setup: { always_loaded_bytes: setup.always_loaded.max_bytes, retention: ret, consent: state.gates.A },
+      consent: { A: state.gates.A, B: state.gates.B ?? null, itemized, excluded_session_ids: excludedIds },
     };
     folder.writeJson('facts.json', assertValid(factsSchema, facts, 'facts.json'));
     folder.markDone('facts');
@@ -166,7 +203,10 @@ export async function continueRun(folder, ctx, io) {
     pivots: PIVOTS,
     copy,
     home: ctx.home,
-    history: { consented: historyConsented, read: false, sessions: null },
+    history: { consented: historyConsented, read: Boolean(usage), sessions: usage ? usage.counts.sessions : null },
+    usage,
+    usageKinds: KINDS.usage_kinds,
+    sessionStarts: usage ? history.sessions.map((s) => s.start) : null,
     inventoryCounts: {
       hooks: counts('hook'),
       skills: counts('skill'),
@@ -210,14 +250,24 @@ export async function continueRun(folder, ctx, io) {
     findings.run_limits = limits;
     findings.notes.push(...limits);
   }
-  if (historyConsented) findings.notes.push('Session history was approved, but this version reads setup only; usage counts arrive in a later version.');
+  if (history) findings.skipped_files = history.skipped_files;
+  if (history?.unsupported) findings.notes.push('Session logs were approved but none could be parsed, so this report covers setup only.');
   findings.diff = diffRuns(previousFindings(ctx.dirs.state, state.run_id), findings);
 
   // Phase: verify (runtime hash check of every file opened, before the report so
-  // a failure shows as the integrity banner).
-  const verify = verifyRun({ ...baselineOf(setup.items), heads }, spyLog());
+  // a failure shows as the integrity banner). Session logs only record growth.
+  const base = baselineOf(setup.items);
+  const logs = new Map(spyLog().filter((e) => e.stream).map((e) => [e.path, { path: e.path, size: e.size, mtime_ms: null, append_only: true }]));
+  const verify = verifyRun({ files: [...base.files, ...logs.values()], heads }, spyLog());
   findings.integrity = { ok: verify.ok, changed_paths: verify.changed_paths.map((p) => displayPath(p, ctx.home)) };
-  folder.writeJson('verify.json', { schema_version: 1, run_id: state.run_id, ...verify, changed_paths: findings.integrity.changed_paths, changed_by_others: verify.changed_by_others.map((c) => ({ ...c, path: displayPath(c.path, ctx.home) })) });
+  folder.writeJson('verify.json', {
+    schema_version: 1,
+    run_id: state.run_id,
+    ...verify,
+    changed_paths: findings.integrity.changed_paths,
+    changed_by_others: verify.changed_by_others.map((c) => ({ ...c, path: displayPath(c.path, ctx.home) })),
+    excluded_session_ids: excludedIds,
+  });
   folder.markDone('verify');
 
   assertValid(findingsSchema, findings, 'findings.json');
@@ -240,5 +290,6 @@ export async function continueRun(folder, ctx, io) {
     if (findings.diff) io.stdout.write(`${diffLine(findings.diff)}\n`);
     io.stdout.write(`Report: ${reportPath}\nShare-safe copy: ${safePath}\n`);
   }
-  return { code: findings.integrity.ok ? EXIT.OK : EXIT.INTEGRITY, summary, folder };
+  const code = !findings.integrity.ok ? EXIT.INTEGRITY : history?.unsupported ? EXIT.UNSUPPORTED_FORMAT : EXIT.OK;
+  return { code, summary, folder };
 }

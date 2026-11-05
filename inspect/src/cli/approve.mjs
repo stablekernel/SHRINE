@@ -9,6 +9,11 @@ export const GATE_A = {
   question: 'Read session history too? T0 never sends anything to a model.',
   choices: ['no-history', 'history'],
 };
+export const GATE_B_NOTE = 'Tier: T0, scan only, no model calls. Deeper tiers are not available in this version.';
+
+const day = (iso) => (iso ? iso.slice(0, 10) : 'none');
+const size = (bytes) => (bytes >= 1 << 30 ? `${(bytes / (1 << 30)).toFixed(1)} GB` : bytes >= 1 << 20 ? `${Math.round(bytes / (1 << 20))} MB` : `${Math.round(bytes / 1024)} KB`);
+const eta = (s) => (s < 60 ? 'under 1 minute' : `about ${Math.ceil(s / 60)} minutes`);
 
 const describe = (gate) => {
   const lines = [`Gate ${gate.gate}: ${gate.question}`];
@@ -18,6 +23,13 @@ const describe = (gate) => {
     if (gate.more) lines.push(`  and ${gate.more} more`);
   }
   if (gate.excluded) lines.push(`Excluded (temp, scratch, automation): ${gate.excluded} folders`);
+  const h = gate.history;
+  if (h) {
+    lines.push(`History if yes: ${h.sessions} session files in ${h.projects} ${h.projects === 1 ? 'project' : 'projects'}, ${day(h.from)} to ${day(h.to)} (last ${h.window_days} days), ${size(h.bytes)} on disk.`);
+    lines.push(`Estimated time with history: ${eta(h.estimate_seconds)} to parse, on this machine's disk. Read locally; nothing leaves it.`);
+  }
+  if (gate.own_session) lines.push(`Left out: session ${gate.own_session.id.slice(0, 8)} (${gate.own_session.reason === 'flag' ? 'named by --session-id' : 'still being written, likely the one running this'}).`);
+  if (gate.tier?.note) lines.push(gate.tier.note);
   lines.push(`Choices: ${gate.choices.join(', ')}`);
   return lines.join('\n');
 };

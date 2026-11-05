@@ -149,7 +149,7 @@ const usageThresholds = (t) => ({
   rework_link_hours: t.history.link_hours,
 });
 
-export function score({ run, shrine, probes, structure, catalogue, pivots, copy, inventoryCounts = {}, home = null, history = { consented: false, read: false, sessions: null }, usage = null, usageKinds = {}, thresholds = THRESHOLDS, tier = 'T0' }) {
+export function score({ run, shrine, probes, structure, catalogue, pivots, copy, inventoryCounts = {}, home = null, history = { consented: false, read: false, sessions: null }, usage = null, usageKinds = {}, sessionStarts = null, thresholds = THRESHOLDS, tier = 'T0' }) {
   const t = thresholds;
   const findings = [];
   const dropped = [];
@@ -218,7 +218,7 @@ export function score({ run, shrine, probes, structure, catalogue, pivots, copy,
       timeline_gap: null,
       coverage_key: coverageKey(refs),
       items: p.items.map((i) => (i.path ? { ...i, path: displayPath(i.path, home) } : i)),
-      config_strip: first ? { mtime: first.date ?? null, last_git_change: first.date_source === 'git' ? first.date : null, sessions_since: history.sessions } : null,
+      config_strip: first ? { mtime: first.date ?? null, last_git_change: first.date_source === 'git' ? first.date : null, sessions_since: sessionStarts && first.date ? sessionStarts.filter((s) => s >= first.date).length : history.sessions } : null,
     });
   }
 
