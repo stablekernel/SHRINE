@@ -20,6 +20,7 @@ import { assertValid } from '../schema/validate.mjs';
 import { factsSchema } from '../schema/facts.mjs';
 import { findingsSchema } from '../schema/findings.mjs';
 import { fileURLToPath } from 'node:url';
+import { baselineOf, verifyRun } from '../verify/verify.mjs';
 import { InspectError, EXIT } from './errors.mjs';
 import { askGate, GATE_A } from './approve.mjs';
 
@@ -169,6 +170,14 @@ export async function continueRun(folder, ctx, io) {
   });
   if (historyConsented) findings.notes.push('Session history was approved, but this version reads setup only; usage counts arrive in a later version.');
   findings.diff = diffRuns(previousFindings(ctx.dirs.state, state.run_id), findings);
+
+  // Phase: verify (runtime hash check of every file opened, before the report so
+  // a failure shows as the integrity banner).
+  const verify = verifyRun(baselineOf(setup.items, projects.map((p) => p.root)), spyLog());
+  findings.integrity = { ok: verify.ok, changed_paths: verify.changed_paths.map((p) => displayPath(p, ctx.home)) };
+  folder.writeJson('verify.json', { schema_version: 1, run_id: state.run_id, ...verify, changed_paths: findings.integrity.changed_paths, changed_by_others: verify.changed_by_others.map((c) => ({ ...c, path: displayPath(c.path, ctx.home) })) });
+  folder.markDone('verify');
+
   assertValid(findingsSchema, findings, 'findings.json');
   folder.writeJson('findings.json', findings);
   folder.markDone('findings');
@@ -189,5 +198,5 @@ export async function continueRun(folder, ctx, io) {
     if (findings.diff) io.stdout.write(`${diffLine(findings.diff)}\n`);
     io.stdout.write(`Report: ${reportPath}\nShare-safe copy: ${safePath}\n`);
   }
-  return { code: EXIT.OK, summary, folder };
+  return { code: findings.integrity.ok ? EXIT.OK : EXIT.INTEGRITY, summary, folder };
 }
