@@ -2,9 +2,11 @@
 // file that changed while the spy log shows a write open by inspect fails the
 // run; any other change is reported as "changed during run, not by inspect".
 // Append-only session logs only record growth, attributed to other sessions.
-// Each scanned repo's .git is also snapshotted (pack list, index and HEAD mtimes):
-// a change there while HEAD did not move can only be inspect's own git calls
-// (for example a lazy fetch), so it fails the run.
+// Each scanned repo's .git is also snapshotted (pack list; index, HEAD, FETCH_HEAD,
+// and packed-refs mtimes). Only the lazy-fetch signature fails the run: a new pack
+// with no FETCH_HEAD update (a partial-clone fetch does not write FETCH_HEAD).
+// Index, HEAD, ref, or fetched-pack changes come from the user (git add, stash,
+// fetch, an IDE refresh) and are reported as changed by others.
 import { resolve } from 'node:path';
 import { exists, list, readBytes, sha256, stat } from '../io/fsread.mjs';
 import { gitOut } from '../io/git.mjs';
@@ -16,10 +18,18 @@ function gitState(root) {
   const common = resolve(root, commonOut);
   const mtime = (p) => stat(p)?.mtimeMs ?? null;
   const packs = list(resolve(common, 'objects', 'pack')).map((e) => e.name).join('\n');
-  return { common, packs, index: mtime(resolve(dir, 'index')), head: mtime(resolve(dir, 'HEAD')) };
+  return {
+    common,
+    packs,
+    index: mtime(resolve(dir, 'index')),
+    head: mtime(resolve(dir, 'HEAD')),
+    fetch_head: mtime(resolve(common, 'FETCH_HEAD')),
+    refs: mtime(resolve(common, 'packed-refs')),
+  };
 }
 
-const sameState = (a, b) => a.packs === b.packs && a.index === b.index && a.head === b.head;
+const sameState = (a, b) => ['packs', 'index', 'head', 'fetch_head', 'refs'].every((k) => a[k] === b[k]);
+const lazyFetch = (a, b) => a.packs !== b.packs && a.fetch_head === b.fetch_head;
 
 export function baselineOf(items, repos = []) {
   const files = items
@@ -52,7 +62,7 @@ export function verifyRun(baseline, spy) {
     if (now !== h.head) changed.push({ path: h.root, change: 'HEAD moved', by: 'others' });
     else if (h.git) {
       const after = gitState(h.root);
-      if (after && !sameState(h.git, after)) changed.push({ path: h.git.common, change: '.git changed', by: 'inspect' });
+      if (after && !sameState(h.git, after)) changed.push({ path: h.git.common, change: '.git changed', by: lazyFetch(h.git, after) ? 'inspect' : 'others' });
     }
   }
   const byInspect = changed.filter((c) => c.by === 'inspect');

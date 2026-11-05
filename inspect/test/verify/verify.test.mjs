@@ -84,3 +84,36 @@ test('a new pack in a scanned repo .git while HEAD stays put fails the run', asy
   assert.equal(r.ok, false);
   assert.deepEqual(r.changed_paths, [join(repo, '.git')]);
 });
+
+function gitRepo(execFileSync) {
+  const repo = mkdtempSync(join(tmpdir(), 'si-verify-user-'));
+  const env = { ...process.env, GIT_AUTHOR_NAME: 't', GIT_AUTHOR_EMAIL: 't@x', GIT_COMMITTER_NAME: 't', GIT_COMMITTER_EMAIL: 't@x' };
+  const g = (...a) => execFileSync('git', a, { cwd: repo, env, stdio: 'ignore' });
+  g('init', '-q');
+  g('commit', '-q', '--allow-empty', '-m', 'one');
+  return { repo, g };
+}
+
+test('a user git add during the scan is reported, not blamed on inspect', async () => {
+  const { execFileSync } = await import('node:child_process');
+  const { repo, g } = gitRepo(execFileSync);
+  const { heads } = baselineOf([], [repo]);
+  await new Promise((r) => setTimeout(r, 20));
+  writeFileSync(join(repo, 'b'), 'b');
+  g('add', 'b');
+  const r = verifyRun({ files: [], heads }, []);
+  assert.equal(r.ok, true);
+  assert.deepEqual(r.changed_paths, []);
+  assert.deepEqual(r.changed_by_others.map((c) => c.change), ['.git changed']);
+});
+
+test('a new pack that arrives with a FETCH_HEAD update is a user fetch, not inspect', async () => {
+  const { execFileSync } = await import('node:child_process');
+  const { repo } = gitRepo(execFileSync);
+  const { heads } = baselineOf([], [repo]);
+  writeFileSync(join(repo, '.git', 'objects', 'pack', 'pack-0000.pack'), 'x');
+  writeFileSync(join(repo, '.git', 'FETCH_HEAD'), '');
+  const r = verifyRun({ files: [], heads }, []);
+  assert.equal(r.ok, true);
+  assert.deepEqual(r.changed_by_others.map((c) => c.change), ['.git changed']);
+});
