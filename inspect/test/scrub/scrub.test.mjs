@@ -79,3 +79,8 @@ test('maskDeep leaves SHRINE references alone', () => {
   assert.equal(out.lead, '<user> edited it');
   assert.deepEqual(out.shrine_refs, o.shrine_refs);
 });
+
+test('maskDeep masks a finding anchor, which is a user file path', () => {
+  const out = maskDeep({ anchor: '~/.claude/projects/-Users-jdoe-src-acme-corp-shop-api/memory/MEMORY.md' }, ids);
+  assert.ok(!/jdoe|acme|shop/.test(out.anchor), out.anchor);
+});

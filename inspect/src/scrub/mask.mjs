@@ -50,7 +50,7 @@ export function mask(text, known) {
   return out;
 }
 
-const KEEP = new Set(['shrine_refs', 'shrine_ref', 'shrine', 'url', 'url_pinned', 'entry_id', 'page_id', 'anchor', 'id', 'finding_id']);
+const KEEP = new Set(['shrine_refs', 'shrine_ref', 'shrine', 'url', 'url_pinned', 'entry_id', 'page_id', 'id', 'finding_id']);
 
 export function maskDeep(value, known, key = '') {
   if (KEEP.has(key)) return value;
