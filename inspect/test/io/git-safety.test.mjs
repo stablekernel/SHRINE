@@ -109,6 +109,41 @@ test('repo config fetch.bundleURI cannot write a pack, for git older than GIT_NO
   }
 });
 
+// GIT_ALLOW_PROTOCOL also allows remote helpers by name, so the value must not be
+// a name a URL can carry (<scheme>::, scheme chars only).
+test('the GIT_ALLOW_PROTOCOL value cannot name a remote helper', () => {
+  const allow = gitInvocation(['log'], '.').env.GIT_ALLOW_PROTOCOL;
+  for (const name of allow.split(':')) assert.doesNotMatch(name, /^[A-Za-z][A-Za-z0-9+.-]*$/);
+  const clone = partialClone('tree:0');
+  const dir = join(clone, '..');
+  try {
+    const bin = join(dir, 'bin');
+    const marker = join(dir, 'PWNED');
+    execFileSync('mkdir', [bin]);
+    // A helper named after the old allow value, reached through a "none::" URL.
+    writeFileSync(join(bin, 'git-remote-none'), `#!/bin/sh\ntouch '${marker}'\nexit 1\n`, { mode: 0o755 });
+    sh(clone, 'config', 'remote.origin.url', 'none::x');
+    for (const args of LAZY_READS) {
+      const inv = gitInvocation(args, clone);
+      delete inv.env.GIT_NO_LAZY_FETCH;
+      inv.env.GIT_ALLOW_PROTOCOL = 'none';
+      inv.env.PATH = `${bin}:${inv.env.PATH}`;
+      spawnSync(inv.cmd, inv.args, { cwd: inv.cwd, env: inv.env, stdio: 'pipe' });
+    }
+    assert.equal(existsSync(marker), true, 'control: an allow value that names a helper runs it');
+    rmSync(marker);
+    for (const args of LAZY_READS) {
+      const inv = gitInvocation(args, clone);
+      delete inv.env.GIT_NO_LAZY_FETCH;
+      inv.env.PATH = `${bin}:${inv.env.PATH}`;
+      spawnSync(inv.cmd, inv.args, { cwd: inv.cwd, env: inv.env, stdio: 'pipe' });
+    }
+    assert.equal(existsSync(marker), false, 'inspect git ran the remote helper');
+  } finally {
+    rmSync(dir, { recursive: true, force: true });
+  }
+});
+
 test('a GIT_* variable from the caller cannot redirect which repo git reads', async () => {
   const { repoRoot } = await import('../../src/adapters/claude-code/projects.mjs');
   const { realpathSync } = await import('node:fs');
@@ -125,7 +160,7 @@ test('a GIT_* variable from the caller cannot redirect which repo git reads', as
   try {
     assert.equal(repoRoot(a), a);
     const env = gitInvocation(['log'], a).env;
-    assert.equal(env.GIT_ALLOW_PROTOCOL, 'none');
+    assert.equal(env.GIT_ALLOW_PROTOCOL, 'no_transport');
     assert.deepEqual(Object.keys(env).filter((k) => k.startsWith('GIT_')).sort(), ['GIT_ALLOW_PROTOCOL', 'GIT_NO_LAZY_FETCH', 'GIT_OPTIONAL_LOCKS', 'GIT_TERMINAL_PROMPT', ...(saved.GIT_CEILING_DIRECTORIES ? ['GIT_CEILING_DIRECTORIES'] : [])].sort());
   } finally {
     for (const k of Object.keys(process.env)) if (!(k in saved)) delete process.env[k];

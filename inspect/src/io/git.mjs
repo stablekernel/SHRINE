@@ -6,7 +6,9 @@ const ALLOWED = new Set(['log', 'show', 'diff', 'rev-parse', 'status']);
 const DIFFING = new Set(['log', 'show', 'diff']);
 const KEEP_ENV = new Set(['GIT_CEILING_DIRECTORIES']);
 const WRITING_FLAGS =/^(--output|-o$|--ext-diff|--textconv)/;
-const NO_PROTOCOL = 'none';
+// The allow list also names remote helpers (a "<name>::" URL runs git-remote-<name>).
+// The underscore is not a URL scheme character, so no URL can name this one.
+const NO_PROTOCOL = 'no_transport';
 const NO_TRANSPORT = ['protocol.allow', ...['ext', 'file', 'ssh', 'git', 'http', 'https'].map((p) => `protocol.${p}.allow`)].flatMap((k) => ['-c', `${k}=never`]);
 // A lazy fetch reads these before any transport check: fetch.bundleURI downloads and
 // unbundles a pack (local path or http) even with every protocol refused, and
