@@ -1,0 +1,109 @@
+// Event normalization (spec 10 adapter, plan T2.3). Reads one session file plus
+// its subagent transcripts (joined by folder) and returns a session summary and a
+// time-ordered timeline for episode extraction. Tokens are summed once per
+// requestId; attributable = input (including cache writes) + output, cache_read
+// kept apart. Subagent tokens count; subagent user lines are never human turns.
+// Every text that leaves this module went through the default scrubber.
+import { createHash } from 'node:crypto';
+import { readSessionFile } from './stream.mjs';
+import { classifyUser } from './human-turn.mjs';
+import { scrubSecrets } from '../../scrub/secrets.mjs';
+
+const WRITE_TOOLS = new Set(['Edit', 'Write', 'MultiEdit', 'NotebookEdit']);
+const MAX_HUMAN = 1000;
+const MAX_ASSISTANT = 600;
+const MAX_COMMAND = 2000;
+
+const tail = (s, n) => (s.length > n ? s.slice(-n) : s);
+const head = (s, n) => (s.length > n ? s.slice(0, n) : s);
+const keyOf = (name, input) => createHash('sha1').update(`${name}\u0000${JSON.stringify(input ?? null)}`).digest('hex').slice(0, 16);
+
+function onLine(o, sub, acc) {
+  const t = o.timestamp ?? acc.lastT;
+  if (t) {
+    acc.lastT = t;
+    if (!acc.start || t < acc.start) acc.start = t;
+    if (!acc.end || t > acc.end) acc.end = t;
+  }
+  if (o.type === 'assistant') {
+    const m = o.message;
+    if (o.requestId && !acc.requests.has(o.requestId)) {
+      acc.requests.add(o.requestId);
+      const u = m.usage ?? {};
+      const tok = { in: (u.input_tokens ?? 0) + (u.cache_creation_input_tokens ?? 0), out: u.output_tokens ?? 0, cache_read: u.cache_read_input_tokens ?? 0 };
+      acc.tokens.in += tok.in;
+      acc.tokens.out += tok.out;
+      acc.tokens.cache_read += tok.cache_read;
+      if (sub) acc.subTokens += tok.in + tok.out;
+      acc.timeline.push({ t, kind: 'usage', tokens: tok.in + tok.out, sub });
+    }
+    if (typeof m.model === 'string' && m.model !== '<synthetic>') acc.models.add(m.model);
+    for (const b of Array.isArray(m.content) ? m.content : []) {
+      if (b?.type === 'text' && typeof b.text === 'string' && b.text.trim()) {
+        acc.timeline.push({ t, kind: 'assistant_text', text: scrubSecrets(tail(b.text.trim(), MAX_ASSISTANT)), sub });
+      } else if (b?.type === 'tool_use') {
+        const input = b.input ?? {};
+        const ev = { t, kind: 'tool_use', id: b.id ?? null, name: b.name ?? 'unknown', key: keyOf(b.name, input), sub };
+        if (typeof input.command === 'string') ev.command = scrubSecrets(head(input.command, MAX_COMMAND));
+        const file = input.file_path ?? input.notebook_path;
+        if (WRITE_TOOLS.has(b.name) && typeof file === 'string') ev.files = [file];
+        acc.timeline.push(ev);
+        acc.toolCalls++;
+      }
+    }
+    return;
+  }
+  if (o.type === 'user') {
+    for (const b of Array.isArray(o.message.content) ? o.message.content : []) {
+      if (b?.type === 'tool_result') acc.timeline.push({ t, kind: 'tool_result', id: b.tool_use_id ?? null, error: b.is_error === true, sub });
+    }
+    const c = classifyUser(o, { subagent: sub });
+    if (c.interrupt) {
+      acc.interrupts++;
+      acc.timeline.push({ t, kind: 'interrupt', sub });
+    }
+    if (c.command) acc.timeline.push({ t, kind: 'command', name: c.command, sub });
+    if (c.human) {
+      acc.turns++;
+      acc.timeline.push({ t, kind: 'human', text: scrubSecrets(head(c.text.trim(), MAX_HUMAN)), queued: c.queued, uuid: o.uuid ?? null, sub });
+    }
+    return;
+  }
+  if (o.type === 'system' && o.subtype === 'compact_boundary' && !sub) {
+    acc.compactions++;
+    acc.timeline.push({ t, kind: 'compact', sub });
+  }
+}
+
+// meta: {id, path, project, subagent_files, version}. Returns {session, timeline, files}
+// where files lists per-file stats ({path, kind, corrupt, unknown_types}).
+export async function readSession(meta) {
+  const acc = { lastT: null, start: null, end: null, requests: new Set(), tokens: { in: 0, out: 0, cache_read: 0 }, subTokens: 0, models: new Set(), timeline: [], turns: 0, interrupts: 0, compactions: 0, toolCalls: 0 };
+  const files = [];
+  const main = await readSessionFile(meta.path, (o) => onLine(o, false, acc));
+  files.push({ path: meta.path, ...main });
+  for (const p of meta.subagent_files ?? []) {
+    acc.lastT = null;
+    const s = await readSessionFile(p, (o) => onLine(o, true, acc));
+    files.push({ path: p, ...s });
+  }
+  // Stable sort keeps file order for equal timestamps.
+  const timeline = acc.timeline.map((e, i) => ({ e, i })).sort((a, b) => (a.e.t < b.e.t ? -1 : a.e.t > b.e.t ? 1 : a.i - b.i)).map((x) => x.e);
+  const attributable = acc.tokens.in + acc.tokens.out;
+  const session = {
+    id: meta.id,
+    project: meta.project,
+    start: acc.start ?? new Date(meta.mtime ?? 0).toISOString(),
+    end: acc.end ?? new Date(meta.mtime ?? 0).toISOString(),
+    turns: acc.turns,
+    tokens: acc.tokens,
+    models: [...acc.models].sort(),
+    subagent_share: attributable ? Math.round((acc.subTokens / attributable) * 1000) / 1000 : 0,
+    compactions: acc.compactions,
+    interrupts: acc.interrupts,
+    tool_calls: acc.toolCalls,
+    subagents: (meta.subagent_files ?? []).length,
+    version: main.version ?? meta.version ?? null,
+  };
+  return { session, timeline, files, kind: main.kind };
+}
