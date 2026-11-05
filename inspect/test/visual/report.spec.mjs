@@ -5,6 +5,7 @@ import { readFileSync } from 'node:fs';
 import { fileURLToPath } from 'node:url';
 import { renderReport } from '../../src/render/report.mjs';
 import { t0BadSetupFindings, t0HistoryFindings } from '../synth/t0-findings.mjs';
+import { t1Findings } from '../synth/t1-findings.mjs';
 
 const mock = JSON.parse(readFileSync(fileURLToPath(new URL('../fixtures/findings/mock-density.json', import.meta.url)), 'utf8'));
 const MOCK_HTML = renderReport(mock);
@@ -418,4 +419,72 @@ test('history report at 375px: no horizontal scroll, usage block readable in pri
   const usage = page.locator('.appendix details', { hasText: 'Usage from session history' });
   expect(await usage.locator('li').count()).toBeGreaterThan(4);
   expect(await usage.locator('ul').evaluate((el) => el.getBoundingClientRect().height)).toBeGreaterThan(0);
+});
+
+// T1 report (judged candidates, attribution stack, judging appendix): the same
+// look rules as T0. No screenshot baseline yet (plan 6b); layout checks only.
+const T1_HTML = renderReport(t1Findings());
+
+for (const theme of ['light', 'dark']) {
+  test(`T1: axe zero violations, ${theme}`, async ({ page }) => {
+    await open(page, T1_HTML, { theme });
+    const r = await new AxeBuilder({ page }).withTags(['wcag2a', 'wcag2aa', 'wcag21a', 'wcag21aa', 'wcag22aa']).analyze();
+    expect(r.violations.map((v) => `${v.id}: ${v.nodes.map((n) => n.target.join(' ')).join(', ')}`)).toEqual([]);
+  });
+}
+
+test('T1: labels never wrap or spill at tablet and desktop widths; content about 80% wide on desktop', async ({ page }) => {
+  for (const width of [768, 1024, 1280, 1440]) {
+    await open(page, T1_HTML, { theme: 'dark', width });
+    const bad = await page.evaluate(() => {
+      const lines = (el) => {
+        const ys = [];
+        const w = document.createTreeWalker(el, NodeFilter.SHOW_TEXT);
+        for (let n = w.nextNode(); n; n = w.nextNode()) {
+          if (!n.textContent.trim()) continue;
+          const r = document.createRange();
+          r.selectNodeContents(n);
+          for (const x of r.getClientRects()) ys.push(x.bottom);
+        }
+        ys.sort((a, b) => a - b);
+        return 1 + ys.filter((y, i) => i && y - ys[i - 1] > 10).length;
+      };
+      const out = [];
+      let seen = 0;
+      for (const el of document.querySelectorAll('.chip, .tag, table.cov th, .benefit b, .tab, .legend li, .ba figcaption, .status, .depth b, .ref small')) {
+        if (!el.getClientRects().length) continue;
+        seen++;
+        const box = el.closest('.detail, section, .head, .depth').getBoundingClientRect();
+        if (lines(el) > 1 || el.scrollWidth > el.clientWidth + 1 || el.getBoundingClientRect().right > box.right + 0.5) out.push(`${el.className || el.tagName}: ${el.textContent.trim().slice(0, 40)}`);
+      }
+      if (seen === 0) out.push('no visible labels to check');
+      return out;
+    });
+    expect(bad, `${width}px`).toEqual([]);
+    if (width >= 1024) {
+      const w = await page.locator('.report').evaluate((el) => el.getBoundingClientRect().width);
+      expect(w / width, `${width}px`).toBeGreaterThan(0.75);
+      expect(w / width, `${width}px`).toBeLessThan(0.85);
+    }
+  }
+});
+
+test('T1: coverage shows only tripped areas, grouped; the candidate tag and caveat show on judged findings', async ({ page }) => {
+  await open(page, T1_HTML, { theme: 'light', width: 1280 });
+  const groups = await page.locator('table.cov tr.grp th').allTextContents();
+  expect(groups.length).toBeGreaterThan(0);
+  for (const g of groups) expect(['Principles', 'Patterns', 'Stack']).toContain(g);
+  const rows = await page.locator('table.cov tbody tr:not(.grp)').count();
+  const tripped = t1Findings().coverage.filter((c) => c.working + c.amplify > 0).length;
+  expect(rows).toBe(tripped);
+  expect(await page.locator('.detail .tag', { hasText: 'Candidate' }).count()).toBeGreaterThanOrEqual(2);
+  expect(await page.locator('.detail .caveat').count()).toBeGreaterThanOrEqual(2);
+});
+
+test('T1 at 375px: no horizontal scroll and every detail fits', async ({ page }) => {
+  await open(page, T1_HTML, { theme: 'dark', width: 375, height: 800 });
+  const overflow = await page.evaluate(() => document.documentElement.scrollWidth - document.documentElement.clientWidth);
+  expect(overflow).toBeLessThanOrEqual(0);
+  const clipped = await page.evaluate(() => [...document.querySelectorAll('section')].filter((s) => s.scrollWidth > s.clientWidth + 1).map((s) => s.getAttribute('aria-labelledby')));
+  expect(clipped).toEqual([]);
 });

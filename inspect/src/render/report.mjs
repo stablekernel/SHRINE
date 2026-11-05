@@ -61,7 +61,8 @@ function header(d) {
   const chips = [`<span class="chip">${icon('scan')}${esc(d.run.harness?.name ?? 'Unknown harness')}</span>`, `<span class="chip">${esc(formatDate(d.run.started_at))}</span>`];
   if (d.history?.read) chips.push(`<span class="chip">${pl(d.history.sessions ?? 0, 'session')} reviewed</span>`);
   else chips.push('<span class="chip">History not read</span>');
-  if (d.headline.counts?.correction_candidates != null && d.history?.read) chips.push(`<span class="chip">${pl(d.headline.counts.correction_candidates, 'correction candidate')}</span>`);
+  if (d.judging) chips.push(`<span class="chip">${pl(d.judging.corrections_traced, 'correction')} traced</span>`);
+  else if (d.headline.counts?.correction_candidates != null && d.history?.read) chips.push(`<span class="chip">${pl(d.headline.counts.correction_candidates, 'correction candidate')}</span>`);
   if (d.diff) chips.push(`<span class="chip" data-slot="diff">Since last run: ${d.diff.new} new, ${d.diff.cleared} cleared, ${d.diff.unchanged} unchanged</span>`);
   return `<header class="head"><h1>Your agentic setup, measured against SHRINE</h1><div class="meta">${chips.join('')}</div></header>`;
 }
@@ -78,7 +79,8 @@ function depth(d) {
   const meter = [1, 2, 3].map((i) => `<i${i <= n ? ' class="on"' : ''}></i>`).join('');
   const label = d.tier === 'T0' ? 'Scan only, no model calls' : `Tier ${n}, ${TIER_NAMES[d.tier]}`;
   const parts = [];
-  if (d.tier !== 'T0') parts.push(`${pl(d.reviewers, 'reviewer')}, ${pl(Math.round(d.minutes_elapsed), 'minute')}`);
+  if (d.tier !== 'T0') parts.push(`${pl(d.reviewers, 'reviewer')}, ${pl(Math.max(1, Math.round(d.minutes_elapsed)), 'minute')}`);
+  if (d.judging) parts.push(`${d.judging.judged} of ${pl(d.judging.planned, 'episode')} judged${d.judging.partial ? ', partial' : ''}`);
   if (!d.history?.consented) parts.push('history not read');
   else if (d.tier === 'T0' && d.history.read) parts.push('setup, repos, and local session logs parsed by code');
   else if (d.tier === 'T0') parts.push('setup and repos; no session log could be used');
@@ -239,6 +241,7 @@ function detail(f, tab, empty, historyRead) {
     `<span class="tag">${icon('wrench')}${esc(f.owner_label)}</span>`,
     `<span class="tag">${esc(f.confidence.label === 'high' ? 'High confidence' : f.confidence.label === 'medium' ? 'Medium confidence' : 'Low confidence')}</span>`,
     `<span class="tag">${f.provenance === 'mechanical' ? 'Mechanical' : 'Judged'}</span>`,
+    f.candidate ? '<span class="tag">Candidate</span>' : '',
     warn ? `<span class="tag">Severity: ${esc(f.severity.label)}</span>` : f.praise_class ? '<span class="tag">Structure</span>' : '',
   ].join('');
   const list = (xs) => `<ul>${xs.map((x) => `<li>${esc(x)}</li>`).join('')}</ul>`;
@@ -261,7 +264,9 @@ function detail(f, tab, empty, historyRead) {
   const refs = `<div class="blk"><h4>In SHRINE</h4><div class="refs">${f.shrine_refs
     .map((r) => `<a class="ref" href="${esc(r.url ?? r.url_pinned)}">${icon('book')}${esc(r.title)} <small>${esc(r.section[0].toUpperCase() + r.section.slice(1))}${r.status === 'draft' ? ', Draft' : ''}</small></a>`)
     .join('')}</div>${f.shrine_refs.map((r) => `<blockquote class="quote">${esc(r.quote)}</blockquote>`).join('')}</div>`;
-  return `<article class="detail" id="${esc(f.id)}" aria-labelledby="${esc(f.id)}-t"><div class="tags">${tags}</div><h3 class="title" id="${esc(f.id)}-t">${esc(f.title)}</h3><p class="lead">${esc(f.lead)}</p>${configStrip(f, historyRead)}${timeline(f)}<div class="blk"><h4>${warn ? 'Why this is a finding' : 'Why this counts'}</h4>${list(f.why)}</div><div class="blk"><h4>${warn ? 'Why it is a problem' : 'What to watch'}</h4>${list(f.problem)}</div><div class="blk"><h4>Evidence</h4><ul class="ev">${ev}</ul></div>${pivot}${benefit}${refs}</article>`;
+  const caveat = f.candidate && f.caveat ? `<p class="caveat" role="note"><b>Candidate.</b> ${esc(f.caveat)}</p>` : '';
+  const support = f.support && f.recurrence?.sample != null ? `<p class="ev">${esc(`${f.recurrence.hits} of ${pl(f.recurrence.sample, 'judged episode')}, in ${pl(f.support.sessions, 'session')} across ${pl(f.support.repos, 'repo')}.`)}</p>` : '';
+  return `<article class="detail" id="${esc(f.id)}" aria-labelledby="${esc(f.id)}-t"><div class="tags">${tags}</div><h3 class="title" id="${esc(f.id)}-t">${esc(f.title)}</h3><p class="lead">${esc(f.lead)}</p>${caveat}${support}${configStrip(f, historyRead)}${timeline(f)}<div class="blk"><h4>${warn ? 'Why this is a finding' : 'Why this counts'}</h4>${list(f.why)}</div><div class="blk"><h4>${warn ? 'Why it is a problem' : 'What to watch'}</h4>${list(f.problem)}</div><div class="blk"><h4>Evidence</h4><ul class="ev">${ev}</ul></div>${pivot}${benefit}${refs}</article>`;
 }
 
 function explorer(d, empty) {
@@ -302,6 +307,7 @@ function appendix(d) {
   return `<section aria-labelledby="app-h" class="appendix"><h2 id="app-h">Appendix</h2>${[
     blk(`Worth a look (${d.worth_a_look.length})`, ul(d.worth_a_look.map((f) => `<span id="${esc(f.id)}">${esc(f.title)}: ${esc(f.short)} (${esc(f.confidence.basis)})</span>`))),
     blk(`Configured, not praised (${d.configured.length})`, ul(d.configured.map((c) => `${esc(c.item)}: ${c.count}${c.detail ? `, ${esc(c.detail)}` : ''}`))),
+    d.judging?.lines?.length ? blk('Judging (Tier 1)', ul(d.judging.lines.map(esc))) : '',
     d.usage ? blk('Usage from session history', `<p class="ev">Counts parsed by code from local session logs. Pattern counts are not findings.</p>${ul(d.usage.lines.map(esc))}`) : '',
     blk(`Dropped (${d.dropped.length})`, ul(d.dropped.map((x) => `${esc(x.id)}: ${esc(x.reason)}`))),
     blk('What this tier cannot tell', ul(d.unknowable.map(esc))),

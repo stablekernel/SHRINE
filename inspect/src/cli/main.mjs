@@ -5,8 +5,8 @@ import { approveCommand } from './approve.mjs';
 import { purgeCommand } from './purge.mjs';
 
 const USAGE = `usage:
-  shrine-inspect run --tier T0 [--no-history] [--session-id <id>] [--json]
-  shrine-inspect approve <run> <gate> [choice]
+  shrine-inspect run --tier T0|T1 [--no-history] [--session-id <id>] [--json]
+  shrine-inspect approve <run> <A|B|C> [choice]
   shrine-inspect purge [--json]`;
 
 export function parseArgs(argv) {

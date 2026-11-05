@@ -24,7 +24,11 @@ import { findingsSchema } from '../schema/findings.mjs';
 import { fileURLToPath } from 'node:url';
 import { baselineOf, verifyRun } from '../verify/verify.mjs';
 import { InspectError, EXIT } from './errors.mjs';
-import { askGate, GATE_A, GATE_B_NOTE } from './approve.mjs';
+import { abortReason, askGate, askGateB, GATE_A, GATE_B_NOTE, GATE_C } from './approve.mjs';
+import { createWorkOrder, judgeAdapter, judgePhase, prepareT1, readJudgments, readOrder } from './pulse.mjs';
+import { newSeed } from '../sample/prng.mjs';
+import { judgedFindings, mergeJudged } from '../scorer/judged.mjs';
+import { THRESHOLDS } from '../probes/config.mjs';
 import { estimateSeconds, scanHistory } from './scan.mjs';
 import { ownSession } from '../adapters/claude-code/sessions.mjs';
 import { freezeListing } from '../adapters/claude-code/projects.mjs';
@@ -49,8 +53,11 @@ function newRunId() {
 }
 
 export async function runCommand(opts, io) {
-  if (opts.tier !== 'T0') {
-    throw new InspectError('E_TIER', `tier ${opts.tier ?? '(none)'} is not available in this version`, { hint: 'use --tier T0', exit: EXIT.USAGE });
+  if (opts.tier !== 'T0' && opts.tier !== 'T1') {
+    throw new InspectError('E_TIER', `tier ${opts.tier ?? '(none)'} is not available in this version`, { hint: 'use --tier T0 or --tier T1', exit: EXIT.USAGE });
+  }
+  if (opts.tier === 'T1' && opts.noHistory) {
+    throw new InspectError('E_TIER', 'T1 judges session history, so it cannot run with --no-history', { hint: 'drop --no-history, or use --tier T0', exit: EXIT.USAGE });
   }
   resetSpy();
   resetGitTimeouts();
@@ -62,11 +69,14 @@ export async function runCommand(opts, io) {
   const at = new Date(ctx.now).toISOString();
   const state = {
     run_id: runId,
-    tier: 'T0',
+    tier: opts.tier,
     started_at: at,
     session_id: opts.sessionId ?? null,
-    // Gate B: T0 is the only tier in this version, chosen by --tier on the command line.
-    gates: { A: opts.noHistory ? { choice: 'no-history', by: 'flag', at } : null, B: { choice: 'T0', by: 'flag', at } },
+    // The sample seed, drawn once per run (T1 only) and printed in the report footer.
+    // io.seed is an in-process test seam (the bin never sets it).
+    seed: opts.tier === 'T1' ? (Number.isInteger(io.seed) ? io.seed : newSeed()) : null,
+    // Gate B: --tier T0 sets it; --tier T1 asks after the scan, T0 pre-selected.
+    gates: { A: opts.noHistory ? { choice: 'no-history', by: 'flag', at } : null, B: opts.tier === 'T0' ? { choice: 'T0', by: 'flag', at } : null },
   };
   folder.writeJson('state.json', state);
   return continueRun(folder, ctx, io);
@@ -144,12 +154,54 @@ export async function continueRun(folder, ctx, io) {
   const history = historyConsented ? await scanHistory({ listing, excludedIds, display, onProgress: io.onScanProgress }) : null;
   const usage = history && !history.unsupported && history.sessions.length > 0 ? history.usage : null;
 
+  // Identifiers for masking (bundles, share-safe copy). Read now so a git config
+  // file that could not be read in full shows as a run limit below.
+  const ids = knownIdentifiers({ home: ctx.home, projects, env: io.env });
+  const known = buildIdentifiers({ ...ids, vocabulary: copyVocabulary() });
+
+  // T1: sample, evidence packs (in memory), and the Gate B offer. T0 is
+  // pre-selected; judging needs a typed yes. Paused means zero judge spawns.
+  const T = THRESHOLDS;
+  let t1 = null;
+  let t1Note = null;
+  let adapter = null;
+  if (state.tier === 'T1') {
+    if (!usage) t1Note = 'Tier 1 needs readable session history, so this run is a scan only.';
+    else if (usage.rule !== 'probe') t1Note = `Tier 1 needs ${T.history.limited_sessions} or more sessions, so this run is a scan only.`;
+    else {
+      adapter = judgeAdapter(io, history.inventory.harness_version);
+      const sampleFile = folder.isDone('sample') ? readJson(folder.path('sample.json')) : null;
+      t1 = await prepareT1({ seed: state.seed, history, setup, known, excludedIds, t: T, adapter, sampleFile });
+      if (!sampleFile) {
+        folder.writeJson('sample.json', t1.sample);
+        folder.markDone('sample');
+      }
+      if (!adapter.available?.ok) t1Note = `Tier 1 is not available on this harness (${adapter.available?.reason ?? 'no judge'}), so this run is a scan only.`;
+      else if (!t1.bundles.length) t1Note = 'No episode had a correction candidate to judge, so this run is a scan only.';
+    }
+    if (t1Note && !state.gates.B) state.gates.B = { choice: 'T0', by: 'rule', at: new Date(ctx.now).toISOString() };
+    if (!state.gates.B) {
+      const gate = { gate: 'B', question: 'Pick a depth: T0 scan only (pre-selected), or T1 judging.', choices: ['T0', 'T1'], offer: t1.gate, lines: copy.gateBLines(t1.gate) };
+      folder.writeJson('gate.json', gate);
+      state.phase = 'gate_b';
+      folder.writeJson('state.json', state);
+      if (!io.stdin.isTTY) {
+        throw new InspectError('E_GATE_WAITING', `run ${state.run_id} is paused at Gate B (T0 or T1); no model was called`, {
+          hint: `answer in your own terminal: shrine-inspect approve ${state.run_id} B T1 (or B T0)`,
+          exit: EXIT.GATE_WAITING,
+        });
+      }
+      state.gates.B = await askGateB(gate, null, io);
+      folder.writeJson('state.json', state);
+    }
+  }
+
   // Gate B: the "do you need it yet" line, from the scan, shown before the report.
   // In this version the depth is T0, set by --tier, so the line informs, not asks.
   const need = history ? { ...history.need, ...(usage ? {} : { rule: 'setup_only' }) } : { consented: historyConsented };
   // A resumed run keeps the line it already showed.
   const shown = folder.isDone('gate_b') ? readJson(folder.path('gate-b.json')) : null;
-  const gateB = shown ?? { gate: 'B', tier: state.gates.B?.choice ?? 'T0', by: state.gates.B?.by ?? 'flag', need, line: copy.needLine(need), note: GATE_B_NOTE };
+  const gateB = shown ?? { gate: 'B', tier: state.gates.B?.choice ?? 'T0', by: state.gates.B?.by ?? 'flag', need, line: copy.needLine(need), note: state.tier === 'T1' ? (t1Note ?? 'Tier 1 offered after the scan; T0 pre-selected.') : GATE_B_NOTE, ...(t1 && !t1Note ? { offer: t1.gate } : {}) };
   if (!shown) {
     folder.writeJson('gate-b.json', gateB);
     folder.markDone('gate_b');
@@ -163,7 +215,7 @@ export async function continueRun(folder, ctx, io) {
     harness: { name: 'Claude Code', version: history?.inventory.harness_version ?? null },
     scope: { projects: scope.map((p) => p.name), from: history?.inventory.from ?? null, to: history?.inventory.to ?? null, history_consented: historyConsented },
     win_definition: null,
-    seed: null,
+    seed: state.seed ?? null,
   };
   const catalogue = loadBundledCatalogue();
   const shrine = { commit: catalogue.shrine.commit, manifest_sha: null, fetched_at: null };
@@ -216,8 +268,52 @@ export async function continueRun(folder, ctx, io) {
     folder.markDone('facts');
   }
 
+  // Phase: judgment (T1, after a Gate B yes recorded in facts.json). The work
+  // order is written first; the runner consumes it one process at a time.
+  let judged = null;
+  let judgeNote = null;
+  if (state.gates.B?.choice === 'T1' && t1 && !t1Note) {
+    let order = readOrder(folder);
+    if (!order) {
+      order = createWorkOrder({ runId: state.run_id, seed: state.seed, bundles: t1.bundles, estimate: { ...t1.estimate, tokens_high: state.gates.B.estimate?.tokens_high ?? t1.estimate.tokens_high }, caps: { per_call_timeout_ms: T.judged.per_call_timeout_ms, max_stdout_bytes: T.judged.max_stdout_bytes, processes: 1 } });
+      folder.writeJson('workorder.json', order);
+    }
+    let lines;
+    if (!folder.isDone('judgments') && !state.gates.C) {
+      const r = await judgePhase({ folder, order, adapter, t: T, io });
+      lines = r.lines;
+      if (r.abort) {
+        const ok = lines.filter((l) => l.valid).length;
+        const used = lines.reduce((n, l) => n + (l.tokens?.total ?? 0), 0);
+        const gate = { gate: 'C', ...GATE_C, reason: r.abort.reason, lines: [`Reason: ${abortReason(r.abort.reason)}.`, `Judged so far: ${ok} of ${order.items.length} episodes, ${used.toLocaleString('en-US')} tokens.`] };
+        folder.writeJson('gate.json', gate);
+        state.phase = 'gate_c';
+        state.abort = r.abort;
+        folder.writeJson('state.json', state);
+        if (!io.stdin.isTTY) {
+          throw new InspectError('E_GATE_WAITING', `run ${state.run_id} is paused at Gate C (keep or stop): ${abortReason(r.abort.reason)}`, {
+            hint: `answer in your own terminal: shrine-inspect approve ${state.run_id} C <keep|stop>`,
+            exit: EXIT.GATE_WAITING,
+          });
+        }
+        state.gates.C = await askGate(gate, null, io);
+        folder.writeJson('state.json', state);
+      } else folder.markDone('judgments');
+    } else {
+      lines = readJudgments(folder);
+    }
+    if (state.gates.C?.choice === 'stop') {
+      const used = lines.reduce((n, l) => n + (l.tokens?.total ?? 0), 0);
+      judgeNote = `Judging stopped early at Gate C (${abortReason(state.abort?.reason)}); this report covers the scan only. ${used.toLocaleString('en-US')} tokens were used.`;
+    } else {
+      const byId = new Map();
+      for (const e of history.episodes) byId.set(e.id, { ...e, repo: history.roots.get(e.session_id) ?? null });
+      judged = { result: judgedFindings({ lines, order, episodes: byId, catalogue, pivots: PIVOTS, copy, t: T, partial: state.gates.C?.choice === 'keep' }), order, lines };
+    }
+  }
+
   // Phase: findings.
-  const findings = score({
+  let findings = score({
     run,
     shrine,
     probes: probes.probes,
@@ -247,6 +343,13 @@ export async function continueRun(folder, ctx, io) {
       plugins: setup.inventory.enabled_plugins.length,
     },
   });
+  if (judged) {
+    const minutes = Math.round((judged.lines.reduce((n, l) => n + (l.latency_ms ?? 0), 0) / 60000) * 10) / 10;
+    findings = mergeJudged(findings, judged.result, { reviewers: 1, minutes, sample: t1.sample, estimate: judged.order.estimate });
+    findings.judging.lines = copy.judgingLines(findings.judging);
+    findings.thresholds = { ...findings.thresholds, judged_bar_episodes: judged.result.summary.bar, judged_sample_episodes: T.judged.episodes, judged_bundle_tokens: T.judged.caps.bundle_tokens, judged_confidence_max: T.judged.confidence.candidates_max };
+  }
+  for (const n of [t1Note, judgeNote]) if (n) findings.notes.push(n);
   // Run limits: what this run could not read. Shown near the top of the report, and
   // kept in notes for readers of findings.json.
   const limits = [];
@@ -270,9 +373,6 @@ export async function continueRun(folder, ctx, io) {
   if (refused) {
     limits.push(`Git refused to read ${refused === 1 ? '1 repo' : `${refused} repos`} owned by another user (git's safe.directory check). Git dates and commit authors there are unknown, and date checks skip those files.`);
   }
-  // Identifiers for the share-safe copy, read now so a git config file it could not
-  // read in full shows as a run limit.
-  const ids = knownIdentifiers({ home: ctx.home, projects, env: io.env });
   const unreadCfg = ids.unread_configs.length;
   if (unreadCfg) {
     limits.push(`${unreadCfg === 1 ? '1 git config file was' : `${unreadCfg} git config files were`} not read in full (not a regular file, unreadable, or over 1 MiB). Names and emails set there, past that point, are not masked in the share-safe copy.`);
@@ -315,7 +415,6 @@ export async function continueRun(folder, ctx, io) {
   folder.markDone('findings');
 
   // Phase: report.
-  const known = buildIdentifiers({ ...ids, vocabulary: copyVocabulary() });
   const reportPath = folder.write('report.html', renderReport(findings));
   const safePath = folder.write('report.share-safe.html', renderReport(shareSafeFindings(findings, known, PIVOTS), { shareSafe: true }));
   folder.markDone('report');
@@ -324,7 +423,7 @@ export async function continueRun(folder, ctx, io) {
   folder.writeJson('state.json', state);
   folder.write('spy.jsonl', `${spyLog().map((e) => JSON.stringify(e)).join('\n')}\n`);
 
-  const summary = { run_id: state.run_id, run_dir: folder.dir, report: reportPath, share_safe: safePath, diff: findings.diff, findings: findings.findings.length, checked_clear: findings.checked_clear.length, gate_b: { tier: gateB.tier, line: gateB.line } };
+  const summary = { run_id: state.run_id, run_dir: folder.dir, report: reportPath, share_safe: safePath, diff: findings.diff, findings: findings.findings.length, checked_clear: findings.checked_clear.length, gate_b: { tier: gateB.tier, line: gateB.line }, tier: findings.tier, ...(findings.judging ? { judging: { judged: findings.judging.judged, planned: findings.judging.planned, tokens_used: findings.judging.tokens_used, outcomes: findings.judging.outcomes } } : {}) };
   if (io.json) io.stdout.write(`${JSON.stringify(summary)}\n`);
   else {
     if (findings.diff) io.stdout.write(`${diffLine(findings.diff)}\n`);

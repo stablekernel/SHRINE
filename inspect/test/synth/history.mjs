@@ -9,7 +9,7 @@ let seq = 0;
 const uid = (p) => `${p}-${String(++seq).padStart(6, '0')}`;
 
 // script ops: ['human', text, gapMinutes?], ['text', text], ['bash', command, ok?],
-// ['edit', file], ['interrupt'], ['compact'], ['clear'].
+// ['edit', file], ['interrupt'], ['compact'], ['clear'], ['instructions', [{path, content}]].
 export function sessionLines({ id, cwd, startMs, script, version = '2.1.318', entrypoint = 'cli', tokens = 4000 }) {
   let t = startMs;
   const lines = [];
@@ -45,6 +45,9 @@ export function sessionLines({ id, cwd, startMs, script, version = '2.1.318', en
       t += 3000;
       lines.push({ type: 'system', subtype: 'compact_boundary', compactMetadata: { trigger: 'auto', preTokens: 150000 }, uuid: uid('u'), ...base() });
       lines.push({ type: 'user', isCompactSummary: true, isVisibleInTranscriptOnly: true, message: { role: 'user', content: 'Summary of earlier work.' }, uuid: uid('u'), ...base() });
+    } else if (kind === 'instructions') {
+      // The loaded-config snapshot the harness writes at session start.
+      lines.push({ type: 'attachment', attachment: { type: 'instructions', files: a.map((f) => ({ path: f.path, type: 'Project', content: f.content })) }, uuid: uid('u'), ...base() });
     } else if (kind === 'clear') {
       t += 3000;
       lines.push({ type: 'user', message: { role: 'user', content: '<command-name>/clear</command-name>\n<command-message>clear</command-message>' }, uuid: uid('u'), ...base() });
@@ -95,6 +98,40 @@ export const PRESETS = {
   // One edit and one commit; pair with real fixture commits made at COMMIT_AT_MS
   // after the session start (inside the episode).
   committing: (i) => [['human', `Change the parser, step ${i}.`], ['edit', 'src/parser.js'], ['bash', `git commit -qm "parser step ${i}"`]],
+  // T1 plants. Each starts with a loaded-config snapshot (the project CLAUDE.md).
+  // A constraint arrives in the second message, after the first build.
+  late: (i, cwd) => [
+    ['instructions', [{ path: `${cwd}/CLAUDE.md`, content: '# Project rules\n- Run npm test before you report done.\n' }]],
+    ['human', `Add a CSV export to report ${i}.`],
+    ['edit', `src/r${i}.js`],
+    ['text', 'Added the CSV export.'],
+    ['human', 'Actually, use semicolons as the separator and keep the header row.'],
+    ['edit', `src/r${i}.js`],
+    ['text', 'Switched to semicolons.'],
+  ],
+  // A rule the loaded CLAUDE.md already holds is restated as a correction.
+  ignored: (i, cwd) => [
+    ['instructions', [{ path: `${cwd}/CLAUDE.md`, content: '# Project rules\n- Never edit generated files under the generated client folder.\n- Run npm test before you report done.\n' }]],
+    ['human', `Update the API client for endpoint ${i}.`],
+    ['edit', `gen/client${i}.js`],
+    ['text', 'Updated the client.'],
+    ['human', "Don't edit generated files in the generated client folder, regenerate them instead."],
+    ['text', 'Regenerated instead.'],
+  ],
+  // Corrections exist but come late (fourth message) and match no loaded rule: no judged finding.
+  quiet: (i, cwd) => [
+    ['instructions', [{ path: `${cwd}/CLAUDE.md`, content: '# Project rules\n- Run npm test before you report done.\n' }]],
+    ['human', `Add input validation to module ${i}.`],
+    ['edit', `src/m${i}.js`],
+    ['bash', 'npm test'],
+    ['text', 'Done. npm test ran: 12 tests passed.'],
+    ['human', 'Now add a docstring.'],
+    ['text', 'Added.'],
+    ['human', 'Next, export it from the index.'],
+    ['text', 'Exported.'],
+    ['human', 'Actually, name the export validateInput.'],
+    ['text', 'Renamed.'],
+  ],
   // sdk-cli presets: tool housekeeping, and work spawned by a skill.
   housekeeping: () => [['human', 'Analyze this conversation and determine: the goal and outcome.'], ['text', 'Goal: refactor.']],
   spawned: (i) => [['human', `Write scribe notes for session ${i}.`], ['text', 'Notes written.']],
@@ -104,7 +141,7 @@ export function addHistory(h, preset, { count = 12, nowMs, prefix = 'aaaa', entr
   const files = [];
   for (let i = first; i < first + count; i++) {
     const startMs = nowMs - (20 - i) * DAY + offsetMs;
-    files.push(addSession(h, { id: sid(prefix, i), startMs, script: PRESETS[preset](i), entrypoint, cwd }));
+    files.push(addSession(h, { id: sid(prefix, i), startMs, script: PRESETS[preset](i, cwd ?? h.repo), entrypoint, cwd }));
   }
   return files;
 }

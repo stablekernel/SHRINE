@@ -45,7 +45,7 @@ test('Gate A is itemized: projects, date range, size, size-based estimate, tier 
   assert.ok(g.history.bytes > 0);
   assert.equal(typeof g.history.estimate_seconds, 'number');
   assert.ok(g.history.from <= g.history.to);
-  assert.match(g.tier.note, /Deeper tiers are not available/);
+  assert.match(g.tier.note, /Run with --tier T1 to be offered judging at Gate B/);
   h.cleanup();
 });
 

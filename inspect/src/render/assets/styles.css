@@ -130,6 +130,7 @@ table.cov tbody:first-of-type tr.grp th { padding-top: var(--s1); }
 .blk p, .blk li { color: var(--text2); font-size: var(--f-sm); max-width: 66ch; }
 .blk ul { margin: 0; padding-left: 18px; display: grid; gap: var(--s1); }
 .ev { font-size: var(--f-xs); color: var(--muted); }
+.caveat { margin: var(--s2) 0 0; padding: var(--s2) var(--s3); border-left: 3px solid var(--warn); background: var(--warn-bg); color: var(--text); font-size: var(--f-xs); border-radius: 4px; }
 .ev code { overflow-wrap: anywhere; }
 .ev code, .mono { font-family: ui-monospace, SFMono-Regular, Menlo, monospace; font-size: var(--f-xs); }
 /* The timeline draws in 520 units and never shrinks below 460px (text stays 10px or
