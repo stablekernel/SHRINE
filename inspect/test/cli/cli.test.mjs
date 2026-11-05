@@ -196,7 +196,10 @@ test('a partial clone on git without GIT_NO_LAZY_FETCH: history skipped, with a 
     assert.ok(!findings.unknowable.some((n) => n.startsWith('Git history was not read')), 'not a tier limit');
     assert.equal(findings.git_history_skipped, 1);
     const safe = visible(readFileSync(s.share_safe, 'utf8'));
-    assert.match(safe, /class="safe-banner">[^<]*Git history was not read in 1 repo, so other commit authors' names there are not masked\./);
+    // The run-limits band carries the note; the banner stays one fixed line.
+    assert.match(safe, /class="safe-banner">Share-safe copy: names, paths, and hosts are masked; session excerpts are removed\.<\/p>/);
+    assert.ok(safe.indexOf('Git history was not read in 1 repo') > safe.indexOf('class="run-limits"'), 'the note sits in the band');
+    assert.doesNotMatch(safe, /are not masked/, 'no warning about names that never reach this report');
     const spy = readFileSync(join(s.run_dir, 'spy.jsonl'), 'utf8').split('\n').filter(Boolean).map((l) => JSON.parse(l));
     assert.deepEqual(spy.filter((e) => e.op === 'spawn' && ['log', 'show', 'diff', 'status'].some((c) => e.args.includes(c)) && e.cwd?.startsWith(h.repo)), [], 'no history read in the repo');
   } finally {
