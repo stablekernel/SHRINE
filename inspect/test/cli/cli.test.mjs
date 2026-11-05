@@ -225,6 +225,34 @@ test('a git config include over 1 MiB is noted as a run limit and the run still 
   }
 });
 
+// The run passes its env to knownIdentifiers, so a git identity set only under
+// XDG_CONFIG_HOME is read. A T0 report never prints an author name, so the run limit
+// for that file's oversized include is what shows the file was read.
+test('a git config under XDG_CONFIG_HOME is read for share-safe masking', async () => {
+  const h = makeHome('good');
+  const state = mkdtempSync(join(tmpdir(), 'si-state-'));
+  try {
+    const xdg = join(h.tmp, 'xdg');
+    mkdirSync(join(xdg, 'git'), { recursive: true });
+    writeFileSync(join(xdg, 'git', 'config'), `[user]\n\tname = Xdg Only\n[include]\n\tpath = ${join(h.tmp, 'big.cfg')}\n`);
+    writeFileSync(join(h.tmp, 'big.cfg'), `[user]\n\temail = xdg@initrode.example\n${'#'.repeat(1 << 20)}\n`);
+    const e = { ...env(h, state), XDG_CONFIG_HOME: xdg };
+    delete e.GIT_CONFIG_GLOBAL;
+    const stdout = sink();
+    const stderr = sink();
+    const code = await main(['run', '--tier', 'T0', '--no-history', '--json'], { env: e, home: h.home, stdin: { isTTY: false }, stdout, stderr });
+    assert.equal(code, 0, stderr.text());
+    const s = JSON.parse(stdout.text());
+    const findings = JSON.parse(readFileSync(join(s.run_dir, 'findings.json'), 'utf8'));
+    assert.ok(findings.run_limits?.some((n) => n.startsWith('1 git config file was not read in full')), JSON.stringify(findings.run_limits));
+    const safe = readFileSync(s.share_safe, 'utf8');
+    assert.match(safe, /1 git config file was not read in full/);
+    assert.ok(!safe.includes('Xdg Only'));
+  } finally {
+    h.cleanup();
+  }
+});
+
 test('a repo git refuses to read (another owner) shows as a run limit, not a partial clone', async () => {
   const h = makeHome('good');
   const state = mkdtempSync(join(tmpdir(), 'si-state-'));
