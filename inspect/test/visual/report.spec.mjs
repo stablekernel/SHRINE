@@ -332,8 +332,11 @@ function limitsHtml(limits, { shareSafe = false, skipped = 0 } = {}) {
   if (skipped) f.git_history_skipped = skipped;
   return renderReport(f, { shareSafe });
 }
+// Long unbroken paths (slashes, underscores, no spaces) must wrap, not be clipped.
+const LIMIT_PATHS = 'Git could not read commit history in 2 repos: ~/src/github.com/acme/platform_payments_reconciliation_service_v2 (git timed out); ~/work/AcmeCorpPlatformPaymentsReconciliationServiceVersionTwoInternal (git log failed).';
 const LIMIT_VARIANTS = {
   'one limit': limitsHtml([LIMIT_PARTIAL]),
+  'long paths': limitsHtml([LIMIT_PATHS]),
   'two limits': limitsHtml([LIMIT_PARTIAL, LIMIT_HUNG]),
   'share-safe partial clone': limitsHtml([LIMIT_PARTIAL], { shareSafe: true, skipped: 1 }),
 };
@@ -350,7 +353,7 @@ const textLines = (el) => {
   return new Set(ys).size;
 };
 for (const [name, html] of Object.entries(LIMIT_VARIANTS)) {
-  for (const width of [1440, 768, 375]) {
+  for (const width of name === 'long paths' ? [375, 320] : [1440, 768, 375]) {
     test(`run limits, ${name}, ${width}px: band fits, banner one line from 768px, axe clean`, async ({ page }) => {
       await open(page, html, { theme: 'light', width, height: 900 });
       const band = page.locator('.run-limits');
@@ -359,7 +362,14 @@ for (const [name, html] of Object.entries(LIMIT_VARIANTS)) {
       const spill = await band.evaluate((el) => {
         const box = el.getBoundingClientRect();
         const report = document.querySelector('.report').getBoundingClientRect();
-        const inner = [...el.querySelectorAll('p')].filter((p) => p.getBoundingClientRect().right > box.right + 0.5).length;
+        // Each rendered text line, not the paragraph box: text can spill out of its box.
+        let inner = 0;
+        const w = document.createTreeWalker(el, NodeFilter.SHOW_TEXT);
+        for (let n = w.nextNode(); n; n = w.nextNode()) {
+          const r = document.createRange();
+          r.selectNodeContents(n);
+          for (const x of r.getClientRects()) if (x.right > box.right + 0.5) inner++;
+        }
         return { scroll: el.scrollWidth - el.clientWidth, outside: box.right - report.right, inner };
       });
       expect(spill.scroll, 'band scrolls sideways').toBeLessThanOrEqual(0);

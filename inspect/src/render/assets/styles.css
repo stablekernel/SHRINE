@@ -55,7 +55,7 @@ svg.i { width: 16px; height: 16px; flex: none; vertical-align: -3px; }
 .chip svg { color: var(--accent-text); width: 13px; height: 13px; }
 .depth { display: flex; align-items: center; gap: var(--s3); padding: 10px var(--s8); background: var(--surface); border-bottom: 1px solid var(--line); font-size: var(--f-sm); color: var(--muted); flex-wrap: wrap; }
 .run-limits { padding: 10px var(--s8); background: var(--warn-bg); border-bottom: 1px solid var(--line); font-size: var(--f-sm); color: var(--text); }
-.run-limits p { margin: 0; }
+.run-limits p { margin: 0; overflow-wrap: anywhere; }
 .run-limits p + p { margin-top: var(--s2); }
 .depth b { white-space: nowrap; color: var(--text); font-weight: 600; }
 .meter { display: inline-flex; gap: 3px; align-items: flex-end; height: 16px; }
