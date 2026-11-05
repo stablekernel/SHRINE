@@ -248,6 +248,34 @@ test('a refused repo is not counted as a partial clone, even on git that ignores
   }
 });
 
+// A history read runs the partial-clone check first. When that check's own git run
+// fails, the repo is marked by that failure, not counted as a partial clone. A repo
+// config include naming a FIFO hangs it (git config does not check repo ownership,
+// so a refused repo never fails this check).
+test('a history read whose partial-clone check hangs reports the time limit, not a partial clone', { timeout: 30_000 }, async (t) => {
+  if (spawnSync('mkfifo', ['--help'], { stdio: 'ignore' }).error) return t.skip('no mkfifo on this platform');
+  const { setSpawnTimeout } = await import('../../src/io/proc.mjs');
+  const repo = mkdtempSync(join(tmpdir(), 'si-hung-'));
+  sh(repo, 'init', '-q');
+  sh(repo, 'commit', '-q', '--allow-empty', '-m', 'one');
+  execFileSync('mkfifo', [join(repo, 'pipe')]);
+  sh(repo, 'config', 'include.path', join(repo, 'pipe'));
+  resetGitTimeouts();
+  setGitVersion([2, 44, 0]);
+  setSpawnTimeout(1000);
+  try {
+    const r = git(['log', '-1', '--format=%cI'], { cwd: repo });
+    assert.equal(r.timedOut, true, r.stderr);
+    assert.doesNotMatch(r.stderr, /partial clone/);
+    assert.equal(isPartialClone(repo), false, 'hung, not partial');
+  } finally {
+    setSpawnTimeout();
+    setGitVersion(undefined);
+    resetGitTimeouts();
+    rmSync(repo, { recursive: true, force: true });
+  }
+});
+
 test('a refused repo costs one git run, not one per folder under it', async () => {
   const { gitOut, gitRefusals } = await import('../../src/io/git.mjs');
   const { resetSpy, spyLog } = await import('../../src/io/fsread.mjs');
