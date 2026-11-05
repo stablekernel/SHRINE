@@ -121,3 +121,25 @@ test('a tool result keeps only the commit shas git printed, never its text', asy
   assert.deepEqual(results.map((e) => e.shas), [['1a2b3c4'], ['9f8e7d6c']]);
   assert.ok(results.every((e) => !('text' in e) && !('content' in e)));
 });
+
+test('malformed numbers and ids from session lines read as absent, never NaN or objects', async () => {
+  const p = join(dir, 's-bad.jsonl');
+  write(p, [
+    user(0, 'start', { promptSource: 'typed' }),
+    asst(1, 'r1', [], { input_tokens: 'abc', output_tokens: {}, cache_read_input_tokens: -5, cache_creation_input_tokens: 1.5 }),
+    asst(2, 'r2', [], { input_tokens: 1e308, output_tokens: 7, cache_read_input_tokens: null }),
+    asst(3, 'r3', [], 'x'),
+    asst(4, { o: 1 }, [{ type: 'tool_use', id: { x: 1 }, name: 5, input: 7 }]),
+    asst(5, 'r4', [{ type: 'tool_use', id: 't9', name: 'Edit', input: { file_path: 42 } }]),
+    user(6, [{ type: 'tool_result', tool_use_id: { x: 1 }, content: 5 }]),
+    user(7, 'again', { uuid: { a: 1 }, promptSource: 'typed' }),
+  ]);
+  const { session, timeline } = await readSession({ id: 's-bad', path: p, project: 'app' });
+  for (const v of Object.values(session.tokens)) assert.ok(Number.isSafeInteger(v) && v >= 0, `tokens ${v}`);
+  assert.deepEqual(session.tokens, { in: 12, out: 12, cache_read: 100 }, "only r4's well-formed usage and r2's 7 output tokens count");
+  const uses = timeline.filter((e) => e.kind === 'tool_use');
+  assert.deepEqual(uses.map((e) => [e.id, e.name, e.files]), [[null, 'unknown', undefined], ['t9', 'Edit', undefined]]);
+  assert.equal(timeline.find((e) => e.kind === 'tool_result').id, null);
+  assert.deepEqual(timeline.filter((e) => e.kind === 'human').map((e) => e.uuid), ['u0', null]);
+  for (const e of timeline.filter((x) => x.kind === 'usage')) assert.ok(Number.isSafeInteger(e.tokens), `usage ${e.tokens}`);
+});

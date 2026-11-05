@@ -27,6 +27,10 @@ const head = (s, n) => {
   const x = scrubSecrets(s.length > n + MARGIN ? s.slice(0, n + MARGIN) : s);
   return own(x.length > n ? x.slice(0, n) : x);
 };
+// Session lines are untrusted: a token count is kept only as a non-negative safe
+// integer, and an id or name only as a string; anything else reads as absent.
+const count = (x) => (Number.isSafeInteger(x) && x >= 0 ? x : 0);
+const str = (x) => (typeof x === 'string' ? x : null);
 const keyOf = (name, input) => createHash('sha1').update(`${name}\u0000${JSON.stringify(input ?? null)}`).digest('hex').slice(0, 16);
 
 // The shas a `git commit` result prints ("[branch abc1234] subject"), from its
@@ -52,30 +56,32 @@ function onLine(o, inSubagentFile, acc) {
   }
   if (o.type === 'assistant') {
     const m = o.message;
-    if (o.requestId) {
+    const requestId = str(o.requestId);
+    if (requestId) {
       // One record per requestId; each field keeps its largest value across the
       // lines of a split response. Totals are summed once, after reading.
-      const u = m.usage ?? {};
-      let rec = acc.requests.get(o.requestId);
+      const u = m.usage && typeof m.usage === 'object' ? m.usage : {};
+      let rec = acc.requests.get(requestId);
       if (!rec) {
         rec = { in: 0, out: 0, cache_read: 0, sub };
-        acc.requests.set(o.requestId, rec);
+        acc.requests.set(requestId, rec);
         acc.timeline.push({ t, kind: 'usage', rec, sub });
       }
-      rec.in = Math.max(rec.in, (u.input_tokens ?? 0) + (u.cache_creation_input_tokens ?? 0));
-      rec.out = Math.max(rec.out, u.output_tokens ?? 0);
-      rec.cache_read = Math.max(rec.cache_read, u.cache_read_input_tokens ?? 0);
+      rec.in = Math.max(rec.in, count(count(u.input_tokens) + count(u.cache_creation_input_tokens)));
+      rec.out = Math.max(rec.out, count(u.output_tokens));
+      rec.cache_read = Math.max(rec.cache_read, count(u.cache_read_input_tokens));
     }
     if (typeof m.model === 'string' && m.model !== '<synthetic>') acc.models.add(m.model);
     for (const b of Array.isArray(m.content) ? m.content : []) {
       if (b?.type === 'text' && typeof b.text === 'string' && b.text.trim()) {
         acc.timeline.push({ t, kind: 'assistant_text', text: tail(b.text.trim(), MAX_ASSISTANT), sub });
       } else if (b?.type === 'tool_use') {
-        const input = b.input ?? {};
-        const ev = { t, kind: 'tool_use', id: b.id ?? null, name: b.name ?? 'unknown', key: keyOf(b.name, input), sub };
+        const input = b.input && typeof b.input === 'object' ? b.input : {};
+        const name = str(b.name) ?? 'unknown';
+        const ev = { t, kind: 'tool_use', id: str(b.id), name, key: keyOf(name, input), sub };
         if (typeof input.command === 'string') ev.command = head(input.command, MAX_COMMAND);
         const file = input.file_path ?? input.notebook_path;
-        if (WRITE_TOOLS.has(b.name) && typeof file === 'string') ev.files = [file];
+        if (WRITE_TOOLS.has(name) && typeof file === 'string') ev.files = [file];
         acc.timeline.push(ev);
         acc.toolCalls++;
       }
@@ -84,7 +90,7 @@ function onLine(o, inSubagentFile, acc) {
   }
   if (o.type === 'user') {
     for (const b of Array.isArray(o.message.content) ? o.message.content : []) {
-      if (b?.type === 'tool_result') acc.timeline.push({ t, kind: 'tool_result', id: b.tool_use_id ?? null, error: b.is_error === true, shas: commitShas(b.content), sub });
+      if (b?.type === 'tool_result') acc.timeline.push({ t, kind: 'tool_result', id: str(b.tool_use_id), error: b.is_error === true, shas: commitShas(b.content), sub });
     }
     const c = classifyUser(o, { subagent: sub });
     if (c.interrupt) {
@@ -94,7 +100,7 @@ function onLine(o, inSubagentFile, acc) {
     if (c.command) acc.timeline.push({ t, kind: 'command', name: c.command, sub });
     if (c.human) {
       acc.turns++;
-      acc.timeline.push({ t, kind: 'human', text: head(c.text.trim(), MAX_HUMAN), queued: c.queued, uuid: o.uuid ?? null, sub });
+      acc.timeline.push({ t, kind: 'human', text: head(c.text.trim(), MAX_HUMAN), queued: c.queued, uuid: str(o.uuid), sub });
     }
     return;
   }
