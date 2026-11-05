@@ -104,8 +104,11 @@ test('a git log that fails is a distinct failure, never an empty commit list', a
     process.env.PATH = `${bin}:${path}`;
     fake(128, `fatal: detected dubious ownership in repository at '${r.root}'`);
     assert.deepEqual(repoCommits(r.root, { since: T0 - H, until: T0 + H }), { failed: 'not owned' });
+    // A refusal marks the repo for the rest of the run; each case starts clean.
+    resetGitTimeouts();
     fake(1, 'fatal: bad object');
     assert.deepEqual(repoCommits(r.root, { since: T0 - H, until: T0 + H }), { failed: 'failed' });
+    resetGitTimeouts();
     fake(128, 'fatal: not a git repository (or any of the parent directories): .git');
     assert.deepEqual(repoCommits(r.root, { since: T0 - H, until: T0 + H }), [], 'not a repo: no history to read');
     writeFileSync(join(bin, 'git'), '#!/bin/sh\nsleep 5\n');
