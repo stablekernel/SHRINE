@@ -43,9 +43,30 @@ export function commitShas(content) {
   return [...text.slice(0, SHA_HEAD).matchAll(SHA_LINE)].map((m) => own(m[1]));
 }
 
+// A resent message: the same text as the human message right before it in the
+// session (sent again after an interrupt or a retry). The key is a hash of the
+// trimmed text with runs of whitespace made one space; the text is not kept.
+export const resendKey = (text) => {
+  const t = text.trim().replace(/\s+/g, ' ');
+  return t ? createHash('sha256').update(t).digest('hex').slice(0, 32) : null;
+};
+
 function onLine(o, inSubagentFile, acc) {
   // Older versions wrote some subagent lines inline in the main file.
   const sub = inSubagentFile || o.isSidechain === true;
+  // A forked or resumed session file starts with lines copied from an earlier
+  // session, with the same uuid and timestamp. A line whose uuid an earlier
+  // session already held is a copy: it is skipped here, so nothing counts twice.
+  const uuid = str(o.uuid);
+  if (uuid && acc.seen?.has(uuid)) {
+    acc.copied.lines++;
+    if (o.type === 'user' && o.message && classifyUser(o, { subagent: sub }).human) acc.copied.messages++;
+    return;
+  }
+  if (uuid) {
+    acc.own.add(uuid);
+    acc.newLines++;
+  }
   // Only a parsable string timestamp counts; anything else falls back to the last good one.
   const valid = typeof o.timestamp === 'string' && !Number.isNaN(Date.parse(o.timestamp));
   const t = valid ? o.timestamp : acc.lastT;
@@ -72,6 +93,9 @@ function onLine(o, inSubagentFile, acc) {
       rec.cache_read = Math.max(rec.cache_read, count(u.cache_read_input_tokens));
     }
     if (typeof m.model === 'string' && m.model !== '<synthetic>') acc.models.add(m.model);
+    // A real reply on the main thread answers the last message; an API error
+    // line (synthetic model) does not, so a retry of the same text is a resend.
+    if (!sub && m.model !== '<synthetic>' && o.isApiErrorMessage !== true) acc.answered = true;
     for (const b of Array.isArray(m.content) ? m.content : []) {
       if (b?.type === 'text' && typeof b.text === 'string' && b.text.trim()) {
         acc.timeline.push({ t, kind: 'assistant_text', text: tail(b.text.trim(), MAX_ASSISTANT), sub });
@@ -94,11 +118,22 @@ function onLine(o, inSubagentFile, acc) {
     }
     const c = classifyUser(o, { subagent: sub });
     if (c.interrupt) {
+      acc.interruptedSince = true;
       acc.interrupts++;
       acc.timeline.push({ t, kind: 'interrupt', sub });
     }
     if (c.command) acc.timeline.push({ t, kind: 'command', name: c.command, sub });
     if (c.human) {
+      const key = resendKey(c.text);
+      // Same text again counts once only when the first send got no answer or was
+      // interrupted; a repeated "continue" after real work is a new message.
+      if (key && key === acc.lastHumanKey && (acc.interruptedSince || !acc.answered)) {
+        acc.resent++;
+        return;
+      }
+      acc.lastHumanKey = key;
+      acc.answered = false;
+      acc.interruptedSince = false;
       acc.turns++;
       acc.timeline.push({ t, kind: 'human', text: head(c.text.trim(), MAX_HUMAN), queued: c.queued, uuid: str(o.uuid), sub });
     }
@@ -110,10 +145,14 @@ function onLine(o, inSubagentFile, acc) {
   }
 }
 
-// meta: {id, path, project, subagent_files, version}. Returns {session, timeline, files}
-// where files lists per-file stats ({path, kind, corrupt, unknown_types}).
-export async function readSession(meta) {
-  const acc = { lastT: null, start: null, end: null, requests: new Map(), models: new Set(), timeline: [], turns: 0, interrupts: 0, compactions: 0, toolCalls: 0 };
+// meta: {id, path, project, subagent_files, version}. seen: uuids of the sessions
+// read before this one (shared across a scan; this session's uuids are added after
+// it is read, so a uuid repeated inside one session is never a copy). Returns
+// {session, timeline, files, dedupe} where files lists per-file stats ({path,
+// kind, corrupt, unknown_types}) and dedupe = {resent, copied_lines,
+// copied_messages, only_copies}.
+export async function readSession(meta, { seen = null } = {}) {
+  const acc = { lastT: null, start: null, end: null, requests: new Map(), models: new Set(), timeline: [], turns: 0, interrupts: 0, compactions: 0, toolCalls: 0, seen, own: new Set(), newLines: 0, copied: { lines: 0, messages: 0 }, resent: 0, lastHumanKey: null, answered: false, interruptedSince: false };
   const files = [];
   const main = await readSessionFile(meta.path, (o) => onLine(o, false, acc));
   files.push({ path: meta.path, ...main });
@@ -154,5 +193,7 @@ export async function readSession(meta) {
     subagents: (meta.subagent_files ?? []).length,
     version: main.version ?? meta.version ?? null,
   };
-  return { session, timeline, files, kind: main.kind };
+  if (seen) for (const u of acc.own) seen.add(u);
+  const dedupe = { resent: acc.resent, copied_lines: acc.copied.lines, copied_messages: acc.copied.messages, only_copies: acc.copied.lines > 0 && acc.newLines === 0 };
+  return { session, timeline, files, kind: main.kind, dedupe };
 }
