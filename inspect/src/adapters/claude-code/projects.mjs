@@ -92,7 +92,8 @@ export function listProjects({ claudeHome, now = Date.now(), windowDays = 30, te
       .filter((e) => !e.dir && e.name.endsWith('.jsonl'))
       .map((e) => {
         const s = stat(join(dir, e.name));
-        return s && { path: join(dir, e.name), bytes: s.size, mtime: s.mtimeMs };
+        // birthtime orders a fork after the session it copied (0 where the filesystem has none).
+        return s && { path: join(dir, e.name), bytes: s.size, mtime: s.mtimeMs, birth: s.birthtimeMs || 0 };
       })
       .filter((f) => f && f.mtime >= since);
     if (files.length === 0) continue;
@@ -189,6 +190,8 @@ export function sessionInventory(listing) {
         root,
         bytes: f.bytes,
         mtime: f.mtime,
+        birth: f.birth ?? 0,
+        start: meta?.start ?? null,
         version: meta?.version ?? null,
         subagent_files: subagentFiles(f.path).map((s) => s.path),
       });

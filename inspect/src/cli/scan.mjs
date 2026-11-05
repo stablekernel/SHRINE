@@ -44,12 +44,18 @@ function recencyOf(start, from, to) {
   return x >= 2 / 3 ? 'newest' : x >= 1 / 3 ? 'middle' : 'oldest';
 }
 
+// Read order decides which file keeps lines that two files share: earliest first
+// line first, then earliest created (a fork's first line is a copy, so the two
+// tie), then oldest modified, then id. The later file loses the shared lines.
+const firstAt = (m) => (m.start && !Number.isNaN(Date.parse(m.start)) ? Date.parse(m.start) : Infinity);
+const or = (x) => (Number.isNaN(x) ? 0 : x);
+export const readOrder = (metas) =>
+  [...metas].sort((a, b) => or(firstAt(a) - firstAt(b)) || or((a.birth || Infinity) - (b.birth || Infinity)) || (a.mtime ?? 0) - (b.mtime ?? 0) || (a.id < b.id ? -1 : a.id > b.id ? 1 : 0));
+
 // listing: listProjects(); excludedIds: own session ids. display: path scrubber.
 export async function scanHistory({ listing, excludedIds = [], display = (p) => p, t = THRESHOLDS, onProgress = () => {} }) {
   const inv = sessionInventory(listing);
-  // Oldest file first (then id), so a forked session's copied lines are dropped
-  // from the copy, not from the session it was copied from, in a stable order.
-  const metas = excludeSessions(inv.sessions, excludedIds).sort((a, b) => (a.mtime ?? 0) - (b.mtime ?? 0) || (a.id < b.id ? -1 : a.id > b.id ? 1 : 0));
+  const metas = readOrder(excludeSessions(inv.sessions, excludedIds));
   const sessions = [];
   const episodes = [];
   const skipped = [];

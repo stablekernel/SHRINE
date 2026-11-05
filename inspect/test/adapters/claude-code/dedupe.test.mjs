@@ -103,3 +103,28 @@ test('known limit: the file read first keeps the shared lines; the later file is
   assert.equal(orig.dedupe.copied_lines, 2);
   assert.equal(fork.session.turns + orig.session.turns, 3, 'each message still counts once');
 });
+
+test('a resend right after a resume counts once: copied lines set the resend state', async () => {
+  const seen = new Set();
+  const prefix = [human(0, 'Deploy to staging.', 'p1', 'o'), interrupt(1, 'p2', 'o')];
+  await readSession({ id: 'o', path: file(prefix), project: 'app' }, { seen });
+  const resumed = await readSession({ id: 'r', path: file([...prefix, human(9, 'Deploy to staging.', 'p3', 'r'), reply(10, 'r1', 'p4', 'r')]), project: 'app' }, { seen });
+  assert.equal(resumed.session.turns, 0);
+  assert.equal(resumed.dedupe.resent, 1);
+});
+
+test('a command or a compaction between two same texts makes the second a new message', async () => {
+  const clear = { type: 'user', ...base(2), uuid: 'q3', message: { role: 'user', content: '<command-name>/clear</command-name>\n<command-message>clear</command-message>' } };
+  const r = await readSession({ id: 's1', path: file([human(0, 'continue', 'q1'), interrupt(1, 'q2'), clear, human(3, 'continue', 'q4')]), project: 'app' });
+  assert.equal(r.session.turns, 2);
+  const compact = { type: 'system', subtype: 'compact_boundary', ...base(2), uuid: 'v3' };
+  const c = await readSession({ id: 's1', path: file([human(0, 'continue', 'v1'), human(1, 'continue', 'v2'), compact, human(3, 'continue', 'v4')]), project: 'app' });
+  assert.equal(c.session.turns, 2, 'the unanswered second send is a resend; after the compaction it is new');
+});
+
+test('known limit: copies of a session that was not read (outside the window) count as the fork\'s own lines', async () => {
+  const seen = new Set();
+  const r = await readSession({ id: 'fork', path: file([human(0, 'Old plan.', 'w1', 'gone'), reply(1, 'r1', 'w2', 'gone'), human(9, 'New step.', 'w3', 'fork')]), project: 'app' }, { seen });
+  assert.equal(r.session.turns, 2);
+  assert.equal(r.dedupe.copied_lines, 0);
+});

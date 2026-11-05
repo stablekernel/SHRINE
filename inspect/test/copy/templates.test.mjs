@@ -140,7 +140,7 @@ test('one project over 60% of episodes: a usage line and a note on every rate li
 
 test('dropped-before-counting line names resent messages and forked sessions, and is absent when nothing was dropped', () => {
   const text = usageLines(SAMPLE_USAGE).join('\n');
-  assert.match(text, /Dropped before counting: 9 resent messages \(the same text sent again after an interrupt or an unanswered send\), and 41 copied messages in 3 forked or resumed sessions \(history copied from an earlier session; 1 of 3 sessions had nothing new and was left out\)\./);
+  assert.match(text, /Dropped before counting: 9 resent messages \(the same text sent again after an interrupt or an unanswered send\), and 41 copied messages in 3 session files that repeat lines already read \(a fork, a resume, or one session saved in 2 folders; 1 of 3 files had nothing new and was left out\)\./);
   const none = usageLines({ ...SAMPLE_USAGE, counts: { ...SAMPLE_USAGE.counts, resent_messages: 0, forked_sessions: 0, copied_messages: 0, forked_sessions_dropped: 0 } }).join('\n');
   assert.doesNotMatch(none, /Dropped before counting/);
   assert.doesNotMatch(usageLines({ ...SAMPLE_USAGE, counts: { sessions: 1, episodes: 1, human_turns: 1, interrupts: 0, compactions: 0, correction_candidates: 0 } }).join('\n'), /Dropped before counting|undefined/);
@@ -158,7 +158,11 @@ test('Gate B need line: one plain sentence per history-size rule', () => {
     empty: copy.needLine({ consented: true, rule: 'setup_only', sessions: 0, human_messages: 0, span_days: 0 }),
     thin: copy.needLine({ consented: true, rule: 'limited', sessions: 6, human_messages: 40, span_days: 5 }),
     enough: copy.needLine({ consented: true, rule: 'probe', sessions: 66, human_messages: 1171, span_days: 30 }),
+    few: copy.needLine({ consented: true, rule: 'probe', sessions: 12, human_messages: 19, span_days: 30 }),
+    brief: copy.needLine({ consented: true, rule: 'probe', sessions: 12, human_messages: 300, span_days: 6 }),
   };
+  for (const k of ['few', 'brief']) assert.match(lines[k], /^Do you need more than a scan yet\? Not yet: .* is a short history, under 20 messages or 7 days, so a scan is all it supports\.$/, k);
+  assert.match(copy.needLine({ consented: true, rule: 'probe', sessions: 10, human_messages: 20, span_days: 7 }), /Maybe:/, 'at the bars, enough');
   assert.equal(lines.none, 'Do you need more than a scan yet? Unknown: session history was not read.');
   assert.equal(lines.thin, 'Do you need more than a scan yet? Not yet: 6 sessions and 40 of your messages over 5 days is limited history, under 10 sessions, so a scan is all it supports.');
   assert.equal(lines.enough, 'Do you need more than a scan yet? Maybe: 66 sessions and 1171 of your messages over 30 days is enough history for a deeper look; this version offers the scan only.');

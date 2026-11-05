@@ -147,8 +147,10 @@ export async function continueRun(folder, ctx, io) {
   // Gate B: the "do you need it yet" line, from the scan, shown before the report.
   // In this version the depth is T0, set by --tier, so the line informs, not asks.
   const need = history ? { ...history.need, ...(usage ? {} : { rule: 'setup_only' }) } : { consented: historyConsented };
-  const gateB = { gate: 'B', tier: state.gates.B?.choice ?? 'T0', by: state.gates.B?.by ?? 'flag', need, line: copy.needLine(need), note: GATE_B_NOTE };
-  if (!folder.isDone('gate_b')) {
+  // A resumed run keeps the line it already showed.
+  const shown = folder.isDone('gate_b') ? readJson(folder.path('gate-b.json')) : null;
+  const gateB = shown ?? { gate: 'B', tier: state.gates.B?.choice ?? 'T0', by: state.gates.B?.by ?? 'flag', need, line: copy.needLine(need), note: GATE_B_NOTE };
+  if (!shown) {
     folder.writeJson('gate-b.json', gateB);
     folder.markDone('gate_b');
     if (!io.json) io.stdout.write(`Gate B: ${gateB.line}\n`);
@@ -180,7 +182,7 @@ export async function continueRun(folder, ctx, io) {
       structure: probes.structure.map((s) => ({ check: s.check, applicable: s.applicable, pass: s.pass })),
       history: { consented: historyConsented, ...itemized, rule: usage?.rule ?? (historyConsented ? 'setup_only' : null), usage_kinds: usage ? usage.kinds.map((k) => ({ kind: k.kind, ship: k.ship, applicable: k.applicable, hit: k.hit, metric: k.metric })) : [] },
       tier_proposal: tierProposal(),
-      need: { ...need, line: gateB.line },
+      need: { ...gateB.need, line: gateB.line },
     });
     folder.markDone('scan');
   }

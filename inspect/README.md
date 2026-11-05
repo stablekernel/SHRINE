@@ -15,10 +15,10 @@ Status: pre-release (SP2). Install and docs cutover arrive in SP3; until then th
 - `--session-id <id>` leaves out the session driving the run; without it, the newest session file written in the last 5 minutes is left out
 - Gate B is fixed at T0 (`--tier T0`); deeper tiers are not available yet
   - After the scan it prints one "do you need more than a scan yet" line from sessions, your messages, and days spanned (also in `gate-b.json`, `scan.json`, and `--json` as `gate_b`)
-  - Under 10 sessions: "not yet", limited history; no history: "unknown"
+  - Under 10 sessions: "not yet", limited history; under 20 messages or 7 days: "not yet", short history (provisional bars in `thresholds.json`); no history: "unknown"
 - With history: usage counts (sessions, human messages, interrupts, compactions, retries, subagent share, correction candidates, done claims without a prior test) in the report appendix and header
   - Counts are human messages, not pattern hits: a message with several correction cues counts once
-  - Dropped before counting, shown in the appendix: resent messages (same text right after an interrupted or unanswered send, same session) and forked or resumed sessions (lines whose uuid an earlier session already holds; a file with nothing else is left out)
+  - Dropped before counting, shown in the appendix: resent messages (same text right after an interrupted or unanswered send, same session) and session files that repeat lines already read (a fork, a resume, or one session saved in 2 project folders; matched by line uuid; a file with nothing else is left out)
   - One project above 60% of episodes: a line in the usage block, and "Mostly 1 project" on every rate line
   - Pattern-based counts are never findings at T0 (E5 precision: done-claim 33%, test-command 35%, identical-retry 17%)
   - `sdk-cli` sessions are never read in full; each is classified from its first lines after consent
@@ -48,7 +48,8 @@ Masking (`test/scrub/known-limits.test.mjs`):
 Counting (`test/adapters/claude-code/dedupe.test.mjs`):
 
 - The same prompt pasted into a new, unforked session counts again; only resends inside one session are dropped
-- Files are read oldest modified first; when a fork was last written before the session it copied, the shared lines are dropped from that later file instead (each line still counts once, but the forked-session count names the other file)
+- Files are read by first-line time, then creation time, then last change; where the filesystem keeps no creation time and the original was written after its fork, the original loses the shared lines instead (each line still counts once, but a later correction there can read as an episode's first message)
+- A fork of a session older than the retention window keeps the copied lines as its own: the source file is not read, so nothing marks them as copies
 
 ## Develop
 

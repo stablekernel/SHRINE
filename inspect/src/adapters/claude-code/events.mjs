@@ -60,7 +60,20 @@ function onLine(o, inSubagentFile, acc) {
   const uuid = str(o.uuid);
   if (uuid && acc.seen?.has(uuid)) {
     acc.copied.lines++;
-    if (o.type === 'user' && o.message && classifyUser(o, { subagent: sub }).human) acc.copied.messages++;
+    // Copied lines are not counted, but they still set the resend state, so the
+    // same text sent again right after a resume is a resend.
+    if (o.type === 'user' && o.message) {
+      const c = classifyUser(o, { subagent: sub });
+      if (c.interrupt) acc.interruptedSince = true;
+      if (c.command) acc.lastHumanKey = null;
+      if (c.human) {
+        acc.copied.messages++;
+        acc.lastHumanKey = resendKey(c.text);
+        acc.answered = false;
+        acc.interruptedSince = false;
+      }
+    } else if (o.type === 'assistant' && !sub && o.message?.model !== '<synthetic>' && o.isApiErrorMessage !== true) acc.answered = true;
+    else if (o.type === 'system' && o.subtype === 'compact_boundary') acc.lastHumanKey = null;
     return;
   }
   if (uuid) {
@@ -122,7 +135,11 @@ function onLine(o, inSubagentFile, acc) {
       acc.interrupts++;
       acc.timeline.push({ t, kind: 'interrupt', sub });
     }
-    if (c.command) acc.timeline.push({ t, kind: 'command', name: c.command, sub });
+    if (c.command) {
+      // A command (/clear and the like) starts something new: the same text after it is not a resend.
+      acc.lastHumanKey = null;
+      acc.timeline.push({ t, kind: 'command', name: c.command, sub });
+    }
     if (c.human) {
       const key = resendKey(c.text);
       // Same text again counts once only when the first send got no answer or was
@@ -140,6 +157,7 @@ function onLine(o, inSubagentFile, acc) {
     return;
   }
   if (o.type === 'system' && o.subtype === 'compact_boundary' && !sub) {
+    acc.lastHumanKey = null;
     acc.compactions++;
     acc.timeline.push({ t, kind: 'compact', sub });
   }

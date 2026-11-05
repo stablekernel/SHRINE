@@ -157,7 +157,6 @@ function controlSentence(c) {
   return `Rework (named reverts) within ${THRESHOLDS.history.link_hours} hours: ${c.flagged.hits} of ${c.flagged.n} flagged ${pl(c.flagged.n, 'episode')} with linked commits (${pctOf(c.flagged.rate)}${small}), ${c.rest.hits} of ${c.rest.n} other ${pl(c.rest.n, 'episode')} with linked commits (${pctOf(c.rest.rate)}).`;
 }
 
-// Appendix lines for the usage counts block. Every regex-based count says it is a count only.
 // True when one project holds more than the threshold share of episodes.
 export const dominated = (c) => c?.top_project_share != null && c.top_project_share > THRESHOLDS.usage.dominant_project_share;
 
@@ -177,8 +176,8 @@ export function dedupeLine(c) {
   if (r) parts.push(`${r} resent ${pl(r, 'message')} (the same text sent again after an interrupt or an unanswered send)`);
   if (f) {
     const k = c.forked_sessions_dropped ?? 0;
-    const left = k ? `; ${k} of ${f} ${pl(f, 'session')} had nothing new and ${k === 1 ? 'was' : 'were'} left out` : '';
-    parts.push(`${c.copied_messages ?? 0} copied ${pl(c.copied_messages ?? 0, 'message')} in ${f} forked or resumed ${pl(f, 'session')} (history copied from an earlier session${left})`);
+    const left = k ? `; ${k} of ${f} ${pl(f, 'file')} had nothing new and ${k === 1 ? 'was' : 'were'} left out` : '';
+    parts.push(`${c.copied_messages ?? 0} copied ${pl(c.copied_messages ?? 0, 'message')} in ${f} session ${pl(f, 'file')} that repeat lines already read (a fork, a resume, or one session saved in 2 folders${left})`);
   }
   return `Dropped before counting: ${parts.join(', and ')}.`;
 }
@@ -190,10 +189,14 @@ export function needLine(need) {
   if (!need?.consented) return `${q} Unknown: session history was not read.`;
   if (need.rule === 'setup_only') return `${q} Unknown: no session in the window could be used.`;
   const what = `${need.sessions} ${pl(need.sessions, 'session')} and ${need.human_messages} of your ${pl(need.human_messages, 'message')} over ${need.span_days} ${pl(need.span_days, 'day')}`;
-  if (need.rule === 'limited') return `${q} Not yet: ${what} is limited history, under ${THRESHOLDS.history.limited_sessions} sessions, so a scan is all it supports.`;
+  const h = THRESHOLDS.history;
+  if (need.rule === 'limited') return `${q} Not yet: ${what} is limited history, under ${h.limited_sessions} sessions, so a scan is all it supports.`;
+  // Enough sessions, but few messages or a short span: still thin (provisional bars).
+  if (need.human_messages < h.need_min_messages || need.span_days < h.need_min_days) return `${q} Not yet: ${what} is a short history, under ${h.need_min_messages} messages or ${h.need_min_days} days, so a scan is all it supports.`;
   return `${q} Maybe: ${what} is enough history for a deeper look; this version offers the scan only.`;
 }
 
+// Appendix lines for the usage counts block. Every regex-based count says it is a count only.
 export function usageLines(u) {
   if (!u) return [];
   const c = u.counts;
@@ -350,6 +353,7 @@ export function sampleCopy() {
       { consented: false },
       { consented: true, rule: 'setup_only', sessions: 0, human_messages: 0, span_days: 0 },
       { consented: true, rule: 'limited', sessions: 1, human_messages: 1, span_days: 1 },
+      { consented: true, rule: 'probe', sessions: 12, human_messages: 15, span_days: 3 },
       { consented: true, rule: 'probe', sessions: 66, human_messages: 1171, span_days: 30 },
     ].map(needLine),
     notes: HISTORY_NOTES,
