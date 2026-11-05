@@ -189,3 +189,25 @@ test('a config write during the history scan is reported as changed by others', 
   assert.ok(v.changed_by_others.some((c) => c.path.endsWith('.claude/CLAUDE.md') && c.change === 'modified'), JSON.stringify(v.changed_by_others));
   h.cleanup();
 });
+
+test('a lazy fetch during a setup git run is reported, not baked into the baseline', async () => {
+  const h = homeWithHistory();
+  const state = mkdtempSync(join(tmpdir(), 'si-st-'));
+  // Test-only git wrapper: a setup date lookup (log --format=%cI) drops a promisor pack,
+  // standing in for a partial clone fetching objects on demand.
+  const realGit = execFileSync('sh', ['-c', 'command -v git'], { encoding: 'utf8' }).trim();
+  const bin = mkdtempSync(join(tmpdir(), 'si-bin-'));
+  writeFileSync(join(bin, 'git'), `#!/bin/sh\ncase "$*" in *%cI*) d=$("${realGit}" rev-parse --git-common-dir 2>/dev/null) && [ -n "$d" ] && touch "$d/objects/pack/pack-lazy$$.promisor";; esac\nexec "${realGit}" "$@"\n`, { mode: 0o755 });
+  const path = process.env.PATH;
+  process.env.PATH = `${bin}:${path}`;
+  try {
+    const r = await inproc(['run', '--tier', 'T0'], h, state, tty('history'));
+    assert.equal(r.code, 5, r.stderr);
+    const v = json(runDir(state), 'verify.json');
+    assert.equal(v.ok, false);
+    assert.ok(v.changed_paths.some((p) => p.endsWith('.git')), JSON.stringify(v));
+  } finally {
+    process.env.PATH = path;
+    h.cleanup();
+  }
+});

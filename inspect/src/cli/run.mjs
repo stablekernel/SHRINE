@@ -136,10 +136,11 @@ export async function continueRun(folder, ctx, io) {
   const display = (p) => displayPath(p, ctx.home);
   const excludedIds = state.own ? [state.own.id] : [];
 
-  // Phase: history (only after Gate A says yes). Setup files and repo HEADs are
-  // read first so the verify step sees a config write or HEAD move during the scan.
-  const setup = collectSetup({ home: ctx.home, projects, now: ctx.now });
+  // Phase: history (only after Gate A says yes). Repo HEADs are read before setup's
+  // own git runs, and setup before the scan, so the verify step sees a lazy fetch
+  // from a setup git run and a config write or HEAD move during the scan.
   const { heads } = baselineOf([], projects.map((p) => p.root));
+  const setup = collectSetup({ home: ctx.home, projects, now: ctx.now });
   const history = historyConsented ? await scanHistory({ listing, excludedIds, display, onProgress: io.onScanProgress }) : null;
   const usage = history && !history.unsupported && history.sessions.length > 0 ? history.usage : null;
 
