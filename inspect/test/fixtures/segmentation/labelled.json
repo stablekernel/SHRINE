@@ -1,0 +1,16 @@
+{
+  "note": "Synthetic, hand-labelled hard boundaries. Rows are [minute, kind, detail]. The real-history bar (80% on a fresh owner-labelled 20-episode set) is measured outside CI.",
+  "cases": [
+    { "name": "one task, ends at session end", "rows": [[0, "human"], [1, "bash", "npm test"], [2, "ok"], [3, "text", "Done."]], "expect": ["session_end"] },
+    { "name": "commit ends the episode; the reply after it stays", "rows": [[0, "human"], [1, "bash", "git commit -m x"], [2, "ok"], [3, "text", "Committed."], [5, "human"], [6, "text", "Sure."]], "expect": ["commit", "session_end"] },
+    { "name": "failed commit is not a boundary", "rows": [[0, "human"], [1, "bash", "git commit -m x"], [2, "err"], [3, "human"], [4, "text", "Fixed."]], "expect": ["session_end"] },
+    { "name": "gh pr create is a PR boundary", "rows": [[0, "human"], [1, "bash", "gh pr create --fill"], [2, "ok"], [9, "human"]], "expect": ["pr", "session_end"] },
+    { "name": "idle over 30 minutes cuts", "rows": [[0, "human"], [1, "text", "Done."], [40, "human"], [41, "text", "Ok."]], "expect": ["new_task", "session_end"] },
+    { "name": "idle after a question to the user does not cut", "rows": [[0, "human"], [1, "text", "Should I also update the docs?"], [45, "human", "yes"], [46, "text", "Updated."]], "expect": ["session_end"] },
+    { "name": "question followed by tool use then idle cuts", "rows": [[0, "human"], [1, "text", "Want me to check?"], [2, "bash", "ls"], [3, "ok"], [50, "human"]], "expect": ["new_task", "session_end"] },
+    { "name": "/clear starts a new task", "rows": [[0, "human"], [1, "text", "Done."], [2, "command", "/clear"], [3, "human"], [4, "text", "Ok."]], "expect": ["new_task", "session_end"] },
+    { "name": "/compact is not a task switch", "rows": [[0, "human"], [1, "command", "/compact"], [2, "human"], [3, "text", "Ok."]], "expect": ["session_end"] },
+    { "name": "commit in a heredoc message is not a commit", "rows": [[0, "human"], [1, "bash", "cat <<'EOF' > notes.md\nthen git commit -m done\nEOF"], [2, "ok"], [3, "human"]], "expect": ["session_end"] },
+    { "name": "activity before the first human turn is not an episode", "rows": [[0, "text", "Session hook ran."], [1, "human"], [2, "text", "Ok."]], "expect": ["session_end"] }
+  ]
+}
