@@ -151,3 +151,16 @@ export function sessionInventory(listing) {
     to: iso(sessions.at(-1)?.mtime),
   };
 }
+
+// Keeps only the session files in `paths` (the set itemized at Gate A); projects
+// left with no file drop out. Counts and sizes are recomputed from what remains.
+export function freezeListing(listing, paths) {
+  const projects = listing.projects
+    .map((p) => {
+      const files = (p.files ?? []).filter((f) => paths.has(f.path));
+      const bytes = files.reduce((n, f) => n + f.bytes, 0);
+      return { ...p, files, sessions: files.length, bytes, bytes_with_subagents: Math.max(bytes, (p.bytes_with_subagents ?? 0) - (p.bytes - bytes)) };
+    })
+    .filter((p) => p.files.length > 0);
+  return { ...listing, projects, top: projects.slice(0, DEFAULT_VIEW), more: Math.max(0, projects.length - DEFAULT_VIEW) };
+}

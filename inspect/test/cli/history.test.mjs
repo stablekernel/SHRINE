@@ -117,3 +117,20 @@ test('approve with history resumes a paused run and reads history', async () => 
   assert.equal(json(join(state, 'state', 'runs', id), 'facts.json').sessions.length, 12);
   h.cleanup();
 });
+
+test('a resumed run reads only the files itemized at Gate A, with the same own-session decision', async () => {
+  const h = homeWithHistory();
+  const state = mkdtempSync(join(tmpdir(), 'si-st-'));
+  await inproc(['run', '--tier', 'T0'], h, state);
+  const id = readdirSync(join(state, 'state', 'runs'))[0];
+  // A session that appears after Gate A was shown, and still growing at approve time.
+  addSession(h, { id: 'late-session-0001', startMs: NOW - 10 * 60000, script: PRESETS.planted(2), mtime: new Date(NOW - 10000) });
+  const r = await inproc(['approve', id, 'A', 'history'], h, state, tty('yes'));
+  assert.equal(r.code, 0, r.stderr);
+  const dir = join(state, 'state', 'runs', id);
+  const ids = json(dir, 'facts.json').sessions.map((s) => s.id);
+  assert.equal(ids.length, 12);
+  assert.ok(!ids.includes('late-session-0001'), 'not itemized at Gate A');
+  assert.deepEqual(json(dir, 'verify.json').excluded_session_ids, [], 'Gate A reported no own session');
+  h.cleanup();
+});

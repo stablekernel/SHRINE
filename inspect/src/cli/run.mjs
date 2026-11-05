@@ -27,6 +27,7 @@ import { InspectError, EXIT } from './errors.mjs';
 import { askGate, GATE_A, GATE_B_NOTE } from './approve.mjs';
 import { estimateSeconds, scanHistory } from './scan.mjs';
 import { ownSession } from '../adapters/claude-code/sessions.mjs';
+import { freezeListing } from '../adapters/claude-code/projects.mjs';
 import { tierProposal } from '../scorer/stats.mjs';
 
 const PIVOTS = readJson(fileURLToPath(new URL('../catalogue/generic-pivots.json', import.meta.url)));
@@ -83,9 +84,16 @@ export async function continueRun(folder, ctx, io) {
   const state = readJson(folder.path('state.json'));
   const ret = retention({ home: ctx.home });
   const claudeHome = detect({ home: ctx.home }).claude_home;
-  const listing = listProjects({ claudeHome, now: ctx.now, windowDays: ret.days, tempPatterns: defaultTempPatterns(io.env) });
-  // Decided once, from file metadata, so the resumed run excludes the same session.
-  state.own ??= ownSession(listing, { sessionId: state.session_id, now: ctx.now });
+  // The scope is frozen when Gate A is first shown: a run resumed later by
+  // `approve` reads exactly the session files that were itemized, with the same
+  // own-session decision (false means none), never files that appeared since.
+  const frozen = state.frozen ?? null;
+  let listing = listProjects({ claudeHome, now: frozen?.now ?? ctx.now, windowDays: ret.days, tempPatterns: defaultTempPatterns(io.env) });
+  if (frozen) listing = freezeListing(listing, new Set(frozen.files));
+  else {
+    state.frozen = { now: ctx.now, files: listing.projects.flatMap((p) => p.files.map((f) => f.path)) };
+    state.own = ownSession(listing, { sessionId: state.session_id, now: ctx.now }) ?? false;
+  }
   const historyBytes = listing.projects.reduce((n, p) => n + (p.bytes_with_subagents ?? p.bytes), 0);
   const itemized = {
     projects: listing.projects.length,
