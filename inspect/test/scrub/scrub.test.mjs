@@ -493,8 +493,8 @@ test('a project named like a word of the report copy is masked only where it sta
 test('a vocabulary-named project is still masked as a path segment; people are never vocabulary-exact', async () => {
   const { copyVocabulary } = await import('../../src/copy/templates.mjs');
   const k = buildIdentifiers({ projects: ['skills'], authors: [{ name: 'setup', email: 'a@b.example' }], vocabulary: copyVocabulary() });
-  assert.equal(mask('~/src/skills/CLAUDE.md', k), '~/src/<project-1>/CLAUDE.md');
-  assert.equal(mask('see ~/w/skills', k), 'see ~/w/<project-1>');
+  assert.equal(mask('~/src/skills/CLAUDE.md', k), '~/<path>/CLAUDE.md');
+  assert.equal(mask('see ~/w/skills', k), 'see ~/<path>/<project-1>');
   assert.equal(mask('run setup now', k), 'run <author-1> now');
 });
 
