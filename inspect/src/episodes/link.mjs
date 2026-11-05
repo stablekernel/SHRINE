@@ -1,10 +1,14 @@
-// Minimal git linker for T0 (spec 4 outcome anchors, plan T2.7). Rework within
-// 72 hours counts only reverts and fixes, and only for an episode that made a
-// commit: a revert naming one of its commits, a fixup or squash commit naming
-// one, or a later commit whose subject starts with "fix" or "revert" and touches
-// a file in one of its commits. A later
-// episode touching the same file is only "possible rework (file overlap)", a
-// candidate count. Amended commits leave history, so they are never counted.
+// Minimal git linker for T0 (spec 4 outcome anchors, plan T2.7), rework rule v3:
+// - rework: a later commit within 72 hours whose body names one of the
+//   episode's commits ("This reverts commit <sha>"). Only this is a headline count.
+// - possible rework (later-session fix): a fix, revert, fixup, or squash commit on
+//   a file of the episode's commits (or a fixup naming one of them), from a later session and at least 1 hour
+//   after the episode's last commit. A candidate count.
+// - iteration: the same kind of follow-up in the same session or under 1 hour.
+//   Normal work; counted apart, never as rework.
+// - possible rework (file overlap): a later episode touching the same file. A
+//   candidate count.
+// Amended commits leave history, so they are never counted.
 import { gitOut } from '../io/git.mjs';
 
 const RS = '\x1e';
@@ -65,24 +69,44 @@ export function linkEpisodes(episodes, commitsByRepo, { windowHours = 72 } = {})
     }
     return lo;
   };
-  return episodes.map((ep) => {
+  // Pass 1: each episode's own commits, and which session made each commit.
+  const ownOf = new Map();
+  const sessionOfCommit = new Map();
+  const sessionEnd = new Map();
+  for (const ep of episodes) {
     const { s, e } = ms(ep);
     const commits = commitsByRepo.get(ep.repo) ?? [];
     const own = ep.committed ? commits.filter((c) => c.t >= s - 1000 && c.t <= e + COMMIT_SLACK_MS) : [];
-    const ownSubjects = new Set(own.map((c) => c.subject));
+    ownOf.set(ep, own);
+    for (const c of own) sessionOfCommit.set(c.sha, ep.session_id);
+    sessionEnd.set(ep.session_id, Math.max(sessionEnd.get(ep.session_id) ?? 0, e));
+  }
+  return episodes.map((ep) => {
+    const { e } = ms(ep);
+    const commits = commitsByRepo.get(ep.repo) ?? [];
+    const own = ownOf.get(ep);
+    const lastOwn = own.reduce((m, c) => Math.max(m, c.t), 0);
     const links = [];
+    let iteration = 0;
     const revertRes = own.map((o) => new RegExp(`This reverts commit ${o.sha.slice(0, 7)}`));
-    // A fix or revert follow-up needs a commit from this episode and a file in it.
     const changed = new Set(own.flatMap((c) => c.files ?? []));
     for (const c of own.length ? commits : []) {
       const d = c.t - e;
       if (d <= 0 || d > win || own.includes(c)) continue;
-      const reverts = revertRes.some((re) => re.test(c.body));
-      const fix = c.subject.match(/^(fixup|squash|amend)! (.+)$/);
-      const followUp = /^(fix|revert)\b/i.test(c.subject) && (c.files ?? []).some((f) => changed.has(f));
-      if (reverts) links.push({ kind: 'revert', ref: c.sha, delta_hours: hours(d), link: 'hard' });
-      else if (fix && ownSubjects.has(fix[2])) links.push({ kind: 'fixup', ref: c.sha, delta_hours: hours(d), link: 'hard' });
-      else if (followUp) links.push({ kind: /^revert/i.test(c.subject) ? 'revert' : 'fixup', ref: c.sha, delta_hours: hours(d), link: 'hard' });
+      if (revertRes.some((re) => re.test(c.body))) {
+        links.push({ kind: 'revert', ref: c.sha, delta_hours: hours(d), link: 'hard' });
+        continue;
+      }
+      // A fixup or squash naming one of its commits needs no file match.
+      const named = c.subject.match(/^(?:fixup|squash|amend)! (.+)$/);
+      const namesOwn = named && own.some((o) => o.subject === named[1]);
+      const fixOnFiles = /^(fix|revert)\b/i.test(c.subject) && (c.files ?? []).some((f) => changed.has(f));
+      if (!namesOwn && !fixOnFiles) continue;
+      const by = sessionOfCommit.get(c.sha);
+      // A commit no episode made counts as a later session once this session has ended.
+      const laterSession = by ? by !== ep.session_id : c.t > (sessionEnd.get(ep.session_id) ?? e);
+      if (laterSession && c.t - lastOwn >= HOUR) links.push({ kind: 'fixup', ref: c.sha, delta_hours: hours(d), link: 'soft' });
+      else iteration++;
     }
     const files = new Set(ep.touched_files ?? []);
     if (files.size) {
@@ -94,6 +118,14 @@ export function linkEpisodes(episodes, commitsByRepo, { windowHours = 72 } = {})
       }
     }
     links.sort((a, b) => a.delta_hours - b.delta_hours || a.ref.localeCompare(b.ref));
-    return { ...ep, commits: own.map((c) => c.sha), downstream: links.slice(0, MAX_LINKS), rework: links.some((l) => l.link === 'hard'), possible_rework: links.some((l) => l.kind === 'episode') };
+    return {
+      ...ep,
+      commits: own.map((c) => c.sha),
+      downstream: links.slice(0, MAX_LINKS),
+      rework: links.some((l) => l.kind === 'revert'),
+      possible_fix: links.some((l) => l.kind === 'fixup'),
+      possible_rework: links.some((l) => l.kind === 'episode'),
+      iteration_commits: iteration,
+    };
   });
 }

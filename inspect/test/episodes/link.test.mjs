@@ -24,10 +24,11 @@ test('reverts by SHA and fixups link to the episode that made the commit; amends
   const e = ep('e1', T0, T0 + 15 * 60000, { repo: r.root, committed: true });
   const [out] = linkEpisodes([e], new Map([[r.root, commits]]));
   assert.deepEqual(out.commits, [amended]);
-  const kinds = out.downstream.map((d) => d.kind).sort();
-  assert.deepEqual(kinds, ['fixup', 'revert'], 'the fixup after 72h is not linked');
-  assert.ok(out.downstream.every((d) => d.link === 'hard' && d.delta_hours <= 72));
-  assert.equal(out.rework, true);
+  const kinds = out.downstream.map((d) => `${d.kind}:${d.link}`).sort();
+  assert.deepEqual(kinds, ['fixup:soft', 'revert:hard'], 'the fixup after 72h is not linked');
+  assert.ok(out.downstream.every((d) => d.delta_hours <= 72));
+  assert.equal(out.rework, true, 'a named revert is rework');
+  assert.equal(out.possible_fix, true, 'a later fixup over 1 hour after is a candidate');
   r.cleanup();
 });
 
@@ -88,20 +89,27 @@ test('soft links scale: 20000 episodes link in under 2 seconds', () => {
   assert.ok(out[0].downstream.length > 0);
 });
 
-test('a fix or revert follow-up counts only after an episode commit and only on its files; file touches alone never do', () => {
+test('rule v3: later-session fix over 1 hour is a candidate; same session or under 1 hour is iteration; no commit, no follow-up', () => {
   const r = makeRepo();
   r.commit(iso(T0 - H), 'base', { 'src/a.js': 'v0', 'src/b.js': 'v0' });
   r.commit(iso(T0 + 10 * 60000), 'feat: parser', { 'src/a.js': 'v1' });
-  r.commit(iso(T0 + 2 * H), 'fix(parser): handle empty input', { 'src/a.js': 'v2' });
-  r.commit(iso(T0 + 3 * H), 'Revert the b change', { 'src/b.js': 'v1' });
-  r.commit(iso(T0 + 4 * H), 'feat: unrelated', { 'src/a.js': 'v3' });
+  r.commit(iso(T0 + 40 * 60000), 'fix: quick follow-up', { 'src/a.js': 'v2' });
+  r.commit(iso(T0 + 3 * H), 'fix(parser): same session, later', { 'src/a.js': 'v3' });
+  r.commit(iso(T0 + 5 * H), 'fix(parser): handle empty input', { 'src/a.js': 'v4' });
+  r.commit(iso(T0 + 6 * H), 'Revert the b change', { 'src/b.js': 'v1' });
   const commits = repoCommits(r.root, { since: T0 - 2 * H, until: T0 + 80 * H });
-  assert.deepEqual(commits.find((c) => c.subject.startsWith('fix(parser)')).files, ['src/a.js']);
-  const committed = ep('ec', T0, T0 + 15 * 60000, { repo: r.root, committed: true });
-  const touchedOnly = ep('et', T0, T0 + 15 * 60000, { repo: r.root, touched_files: [`${r.root}/src/b.js`] });
-  const [c, t] = linkEpisodes([committed, touchedOnly], new Map([[r.root, commits]]));
-  assert.deepEqual(c.downstream.map((d) => d.kind), ['fixup'], 'the revert touches b.js, not in the episode commit');
-  assert.equal(c.rework, true);
-  assert.equal(t.rework, false, 'no commit, no follow-up rework');
+  assert.deepEqual(commits.find((c) => c.subject.startsWith('fix(parser): handle')).files, ['src/a.js']);
+  const first = ep('e1', T0, T0 + 15 * 60000, { repo: r.root, committed: true, session_id: 's1' });
+  // Same session s1 makes the 40-minute and 3-hour fixes; session s2 makes the 5-hour one.
+  const quick = ep('e2', T0 + 35 * 60000, T0 + 41 * 60000, { repo: r.root, committed: true, session_id: 's1' });
+  const same = ep('e3', T0 + 3 * H - 60000, T0 + 3 * H + 30000, { repo: r.root, committed: true, session_id: 's1' });
+  const later = ep('e4', T0 + 5 * H - 60000, T0 + 5 * H + 30000, { repo: r.root, committed: true, session_id: 's2' });
+  const touchedOnly = ep('et', T0, T0 + 15 * 60000, { repo: r.root, touched_files: [`${r.root}/src/b.js`], session_id: 's3' });
+  const [a, , , , t] = linkEpisodes([first, quick, same, later, touchedOnly], new Map([[r.root, commits]]));
+  assert.deepEqual(a.downstream.map((d) => `${d.kind}:${d.link}`), ['fixup:soft']);
+  assert.equal(a.possible_fix, true, 'the 5-hour fix from session s2');
+  assert.equal(a.iteration_commits, 2, 'the 40-minute and same-session 3-hour fixes');
+  assert.equal(a.rework, false, 'no named revert');
+  assert.equal(t.rework || t.possible_fix, false, 'no commit, no follow-up');
   r.cleanup();
 });
