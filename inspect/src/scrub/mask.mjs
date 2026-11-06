@@ -249,6 +249,14 @@ export function mask(text, known) {
       else out = out.replace(new RegExp(`(?<=[/\\\\])${esc(value)}(?![\\w-]|\\.\\w)`, 'g'), placeholder);
       continue;
     }
+    // The OS user also where it is joined to other words ("jdoe-mbp", "jdoe_mbp",
+    // "jdoeMBP"), as host names and shell prompts write it: a hyphen, an
+    // underscore, or a capital after a lowercase end is a word break.
+    if (placeholder === '<user>') {
+      const post = /[a-z]$/.test(value) ? '(?![a-z\\d])' : '(?![A-Za-z\\d])';
+      out = out.replace(new RegExp(`(?<![A-Za-z\\d<])${esc(value)}${post}`, 'g'), placeholder);
+      continue;
+    }
     out = out.replace(new RegExp(`(?<![\\w-])${esc(value)}(?![\\w-])`, 'g'), placeholder);
   }
   out = out.replace(IPV4, '<ip>');

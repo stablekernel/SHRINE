@@ -217,6 +217,22 @@ test('a name part that only looks like an extension is masked with the name', ()
   assert.equal(maskBase('data.json'), '<file>.json');
 });
 
+test('the OS user is masked where it is joined to other words', () => {
+  for (const home of ['/Users/jdoe', null]) {
+    const k = buildIdentifiers({ osUser: 'jdoe', home });
+    const cases = {
+      'host jdoe_mbp done': 'host <user>_mbp done',
+      'jdoe@jdoe-mbp:~ $': '<user>@<user>-mbp:~ $',
+      'on jdoeMBP now': 'on <user>MBP now',
+      'ssh jdoe@buildbox': 'ssh <user>@buildbox',
+      'id jdoe2 and ajdoe and jdoes stay': 'id jdoe2 and ajdoe and jdoes stay',
+    };
+    for (const [input, want] of Object.entries(cases)) assert.equal(mask(input, k), want, `${home}: ${input}`);
+  }
+  const dotted = buildIdentifiers({ osUser: 'jane.doe', home: '/Users/jane.doe' });
+  assert.equal(mask('box jane.doe-mbp and jane-doe_laptop', dotted), 'box <user>-mbp and <user>_laptop');
+});
+
 test('free-text home replacement only matches the home at a path boundary', () => {
   const k = buildIdentifiers({ osUser: 'gavin', home: '/Users/gavin' });
   const cases = {

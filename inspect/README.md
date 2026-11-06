@@ -92,6 +92,7 @@ Recorded, not fixed; a test pins each one, so a change is deliberate.
 
 Masking (`test/scrub/known-limits.test.mjs`):
 
+- The OS user is also masked where joined by a hyphen, an underscore, or a capital (`jdoe-mbp` gives `<user>-mbp`), so a user named like a common word (`runner`) can over-mask words such as `test-runner`
 - Share-safe may over-mask words near a path or document name: `Read ~/work/api Then Stop` gives `Read ~/<path>/<file>`
 - In free text, a path followed by a parenthesis can swallow the next word: `~/work/api (git timed out)` gives `~/<path>/<file> timed out)`
 - A lowercase name part of 4 characters or fewer after a dot is kept as an extension: `acme.corp` gives `<file>.corp`
@@ -127,6 +128,12 @@ T1 trial (recorded, not fixed):
 - The harness version shown at Gate B comes from your newest session log, not from the installed command
 - A session whose loaded-instructions snapshot is logged only after an episode starts is read as "may have changed", so its corrections stay "could not tell"
 
+Leak check, dry run only (`test/release/leak-known-limits.test.mjs`):
+
+- It finds the OS user as a whole word only: `jdoe-mbp` or `jdoe_mbp` is not found (share-safe masking does mask these)
+- With no home path given as a needle, it misses `/Users/jdoe` with no trailing slash, `/root/...`, `C:\Users\...`, and `/Volumes/...`
+- It does not decode percent-encoding, so a secret written as `sk%2Dabc` in a link is not found
+
 No-network lint (`test/lint/lint.test.mjs`):
 
 - It guards against accidental network use, not deliberately hidden code: a property name held in a variable (`x[k]`) or decoded at run time (char codes, base64, a reversed string) cannot be known statically
@@ -149,6 +156,7 @@ No-network lint (`test/lint/lint.test.mjs`):
   - Ships the package.json `files` list, a package.json without scripts or devDependencies, and the repo root `LICENSE` and `NOTICE`
 - `node scripts/dry-run.mjs [--dir <work>] [--require-node20]`: builds, installs into a clean HOME with a synthetic history, runs a background T1 with a stand-in judge (no model call), then the read-only hash check and share-safe leak check; prints and keeps a transcript
   - Leak check (`scripts/lib/leak.mjs`): secrets, paths, and prompts match anywhere; project names and the OS user match as whole words outside text the package ships (catalogue, copy, inlined CSS and script), so `SHRINE` or `root` (`:root`) are not false leaks; a control proves it still finds names in the local report
+  - It can false-alarm on a word the tool itself prints outside that shipped text (a name equal to a word the report builds at run time); check the quoted context before treating it as a leak
   - Node 20 from this Node, nvm, fnm, or volta; otherwise it reports the gap
 - Releases: a pushed `inspect-v<version>` tag builds a draft GitHub release; the owner publishes it
 - License: Apache-2.0 (repo root `LICENSE` and `NOTICE`). Ideas (counting messages, dropping resends and forks, a repo-concentration warning) came from justin-carper/reflect (MIT); no code or prompt text was copied
