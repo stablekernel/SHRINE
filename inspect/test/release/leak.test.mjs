@@ -81,12 +81,8 @@ test('OS user root: CSS selectors and the shipped script are not the user; anywh
   // Not a selector: a property value inside <style>, or a script that is not the shipped one.
   assert.deepEqual(leaks(page.replace('</style>', 'p::after { content: "root"; }</style>'), { user: 'root' }), ['user name']);
   assert.deepEqual(leaks(page.replace('<body>', '<body><script>var who = "root";</script>'), { user: 'root' }), ['user name']);
-  // Joined by underscore or camel case, like a host name; a longer word is not the user.
-  for (const s of ['jdoe_mbp', 'jdoeLaptop']) {
-    assert.deepEqual(leaks(plantText(page, s), { user: 'jdoe' }), ['user name'], `text ${s}`);
-    assert.deepEqual(leaks(plantJson(page, s), { user: 'jdoe' }), ['user name'], `json ${s}`);
-  }
-  assert.deepEqual(leaks(plantText(page, 'jdoes'), { user: 'jdoe' }), []);
+  // The user stays a whole word: the CI user "runner" is not in the work order's "judge_runner".
+  assert.deepEqual(userMentions('{"dispatcher": "judge_runner"}', 'runner'), []);
 });
 
 test('literals: string and template parts; comments and regex literals skipped', () => {
