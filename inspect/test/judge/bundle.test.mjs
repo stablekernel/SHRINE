@@ -224,6 +224,8 @@ test('asksPerson: a question, lettered choices, or a questions list at the end; 
   assert.ok(!asksPerson('All tests pass and the change is committed.'));
   assert.ok(!asksPerson(''));
   assert.ok(!asksPerson(`Questions:\n${'filler line\n'.repeat(100)}Done.`), 'only the end of the reply counts');
+  assert.ok(!asksPerson('Questions answered above. All done.'), 'a line that only starts with the word is not a questions list');
+  assert.ok(asksPerson('Draft is up.\n\n**Open questions:**\n- Naming'));
 });
 
 test('end signals: computed by code from the last reply and later git and episode links', () => {
@@ -234,6 +236,11 @@ test('end signals: computed by code from the last reply and later git and episod
   const h = buildBundle({ episode, transcript: { events: events(), snapshot }, known, nonce: 'n' });
   assert.deepEqual(payloadOf(h).end_signals, { asks_person: false, started_agent: false, reverted: false, fixup_later: false, continued_later: false });
   assert.match(TEMPLATE, /end_signals/);
+  // The linker's flags cover every link; downstream keeps only the nearest few.
+  const near = Array.from({ length: 5 }, (_, i) => ({ kind: 'episode', ref: `e-${i}`, delta_hours: i, link: 'soft' }));
+  const f = buildBundle({ episode: { ...episode, downstream: near, rework: true, possible_fix: true, possible_rework: true }, transcript: { events: events(), snapshot }, known, nonce: 'n' });
+  assert.equal(payloadOf(f).end_signals.reverted, true);
+  assert.equal(payloadOf(f).end_signals.fixup_later, true);
 });
 
 test('trimming shortens middle replies first; the last reply keeps its full opening and closing', () => {
@@ -250,4 +257,17 @@ test('trimming shortens middle replies first; the last reply keeps its full open
   assert.ok(last.closing.endsWith('Final status line.'));
   assert.equal(b.turns[0].text.length, `next step ${'word '.repeat(150)}0`.length, 'the root prompt stays whole');
   assert.ok(b.turns.slice(1, -1).filter((t) => t.role === 'assistant').every((t) => t.text.length <= 160));
+});
+
+test('config: four flagged turns with six best lines each all reach the judge', () => {
+  const words = ['migration', 'semicolon', 'deploy', 'fixture'];
+  const ev = [{ t: at(0), kind: 'human', uuid: 'u1', text: 'Start the work.' }];
+  words.forEach((w, i) => {
+    ev.push({ t: at(2 * i + 1), kind: 'assistant_text', text: 'ok' }, { t: at(2 * i + 1), kind: 'interrupt' });
+    ev.push({ t: at(2 * i + 2), kind: 'human', uuid: `v${i}`, text: `Stop, the ${w} rule matters here.` });
+  });
+  const lines = words.flatMap((w) => Array.from({ length: 6 }, (_, k) => `- Rule ${k} about the ${w} step, written out with enough plain words to be a long line.`));
+  const b = buildBundle({ episode, transcript: { events: ev, snapshot: [{ path: '/r/CLAUDE.md', content: `# Rules\n${lines.join('\n')}\n` }] }, known, nonce: 'n' });
+  for (const [id, m] of Object.entries(b.meta.config_lines)) assert.deepEqual(m, { matched: 6, best: 6, sent: 6 }, id);
+  assert.ok(bundleTokens(b) <= DEFAULT_CAPS.bundle_tokens);
 });

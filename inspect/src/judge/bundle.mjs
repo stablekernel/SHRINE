@@ -20,7 +20,7 @@ export const DEFAULT_CAPS = Object.freeze({
   closing_chars: 400,
   turns: 12,
   bundle_tokens: 4000,
-  config_excerpt_chars: 1600,
+  config_excerpt_chars: 2400,
   config_line_chars: 240,
   config_lines_per_turn: 6,
   bytes_per_token: 2.5,
@@ -65,7 +65,7 @@ const HEADING = /^\s{0,3}#{1,6}\s+\S/;
 // characters are read, so the check stays linear and cheap.
 const CHOICE_A = /(?:^|\s)A\)\s/u;
 const CHOICE_B = /(?:^|\s)B\)\s/u;
-const QUESTIONS = /^[\s#*_-]{0,6}(?:open\s)?questions?\b/imu;
+const QUESTIONS = /^[\s#*_-]{0,6}(?:open\s)?questions?[\s:*_]{0,4}$/imu;
 export function asksPerson(text) {
   const tail = String(text ?? '').slice(-600);
   return endsWithQuestion(tail) || (CHOICE_A.test(tail) && CHOICE_B.test(tail)) || QUESTIONS.test(tail);
@@ -73,16 +73,19 @@ export function asksPerson(text) {
 const AGENT_TOOLS = new Set(['Task', 'Agent']);
 
 // End signals computed by code, never by a model: what was still open when the
-// episode ended, and what git and later episodes show about the same work.
+// episode ended, and what git and later episodes show about the same work. The
+// linker's flags cover every link; downstream keeps only the nearest few, so it
+// is the fallback for an episode stored without the flags.
 export function endSignals(episode, lastAssistant, lastReplyText) {
   const down = Array.isArray(episode.downstream) ? episode.downstream : [];
+  const flag = (name, kind) => (typeof episode[name] === 'boolean' ? episode[name] : down.some((d) => d.kind === kind));
   const lastIsReply = Boolean(lastAssistant);
   return {
     asks_person: lastIsReply && asksPerson(lastReplyText),
     started_agent: lastIsReply && lastAssistant.tools.some((n) => AGENT_TOOLS.has(n)),
-    reverted: down.some((d) => d.kind === 'revert'),
-    fixup_later: down.some((d) => d.kind === 'fixup'),
-    continued_later: down.some((d) => d.kind === 'episode'),
+    reverted: flag('rework', 'revert'),
+    fixup_later: flag('possible_fix', 'fixup'),
+    continued_later: flag('possible_rework', 'episode'),
   };
 }
 

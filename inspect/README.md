@@ -80,7 +80,7 @@ Status: pre-release trial (background runs, a thin skill, a checksummed release)
 - Sample: 12 episodes with a correction candidate, seeded (seed in the report footer), recency thirds, at most 4 per project unless one project holds them all, 3x weight for sessions with 2 or more corrections
   - Fewer than 12 eligible: all are judged, labelled thin evidence; under 10 sessions: T1 is not offered
 - Evidence pack per episode: your messages (up to 1,200 characters, 12 messages), the opening 400 characters of each reply, the closing 400 characters of the last reply, tool names without arguments, how the episode ended (commit, pull request, next task or idle, session end), end signals computed by code, and the instruction lines that match the flagged messages
-  - Instruction lines: code searches every instruction file loaded for that session for words from each flagged message and sends only matching lines, under their heading (at most 1,600 characters)
+  - Instruction lines: code searches every instruction file loaded for that session for words from each flagged message and sends only matching lines, under their heading (at most 2,400 characters)
   - End signals: the last reply asks you something (a question, lettered choices, a questions list), the last reply started a subagent, a later revert or fixup commit, a later episode on the same files
   - The judge uses these and the last reply to pick resolved, abandoned (left open), or reworked; "could not tell" is for an episode none of these fits
   - Every string is scrubbed for secrets, then masked (names, paths, hosts) before a judge or a file sees it; about 4,000 tokens per pack at most (the cap, at 2.5 bytes per token)
