@@ -75,6 +75,17 @@ const FINDINGS = {
     const settings = m.settings ?? items.filter((i) => /^(defaultMode|skipDangerousModePermissionPrompt):/.test(i.rule)).length;
     const allows = m.rules ?? m.count - settings;
     const parts = [...(allows ? [`${allows} ${pl(allows, 'rule')}`] : []), ...(settings ? [`${settings} ${pl(settings, 'setting')}`] : [])];
+    // The fix names only what was found: scope allow rules only when there are
+    // some, and turn back only the settings that were cited.
+    const steps = [
+      ...(allows ? ['replace blanket allow rules with scoped ones'] : []),
+      ...(items.some((i) => /^defaultMode:/.test(i.rule)) ? ['set the default permission mode back to ask'] : []),
+      ...(items.some((i) => /^skipDangerousModePermissionPrompt:/.test(i.rule)) ? ['turn the dangerous-mode prompt back on'] : []),
+    ];
+    const todo = [
+      ...(allows ? [`${allows} allow ${pl(allows, 'rule')} to scope`] : []),
+      ...(settings ? [`${settings} ${pl(settings, 'setting')} to set back to ask`] : []),
+    ];
     return {
       icon: 'hand',
       title: 'Shell or file writes run without a pause',
@@ -90,8 +101,9 @@ const FINDINGS = {
       ],
       benefit: [
         { headline: 'Judgment where it counts', sub: 'You decide at the risky step only', metric: 'count' },
-        { headline: `${m.count} ${pl(m.count, 'entry', 'entries')} to scope`, sub: 'Each becomes a narrow allow or a prompt', metric: 'count' },
+        { headline: joinAnd(todo), sub: allows ? 'Each becomes a narrow allow or a prompt' : 'Each one asks again before a risky step', metric: 'count' },
       ],
+      ...(steps.length ? { action: `${steps[0][0].toUpperCase()}${joinAnd(steps).slice(1)}.` } : {}),
     };
   },
   stack_gap: ({ metric: m }) => ({

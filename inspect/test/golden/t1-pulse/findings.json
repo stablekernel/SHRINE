@@ -574,7 +574,7 @@
           "metric": "count"
         },
         {
-          "headline": "3 entries to scope",
+          "headline": "2 allow rules to scope and 1 setting to set back to ask",
           "sub": "Each becomes a narrow allow or a prompt",
           "metric": "count"
         }

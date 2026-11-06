@@ -232,7 +232,8 @@ export function score({ run, shrine, probes, structure, catalogue, pivots, copy,
       problem: c.problem,
       pivot: {
         kind: pivot.kind,
-        action: pivot.action,
+        // The copy can narrow the generic action to what was found.
+        action: c.action ?? pivot.action,
         before_scrubbed: pivot.before,
         after_scrubbed: pivot.after,
         after_marks: [],

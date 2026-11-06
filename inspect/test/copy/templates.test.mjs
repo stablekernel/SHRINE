@@ -40,8 +40,19 @@ test('blanket_permissions counts allow rules and settings apart', () => {
   const old = copy.finding('blanket_permissions', { metric: { count: 2 }, items: [{ rule: 'Bash' }, { rule: 'skipDangerousModePermissionPrompt: true' }] });
   assert.equal(old.short, '1 rule and 1 setting approve without asking');
   const b = copy.finding('blanket_permissions', { metric: { count: 6, rules: 4, settings: 2 }, items: [] }).benefit;
-  assert.ok(b.some((x) => x.headline === '6 entries to scope'));
+  assert.ok(b.some((x) => x.headline === '4 allow rules to scope and 2 settings to set back to ask'));
   assert.ok(!copy.finding('blanket_permissions', SAMPLE_PROBES.blanket_permissions).short.includes('2 rules'));
+});
+
+// Two settings and no allow rule: the advice never asks to scope allow rules.
+test('blanket_permissions advice names only what was found', () => {
+  const settingsOnly = copy.finding('blanket_permissions', { metric: { count: 2, rules: 0, settings: 2 }, items: [{ rule: 'defaultMode: bypassPermissions' }, { rule: 'skipDangerousModePermissionPrompt: true' }] });
+  assert.equal(settingsOnly.action, 'Set the default permission mode back to ask and turn the dangerous-mode prompt back on.');
+  assert.ok(settingsOnly.benefit.some((x) => x.headline === '2 settings to set back to ask'));
+  assert.ok(!JSON.stringify(settingsOnly).includes('allow rule'));
+  const rulesOnly = copy.finding('blanket_permissions', { metric: { count: 1, rules: 1, settings: 0 }, items: [{ rule: 'Bash' }] });
+  assert.equal(rulesOnly.action, 'Replace blanket allow rules with scoped ones.');
+  assert.ok(rulesOnly.benefit.some((x) => x.headline === '1 allow rule to scope'));
 });
 
 test('every clear line and the unknowable list are filled', () => {
