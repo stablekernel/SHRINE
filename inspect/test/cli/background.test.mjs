@@ -233,9 +233,9 @@ test('--skill-version: a mismatch stops before any read; a match runs', async ()
   assert.equal(bad.code, 2);
   const err = JSON.parse(bad.stderr).error;
   assert.equal(err.code, 'E_VERSION');
-  assert.match(err.message, /0\.0\.9.*0\.1\.0/);
-  assert.ok(!existsSync(join(state, 'state')), 'nothing read or written');
   const pkg = JSON.parse(readFileSync(new URL('../../package.json', import.meta.url), 'utf8'));
+  assert.ok(err.message.includes(`shrine-inspect 0.0.9, but the installed CLI is ${pkg.version}`), err.message);
+  assert.ok(!existsSync(join(state, 'state')), 'nothing read or written');
   const ok = await inproc(['version', '--skill-version', pkg.version], h, state);
   assert.equal(ok.code, 0);
   assert.equal(ok.stdout, `shrine-inspect ${pkg.version}\n`);
