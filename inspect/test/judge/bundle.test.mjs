@@ -231,10 +231,10 @@ test('asksPerson: a question, lettered choices, or a questions list at the end; 
 test('end signals: computed by code from the last reply and later git and episode links', () => {
   const ev = [...events(), { t: at(9), kind: 'tool_use', name: 'Agent', id: 'a1' }, { t: at(9), kind: 'assistant_text', text: 'Pick one: A) keep B) drop', head: 'Two ways.' }];
   const b = buildBundle({ episode: { ...episode, downstream: [{ kind: 'revert', ref: 'x', delta_hours: 2, link: 'hard' }, { kind: 'episode', ref: 'e-2', delta_hours: 1, link: 'soft' }] }, transcript: { events: ev, snapshot }, known, nonce: 'n' });
-  assert.deepEqual(payloadOf(b).end_signals, { asks_person: true, started_agent: true, reverted: true, fixup_later: false, continued_later: true });
+  assert.deepEqual(payloadOf(b).end_signals, { asks_person: true, reverted: true, fixup_later: false, continued_later: true });
   // Ending on a human turn: nothing in a reply is open.
   const h = buildBundle({ episode, transcript: { events: events(), snapshot }, known, nonce: 'n' });
-  assert.deepEqual(payloadOf(h).end_signals, { asks_person: false, started_agent: false, reverted: false, fixup_later: false, continued_later: false });
+  assert.deepEqual(payloadOf(h).end_signals, { asks_person: false, reverted: false, fixup_later: false, continued_later: false });
   assert.match(TEMPLATE, /end_signals/);
   // A tool call after the question: the agent went on, so nothing was left open.
   const went = buildBundle({ episode, transcript: { events: [...events(), { t: at(9), kind: 'assistant_text', text: 'Should I run the tests?' }, { t: at(9), kind: 'tool_use', name: 'Bash', id: 'b1' }], snapshot }, known, nonce: 'n' });
@@ -244,6 +244,11 @@ test('end signals: computed by code from the last reply and later git and episod
   const f = buildBundle({ episode: { ...episode, downstream: near, rework: true, possible_fix: true, possible_rework: true }, transcript: { events: events(), snapshot }, known, nonce: 'n' });
   assert.equal(payloadOf(f).end_signals.reverted, true);
   assert.equal(payloadOf(f).end_signals.fixup_later, true);
+  // Episodes from facts carry no linker flags, only the stratum outcome.
+  const s = buildBundle({ episode: { ...episode, downstream: near, stratum: { outcome: 'rework' } }, transcript: { events: events(), snapshot }, known, nonce: 'n' });
+  assert.equal(payloadOf(s).end_signals.reverted, true);
+  const p = buildBundle({ episode: { ...episode, downstream: near, stratum: { outcome: 'possible_fix' } }, transcript: { events: events(), snapshot }, known, nonce: 'n' });
+  assert.deepEqual([payloadOf(p).end_signals.reverted, payloadOf(p).end_signals.fixup_later], [false, true]);
 });
 
 test('trimming shortens middle replies first; the last reply keeps its full opening and closing', () => {

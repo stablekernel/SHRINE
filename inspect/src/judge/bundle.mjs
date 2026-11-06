@@ -1,8 +1,8 @@
 // Evidence pack for the Episode Classifier (plan T1 task 2). One episode per
 // bundle: human turns (text), assistant replies (opening only, plus the closing
 // of the last reply), tool names (no arguments), how the episode ended plus
-// code-computed end signals (an open question for the person, an agent started
-// in the last reply, a later revert, fixup, or episode on the same files), and the
+// code-computed end signals (an open question for the person, a later revert,
+// fixup, or episode on the same files), and the
 // lines of the live config that match the flagged turns. Code searches the whole
 // config; only matching lines are sent. Every string goes through scrubSecrets,
 // then mask with the known identifiers, always: secrets, names, and paths never
@@ -70,23 +70,25 @@ export function asksPerson(text) {
   const tail = String(text ?? '').slice(-600);
   return endsWithQuestion(tail) || (CHOICE_A.test(tail) && CHOICE_B.test(tail)) || QUESTIONS.test(tail);
 }
-const AGENT_TOOLS = new Set(['Task', 'Agent']);
 
 // End signals computed by code, never by a model: what was still open when the
-// episode ended, and what git and later episodes show about the same work. The
-// linker's flags cover every link; downstream keeps only the nearest few, so it
-// is the fallback for an episode stored without the flags. continued_later is a
-// later episode on the same files within a day: the nearest links come first, so
+// episode ended, and what git and later episodes show about the same work.
+// reverted and fixup_later: the linker's flags when present, else the scan's
+// stratum outcome (rework outranks possible_fix there), else downstream, which
+// keeps only the nearest few links. continued_later: a later episode on the same
+// files within a day, the next one in the same session included, since that is
+// where an open question gets its answer; the nearest links come first, so
 // downstream holds it when there is one.
 export function endSignals(episode, lastAssistant, lastReplyText) {
   const down = Array.isArray(episode.downstream) ? episode.downstream : [];
-  const flag = (name, kind) => (typeof episode[name] === 'boolean' ? episode[name] : down.some((d) => d.kind === kind));
-  const lastIsReply = Boolean(lastAssistant);
+  const outcome = episode.stratum?.outcome;
+  const has = (kind) => down.some((d) => d.kind === kind);
+  const reverted = typeof episode.rework === 'boolean' ? episode.rework : outcome === 'rework' || has('revert');
+  const fixup = typeof episode.possible_fix === 'boolean' ? episode.possible_fix : outcome === 'possible_fix' || has('fixup');
   return {
-    asks_person: lastIsReply && asksPerson(lastReplyText),
-    started_agent: lastIsReply && lastAssistant.tools.some((n) => AGENT_TOOLS.has(n)),
-    reverted: flag('rework', 'revert'),
-    fixup_later: flag('possible_fix', 'fixup'),
+    asks_person: Boolean(lastAssistant) && asksPerson(lastReplyText),
+    reverted,
+    fixup_later: fixup,
     continued_later: down.some((d) => d.kind === 'episode' && d.delta_hours <= 24),
   };
 }
