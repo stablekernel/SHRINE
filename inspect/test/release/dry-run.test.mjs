@@ -4,7 +4,7 @@
 // version manager or reported as a gap. The full dry run is a CI job.
 import { test } from 'node:test';
 import assert from 'node:assert/strict';
-import { chmodSync, mkdirSync, mkdtempSync, rmSync, writeFileSync } from 'node:fs';
+import { chmodSync, mkdirSync, mkdtempSync, readFileSync, rmSync, writeFileSync } from 'node:fs';
 import { tmpdir } from 'node:os';
 import { join } from 'node:path';
 import { findNode20, hashTree, leaks, treeDiff } from '../../scripts/dry-run.mjs';
@@ -56,4 +56,13 @@ test('Node 20: found through nvm, fnm, or volta; otherwise a gap is reported', {
     assert.equal(r.node, join(bin, 'node'), dir);
     assert.equal(r.gap, undefined);
   }
+});
+
+test('both CI dry runs make a missing Node 20 fatal on the Node 20 leg', () => {
+  const wf = (name) => readFileSync(new URL(`../../../.github/workflows/${name}`, import.meta.url), 'utf8');
+  const dryRun = (text) => text.split('\n').filter((l) => /node scripts\/dry-run\.mjs/.test(l));
+  assert.ok(dryRun(wf('inspect.yml')).every((l) => /--require-node20/.test(l)));
+  const release = dryRun(wf('inspect-release.yml'));
+  assert.equal(release.length, 1);
+  assert.match(release[0], /matrix\.node == 20 && '--require-node20'/);
 });
