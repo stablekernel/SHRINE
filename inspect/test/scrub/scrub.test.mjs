@@ -275,7 +275,7 @@ test('maskPath masks path-typed fields segment by segment', () => {
     '~/.claude/CLAUDE.md': '~/.claude/CLAUDE.md',
   };
   for (const [input, want] of Object.entries(cases)) assert.equal(maskPath(input, k), want, input);
-  assert.equal(maskPath('setup', k), 'setup');
+  assert.equal(maskPath('setup', k, { locator: true }), 'setup');
   const deep = maskDeep({ integrity: { changed_paths: ['~/Client Work/acme/x.md'] }, skipped_files: [{ path_scrubbed: '~/A B/c d/e.md' }] }, k);
   assert.deepEqual(deep.integrity.changed_paths, ['~/<path>/<file>.md']);
   assert.equal(deep.skipped_files[0].path_scrubbed, '~/<path>/<file>.md');
@@ -292,7 +292,8 @@ test('maskPath masks relative paths, bare file names, and anchors under path key
     '#L3 Initech Corp/x.md': '#L3',
     'docs/Initech Corp/x.md#L3-L9': '<path>/<file>.md#L3-L9',
     'CLAUDE.md': 'CLAUDE.md',
-    skills: 'skills',
+    // A locator word outside a locator field may be a user's name.
+    skills: '<file>',
     // A bare name with no extension or a code extension: still a file name.
     'initech-merger': '<file>',
     'acme.ts': '<file>.ts',
@@ -401,7 +402,18 @@ test('share-safe basenames: tool file names and session ids stay, other names ke
 test('a project named like a locator word is masked under a path key', () => {
   const known = buildIdentifiers({ projects: ['skills', 'acme-api'] });
   assert.deepEqual(maskDeep({ projects: ['skills', 'acme-api'], path: 'skills' }, known), { projects: ['<project-2>', '<project-1>'], path: '<project-2>' });
-  assert.equal(maskPath('hooks', known), 'hooks', 'a locator word that is no project stays');
+  assert.equal(maskPath('hooks', known, { locator: true }), 'hooks', 'a locator word that is no project stays in a locator');
+});
+
+test('locator words and episode ids stay only in a locator field', () => {
+  const known = buildIdentifiers({});
+  const out = maskDeep({ locator: 'control', project: 'control', repo: 'sample', cwd: 'session history', anchor: 'e-3fa9c2d1b7e0 t04', path: 'e-3fa9c2d1b7e0 t04' }, known);
+  assert.deepEqual(out, { locator: 'control', project: '<file>', repo: '<file>', cwd: '<file>', anchor: 'e-3fa9c2d1b7e0 t04', path: '<file>' });
+  for (const w of ['setup', 'hooks', 'skills', 'memory', 'session history', 'control', 'sample', 'e-3fa9c2d1b7e0 t04']) {
+    assert.equal(maskDeep({ locator: w }, known).locator, w);
+    assert.equal(maskDeep({ anchor: w }, known).anchor, w);
+    assert.notEqual(maskDeep({ project: w }, known).project, w);
+  }
 });
 
 test('free text masks URL queries and fragments, IPv6 hosts, URL user and host, and non-ASCII emails', () => {
