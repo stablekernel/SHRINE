@@ -180,7 +180,7 @@ export function runStatus(folder) {
   return { ...out, state: 'died', next: judgingPending(folder, state) ? `shrine-inspect approve ${id} B --background` : `shrine-inspect resume ${id}` };
 }
 
-function newestRun(stateDir) {
+export function newestRun(stateDir) {
   const runs = join(stateDir, 'runs');
   const ids = list(runs).filter((e) => e.dir && exists(join(runs, e.name, 'state.json'))).map((e) => e.name).sort();
   if (!ids.length) throw new InspectError('E_NO_RUN', 'no runs yet', { hint: 'start one with: shrine-inspect start --tier T0', exit: EXIT.USAGE });
