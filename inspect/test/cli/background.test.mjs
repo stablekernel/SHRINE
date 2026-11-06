@@ -11,7 +11,8 @@ import { Readable } from 'node:stream';
 import { fileURLToPath } from 'node:url';
 import { spawn } from 'node:child_process';
 import { main } from '../../src/cli/main.mjs';
-import { runStatus } from '../../src/cli/background.mjs';
+import { GRANT_ENV, runStatus } from '../../src/cli/background.mjs';
+import { resetSpy, spyLog } from '../../src/io/fsread.mjs';
 import { runFolder as openRunFolder } from '../../src/io/runfolder.mjs';
 import { makeHome, FIXED_NOW } from '../synth/home.mjs';
 import { fakeJudge, plantedHome, runT1 } from '../e2e/t1-helpers.mjs';
@@ -155,8 +156,8 @@ test('resume never judges without a fresh yes: unfinished judging needs the one-
   st.gates = { A: { choice: 'history', by: 'tty', at: FIXED_NOW }, B: { choice: 'T1', by: 'tty', at: FIXED_NOW } };
   st.grant = 'a'.repeat(32);
   writeFileSync(join(runFolder(state, id), 'state.json'), JSON.stringify(st));
-  for (const argv of [['resume', id, '--json'], ['resume', id, '--worker', '--json'], ['resume', id, '--worker', '--grant', 'b'.repeat(32), '--json']]) {
-    const r = await inproc(argv, h, state);
+  for (const [argv, extra] of [[['resume', id, '--json']], [['resume', id, '--worker', '--json']], [['resume', id, '--worker', '--json'], { [GRANT_ENV]: 'b'.repeat(32) }], [['resume', id, '--json'], { [GRANT_ENV]: 'a'.repeat(32) }]]) {
+    const r = await inproc(argv, h, state, { extra });
     assert.equal(r.code, 3, argv.join(' '));
     assert.equal(JSON.parse(r.stderr).error.code, 'E_NEEDS_YES');
   }
@@ -183,7 +184,13 @@ test('a T1 run in the background: Gate B yes typed in the terminal, judging in t
   const b = await until(h, state, id, (x) => x.state === 'gate' && x.gate === 'B', { extra });
   assert.equal(b.next, `shrine-inspect approve ${id} B <T0|T1> --background`);
   assert.ok(!existsSync(log), 'nothing judged before the yes');
+  resetSpy();
   assert.equal((await inproc(['approve', id, 'B', 'T1', '--background'], h, state, { stdin: tty('yes'), extra })).code, 0);
+  // The one-time grant goes to the worker in its environment: argv, which any
+  // local user can list, holds no token.
+  const spawned = spyLog().filter((e) => e.op === 'spawn' && e.worker);
+  assert.equal(spawned.length, 1);
+  assert.deepEqual(spawned[0].args.slice(1), ['resume', id, '--worker']);
   const done = await until(h, state, id, (x) => x.state === 'done', { extra });
   assert.equal(readFileSync(log, 'utf8').trim().split('\n').length, 12);
   const findings = JSON.parse(readFileSync(join(done.run_dir, 'findings.json'), 'utf8'));
@@ -257,7 +264,7 @@ test('a grant expires: an old one never lets a worker judge', async () => {
   const st = readState(state, id);
   const token = 'c'.repeat(32);
   writeFileSync(join(runFolder(state, id), 'state.json'), JSON.stringify({ ...st, tier: 'T1', phase: 'judging', gates: { A: { choice: 'history', by: 'tty', at: FIXED_NOW }, B: { choice: 'T1', by: 'tty', at: FIXED_NOW } }, grant: { token, at: Date.now() - 6 * 60_000 } }));
-  const r = await inproc(['resume', id, '--worker', '--grant', token, '--json'], h, state);
+  const r = await inproc(['resume', id, '--worker', '--json'], h, state, { extra: { [GRANT_ENV]: token } });
   assert.equal(r.code, 3);
   assert.equal(JSON.parse(r.stderr).error.code, 'E_NEEDS_YES');
   h.cleanup();

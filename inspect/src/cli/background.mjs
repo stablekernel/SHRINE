@@ -62,21 +62,26 @@ function openGate(state) {
   return gate && !state.gates?.[gate] ? gate : null;
 }
 
+// The worker's environment variable that carries a grant: never an argument,
+// which any local user can read in the process list.
+export const GRANT_ENV = 'SHRINE_INSPECT_GRANT';
+
 // Starts a worker that runs `resume <run> --worker`. grant: a one-time token
 // that lets the worker continue judging; written to state.json first.
 export function launchWorker(folder, ctx, io, { grant = false } = {}) {
   const state = readJson(folder.path('state.json'));
   assertIdle(folder, state.run_id);
   const args = ['resume', state.run_id, '--worker'];
+  const { [GRANT_ENV]: _stale, ...env } = io.env ?? {};
   if (grant) {
     state.grant = { token: randomBytes(16).toString('hex'), at: Date.now() };
     folder.writeJson('state.json', state);
-    args.push('--grant', state.grant.token);
+    env[GRANT_ENV] = state.grant.token;
   }
   const fd = folder.openLog(LOG);
   let pid;
   try {
-    pid = spawnWorker(args, { env: io.env, cwd: ctx.home, logFd: fd });
+    pid = spawnWorker(args, { env, cwd: ctx.home, logFd: fd });
   } catch (e) {
     // No worker, so no grant left lying in state.json.
     if (grant) {

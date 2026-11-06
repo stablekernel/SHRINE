@@ -115,7 +115,7 @@ Background runs (`test/cli/background.test.mjs`):
 - The installed link runs whatever `node` is first on PATH later; the installer checks Node 20 only at install time
 - The installer hashes the tarball, then extracts from the same path; a local process that swaps the file in between is not caught
 - `install --skill` replaces the whole `~/.claude/skills/shrine-inspect/` folder when it holds this skill from another release
-- The one-time judging grant sits in `state.json` and the worker's arguments from `approve --background` until the worker reads it; a worker that dies first leaves it there until it expires (5 minutes)
+- The one-time judging grant sits in `state.json` and the worker's environment (never its arguments) from `approve --background` until the worker reads it; a worker that dies first leaves it there until it expires (5 minutes)
 - `run.log` holds the worker's own messages only; gate prompts appear in the terminal that answers them
 
 T1 trial (recorded, not fixed):
