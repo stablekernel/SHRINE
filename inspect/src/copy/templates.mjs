@@ -315,6 +315,7 @@ export function judgingLines(s) {
   ];
   if (s.cut_off) lines.push(`Cut off by the time limit: ${s.cut_off} ${pl(s.cut_off, 'episode')}, left unjudged. These are not judge errors.`);
   if (s.late === 'time') lines.push('Judging ran past its time box plus 50% on the last episode, so there was nothing left to stop.');
+  if (s.late === 'errors') lines.push(`Invalid answers passed ${Math.round(J.abort.error_rate * 100)}% on the last episode, so there was nothing left to stop.`);
   if (s.partial) lines.push(`Partial: ${s.judged} of ${s.planned} ${pl(s.planned, 'episode')} judged. Judging stopped early and you kept the partial results.`);
   if (s.estimate && s.tokens_used > s.estimate.tokens_high) lines.push(`Tokens passed the approved upper bound of ${num(s.estimate.tokens_high)} tokens on the last call.`);
   if (s.tokens_floor) lines.push('Some calls ended without a usage report (a timeout or a cut-off answer), so their input size was counted instead.');

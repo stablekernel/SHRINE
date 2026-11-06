@@ -37,10 +37,11 @@ export function estimateOrder(bundleTokenCounts, e) {
 // Episode ids that already hold a valid judgment (a resumed run skips them).
 export const judgedIds = (lines) => new Set(lines.filter((l) => l.valid).map((l) => l.episode_id));
 
-// Episodes the time box cut off that no later answer judged.
+// Episodes whose last line is a cut off by the time box, and no answer judged.
 export function cutOffCount(lines) {
   const done = judgedIds(lines);
-  return new Set(lines.filter((l) => l.cut_off && !done.has(l.episode_id)).map((l) => l.episode_id)).size;
+  const last = new Map(lines.map((l) => [l.episode_id, l]));
+  return [...last.values()].filter((l) => l.cut_off && !done.has(l.episode_id)).length;
 }
 
 // Runs every item not yet judged, one process at a time. Each result is one line
@@ -98,7 +99,8 @@ export async function runWorkOrder({ order, previous = [], invoke, parse, templa
         break;
       }
       // The time box ended this call: not the judge's error.
-      if (!env.output && r.timedOut && clock() >= deadline) {
+      // A retry cut off keeps the first answer's rejection: that one was the judge's.
+      if (!env.output && r.timedOut && clock() >= deadline && attempt === 1) {
         line = { valid: false, cut_off: true, output: null, attempts: attempt, refusal: false, errors: ['$: cut off by the time limit'] };
         break;
       }

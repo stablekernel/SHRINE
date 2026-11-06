@@ -143,6 +143,16 @@ test('a call cut off by the time box is its own line, not a judge error; a per-c
   assert.equal(cutOffCount(cut.appended), 1);
   // Judged later, on a resume: no longer cut off.
   assert.equal(cutOffCount([...cut.appended, { episode_id: cut.appended[0].episode_id, valid: true }]), 0);
+  // Cut off again, then rejected on a later run: invalid only, not also cut off.
+  assert.equal(cutOffCount([cut.appended[0], { episode_id: cut.appended[0].episode_id, valid: false }]), 0);
+  // A retry cut off keeps the first answer's rejection.
+  let t = 0;
+  const retry = await run(order(1), async (input, o) => {
+    t += 60000;
+    return t < 120000 ? { stdout: envelope({ nope: true }), ms: 1 } : { stdout: '', timedOut: true, ms: o.timeoutMs };
+  }, { clock: () => t, limits: { timeBoxMs: 80000 } });
+  assert.equal(retry.appended[0].cut_off, undefined);
+  assert.equal(retry.invalid, 1);
   // A call that hits its own cap well before the deadline is the judge's failure.
   const slow = await run(order(1), async () => ({ stdout: '', timedOut: true, ms: 1 }));
   assert.equal(slow.appended[0].cut_off, undefined);
@@ -169,6 +179,7 @@ test('the judging block names cut-off episodes and a late time box apart from re
   assert.ok(lines.includes('Answers rejected: 0 invalid, 0 refusals.'), lines.join('\n'));
   assert.ok(lines.includes('Cut off by the time limit: 1 episode, left unjudged. These are not judge errors.'));
   assert.ok(lines.some((l) => /past its time box plus 50% on the last episode/.test(l)));
+  assert.ok(judgingLines({ ...s, late: 'errors' }).some((l) => /Invalid answers passed 10% on the last episode/.test(l)));
   const none = judgingLines({ ...s, cut_off: 0, late: null });
   assert.ok(!none.some((l) => /Cut off|on the last episode/.test(l)));
 });
