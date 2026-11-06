@@ -204,3 +204,12 @@ test('a failed structure check counts only when a finding cites its entry', () =
   assert.equal(blanket.headline.counts.not_passed, 0);
   assert.deepEqual(validateFindings(drift).errors, []);
 });
+
+test('a finding takes the narrowed action from its copy; the generic pivot stays the fallback', async () => {
+  const { copy } = await import('../../src/copy/templates.mjs');
+  const probes = allKinds.map((k) => (k === 'blanket_permissions' ? probe(k, true, { items: [{ path: '/home/u/.claude/settings.json', rule: 'defaultMode: bypassPermissions' }], metric: { count: 1, rules: 0, settings: 1 } }) : probe(k, false)));
+  const f = run(probes, { copy }).findings.find((x) => x.kind === 'blanket_permissions');
+  assert.equal(f.pivot.action, 'Set the default permission mode back to ask.');
+  const g = run(hitsOf('blanket_permissions')).findings.find((x) => x.kind === 'blanket_permissions');
+  assert.equal(g.pivot.action, pivots[g.entry_id].action);
+});

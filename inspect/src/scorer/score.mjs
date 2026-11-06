@@ -7,7 +7,7 @@ import { underHome } from '../scrub/mask.mjs';
 import { THRESHOLDS } from '../probes/config.mjs';
 import { controlTest, usageConfidence, usageSeverity } from './stats.mjs';
 
-export const TOOL_VERSION = '0.1.1';
+export const TOOL_VERSION = '0.1.2';
 const SEV_RANK = { high: 3, medium: 2, low: 1 };
 const KIND_ORDER = ['blanket_permissions', 'stale_instructions', 'oversized_instructions', 'done_without_test', 'no_owner_or_review', 'stack_gap', 'short_retention'];
 
@@ -232,7 +232,8 @@ export function score({ run, shrine, probes, structure, catalogue, pivots, copy,
       problem: c.problem,
       pivot: {
         kind: pivot.kind,
-        action: pivot.action,
+        // The copy can narrow the generic action to what was found.
+        action: c.action ?? pivot.action,
         before_scrubbed: pivot.before,
         after_scrubbed: pivot.after,
         after_marks: [],

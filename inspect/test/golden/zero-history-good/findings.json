@@ -3,7 +3,7 @@
   "run": {
     "id": "<run-id>",
     "started_at": "2026-11-04T12:00:00.000Z",
-    "tool_version": "0.1.1",
+    "tool_version": "0.1.2",
     "harness": {
       "name": "Claude Code",
       "version": null
@@ -34,7 +34,7 @@
       "working": 0,
       "worth_a_look": 0,
       "checked_clear": 9,
-      "configured": 6,
+      "configured": 7,
       "checks": 9,
       "not_passed": 0
     },
@@ -654,7 +654,11 @@
     },
     {
       "item": "instruction files",
-      "count": 5
+      "count": 4
+    },
+    {
+      "item": "output styles",
+      "count": 1
     }
   ],
   "control_slice": null,

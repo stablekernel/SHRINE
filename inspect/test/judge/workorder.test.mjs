@@ -45,16 +45,19 @@ test('estimate: bundle tokens plus per-call overhead and output, then a retry re
   assert.ok(r.minutes >= 1);
 });
 
-// Smoke on Claude Code 2.1.318 (12 real calls, packs about 1,340 tokens): overhead
-// 2,830 to 3,120 over bytes / 4, output 146 to 634, total 64,677, 41 seconds.
-test('estimate: 12 packs at the cap land in the 20K to 60K tokens of T1; the top keeps the reserve and margin', () => {
+// The Gate B estimate is computed from the packs as built: bytes / 4 per pack plus
+// the prompt, a fixed per-call overhead and output allowance, then the retry
+// reserve and margin on the top. Judging is bounded by its time box, not by size.
+test('estimate: computed from the pack sizes; 12 packs at the cap fit the time box', () => {
   const J = THRESHOLDS.judged;
   const prompt = Math.ceil(Buffer.byteLength(TEMPLATE, 'utf8') / J.caps.bytes_per_token);
-  const r = estimateOrder(Array(J.episodes).fill(J.caps.bundle_tokens + prompt), J.estimate);
-  assert.ok(r.tokens_low >= 20000 && r.tokens_low <= 60000, `low ${r.tokens_low}`);
-  // Known limit: the fixed per-call cost alone (prompt, overhead, output) times 12
-  // with the reserve and margin passes 60K, so the top cannot fit at any pack size.
-  assert.ok(estimateOrder(Array(J.episodes).fill(prompt), J.estimate).tokens_high > 60000);
+  const per = J.caps.bundle_tokens + prompt;
+  const r = estimateOrder(Array(J.episodes).fill(per), J.estimate);
+  const base = J.episodes * (per + J.estimate.overhead_tokens_per_call + J.estimate.output_tokens_per_call);
+  assert.equal(r.tokens_low, base);
+  assert.equal(r.tokens_high, Math.round(base * (1 + J.estimate.retry_reserve) * (1 + J.estimate.margin)));
+  // Smaller packs give a smaller estimate: nothing is padded to the cap.
+  assert.ok(estimateOrder(Array(J.episodes).fill(prompt + 100), J.estimate).tokens_low < r.tokens_low);
   assert.ok(r.minutes <= 5, `minutes ${r.minutes}`);
 });
 

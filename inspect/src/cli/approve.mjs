@@ -40,7 +40,7 @@ const describe = (gate) => {
   if (gate.gate === 'A') lines.push('Read so far: file names, sizes, and dates. Also, the first 10 lines of the newest session file per folder are read to find its folder; these lines can hold a prompt. Only the folder, entry point, and version are kept; no prompt text is kept or shown.');
   const h = gate.history;
   if (h) {
-    lines.push(`History if yes: ${h.sessions} session files in ${h.projects} ${h.projects === 1 ? 'project' : 'projects'}, ${day(h.from)} to ${day(h.to)} (last ${h.window_days} days), ${size(h.bytes)} on disk.`);
+    lines.push(`History if yes: ${h.sessions} session files in ${h.projects} ${h.projects === 1 ? 'project' : 'projects'}, files last changed ${day(h.from)} to ${day(h.to)} (last ${h.window_days} days), ${size(h.bytes)} on disk.`);
     lines.push(`Estimated time with history: ${eta(h.estimate_seconds)} to parse, from file size at a rate measured during development (a lower bound). Read locally; nothing leaves it.`);
   }
   if (h?.recheck_sessions) lines.push(`If yes, ${h.recheck_sessions} session files in excluded automation, temp, and scratch folders are re-checked from their first lines; only interactive sessions outside temp folders are read in full.`);

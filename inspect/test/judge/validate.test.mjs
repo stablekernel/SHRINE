@@ -22,7 +22,7 @@ function bundle(nonce = 'feed01', extra = []) {
     { t: at(2), kind: 'human', uuid: 'u2', text: 'Actually, use semicolons as the separator.' },
     ...extra,
   ];
-  return buildBundle({ episode: { id: 'e-1', root_turn_id: 'u1', start: at(0), end: at(30) }, transcript: { events, snapshot: [{ path: '/r/CLAUDE.md', content: '- Never edit generated files.' }] }, known, nonce });
+  return buildBundle({ episode: { id: 'e-1', root_turn_id: 'u1', start: at(0), end: at(30) }, transcript: { events, snapshot: [{ path: '/r/CLAUDE.md', content: '- Never edit generated files; use semicolons in exports.' }] }, known, nonce });
 }
 const good = (b) => ({
   episode_id: b.episode_id,

@@ -29,7 +29,8 @@ export function ownerLine(text) {
   return { owner: has(OWNER.owner), reviewed };
 }
 
-const instructionFiles = (s) => s.items.filter((i) => i.kind === 'instruction' && i.loaded_by !== 'output-style');
+// Instruction files the owner and review checks read. Output styles are left out.
+export const instructionFiles = (s) => s.items.filter((i) => i.kind === 'instruction' && i.loaded_by !== 'output-style');
 const ageDays = (iso, now) => Math.floor((now - Date.parse(iso)) / DAY);
 
 function stale(s, t) {

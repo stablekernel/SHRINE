@@ -39,6 +39,8 @@ test('T1 pauses at Gate B until a typed yes: zero judge spawns, no work order, t
   assert.ok(g.offer.minutes >= 1);
   assert.ok(g.lines.some((l) => /^Tier T0 \(pre-selected\)/.test(l)));
   assert.ok(g.lines.some((l) => /judge 12 episodes from .*, about [\d,]+ to [\d,]+ tokens on your own account, about \d+ minutes? of judging after the scan\./.test(l)));
+  // Gate A dates are file change dates; these are episode start dates, and the line says so.
+  assert.ok(g.lines.some((l) => /, started \d{4}-\d\d-\d\d to \d{4}-\d\d-\d\d \(a file changed in the window can hold earlier work\),/.test(l)));
   assert.ok(g.lines.some((l) => /past \d+ minutes of judging \(a call still running is cut off\)/.test(l)));
   assert.equal(json(dir, 'state.json').gates.B, null);
   assert.ok(!existsSync(join(dir, 'workorder.json')), 'no work order before a yes');
@@ -79,6 +81,23 @@ test('T1 inline Gate B: silence leaves the run paused with zero spawns', async (
   const dir = runDir(state);
   assert.equal(json(dir, 'state.json').phase, 'gate_b');
   assert.ok(!existsSync(log), 'the judge never launched');
+  h.cleanup();
+});
+
+test('T1 Gate B: "do you need more than a scan" shows before the prompt, and not again after the answer', async () => {
+  const h = plantedHome([['late', 12, 'aaaa']]);
+  const state = stateDir();
+  const r = await inproc(['run', '--tier', 'T1'], h, state, { stdin: tty('history') });
+  assert.equal(r.code, 3);
+  const need = r.stderr.indexOf('Do you need more than a scan yet?');
+  const ask = r.stderr.indexOf('Type yes to approve T1');
+  assert.ok(need > r.stderr.indexOf('Gate B: pick a depth.') && need < ask, 'the line comes before the prompt');
+  assert.doesNotMatch(r.stdout, /Do you need more than a scan yet/);
+  const runId = runDir(state).split('/').at(-1);
+  const a = await inproc(['approve', runId, 'B', 'T0'], h, state, { stdin: tty('yes') });
+  assert.equal(a.code, 0, a.stderr);
+  assert.ok(a.stderr.indexOf('Do you need more than a scan yet?') < a.stderr.indexOf('Confirm T0'));
+  assert.doesNotMatch(a.stdout, /Do you need more than a scan yet/, 'not printed again after the answer');
   h.cleanup();
 });
 

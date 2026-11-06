@@ -16,7 +16,9 @@ Status: pre-release trial (background runs, a thin skill, a checksummed release)
 
 - `node bin/shrine-inspect.mjs run --tier T0 --no-history`: setup and repos only
 - Without `--no-history`, the run pauses at Gate A (exit 3) until you answer in your own terminal: `node bin/shrine-inspect.mjs approve <run> A <no-history|history>`
-- Gate A lists projects, date range, size on disk, and a size-based time estimate; every run asks again
+- Gate A lists projects, session files with the dates they last changed, size on disk, and a size-based time estimate; every run asks again
+  - The report counts sessions, not files: the appendix says how many files were forks with nothing new, this run's own session, unreadable, or housekeeping
+  - Gate B dates are episode start dates; a file changed in the window can hold work that started before it
   - A choice named on the command line is confirmed only by a typed `yes`, at every gate; `y` leaves the run paused
   - Before Gate A: file names, sizes, and dates, plus the first 10 lines of the newest session file per folder, read to find its folder
   - Those lines can hold a prompt; only `cwd`, `entrypoint`, and `version` are kept, and no prompt text is kept or shown
@@ -77,9 +79,10 @@ Status: pre-release trial (background runs, a thin skill, a checksummed release)
   - The consent, with the approved estimate, is recorded in `facts.json`; the judge command is refused until it is there; every run asks again
 - Sample: 12 episodes with a correction candidate, seeded (seed in the report footer), recency thirds, at most 4 per project unless one project holds them all, 3x weight for sessions with 2 or more corrections
   - Fewer than 12 eligible: all are judged, labelled thin evidence; under 10 sessions: T1 is not offered
-- Evidence pack per episode: your messages (up to 1,200 characters, 12 messages), the opening 400 characters of each reply, tool names without arguments, and the instruction files loaded for that session
-  - Every string is scrubbed for secrets, then masked (names, paths, hosts) before a judge or a file sees it; about 900 tokens per pack at most
-  - Over the cap: replies cut first, then instruction files (to about 2,000 characters), then later messages
+- Evidence pack per episode: your messages (up to 1,200 characters, 12 messages), the opening 400 characters of each reply, the closing 300 characters of the last reply, tool names without arguments, how the episode ended (commit, pull request, next task or idle, session end), and the instruction lines that match the flagged messages
+  - Instruction lines: code searches every instruction file loaded for that session for words from each flagged message and sends only matching lines, under their heading (at most 1,600 characters)
+  - Every string is scrubbed for secrets, then masked (names, paths, hosts) before a judge or a file sees it; about 1,500 tokens per pack at most
+  - Over the cap: replies cut first, then middle messages that were not flagged (the first and last always stay), then long messages, then instruction lines, then flagged middle messages
 - Gate B estimate: pack size (bytes / 4) plus a per-call overhead and output measured on Claude Code 2.1.318, then 10% retry reserve and 30% margin on the top
   - Minutes: 10 seconds per call, judging only (not the scan or time at gates); real time varies by machine, login, and network
   - The judging time limit (the estimate plus 50%) is the only fixed time figure
@@ -99,6 +102,8 @@ Status: pre-release trial (background runs, a thin skill, a checksummed release)
   - Each needs 3 judged episodes (or 20% of those judged, at least 2) and a code-flagged correction in each
   - Judged findings stay candidates until the judge's accuracy is measured against labelled episodes: each carries a plain caveat, never reaches high confidence, and is never "Start with"
   - Each shows N judged episodes, sessions, and repos; a timeline; and a before and after from your own prompt when the correction is one short clause
+- Owner per correction is set by code, not the judge: a full search with no matching instruction line counts as evidence the rule was not loaded; "could not tell" only when an instruction file may have changed since the episode, was too long to read in full, or a matching line was left out for size
+  - The appendix says, per traced correction, whether matching lines were shown, none matched, or the files could not be checked
 - Extra files in the run folder: `sample.json` (ids and counts only), `workorder.json` (the packs, written after the yes), `judgments.jsonl` (validated output only)
 
 ## Known limits
@@ -142,6 +147,7 @@ T1 trial (recorded, not fixed):
 - A correction you later reversed still gives a before and after from your own words
 - The harness version shown at Gate B comes from your newest session log, not from the installed command
 - A session whose loaded-instructions snapshot is logged only after an episode starts is read as "may have changed", so its corrections stay "could not tell"
+- Instruction lines are matched by shared words (common words left out), not meaning: a rule worded with other words is not found, and its correction reads as yours
 
 Leak check, `check-share` and the dry run (`test/release/leak-known-limits.test.mjs`):
 

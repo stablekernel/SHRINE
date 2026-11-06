@@ -13,12 +13,12 @@ A local health check of your Claude Code setup and session history, measured aga
    node --version
    ```
 
-2. Download the 3 release files into a new folder. With the GitHub CLI, use `gh release download inspect-v0.1.1 -R stablekernel/SHRINE` in place of the `curl` lines.
+2. Download the 3 release files into a new folder. With the GitHub CLI, use `gh release download inspect-v0.1.2 -R stablekernel/SHRINE` in place of the `curl` lines.
 
    ```sh
-   mkdir -p ~/shrine-inspect-0.1.1 && cd ~/shrine-inspect-0.1.1
-   base=https://github.com/stablekernel/SHRINE/releases/download/inspect-v0.1.1
-   curl -fLO "$base/shrine-inspect-0.1.1.tgz"
+   mkdir -p ~/shrine-inspect-0.1.2 && cd ~/shrine-inspect-0.1.2
+   base=https://github.com/stablekernel/SHRINE/releases/download/inspect-v0.1.2
+   curl -fLO "$base/shrine-inspect-0.1.2.tgz"
    curl -fLO "$base/install.sh"
    curl -fLO "$base/SHA256SUMS"
    ```
@@ -33,7 +33,7 @@ A local health check of your Claude Code setup and session history, measured aga
 
    ```
    install.sh: OK
-   shrine-inspect-0.1.1.tgz: OK
+   shrine-inspect-0.1.2.tgz: OK
    ```
 
 4. Install. Run it from the folder that holds the files.
@@ -43,10 +43,15 @@ A local health check of your Claude Code setup and session history, measured aga
    ```
 
    - Usage: `sh install.sh [--skill] [path/to/tgz]`.
-   - With no path, it uses `shrine-inspect-0.1.1.tgz` next to `install.sh`, not in your current folder.
+   - With no path, it uses `shrine-inspect-0.1.2.tgz` next to `install.sh`, not in your current folder.
    - It checks Node, then checks the tarball against the SHA-256 written in `install.sh`, then extracts it. A mismatch installs nothing.
-   - The CLI goes to `~/.local/share/shrine-inspect/0.1.1/`, linked as `~/.local/bin/shrine-inspect`.
+   - The CLI goes to `~/.local/share/shrine-inspect/0.1.2/`, linked as `~/.local/bin/shrine-inspect`.
    - `--skill` copies the Claude Code skill to `~/.claude/skills/shrine-inspect/`. Leave it out to use the CLI only.
+   - To install somewhere else, set the install folder and the link folder first:
+
+     ```sh
+     SHRINE_INSPECT_PREFIX="$HOME/opt/shrine-inspect" SHRINE_INSPECT_BIN_DIR="$HOME/bin" sh install.sh --skill
+     ```
 
 5. Put `~/.local/bin` on your PATH. Skip this if the installer did not print `Add ... to your PATH`.
 
@@ -63,7 +68,7 @@ A local health check of your Claude Code setup and session history, measured aga
    ```
 
    ```
-   shrine-inspect 0.1.1
+   shrine-inspect 0.1.2
    ```
 
    - All commands: `shrine-inspect --help`.
@@ -97,6 +102,7 @@ shrine-inspect run --tier T1
 
 - At Gate A, type `history`. T1 needs your session history.
 - After the scan, Gate B shows the estimated tokens and judging minutes for your run. Nothing is sent yet.
+- Gate A dates are when your session files last changed. Gate B dates are when the sampled episodes started, so they can be earlier.
 - To approve T1, type `yes`. `y` is not enough. To stay at a scan only, type `T0`.
 
   ```
@@ -127,6 +133,13 @@ shrine-inspect run --tier T1
   ```
 
 - The run folder is under `~/Library/Application Support/shrine-inspect/runs/` (macOS) or `~/.local/state/shrine-inspect/runs/` (Linux).
+- To keep a run apart (a trial, a test), set its own state and cache folders. Every command that reads that run needs the same two settings:
+
+  ```sh
+  export SHRINE_INSPECT_STATE_DIR="$HOME/shrine-trial/state"
+  export SHRINE_INSPECT_CACHE_DIR="$HOME/shrine-trial/cache"
+  shrine-inspect run --tier T0
+  ```
 - To print the paths again:
 
   ```sh
@@ -174,6 +187,7 @@ shrine-inspect check-share
 
 - T0: nothing leaves your machine. No network, no model calls.
 - T1: 12 short episode excerpts go to your own Claude Code login, one call each, billed to your account like normal use. Secrets are removed and names, paths, and hosts are masked first.
+- Each excerpt holds your messages, the start of each reply, the end of the last reply, how the episode ended, and only the instruction lines that match your corrections. Code searches all your loaded instruction files for those lines; the rest stay on your machine.
 - Nothing goes to SHRINE, Stable Kernel, or any other service. No telemetry.
 
 ## Read the report

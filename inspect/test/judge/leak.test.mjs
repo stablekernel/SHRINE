@@ -34,6 +34,8 @@ test('T1 leak: zero secret survivors, zero absolute paths, zero OS user or autho
       ['text', 'Understood.'],
       // Angle brackets, as an author line writes it: "Jane <jdoe>".
       ['human', `Ask <${user}> first, then "${user}" and ${user}'s notes.`],
+      // The closing of the last reply reaches the judge too: it is scrubbed and masked.
+      ['text', `${'Working through it. '.repeat(20)}Done for ${user}: wrote ${body[(i + 3) % body.length]} to ${h.repo}/out.txt.`],
     ];
     addSession(h, { id: sid(i), startMs: NOW - (20 - i) * DAY, script });
   }
@@ -57,6 +59,7 @@ test('T1 leak: zero secret survivors, zero absolute paths, zero OS user or autho
   // What the judge saw: no OS user, no author name, no absolute path.
   const order = readFileSync(join(r.dir, 'workorder.json'), 'utf8');
   assert.deepEqual(userIn(order), [], 'OS user in the work order');
+  assert.match(order, /"closing": ?"[^"]*Done for /, 'the planted closing reached the work order');
   // The check reads the work order's strings unescaped: a user after "\n" or "\t" counts.
   for (const sep of ['\n', '\t', '<']) assert.notDeepEqual(userIn(JSON.stringify({ ...JSON.parse(order), planted: `x${sep}${user}` })), [], `escaped ${JSON.stringify(sep)}`);
   assert.ok(!order.includes('Fixture Author'), 'git author in the work order');

@@ -2,7 +2,7 @@ import { test } from 'node:test';
 import assert from 'node:assert/strict';
 import { existsSync, mkdirSync, readFileSync, writeFileSync } from 'node:fs';
 import { fileURLToPath } from 'node:url';
-import { codeAttribution, correctionKind, CANDIDATE_CAVEAT, JUDGED_KINDS, userPivot } from '../../src/scorer/judged.mjs';
+import { codeAttribution, configCheck, correctionKind, CANDIDATE_CAVEAT, JUDGED_KINDS, userPivot } from '../../src/scorer/judged.mjs';
 import { JUDGED_ENTRY_IDS } from '../../src/judge/validate.mjs';
 import { validateFindings } from '../../src/schema/findings.mjs';
 import { renderReport, shareSafeFindings } from '../../src/render/report.mjs';
@@ -27,6 +27,21 @@ test('attribution by code, first match wins (spec 5 rules 1, 2, 4)', () => {
   assert.equal(codeAttribution(c({ constraint_present_in: 'instruction_file', config_ref: { config_id: 'c1', start: 0, end: 4 } }), bundle()), 'model');
   assert.equal(codeAttribution(c({ constraint_present_in: 'instruction_file', config_ref: null }), bundle()), 'user', 'an unverified config claim is not found');
   assert.equal(codeAttribution(c({ constraint_present_in: 'skill' }), bundle()), 'unknown');
+});
+
+test('a full config search by code is evidence: no match attributes to you, a gap or a change stays unknown', () => {
+  const searched = (lines, o = {}) => bundle({ config: [], config_searched: true, meta: { human_index: { t01: 0, t03: 1 }, config_lines: { t03: lines } }, ...o });
+  assert.equal(configCheck(searched({ matched: 0, sent: 0 }), 't03'), 'none');
+  assert.equal(codeAttribution(c(), searched({ matched: 0, sent: 0 })), 'user', 'searched in full, no line matched');
+  assert.equal(configCheck(searched({ matched: 2, sent: 2 }), 't03'), 'matched');
+  assert.equal(codeAttribution(c(), searched({ matched: 2, sent: 2 })), 'user', 'the judge saw every matching line and found the rule absent');
+  assert.equal(configCheck(searched({ matched: 3, sent: 1 }), 't03'), 'partial');
+  assert.equal(configCheck(searched({ matched: 40, best: 6, sent: 6 }), 't03'), 'matched', 'the best lines reached the judge');
+  assert.equal(configCheck(searched({ matched: 40, best: 6, sent: 5 }), 't03'), 'partial');
+  assert.equal(codeAttribution(c(), searched({ matched: 3, sent: 1 })), 'unknown', 'a matching line was left out for size');
+  assert.equal(codeAttribution(c(), searched({ matched: 0, sent: 0 }, { config_may_have_changed: true })), 'unknown', 'a file may have changed since');
+  assert.equal(codeAttribution(c(), searched({ matched: 0, sent: 0 }, { config_truncated: true })), 'unknown', 'a file was too long to read in full');
+  assert.equal(configCheck(bundle({ config_truncated: true }), 't03'), 'unavailable', 'an older bundle cut for size');
 });
 
 test('a quote too short to be specific never flips blame to the model', () => {
@@ -112,6 +127,9 @@ test('judging lines show thin, small-history, relaxed-cap, retries, floors, and 
   const base = { planned: 12, judged: 5, invalid: 0, refusals: 0, outcomes: {}, corrections_traced: 3, unknown_verdicts: 0, bar: 2, tokens_used: 90000, calls: 14, tokens_floor: true, estimate: { tokens_low: 50000, tokens_high: 70000 }, sample: { thin: true, small_history: true, cap_relaxed: true } };
   const l = judgingLines(base).join('\n');
   for (const re of [/Thin evidence/, /Fewer than 20 episodes/, /cap of 4 episodes per project was relaxed/, /in 14 model calls/, /at least 90,000 tokens/, /passed the approved upper bound/]) assert.match(l, re);
+  const cfg = judgingLines({ ...base, config_check: { matched: 1, none: 2, partial: 0, unavailable: 1 } }).join('\n');
+  assert.match(cfg, /Instruction files, checked by code for each traced correction: 1 with matching lines shown to the judge, 2 searched in full with no matching line, 1 that could not be checked/);
+  assert.doesNotMatch(cfg, /left out for size/);
 });
 
 test('an episode cut off by the time box shows as cut off, not as a rejected answer', () => {

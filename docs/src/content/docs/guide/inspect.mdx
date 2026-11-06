@@ -8,7 +8,7 @@ import { Aside, Steps } from '@astrojs/starlight/components';
 *SHRINE Inspect is a local, read-only command-line tool. It measures your AI coding setup and session history against SHRINE and reports what to change first. It changes nothing itself.*
 
 <Aside type="caution" title="Pre-release">
-This is a trial release. Get the newest `inspect-v*` release from the [releases page](https://github.com/stablekernel/SHRINE/releases). The steps below use `inspect-v0.1.1`. Trial testers also follow [TRIAL.md](https://github.com/stablekernel/SHRINE/blob/main/inspect/TRIAL.md).
+This is a trial release. Get the newest `inspect-v*` release from the [releases page](https://github.com/stablekernel/SHRINE/releases). The steps below use `inspect-v0.1.2`. Trial testers also follow [TRIAL.md](https://github.com/stablekernel/SHRINE/blob/main/inspect/TRIAL.md).
 </Aside>
 
 - The first release reads one harness: Claude Code; other harnesses come later
@@ -34,6 +34,10 @@ This is a trial release. Get the newest `inspect-v*` release from the [releases 
 
 At T1 only, 12 scrubbed episode excerpts go to your model provider through your own coding agent login, one call each.
 
+- Each excerpt holds your messages, the start of each reply, the end of the last reply, and how the episode ended
+- Code searches all your loaded instruction files and sends only the lines that match your corrections
+- When no line matches, that search counts as evidence; "could not tell" is kept for files that may have changed since or could not be read in full
+
 It checks that it changed nothing it read. If anything changed, the report shows a warning at the top.
 
 ## Install
@@ -49,9 +53,9 @@ It checks that it changed nothing it read. If anything changed, the report shows
 2. Download the three release files into a new folder
 
    ```sh
-   mkdir -p ~/shrine-inspect-0.1.1 && cd ~/shrine-inspect-0.1.1
-   base=https://github.com/stablekernel/SHRINE/releases/download/inspect-v0.1.1
-   curl -fLO "$base/shrine-inspect-0.1.1.tgz"
+   mkdir -p ~/shrine-inspect-0.1.2 && cd ~/shrine-inspect-0.1.2
+   base=https://github.com/stablekernel/SHRINE/releases/download/inspect-v0.1.2
+   curl -fLO "$base/shrine-inspect-0.1.2.tgz"
    curl -fLO "$base/install.sh"
    curl -fLO "$base/SHA256SUMS"
    ```
@@ -127,7 +131,9 @@ The run stops at a gate when it needs your answer. Only you answer, in your own 
 | B | T1 runs only, after the scan | Keep T0, or type `yes` for T1 after reading its token and time estimate |
 | C | Only when T1 judging passes a limit | Keep the partial results, or stop |
 
-- Gate A lists the projects, date range, size on disk, and a time estimate
+- Gate A lists the projects, session files with the dates they last changed, size on disk, and a time estimate
+- Gate B dates are when the sampled episodes started, so they can be earlier than Gate A dates
+- The report counts sessions, not files; its appendix says why some files are not sessions
 - Before Gate A, it reads file names, sizes, and dates, plus the first lines of the newest session per folder, and keeps only the folder, entry point, and version; no prompt text
 - Never let an agent run `approve`: the CLI cannot tell you from a tool that fakes a terminal
 

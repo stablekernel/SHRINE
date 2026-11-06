@@ -574,8 +574,8 @@
           "metric": "count"
         },
         {
-          "headline": "3 entries to scope",
-          "sub": "Each becomes a narrow allow or a prompt",
+          "headline": "3 entries to fix",
+          "sub": "Scope the rules; set the settings back to ask",
           "metric": "count"
         }
       ],
@@ -1195,7 +1195,7 @@
         {
           "kind": "judge",
           "locator": "e-000000000000 t03",
-          "metric": "judge read: supplies a constraint; owner you",
+          "metric": "judge read: supplies a constraint; owner you; code searched every loaded instruction file and found no matching line",
           "verdict": "supplies a constraint; owner you",
           "judge_confidence": 0.8,
           "excerpt_scrubbed": "use semicolons as the separator"
@@ -1203,7 +1203,7 @@
         {
           "kind": "judge",
           "locator": "e-000000000001 t03",
-          "metric": "judge read: supplies a constraint; owner you",
+          "metric": "judge read: supplies a constraint; owner you; code searched every loaded instruction file and found no matching line",
           "verdict": "supplies a constraint; owner you",
           "judge_confidence": 0.8,
           "excerpt_scrubbed": "use semicolons as the separator"
@@ -1211,7 +1211,7 @@
         {
           "kind": "judge",
           "locator": "e-000000000002 t03",
-          "metric": "judge read: supplies a constraint; owner you",
+          "metric": "judge read: supplies a constraint; owner you; code searched every loaded instruction file and found no matching line",
           "verdict": "supplies a constraint; owner you",
           "judge_confidence": 0.8,
           "excerpt_scrubbed": "use semicolons as the separator"
@@ -1219,7 +1219,7 @@
         {
           "kind": "judge",
           "locator": "e-000000000003 t03",
-          "metric": "judge read: supplies a constraint; owner you",
+          "metric": "judge read: supplies a constraint; owner you; code searched every loaded instruction file and found no matching line",
           "verdict": "supplies a constraint; owner you",
           "judge_confidence": 0.8,
           "excerpt_scrubbed": "use semicolons as the separator"
@@ -1227,7 +1227,7 @@
         {
           "kind": "judge",
           "locator": "e-000000000004 t03",
-          "metric": "judge read: supplies a constraint; owner you",
+          "metric": "judge read: supplies a constraint; owner you; code searched every loaded instruction file and found no matching line",
           "verdict": "supplies a constraint; owner you",
           "judge_confidence": 0.8,
           "excerpt_scrubbed": "use semicolons as the separator"
@@ -1378,7 +1378,7 @@
         {
           "kind": "judge",
           "locator": "e-000000000005 t03",
-          "metric": "judge read: supplies a constraint; owner model",
+          "metric": "judge read: supplies a constraint; owner model; matching instruction lines were shown to the judge",
           "verdict": "supplies a constraint; owner model",
           "judge_confidence": 0.7,
           "excerpt_scrubbed": "Don't edit generated files"
@@ -1386,7 +1386,7 @@
         {
           "kind": "judge",
           "locator": "e-000000000006 t03",
-          "metric": "judge read: supplies a constraint; owner model",
+          "metric": "judge read: supplies a constraint; owner model; matching instruction lines were shown to the judge",
           "verdict": "supplies a constraint; owner model",
           "judge_confidence": 0.7,
           "excerpt_scrubbed": "Don't edit generated files"
@@ -1394,7 +1394,7 @@
         {
           "kind": "judge",
           "locator": "e-000000000007 t03",
-          "metric": "judge read: supplies a constraint; owner model",
+          "metric": "judge read: supplies a constraint; owner model; matching instruction lines were shown to the judge",
           "verdict": "supplies a constraint; owner model",
           "judge_confidence": 0.7,
           "excerpt_scrubbed": "Don't edit generated files"
@@ -1627,7 +1627,7 @@
       "Correction candidates: 40 human messages, each counted once however many cues it holds. Count only, not judged.",
       "Identical tool-call retries: 61 of 5200 tool calls (1.2 per 100 tool calls). Count only: polling and re-reads look the same. Mostly 1 project: 72% of episodes.",
       "Done claims with no test or check run before them: 4 of 12 claims. Count only: the claim pattern is not precise enough for a finding. Mostly 1 project: 72% of episodes.",
-      "Rework (named reverts) within 72 hours: 3 of 6 flagged episodes with linked commits (50%, a small sample under 15 episodes), 10 of 80 other episodes with linked commits (13%). Mostly 1 project: 72% of episodes.",
+      "Control, done claims with no test: rework (named reverts) within 72 hours: 3 of 6 flagged episodes with linked commits (50%, a small sample under 15 episodes), 10 of 80 other episodes with linked commits (13%). Mostly 1 project: 72% of episodes.",
       "Rework (named reverts) within 72 hours: 2 of 60 episodes with linked commits (3%). Mostly 1 project: 72% of episodes.",
       "Possible rework (later-session fix): 7 of 60 episodes with linked commits had a fix commit on the same files from a later session, at least 1 hour after. Candidate count only. Mostly 1 project: 72% of episodes.",
       "Possible rework (file overlap): 48 of 136 episodes had a changed file touched again within 72 hours. Candidate count only. Mostly 1 project: 72% of episodes.",
@@ -1656,6 +1656,12 @@
     },
     "corrections_traced": 8,
     "unknown_verdicts": 0,
+    "config_check": {
+      "matched": 3,
+      "none": 5,
+      "partial": 0,
+      "unavailable": 0
+    },
     "bar": 3,
     "partial": false,
     "tokens_used": 50400,
@@ -1681,6 +1687,7 @@
       "12 of 12 sampled episodes judged in 12 model calls, retries included (fixture-model).",
       "Outcomes: 4 resolved, 0 abandoned, 8 reworked, 0 could not tell.",
       "Corrections traced: 8 on code-flagged turns; 0 could not be attributed and are counted only.",
+      "Instruction files, checked by code for each traced correction: 3 with matching lines shown to the judge, 5 searched in full with no matching line.",
       "Answers rejected: 0 invalid, 0 refusals.",
       "Tokens used: 50,400 tokens on your own account, against an estimate of 52,000 to 74,000 tokens.",
       "A judged finding needs 3 episodes and a code-flagged correction in each.",

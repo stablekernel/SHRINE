@@ -120,6 +120,12 @@ export async function scanHistory({ listing, excludedIds = [], display = (p) => 
   const automation = { ...inv.automation, ...housekeepingShare(inv.automation.housekeeping, sessions.length), spawned_linked: spawn.linked, spawned_parents: spawn.parents.size, unattributed: spawn.unattributed };
   const linked = linkEpisodes(episodes, commitsByRepo, { windowHours: t.history.link_hours });
   const probes = runUsageProbes({ sessions, episodes: linked, dedupe, t });
+  // Gate A lists session files; the report counts sessions. These say how one
+  // becomes the other: forks with nothing new, this run's own session, and
+  // unreadable files are not sessions; the rest are housekeeping or spawned.
+  probes.counts.session_files = listing.projects.reduce((n, p) => n + (p.sessions ?? 0), 0);
+  probes.counts.own_sessions = inv.sessions.length - metas.length;
+  probes.counts.unreadable_sessions = metas.length - readable;
   const rule = historyRule({ consented: true, sessions: sessions.length }, t);
 
   const from = sessions.length ? minOf(sessions.map((s) => Date.parse(s.start))) : 0;

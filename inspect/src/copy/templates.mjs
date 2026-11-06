@@ -75,6 +75,16 @@ const FINDINGS = {
     const settings = m.settings ?? items.filter((i) => /^(defaultMode|skipDangerousModePermissionPrompt):/.test(i.rule)).length;
     const allows = m.rules ?? m.count - settings;
     const parts = [...(allows ? [`${allows} ${pl(allows, 'rule')}`] : []), ...(settings ? [`${settings} ${pl(settings, 'setting')}`] : [])];
+    // The fix names only what was found: scope allow rules only when there are
+    // some, and turn back only the settings that were cited.
+    const steps = [
+      ...(allows ? ['replace blanket allow rules with scoped ones'] : []),
+      ...(items.some((i) => /^defaultMode:/.test(i.rule)) ? ['set the default permission mode back to ask'] : []),
+      ...(items.some((i) => /^skipDangerousModePermissionPrompt:/.test(i.rule)) ? ['turn the dangerous-mode prompt back on'] : []),
+    ];
+    // Short enough to stay on one line; a mix is "entries", never "rules".
+    const todo = allows && settings ? `${m.count} entries to fix` : allows ? `${allows} ${pl(allows, 'rule')} to scope` : `${settings} ${pl(settings, 'setting')} to reset`;
+    const todoSub = allows && settings ? 'Scope the rules; set the settings back to ask' : allows ? 'Each becomes a narrow allow or a prompt' : 'Each one asks again before a risky step';
     return {
       icon: 'hand',
       title: 'Shell or file writes run without a pause',
@@ -90,8 +100,9 @@ const FINDINGS = {
       ],
       benefit: [
         { headline: 'Judgment where it counts', sub: 'You decide at the risky step only', metric: 'count' },
-        { headline: `${m.count} ${pl(m.count, 'entry', 'entries')} to scope`, sub: 'Each becomes a narrow allow or a prompt', metric: 'count' },
+        { headline: todo, sub: todoSub, metric: 'count' },
       ],
+      ...(steps.length ? { action: `${steps[0][0].toUpperCase()}${joinAnd(steps).slice(1)}.` } : {}),
     };
   },
   stack_gap: ({ metric: m }) => ({
@@ -196,11 +207,13 @@ export function gapLabel(kind, minutes) {
 }
 
 const pctOf = (r) => `${Math.round(r * 100)}%`;
-function controlSentence(c) {
+// label: what the comparison counts. The appendix names the flagged group, so its
+// line is not read as a second copy of the overall rework line.
+function controlSentence(c, label = `Rework (named reverts) within ${THRESHOLDS.history.link_hours} hours`) {
   if (!c || c.rest.n < THRESHOLDS.usage.control_min_episodes) return `No control baseline: fewer than ${THRESHOLDS.usage.control_min_episodes} other episodes with linked commits to compare.`;
   if (!c.flagged.n) return 'No control comparison: no flagged episode has a linked commit.';
   const small = c.flagged.n < THRESHOLDS.usage.small_n_episodes ? `, a small sample under ${THRESHOLDS.usage.small_n_episodes} episodes` : '';
-  return `Rework (named reverts) within ${THRESHOLDS.history.link_hours} hours: ${c.flagged.hits} of ${c.flagged.n} flagged ${pl(c.flagged.n, 'episode')} with linked commits (${pctOf(c.flagged.rate)}${small}), ${c.rest.hits} of ${c.rest.n} other ${pl(c.rest.n, 'episode')} with linked commits (${pctOf(c.rest.rate)}).`;
+  return `${label}: ${c.flagged.hits} of ${c.flagged.n} flagged ${pl(c.flagged.n, 'episode')} with linked commits (${pctOf(c.flagged.rate)}${small}), ${c.rest.hits} of ${c.rest.n} other ${pl(c.rest.n, 'episode')} with linked commits (${pctOf(c.rest.rate)}).`;
 }
 
 // True when one project holds more than the threshold share of episodes.
@@ -234,12 +247,30 @@ export function needLine(need, { t1 = false } = {}) {
   const q = 'Do you need more than a scan yet?';
   if (!need?.consented) return `${q} Unknown: session history was not read.`;
   if (need.rule === 'setup_only') return `${q} Unknown: no session in the window could be used.`;
-  const what = `${need.sessions} ${pl(need.sessions, 'session')} and ${need.human_messages} of your ${pl(need.human_messages, 'message')} over ${need.span_days} ${pl(need.span_days, 'day')}`;
+  const what = `${need.sessions} ${pl(need.sessions, 'session')} and ${need.human_messages} of your ${pl(need.human_messages, 'message')} over ${need.span_days} ${pl(need.span_days, 'day')} of activity`;
   const h = THRESHOLDS.history;
   if (need.rule === 'limited') return `${q} Not yet: ${what} is limited history, under ${h.limited_sessions} sessions, so a scan is all it supports.`;
   // Enough sessions, but few messages or a short span: still thin (provisional bars).
   if (need.human_messages < h.need_min_messages || need.span_days < h.need_min_days) return `${q} Not yet: ${what} is a short history, under ${h.need_min_messages} messages or ${h.need_min_days} days, so a scan is all it supports.`;
   return `${q} Maybe: ${what} is enough history for a deeper look; ${t1 ? 'T1 below judges a sample' : 'this version offers the scan only'}.`;
+}
+
+// Gate A counts session files; the report counts sessions. Null when they match
+// or the file count is not known.
+export function sessionFilesLine(c) {
+  const files = c?.session_files;
+  if (files == null || files === c.sessions) return null;
+  const forks = c.forked_sessions_dropped ?? 0;
+  const own = c.own_sessions ?? 0;
+  const unreadable = c.unreadable_sessions ?? 0;
+  const rest = Math.max(0, files - c.sessions - forks - own - unreadable);
+  const parts = [
+    ...(forks ? [`${forks} ${pl(forks, 'fork')} with nothing new`] : []),
+    ...(own ? [`${own === 1 ? 'the session' : `${own} sessions`} driving this run`] : []),
+    ...(unreadable ? [`${unreadable} unreadable`] : []),
+    ...(rest ? [`${rest} housekeeping, spawned, or outside a project`] : []),
+  ];
+  return `Session files listed at Gate A: ${files}. Not counted as sessions: ${files - c.sessions}${parts.length ? ` (${joinAnd(parts)})` : ''}.`;
 }
 
 // Appendix lines for the usage counts block. Every regex-based count says it is a count only.
@@ -250,6 +281,7 @@ export function usageLines(u) {
   const dep = dominated(c) ? ` Mostly 1 project: ${pctOf(c.top_project_share)} of episodes.` : '';
   const lines = [
     `${c.sessions} ${pl(c.sessions, 'session')} reviewed, ${c.episodes} ${pl(c.episodes, 'episode')}`,
+    ...[sessionFilesLine(c)].filter(Boolean),
     ...[dominanceLine(c)].filter(Boolean),
     `${c.human_turns} human ${pl(c.human_turns, 'message')}, ${c.interrupts} ${pl(c.interrupts, 'interrupt')}, ${c.compactions} ${pl(c.compactions, 'compaction')}`,
     c.attributable_tokens ? `Subagent share of attributable tokens: ${pctOf(c.subagent_share)} of ${c.attributable_tokens.toLocaleString('en-US')} tokens.${dep}` : 'Subagent share of attributable tokens: n/a, no attributable tokens.',
@@ -263,7 +295,7 @@ export function usageLines(u) {
     lines.push(dwt.metric.claims
       ? `Done claims with no test or check run before them: ${dwt.metric.flagged} of ${dwt.metric.claims} ${pl(dwt.metric.claims, 'claim')}. Count only: the claim pattern is not precise enough for a finding.${dep}`
       : 'Done claims with no test or check run before them: n/a, no done claims.');
-    if (dwt.metric.flagged > 0) lines.push(`${controlSentence(dwt.control)}${dwt.control?.flagged?.n && dwt.control.rest.n >= THRESHOLDS.usage.control_min_episodes ? dep : ''}`);
+    if (dwt.metric.flagged > 0) lines.push(`${controlSentence(dwt.control, `Control, done claims with no test: rework (named reverts) within ${THRESHOLDS.history.link_hours} hours`)}${dwt.control?.flagged?.n && dwt.control.rest.n >= THRESHOLDS.usage.control_min_episodes ? dep : ''}`);
   }
   if (c.possible_rework != null) {
     const n = c.linked_commits ?? 0;
@@ -298,6 +330,14 @@ const num = (n) => Number(n ?? 0).toLocaleString('en-US');
 const J = THRESHOLDS.judged;
 const MEASURED_ON = J.estimate.measured_on;
 
+// How code checked the instruction files for each traced correction.
+export function configCheckLine(c) {
+  const parts = [`${c.matched ?? 0} with matching lines shown to the judge`, `${c.none ?? 0} searched in full with no matching line`];
+  if (c.partial) parts.push(`${c.partial} with a matching line left out for size`);
+  if (c.unavailable) parts.push(`${c.unavailable} that could not be checked (the files may have changed since, or were too long to read in full)`);
+  return `Instruction files, checked by code for each traced correction: ${parts.join(', ')}.`;
+}
+
 // Appendix lines for a T1 run's judging block. s: judgedFindings().summary plus
 // the sample and the Gate B estimate (see mergeJudged).
 export function judgingLines(s) {
@@ -308,6 +348,7 @@ export function judgingLines(s) {
     `${s.judged} of ${s.planned} sampled ${pl(s.planned, 'episode')} judged in ${calls} model ${pl(calls, 'call')}, retries included${s.model_ids?.length ? ` (${s.model_ids.join(', ')})` : ''}.`,
     `Outcomes: ${o.resolved ?? 0} resolved, ${o.abandoned ?? 0} abandoned, ${o.reworked ?? 0} reworked, ${o.unknown ?? 0} could not tell.`,
     `Corrections traced: ${s.corrections_traced} on code-flagged ${pl(s.corrections_traced, 'turn')}; ${s.unknown_verdicts} could not be attributed and are counted only.`,
+    ...(s.config_check ? [configCheckLine(s.config_check)] : []),
     `Answers rejected: ${s.invalid} invalid, ${s.refusals ?? 0} ${pl(s.refusals ?? 0, 'refusal')}.`,
     `Tokens used: ${s.tokens_floor ? 'at least ' : ''}${num(s.tokens_used)} tokens on your own account${s.estimate ? `, against an estimate of ${num(s.estimate.tokens_low)} to ${num(s.estimate.tokens_high)} tokens` : ''}.`,
     `A judged finding needs ${s.bar} ${pl(s.bar, 'episode')} and a code-flagged correction in each.`,
@@ -334,7 +375,7 @@ export function gateBLines(g) {
     return lines;
   }
   const where = g.projects?.length ? ` from ${joinAnd(g.projects)}` : '';
-  lines.push(`Tier T1, Pulse: judge ${g.episodes} ${pl(g.episodes, 'episode')}${where}, dated ${(g.from ?? '').slice(0, 10)} to ${(g.to ?? '').slice(0, 10)}, about ${num(g.tokens_low)} to ${num(g.tokens_high)} tokens on your own account, about ${g.minutes} ${pl(g.minutes, 'minute')} of judging after the scan.`);
+  lines.push(`Tier T1, Pulse: judge ${g.episodes} ${pl(g.episodes, 'episode')}${where}, started ${(g.from ?? '').slice(0, 10)} to ${(g.to ?? '').slice(0, 10)} (a file changed in the window can hold earlier work), about ${num(g.tokens_low)} to ${num(g.tokens_high)} tokens on your own account, about ${g.minutes} ${pl(g.minutes, 'minute')} of judging after the scan.`);
   if (g.version) lines.push(`Judge: Claude Code ${g.version}, the version in your newest session log.`);
   if (g.thin) lines.push(`Thin evidence: only ${g.eligible} ${pl(g.eligible, 'episode')} had a correction candidate.`);
   lines.push(`The token and time figures use a per-call overhead measured on Claude Code ${MEASURED_ON}, not on your setup.`);
