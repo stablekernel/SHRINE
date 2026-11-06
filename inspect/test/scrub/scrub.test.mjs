@@ -229,6 +229,15 @@ test('the OS user is masked where it is joined to other words', () => {
     };
     for (const [input, want] of Object.entries(cases)) assert.equal(mask(input, k), want, `${home}: ${input}`);
   }
+  const k = buildIdentifiers({ osUser: 'jdoe', home: '/Users/jdoe' });
+  assert.equal(mask('Author: Jane <jdoe>', k), 'Author: Jane <<user>>');
+  assert.equal(mask('Ask <jdoe> first, then <jdoe-mbp>', k), 'Ask <<user>> first, then <<user>-mbp>');
+  // A placeholder already made is not masked again, for a user named like one.
+  for (const [osUser, text] of [['user', 'by <user> on <user>'], ['project', 'in <project-folder> and <project-1>'], ['host', 'at <host>']]) {
+    const named = buildIdentifiers({ osUser, projects: ['zz'] });
+    assert.equal(mask(text, named), text, osUser);
+    assert.equal(mask(mask(`${osUser} said`, named), named), '<user> said', osUser);
+  }
   const dotted = buildIdentifiers({ osUser: 'jane.doe', home: '/Users/jane.doe' });
   assert.equal(mask('box jane.doe-mbp and jane-doe_laptop', dotted), 'box <user>-mbp and <user>_laptop');
 });

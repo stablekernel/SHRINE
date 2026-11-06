@@ -32,6 +32,8 @@ test('T1 leak: zero secret survivors, zero absolute paths, zero OS user or autho
       ['text', `Reading ${h.repo}/src/a.js with ${body[(i + 1) % body.length]}`],
       ['human', `Actually, never print ${body[(i + 2) % body.length]} and do not touch ${h.repo}/.env, Fixture Author said so.`],
       ['text', 'Understood.'],
+      // Angle brackets, as an author line writes it: "Jane <jdoe>".
+      ['human', `Ask <${user}> first, then "${user}" and ${user}'s notes.`],
     ];
     addSession(h, { id: sid(i), startMs: NOW - (20 - i) * DAY, script });
   }

@@ -234,6 +234,9 @@ export function maskPath(value, known, { locator = false } = {}) {
   return `${lead}${kept}${base}`;
 }
 
+// The placeholders this file writes, and the session's own tags, as whole tokens.
+const PLACEHOLDER = /(<(?:user|email|ip|host|path|file|synthetic|project-folder|(?:author-email|author|project|repo|org)-\d+|bash-stdout|bash-stderr|command-name|command-message|local-command-stdout|task-notification)>)/;
+
 export function mask(text, known) {
   if (typeof text !== 'string' || text === '') return text;
   // Claude Code project folders encode the full cwd (home, org, and repo names).
@@ -252,9 +255,15 @@ export function mask(text, known) {
     // The OS user also where it is joined to other words ("jdoe-mbp", "jdoe_mbp",
     // "jdoeMBP"), as host names and shell prompts write it: a hyphen, an
     // underscore, or a capital after a lowercase end is a word break.
+    // A placeholder already made ("<user>", "<project-folder>") is skipped, so an OS
+    // user named "user" or "project" is not masked twice; "<jdoe>" is still masked.
     if (placeholder === '<user>') {
       const post = /[a-z]$/.test(value) ? '(?![a-z\\d])' : '(?![A-Za-z\\d])';
-      out = out.replace(new RegExp(`(?<![A-Za-z\\d<])${esc(value)}${post}`, 'g'), placeholder);
+      const re = new RegExp(`(?<![A-Za-z\\d])${esc(value)}${post}`, 'g');
+      out = out
+        .split(PLACEHOLDER)
+        .map((part, i) => (i % 2 ? part : part.replace(re, placeholder)))
+        .join('');
       continue;
     }
     out = out.replace(new RegExp(`(?<![\\w-])${esc(value)}(?![\\w-])`, 'g'), placeholder);
