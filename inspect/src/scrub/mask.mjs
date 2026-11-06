@@ -193,7 +193,7 @@ export function underHome(path, home) {
 }
 
 // Locator words the scorer writes itself (the stack-gap kinds and the setup row).
-const LOCATOR_WORDS = new Set(['setup', 'hooks', 'skills', 'memory', 'session history']);
+const LOCATOR_WORDS = new Set(['setup', 'hooks', 'skills', 'memory', 'session history', 'control', 'sample']);
 // A judged locator: an episode id (a hash of the session id) and a bundle turn id
 // ("e-3fa9c2d1b7e0 t04"). Both are made by code, so neither can hold a name or path.
 const EPISODE_LOCATOR = /^e-[0-9a-f]{12}(?: t\d{2,4})?$/;

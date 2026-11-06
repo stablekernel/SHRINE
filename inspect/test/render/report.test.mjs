@@ -113,6 +113,7 @@ test('share-safe copy keeps judged evidence locators', () => {
   const locs = (d) => judged(d).flatMap((f) => [f.anchor, ...f.evidence.map((e) => e.locator)]);
   assert.deepEqual(locs(safe), locs(raw));
   assert.ok(locs(safe).includes('session history'));
+  for (const w of ['session history', 'control', 'sample', 'setup']) assert.equal(maskPath(w, known), w);
   assert.ok(locs(safe).some((l) => /^e-[0-9a-f]{12} t\d+$/.test(l)));
   // Only code-made locators pass: a name in the same shape is still masked.
   assert.equal(maskPath('e-initechcorp t01', known), '<file>');
