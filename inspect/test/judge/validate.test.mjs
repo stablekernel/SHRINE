@@ -46,6 +46,26 @@ test('valid output passes; each quote is re-sliced to its offsets in the turn', 
   assert.equal(b.turns.find((t) => t.id === 't03').text.slice(q.start, q.end), 'use semicolons');
 });
 
+test('a one-character quote or config ref is kept but never verified', () => {
+  const b = bundle();
+  const o = good(b);
+  o.corrections[0] = { ...o.corrections[0], constraint_present_in: 'instruction_file', quotes: [{ turn_id: 't03', text: 'u' }], config_ref: { config_id: 'c1', text: 'N' } };
+  const v = validateJudgment(o, b);
+  assert.equal(v.ok, true, v.errors.join('; '));
+  const [c] = v.output.corrections;
+  assert.equal(c.quotes[0].start, -1);
+  assert.equal(c.config_ref.start, -1);
+  // Twelve characters after trim verify; eleven do not.
+  o.corrections[0] = { ...o.corrections[0], quotes: [{ turn_id: 't03', text: ' use semicol' }, { turn_id: 't03', text: 'use semicolo' }], config_ref: { config_id: 'c1', text: 'Never edit g' } };
+  const w = validateJudgment(o, b).output.corrections[0];
+  assert.deepEqual(w.quotes.map((q) => q.start), [-1, 10]);
+  assert.ok(w.config_ref.start >= 0);
+  // A short turn quoted whole still verifies.
+  const s = bundle('feed02', [{ t: at(3), kind: 'assistant_text', text: 'Ok.' }, { t: at(4), kind: 'human', uuid: 'u3', text: 'Use tabs.' }]);
+  const short = { ...good(s), corrections: [{ ...good(s).corrections[0], turn_id: 't05', quotes: [{ turn_id: 't05', text: 'Use tabs.' }] }] };
+  assert.equal(validateJudgment(short, s).output.corrections[0].quotes[0].start, 0);
+});
+
 const cases = {
   'bad enum': (o) => ({ ...o, outcome: 'great' }),
   'extra key': (o) => ({ ...o, praise: 'excellent' }),

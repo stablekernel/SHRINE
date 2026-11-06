@@ -19,8 +19,8 @@ Fields:
   - constraint_present_in: where that constraint already existed before this turn: prompt (an earlier human turn in this episode), instruction_file (a config block), skill, none, or unknown.
   - attribution: label user (the constraint arrived late from the person), model (it was available and not followed), harness (the setup did not load it), or unknown; confidence from 0 to 1.
   - sufficiency: enough, thin, or none: how well the data supports your reading.
-  - quotes: up to 3 items {turn_id, text}; text is a short exact copy (at most 200 characters) from that turn's text. Never paraphrase.
-  - config_ref: only when constraint_present_in is instruction_file: {config_id, text}, where text is a short exact copy from that config block.
+  - quotes: up to 3 items {turn_id, text}; text is a short exact copy (12 to 200 characters) from that turn's text. Never paraphrase.
+  - config_ref: only when constraint_present_in is instruction_file: {config_id, text}, where text is an exact copy (12 to 200 characters) from that config block.
   - entry_ids: zero or more of {{ENTRY_IDS}}.
 
 Use unknown whenever you are unsure. Never invent text. Quotes that are not exact copies are rejected.

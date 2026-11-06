@@ -6,6 +6,7 @@
 // becomes "Start with", and it carries a plain caveat. No judged praise.
 // Re-runnable from stored files; no IO.
 import { findingId } from './score.mjs';
+import { isProof } from '../judge/validate.mjs';
 import { usageSeverity } from './stats.mjs';
 
 export const JUDGED_KINDS = {
@@ -17,7 +18,10 @@ const OWNER = { user: 'Owner: You', harness: 'Owner: Setup', model: 'Owner: Mode
 const STACK_KEY = { user: 'prompt', harness: 'setup', model: 'model', unknown: 'unknown' };
 
 const hhmm = (iso) => (typeof iso === 'string' && iso.length >= 16 ? `${iso.slice(11, 16)} UTC` : '');
-const minutesBetween = (a, b) => Math.max(0, Math.round((Date.parse(b) - Date.parse(a)) / 60000));
+// A verified span counts only when the text it covers is specific enough to prove
+// anything (checked again here, so judgments stored by an older run are held to it).
+const proves = (ref, source) => typeof source === 'string' && ref.start >= 0 && ref.end <= source.length && isProof(source.slice(ref.start, ref.end), source);
+const minutesBetween =(a, b) => Math.max(0, Math.round((Date.parse(b) - Date.parse(a)) / 60000));
 
 // Spec 5 attribution, first match wins: 1) unknown when the judge says unknown or
 // the live config may have changed (or was cut short); 2) user when the
@@ -31,10 +35,10 @@ export function codeAttribution(c, bundle) {
   // "In the prompt" counts only with a quote from an earlier human turn of this episode.
   if (c.constraint_present_in === 'prompt') {
     const at = bundle.meta.human_index[c.turn_id];
-    const earlier = c.quotes.some((q) => q.start >= 0 && bundle.meta.human_index[q.turn_id] != null && bundle.meta.human_index[q.turn_id] < at);
+    const earlier = c.quotes.some((q) => bundle.meta.human_index[q.turn_id] != null && bundle.meta.human_index[q.turn_id] < at && proves(q, bundle.turns.find((x) => x.id === q.turn_id)?.text));
     return earlier ? 'model' : 'user';
   }
-  if (c.constraint_present_in === 'instruction_file' && c.config_ref && c.config_ref.start >= 0) return 'model';
+  if (c.constraint_present_in === 'instruction_file' && c.config_ref && proves(c.config_ref, bundle.config.find((x) => x.id === c.config_ref.config_id)?.text)) return 'model';
   return 'user';
 }
 

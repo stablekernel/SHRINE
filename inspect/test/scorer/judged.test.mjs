@@ -23,10 +23,23 @@ test('attribution by code, first match wins (spec 5 rules 1, 2, 4)', () => {
   assert.equal(codeAttribution(c({ attribution: { label: 'unknown', confidence: 0.5 } }), bundle()), 'unknown', 'the judge said unknown');
   assert.equal(codeAttribution(c(), bundle({ config: [{ id: 'c1', text: 'x', may_have_changed: true }] })), 'unknown', 'config may have changed');
   assert.equal(codeAttribution(c(), bundle({ config_truncated: true })), 'unknown', 'config cut short');
-  assert.equal(codeAttribution(c({ constraint_present_in: 'prompt', quotes: [{ turn_id: 't01', start: 0, end: 3 }] }), bundle()), 'model');
+  assert.equal(codeAttribution(c({ constraint_present_in: 'prompt', quotes: [{ turn_id: 't01', start: 0, end: 13 }] }), bundle()), 'model');
   assert.equal(codeAttribution(c({ constraint_present_in: 'instruction_file', config_ref: { config_id: 'c1', start: 0, end: 4 } }), bundle()), 'model');
   assert.equal(codeAttribution(c({ constraint_present_in: 'instruction_file', config_ref: null }), bundle()), 'user', 'an unverified config claim is not found');
   assert.equal(codeAttribution(c({ constraint_present_in: 'skill' }), bundle()), 'unknown');
+});
+
+test('a quote too short to be specific never flips blame to the model', () => {
+  const long = bundle({ config: [{ id: 'c1', text: 'Never edit generated files.', may_have_changed: false }] });
+  // One character of an earlier prompt, or of a config block, proves nothing.
+  assert.equal(codeAttribution(c({ constraint_present_in: 'prompt', quotes: [{ turn_id: 't01', start: 0, end: 1 }] }), long), 'user');
+  assert.equal(codeAttribution(c({ constraint_present_in: 'instruction_file', config_ref: { config_id: 'c1', start: 0, end: 1 } }), long), 'user');
+  assert.equal(codeAttribution(c({ constraint_present_in: 'instruction_file', config_ref: { config_id: 'c1', start: 0, end: 11 } }), long), 'user');
+  // Twelve characters, or the whole block, do.
+  assert.equal(codeAttribution(c({ constraint_present_in: 'instruction_file', config_ref: { config_id: 'c1', start: 0, end: 12 } }), long), 'model');
+  assert.equal(codeAttribution(c({ constraint_present_in: 'instruction_file', config_ref: { config_id: 'c1', start: 0, end: 4 } }), bundle()), 'model', 'the whole block');
+  // A span past the end of its source is not proof.
+  assert.equal(codeAttribution(c({ constraint_present_in: 'instruction_file', config_ref: { config_id: 'c1', start: 0, end: 99 } }), long), 'user');
 });
 
 test('kinds need a code-flagged anchor; late_constraint only in human turns 2 to 3', () => {
@@ -111,7 +124,7 @@ test('a judged candidate in the TLDR is labelled Candidate lead', async () => {
 test('a constraint claimed "in the prompt" needs a quote from an earlier turn; disagreements cap a correction at 0.5', () => {
   const b = bundle({ meta: { human_index: { t01: 0, t03: 1 } } });
   assert.equal(codeAttribution(c({ constraint_present_in: 'prompt' }), b), 'user', 'no quote: not found');
-  assert.equal(codeAttribution(c({ constraint_present_in: 'prompt', quotes: [{ turn_id: 't01', start: 0, end: 3 }] }), b), 'model');
+  assert.equal(codeAttribution(c({ constraint_present_in: 'prompt', quotes: [{ turn_id: 't01', start: 0, end: 13 }] }), b), 'model');
 });
 
 test('an unverified config quote attributes to you (rule 2), and a late snapshot caps at unknown', () => {
