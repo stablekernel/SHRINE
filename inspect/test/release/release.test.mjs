@@ -114,3 +114,15 @@ test('the build and the installer use no network', () => {
     assert.doesNotMatch(text, /\b(curl|wget|fetch\(|https?\.get|node:https?|node:net)\b/, f);
   }
 });
+
+test('SOURCE_DATE_EPOCH sets every mtime, 0 included', () => {
+  const prev = process.env.SOURCE_DATE_EPOCH;
+  try {
+    process.env.SOURCE_DATE_EPOCH = '0';
+    const r = buildRelease({ out: mkdtempSync(join(tmpdir(), 'si-rel-')) });
+    assert.ok(untar(gunzipSync(readFileSync(r.tarball))).every((e) => e.mtime === 0));
+  } finally {
+    if (prev === undefined) delete process.env.SOURCE_DATE_EPOCH;
+    else process.env.SOURCE_DATE_EPOCH = prev;
+  }
+});

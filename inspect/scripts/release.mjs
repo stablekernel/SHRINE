@@ -107,7 +107,7 @@ export function releasePackageJson(pkg) {
   return `${JSON.stringify(rest, null, 2)}\n`;
 }
 
-export function buildRelease({ pkgRoot = PKG_ROOT, repoRoot = REPO_ROOT, out = join(PKG_ROOT, 'dist'), mtime = Number(process.env.SOURCE_DATE_EPOCH) || DEFAULT_MTIME } = {}) {
+export function buildRelease({ pkgRoot = PKG_ROOT, repoRoot = REPO_ROOT, out = join(PKG_ROOT, 'dist'), mtime = /^\d+$/.test(process.env.SOURCE_DATE_EPOCH ?? '') ? Number(process.env.SOURCE_DATE_EPOCH) : DEFAULT_MTIME } = {}) {
   const pkg = JSON.parse(readFileSync(join(pkgRoot, 'package.json'), 'utf8'));
   if (!/^\d+\.\d+\.\d+(-[\w.]+)?$/.test(pkg.version)) throw new Error(`release: bad version ${pkg.version}`);
   const top = `${pkg.name}-${pkg.version}`;

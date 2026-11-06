@@ -37,8 +37,12 @@ test('install: Node check, checksum, extract, link, version smoke test', { skip 
   assert.deepEqual(readdirSync(join(home, '.local', 'share', 'shrine-inspect')), [PKG.version], 'no temp folder left');
   assert.ok(!existsSync(join(home, '.claude')), 'no skill without --skill');
   assert.match(out.stdout, /Add .*\.local\/bin to your PATH/);
-  // Reinstalling the same version replaces it.
+  // Reinstalling the same version replaces it: the old copy goes only after the new one is in.
+  writeFileSync(join(dest, 'stale.txt'), 'old');
   assert.equal(sh(r.install, [], { home }).status, 0);
+  assert.ok(!existsSync(join(dest, 'stale.txt')));
+  assert.ok(existsSync(join(dest, 'bin', 'shrine-inspect.mjs')));
+  assert.deepEqual(readdirSync(join(home, '.local', 'share', 'shrine-inspect')), [PKG.version], 'no temp or backup folder left');
 });
 
 test('install refuses a changed tarball before extracting anything (exit 4)', { skip }, () => {

@@ -73,8 +73,14 @@ tmp=$(mktemp -d "$prefix/.install.XXXXXX")
 trap 'rm -rf "$tmp"' EXIT INT TERM
 tar -xzf "$tarball" -C "$tmp"
 [ -f "$tmp/$top/bin/shrine-inspect.mjs" ] || fail "unexpected tarball layout: no $top/bin/shrine-inspect.mjs"
-rm -rf "$dest"
-mv "$tmp/$top" "$dest"
+# A copy already there is moved aside first and removed only after the new one is in place.
+if [ -e "$dest" ]; then
+  mv "$dest" "$tmp/previous"
+fi
+if ! mv "$tmp/$top" "$dest"; then
+  [ -e "$tmp/previous" ] && mv "$tmp/previous" "$dest"
+  fail "could not move the new copy into $dest; the previous install is kept"
+fi
 ln -sf "$dest/bin/shrine-inspect.mjs" "$bindir/shrine-inspect"
 echo "Installed: $dest"
 echo "Linked: $bindir/shrine-inspect"
