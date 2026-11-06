@@ -9,7 +9,7 @@ import { mask, maskPath } from '../scrub/mask.mjs';
 import { isCorrectionCue } from '../probes/usage.mjs';
 
 export const JUDGE_MARKER = 'SHRINE inspect judge v1:';
-export const DEFAULT_CAPS = Object.freeze({ human_turn_chars: 1200, assistant_chars: 400, turns: 12, bundle_tokens: 6000, config_chars: 12000, bytes_per_token: 4, tools_per_turn: 10 });
+export const DEFAULT_CAPS = Object.freeze({ human_turn_chars: 1200, assistant_chars: 400, turns: 12, bundle_tokens: 900, config_chars: 12000, bytes_per_token: 4, tools_per_turn: 10 });
 
 export const newNonce = () => randomBytes(8).toString('hex');
 export const clean = (s, known) => mask(scrubSecrets(String(s ?? '')), known);

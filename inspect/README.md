@@ -45,7 +45,9 @@ Status: pre-release (SP2 plus the T1 trial slice). Install and docs cutover arri
 - Sample: 12 episodes with a correction candidate, seeded (seed in the report footer), recency thirds, at most 4 per project unless one project holds them all, 3x weight for sessions with 2 or more corrections
   - Fewer than 12 eligible: all are judged, labelled thin evidence; under 10 sessions: T1 is not offered
 - Evidence pack per episode: your messages (up to 1,200 characters, 12 messages), the opening 400 characters of each reply, tool names without arguments, and the instruction files loaded for that session
-  - Every string is scrubbed for secrets, then masked (names, paths, hosts) before a judge or a file sees it; about 6K tokens per pack at most
+  - Every string is scrubbed for secrets, then masked (names, paths, hosts) before a judge or a file sees it; about 900 tokens per pack at most
+  - Over the cap: replies cut first, then instruction files (to about 2,000 characters), then later messages
+- Gate B estimate: pack size (bytes / 4) plus a per-call overhead and output measured on Claude Code 2.1.318, then 10% retry reserve and 30% margin on the top
   - Session text is data for the judge, never instructions: it sits inside a fence named by a random nonce, and the judge prompt says so
 - Judge: one headless `claude --print` call per episode, one at a time, on your own install and login
   - No session saved, no tools, no MCP servers, your user, project, and local settings files ignored (so no user hooks or plugins), no CLAUDE.md, no auto-memory, non-essential traffic off; output forced to a strict JSON schema
@@ -53,6 +55,9 @@ Status: pre-release (SP2 plus the T1 trial slice). Install and docs cutover arri
   - Every judge prompt starts with `SHRINE inspect judge v1:`; any saved judge session counts as housekeeping in later runs and is never judged
   - Invalid output gets one retry with the validator's error; quotes must be exact copies from the episode; no judge free text reaches the report
 - Stops early (Gate C, keep partial or stop) past the approved token upper bound, past the time box plus 50%, at over 10% invalid answers, or on a usage limit
+  - Judging stopped part way resumes only on a fresh typed yes (`approve <run> B`); a resume already past the token bound makes no call
+  - One runner per run: a second `approve` while judging runs is refused (`E_JUDGE_BUSY`); a marker left by a dead process is ignored
+  - Gate C answered but no report (a crash): `approve <run> B` or `C` writes the report, with no prompt and no judge call
 - Findings (2 kinds): `late_constraint` (a constraint arrived in your 2nd or 3rd message, in neither the first message nor loaded instructions) and `ignored_instruction` (a correction restated a loaded instruction, matched by an exact quote)
   - Each needs 3 judged episodes (or 20% of those judged, at least 2) and a code-flagged correction in each
   - Judged findings stay candidates until the judge's accuracy is measured against labelled episodes: each carries a plain caveat, never reaches high confidence, and is never "Start with"
@@ -80,11 +85,10 @@ Counting (`test/adapters/claude-code/dedupe.test.mjs`):
 
 T1 trial (recorded, not fixed):
 
-- Judge isolation is set by flags read from the harness help text (2.1.318); no zero-content probe or canary run checks it on your setup yet
-- Per-call overhead and time in the Gate B estimate are provisional, not measured
+- Judge isolation was checked once, on one setup with 2.1.318 (only the structured-output tool, no MCP servers, no user plugins, no hooks fired, user model setting ignored); no probe checks it on your setup
+- At 12 episodes the top of the Gate B range passes 60K tokens at any pack size: the fixed cost per call (prompt, overhead, output; about 4K) times 12, plus reserve and margin (`test/judge/workorder.test.mjs`)
 - A correction you later reversed still gives a before and after from your own words
 - The harness version shown at Gate B comes from your newest session log, not from the installed command
-- If the harness keeps any state for the judge's empty working folder (inside the run folder), it is not yet checked or excluded
 - A session whose loaded-instructions snapshot is logged only after an episode starts is read as "may have changed", so its corrections stay "could not tell"
 
 ## Develop

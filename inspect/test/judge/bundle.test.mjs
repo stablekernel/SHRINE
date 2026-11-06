@@ -54,14 +54,28 @@ test('paths and names are masked; the live config comes from the snapshot', () =
   assert.equal(b.config[0].may_have_changed, false);
 });
 
-test('caps: 1,200 characters per human turn, 12 human turns, and about 6K tokens per bundle', () => {
+test('caps: 1,200 characters per human turn, 12 human turns, and about 900 tokens per bundle', () => {
   const many = [];
   for (let i = 0; i < 20; i++) many.push({ t: at(i), kind: 'human', uuid: `u${i}`, text: `${'word '.repeat(400)}${i}` });
   const b = buildBundle({ episode: { ...episode, root_turn_id: 'u0' }, transcript: { events: many, snapshot: null }, known, nonce: 'n' });
   assert.ok(b.turns.length <= 12);
   assert.ok(b.turns.every((t) => t.text.length <= 1200));
-  assert.ok(bundleTokens(b) <= 6000, `tokens ${bundleTokens(b)}`);
+  assert.ok(bundleTokens(b) <= 900, `tokens ${bundleTokens(b)}`);
   assert.equal(b.meta.truncated_turns, true);
+});
+
+test('cap holds in the worst case: long turns, long replies, many tools, and a large config', () => {
+  const ev = [];
+  for (let i = 0; i < 20; i++) {
+    ev.push({ t: at(i), kind: 'human', uuid: `u${i}`, text: `Actually ${'word '.repeat(400)}${i}` });
+    ev.push({ t: at(i), kind: 'assistant_text', text: 'x', head: 'reply '.repeat(100) });
+    for (let k = 0; k < 12; k++) ev.push({ t: at(i), kind: 'tool_use', name: `Tool${k}`, id: `x${i}-${k}` });
+  }
+  const big = [{ path: `${HOME}/a/CLAUDE.md`, content: 'rule line\n'.repeat(3000) }, { path: `${HOME}/b/CLAUDE.md`, content: 'other rule\n'.repeat(3000) }];
+  const b = buildBundle({ episode: { ...episode, root_turn_id: 'u0' }, transcript: { events: ev, snapshot: big }, known, nonce: 'n' });
+  assert.ok(bundleTokens(b) <= 900, `tokens ${bundleTokens(b)}`);
+  assert.ok(b.turns.filter((t) => t.role === 'human').length >= 1);
+  assert.ok(b.config.length >= 1, 'some loaded instructions survive');
 });
 
 test('no snapshot: current files are used and marked may_have_changed when edited after the start', () => {
