@@ -4,7 +4,7 @@ import { spawnSync } from 'node:child_process';
 import { readFileSync } from 'node:fs';
 import { fileURLToPath } from 'node:url';
 import { buildBundle, judgePrompt, payloadOf } from '../../src/judge/bundle.mjs';
-import { CLASSIFIER_SCHEMA, JUDGED_ENTRY_IDS, validateJudgment } from '../../src/judge/validate.mjs';
+import { CLASSIFIER_SCHEMA, isProof, JUDGED_ENTRY_IDS, validateJudgment } from '../../src/judge/validate.mjs';
 import { parseJudgeOutput } from '../../src/adapters/claude-code/judge.mjs';
 import { buildIdentifiers } from '../../src/scrub/mask.mjs';
 
@@ -140,4 +140,13 @@ test('a config quote that is not an exact copy is "not found", not an invalid an
   const v = validateJudgment(o, b);
   assert.equal(v.ok, true, v.errors.join('; '));
   assert.equal(v.output.corrections[0].config_ref.start, -1);
+});
+
+test('a quote of only punctuation or space is never proof', () => {
+  assert.equal(isProof('Always run the tests first.', 'x'), true);
+  assert.equal(isProof('Use tabs.', 'Use tabs.'), true);
+  for (const q of ['............', '- - - - - - - -', '!!!', '\u00a0\u00a0\u00a0\u00a0\u00a0\u00a0\u00a0\u00a0\u00a0\u00a0\u00a0\u00a0\u00a0']) {
+    assert.equal(isProof(q, 'x'), false, q);
+    assert.equal(isProof(q, q), false, q);
+  }
 });

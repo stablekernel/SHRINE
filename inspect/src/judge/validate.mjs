@@ -14,10 +14,11 @@ export const JUDGED_ENTRY_IDS = CLASSIFIER_SCHEMA.properties.corrections.items.p
 // after trim is about two words ("use tabs not"), where a single word or letter
 // ("a", "test") is found in almost any turn or config block. A quote of the whole
 // turn or block (a short "Use tabs.") also counts: it cannot be more specific.
+// A quote with no letter or digit ("............") is never proof.
 export const MIN_QUOTE_CHARS = 12;
 export function isProof(text, source) {
   const s = typeof text === 'string' ? text.trim() : '';
-  if (!s) return false;
+  if (!/[\p{L}\p{N}]/u.test(s)) return false;
   return s.length >= MIN_QUOTE_CHARS || s === (typeof source === 'string' ? source.trim() : null);
 }
 
