@@ -57,6 +57,8 @@ test('T1 leak: zero secret survivors, zero absolute paths, zero OS user or autho
   // What the judge saw: no OS user, no author name, no absolute path.
   const order = readFileSync(join(r.dir, 'workorder.json'), 'utf8');
   assert.deepEqual(userIn(order), [], 'OS user in the work order');
+  // The check reads the work order's strings unescaped: a user after "\n" or "\t" counts.
+  for (const sep of ['\n', '\t', '<']) assert.notDeepEqual(userIn(JSON.stringify({ ...JSON.parse(order), planted: `x${sep}${user}` })), [], `escaped ${JSON.stringify(sep)}`);
   assert.ok(!order.includes('Fixture Author'), 'git author in the work order');
   assert.doesNotMatch(order, /"\/(Users|home|private|var|tmp)\//);
   const safe = readFileSync(join(r.dir, 'report.share-safe.html'), 'utf8');

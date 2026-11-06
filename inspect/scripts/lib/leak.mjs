@@ -226,22 +226,56 @@ export function unshipped(html, shipped = shippedText()) {
   return t;
 }
 
-// OS user mentions as whole tokens. Ignored only where they are code: a CSS
-// selector token inside <style> (":root", ".x", "#x"), and the page's inline
-// script when it is byte for byte the shipped app.js. Anywhere else, the
-// findings JSON included, a mention counts.
+// Every string in a whole JSON file or in each line of a JSONL file (the work
+// order, judgments.jsonl), object keys included. Empty for anything else.
+function fileStrings(text) {
+  const out = [];
+  const visit = (v) => {
+    if (typeof v === 'string') out.push(v);
+    else if (Array.isArray(v)) v.forEach(visit);
+    else if (v && typeof v === 'object') for (const [k, x] of Object.entries(v)) out.push(k), visit(x);
+  };
+  const whole = parseJson(text);
+  if (whole.ok) visit(whole.data);
+  else for (const line of text.split('\n')) if (line.trim()) {
+    const r = parseJson(line);
+    if (r.ok) visit(r.data);
+  }
+  return out;
+}
+
+const SHIPPED_SCRIPT = /<script>([\s\S]*?)<\/script>/g;
+const STYLE = /<style[^>]*>[\s\S]*?<\/style>/g;
+
+// OS user mentions as whole tokens, in the raw text and in each decoded view:
+// HTML entities decoded, tags read as spaces or dropped, and every JSON string
+// (data blocks, a JSON file, JSONL lines) with its escapes ("\n", "<")
+// undone. Ignored only where they are code: a CSS selector token inside <style>
+// (":root", ".x", "#x"), and the page's inline script when it is byte for byte
+// the shipped app.js. Anywhere else a mention counts.
 export function userMentions(text, user, shipped = shippedText()) {
   if (!user) return [];
   const skip = [];
-  for (const m of text.matchAll(/<script>([\s\S]*?)<\/script>/g)) if (m[1] === shipped.app) skip.push([m.index, m.index + m[0].length, false]);
-  for (const m of text.matchAll(/<style[^>]*>[\s\S]*?<\/style>/g)) skip.push([m.index, m.index + m[0].length, true]);
-  const out = [];
-  for (const m of text.matchAll(wordRe(user, 'g'))) {
+  for (const m of text.matchAll(SHIPPED_SCRIPT)) if (m[1] === shipped.app) skip.push([m.index, m.index + m[0].length, false]);
+  for (const m of text.matchAll(STYLE)) skip.push([m.index, m.index + m[0].length, true]);
+  const out = new Set();
+  const re = wordRe(user, 'g');
+  const at = (s, i) => s.slice(Math.max(0, i - 40), i + user.length + 20);
+  for (const m of text.matchAll(re)) {
     const s = skip.find(([a, b]) => m.index >= a && m.index < b);
     if (s && (!s[2] || /[:.#]/.test(text[m.index - 1]))) continue;
-    out.push(text.slice(Math.max(0, m.index - 40), m.index + user.length + 20));
+    out.add(at(text, m.index));
   }
-  return out;
+  // Styles and the shipped script were read above, raw; data blocks are read
+  // below as parsed strings, so each is left out of the decoded page.
+  const page = text
+    .replace(SHIPPED_SCRIPT, (all, body) => (body === shipped.app ? ' ' : all))
+    .replace(STYLE, ' ')
+    .replace(JSON_BLOCK, ' ');
+  const br = page.replace(/<br\s*\/?>/gi, '\n');
+  const decoded = [decode(page), decode(br.replace(/<[^>]*>/g, ' ')), decode(br.replace(/<[^>]*>/g, '')), ...jsonStrings(text), ...fileStrings(text)];
+  for (const v of decoded) for (const m of v.matchAll(re)) out.add(at(v, m.index));
+  return [...out];
 }
 
 // True only for a count label: one of the package's own short strings, alone

@@ -85,6 +85,21 @@ test('OS user root: CSS selectors and the shipped script are not the user; anywh
   assert.deepEqual(userMentions('{"dispatcher": "judge_runner"}', 'runner'), []);
 });
 
+test('the OS user is found JSON- or HTML-escaped, as a project name is', () => {
+  const plantRaw = (html, raw) => html.replace(/(<script type="application\/json"[^>]*>\{)/, `$1"planted":"${raw}",`);
+  for (const raw of ['\\u003cjdoe\\u003e', 'line\\njdoe', 'col\\tjdoe', 'say \\"jdoe\\"', '\\u006adoe']) {
+    assert.deepEqual(leaks(plantRaw(page, raw), { user: 'jdoe' }), ['user name'], `data block ${raw}`);
+    assert.deepEqual(leaks(plantRaw(page, raw), { names: ['jdoe'] }), ['name: jdoe'], `as a name ${raw}`);
+    assert.notDeepEqual(userMentions(`{"note":"${raw}"}`, 'jdoe'), [], `JSON file ${raw}`);
+    assert.notDeepEqual(userMentions(`{"a":1}\n{"note":"${raw}"}\n`, 'jdoe'), [], `JSONL ${raw}`);
+  }
+  for (const html of ['&#106;doe', 'x&lt;jdoe&gt;', 'by <b>jdoe</b>']) assert.deepEqual(leaks(page.replace('<body>', `<body><p>${html}</p>`), { user: 'jdoe' }), ['user name'], html);
+  // Still exempt when escaped: the CSS selector, the shipped script, a joined word.
+  assert.deepEqual(userMentions('{"dispatcher":"judge_runner","n":"x\\njudge_runner"}', 'runner'), []);
+  assert.deepEqual(leaks(plantRaw(page, 'x\\njudge_runner'), { user: 'runner' }), []);
+  assert.deepEqual(leaks(page, { user: 'root' }), []);
+});
+
 test('literals: string and template parts; comments and regex literals skipped', () => {
   const src = "// don't read me\nconst a = 'one two'; /* it's */ const r = /['\"]/g;\nconst t = `<p>${a ? `x ${b}` : 'y'} tail</p>`;";
   assert.deepEqual(literals(src), ['one two', '<p>', 'x ', '', 'y', ' tail</p>']);
