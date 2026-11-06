@@ -11,7 +11,7 @@ import { detect } from '../adapters/claude-code/detect.mjs';
 import { defaultTempPatterns, encodeProjectPath, listProjects } from '../adapters/claude-code/projects.mjs';
 import { retention } from '../adapters/claude-code/retention.mjs';
 import { collectSetup, knownIdentifiers } from '../adapters/claude-code/setup.mjs';
-import { runConfigProbes } from '../probes/config.mjs';
+import { instructionFiles, runConfigProbes } from '../probes/config.mjs';
 import { score, displayPath, TOOL_VERSION } from '../scorer/score.mjs';
 import { copy, copyVocabulary } from '../copy/templates.mjs';
 import { loadBundledCatalogue } from '../catalogue/build.mjs';
@@ -178,6 +178,7 @@ async function continueRunInner(folder, ctx, io) {
   // T1: sample, evidence packs (in memory), and the Gate B offer. T0 is
   // pre-selected; judging needs a typed yes. Paused means zero judge spawns.
   const T = THRESHOLDS;
+  const needOf = () => (history ? { ...history.need, ...(usage ? {} : { rule: 'setup_only' }) } : { consented: historyConsented });
   let t1 = null;
   let t1Note = null;
   let adapter = null;
@@ -197,7 +198,8 @@ async function continueRunInner(folder, ctx, io) {
     }
     if (t1Note && !state.gates.B) state.gates.B = { choice: 'T0', by: 'rule', at: new Date(ctx.now).toISOString() };
     if (!state.gates.B) {
-      const gate = { gate: 'B', question: 'Pick a depth: T0 scan only (pre-selected), or T1 judging.', choices: ['T0', 'T1'], offer: t1.gate, lines: copy.gateBLines(t1.gate) };
+      // The "do you need it yet" line is part of the question, so it shows before the prompt.
+      const gate = { gate: 'B', question: 'Pick a depth: T0 scan only (pre-selected), or T1 judging.', choices: ['T0', 'T1'], offer: t1.gate, lines: [copy.needLine(needOf(), { t1: true }), ...copy.gateBLines(t1.gate)] };
       folder.writeJson('gate.json', gate);
       state.phase = 'gate_b';
       folder.writeJson('state.json', state);
@@ -214,7 +216,7 @@ async function continueRunInner(folder, ctx, io) {
 
   // Gate B: the "do you need it yet" line, from the scan, shown before the report.
   // In this version the depth is T0, set by --tier, so the line informs, not asks.
-  const need = history ? { ...history.need, ...(usage ? {} : { rule: 'setup_only' }) } : { consented: historyConsented };
+  const need = needOf();
   // A resumed run keeps the line it already showed.
   const shown = folder.isDone('gate_b') ? readJson(folder.path('gate-b.json')) : null;
   const gateB = shown ?? { gate: 'B', tier: state.gates.B?.choice ?? 'T0', by: state.gates.B?.by ?? 'flag', need, line: copy.needLine(need, { t1: Boolean(t1 && !t1Note) }), note: state.tier === 'T1' ? (t1Note ?? 'Tier 1 offered after the scan; T0 pre-selected.') : GATE_B_NOTE, ...(t1 && !t1Note ? { offer: t1.gate } : {}) };
@@ -222,7 +224,10 @@ async function continueRunInner(folder, ctx, io) {
     folder.writeJson('gate-b.json', gateB);
     folder.markDone('gate_b');
   }
-  if (!io.json) io.stdout.write(`Gate B: ${gateB.line}\n`);
+  // Shown already when Gate B was asked with it (inline or by approve): not again after the answer.
+  const lastGate = exists(folder.path('gate.json')) ? readJson(folder.path('gate.json')) : null;
+  const asked = lastGate?.gate === 'B' && Array.isArray(lastGate.lines) && lastGate.lines.includes(gateB.line);
+  if (!io.json && !asked) io.stdout.write(`Gate B: ${gateB.line}\n`);
 
   const run = {
     id: state.run_id,
@@ -369,7 +374,9 @@ async function continueRunInner(folder, ctx, io) {
       commands: counts('command'),
       servers: setup.items.filter((i) => i.kind === 'server' && i.virtual).length,
       'memory files': counts('memory'),
-      'instruction files': counts('instruction'),
+      // Output styles are counted apart, so this total matches the owner and review checks.
+      'instruction files': instructionFiles(setup).length,
+      'output styles': counts('instruction') - instructionFiles(setup).length,
       plugins: setup.inventory.enabled_plugins.length,
     },
   });

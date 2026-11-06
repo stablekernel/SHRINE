@@ -1627,7 +1627,7 @@
       "Correction candidates: 40 human messages, each counted once however many cues it holds. Count only, not judged.",
       "Identical tool-call retries: 61 of 5200 tool calls (1.2 per 100 tool calls). Count only: polling and re-reads look the same. Mostly 1 project: 72% of episodes.",
       "Done claims with no test or check run before them: 4 of 12 claims. Count only: the claim pattern is not precise enough for a finding. Mostly 1 project: 72% of episodes.",
-      "Rework (named reverts) within 72 hours: 3 of 6 flagged episodes with linked commits (50%, a small sample under 15 episodes), 10 of 80 other episodes with linked commits (13%). Mostly 1 project: 72% of episodes.",
+      "Control, done claims with no test: rework (named reverts) within 72 hours: 3 of 6 flagged episodes with linked commits (50%, a small sample under 15 episodes), 10 of 80 other episodes with linked commits (13%). Mostly 1 project: 72% of episodes.",
       "Rework (named reverts) within 72 hours: 2 of 60 episodes with linked commits (3%). Mostly 1 project: 72% of episodes.",
       "Possible rework (later-session fix): 7 of 60 episodes with linked commits had a fix commit on the same files from a later session, at least 1 hour after. Candidate count only. Mostly 1 project: 72% of episodes.",
       "Possible rework (file overlap): 48 of 136 episodes had a changed file touched again within 72 hours. Candidate count only. Mostly 1 project: 72% of episodes.",

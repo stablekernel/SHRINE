@@ -66,7 +66,7 @@ test('without a yes, no session log is streamed; the TTY prompt shows the itemiz
   const state = mkdtempSync(join(tmpdir(), 'si-st-'));
   const r = await inproc(['run', '--tier', 'T0'], h, state, tty('no-history'));
   assert.equal(r.code, 0, r.stderr);
-  assert.match(r.stderr, /History if yes: 13 session files in 1 project,/);
+  assert.match(r.stderr, /History if yes: 13 session files in 1 project, files last changed \d{4}-\d\d-\d\d to \d{4}-\d\d-\d\d \(last \d+ days\)/);
   assert.match(r.stderr, /Estimated time with history: under 1 minute/);
   // Exact about what Gate A read: the first lines can hold a prompt, so the text never claims none was read.
   assert.match(r.stderr, /the first 10 lines of the newest session file per folder are read to find its folder/);
@@ -282,7 +282,7 @@ test('Gate B line: limited history under 10 sessions, and unknown without histor
   const state = mkdtempSync(join(tmpdir(), 'si-st-'));
   const r = await inproc(['run', '--tier', 'T0', '--json'], h, state, tty('history'));
   assert.equal(r.code, 0, r.stderr);
-  assert.match(JSON.parse(r.stdout).gate_b.line, /^Do you need more than a scan yet\? Not yet: 4 sessions and 4 of your messages over \d+ days is limited history, under 10 sessions/);
+  assert.match(JSON.parse(r.stdout).gate_b.line, /^Do you need more than a scan yet\? Not yet: 4 sessions and 4 of your messages over \d+ days of activity is limited history, under 10 sessions/);
   const state2 = mkdtempSync(join(tmpdir(), 'si-st-'));
   const n = await inproc(['run', '--tier', 'T0'], h, state2, tty('no-history'));
   assert.match(n.stdout, /^Gate B: Do you need more than a scan yet\? Unknown: session history was not read\.\n/);

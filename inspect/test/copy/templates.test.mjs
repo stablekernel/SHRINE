@@ -114,6 +114,10 @@ test('rework lines use episodes with linked commits as N and show unlinked commi
   assert.doesNotMatch(text, /of 15 /);
   const control = lines.find((l) => /flagged episode/.test(l));
   assert.match(control, /episodes with linked commits/);
+  // The control line names its group, so no two lines open the same way.
+  assert.match(control, /^Control, done claims with no test: rework \(named reverts\) within 72 hours: /);
+  const starts = lines.map((l) => l.split(':')[0]);
+  assert.equal(new Set(starts).size, starts.length, 'every appendix line has its own label');
 });
 
 test('rework and subagent lines name N and give no percentage of zero', () => {
@@ -175,11 +179,11 @@ test('Gate B need line: one plain sentence per history-size rule', () => {
   for (const k of ['few', 'brief']) assert.match(lines[k], /^Do you need more than a scan yet\? Not yet: .* is a short history, under 20 messages or 7 days, so a scan is all it supports\.$/, k);
   assert.match(copy.needLine({ consented: true, rule: 'probe', sessions: 10, human_messages: 20, span_days: 7 }), /Maybe:/, 'at the bars, enough');
   assert.equal(lines.none, 'Do you need more than a scan yet? Unknown: session history was not read.');
-  assert.equal(lines.thin, 'Do you need more than a scan yet? Not yet: 6 sessions and 40 of your messages over 5 days is limited history, under 10 sessions, so a scan is all it supports.');
-  assert.equal(lines.enough, 'Do you need more than a scan yet? Maybe: 66 sessions and 1171 of your messages over 30 days is enough history for a deeper look; this version offers the scan only.');
+  assert.equal(lines.thin, 'Do you need more than a scan yet? Not yet: 6 sessions and 40 of your messages over 5 days of activity is limited history, under 10 sessions, so a scan is all it supports.');
+  assert.equal(lines.enough, 'Do you need more than a scan yet? Maybe: 66 sessions and 1171 of your messages over 30 days of activity is enough history for a deeper look; this version offers the scan only.');
   assert.match(lines.empty, /^Do you need more than a scan yet\? Unknown/);
   const t1 = copy.needLine({ consented: true, rule: 'probe', sessions: 66, human_messages: 1171, span_days: 30 }, { t1: true });
-  assert.equal(t1, 'Do you need more than a scan yet? Maybe: 66 sessions and 1171 of your messages over 30 days is enough history for a deeper look; T1 below judges a sample.');
+  assert.equal(t1, 'Do you need more than a scan yet? Maybe: 66 sessions and 1171 of your messages over 30 days of activity is enough history for a deeper look; T1 below judges a sample.');
   lines.t1 = t1;
   for (const l of Object.values(lines)) {
     assert.ok(!l.includes('\n'), 'one line');
@@ -196,4 +200,16 @@ test('control sentence labels a small flagged group and drops an empty one', () 
   assert.match(none, /No control comparison: no flagged episode has a linked commit\./);
   const big = copy.finding('done_without_test', dwt({ hits: 3, n: 20, rate: 0.15 })).why.join(' ');
   assert.match(big, /3 of 20 flagged episodes with linked commits \(15%\)/);
+});
+
+// Gate A lists session files; the report counts sessions. The line says how one becomes the other.
+test('session files at Gate A and sessions reviewed are told apart and reconciled', async () => {
+  const { sessionFilesLine } = await import('../../src/copy/templates.mjs');
+  assert.equal(sessionFilesLine({ sessions: 47, session_files: 47 }), null);
+  assert.equal(sessionFilesLine({ sessions: 47 }), null);
+  assert.equal(
+    sessionFilesLine({ sessions: 47, session_files: 55, forked_sessions_dropped: 7, own_sessions: 1, unreadable_sessions: 0 }),
+    'Session files listed at Gate A: 55. Not counted as sessions: 8 (7 forks with nothing new and the session driving this run).',
+  );
+  assert.match(sessionFilesLine({ sessions: 10, session_files: 13, own_sessions: 0, unreadable_sessions: 1 }), /3 \(1 unreadable and 2 housekeeping, spawned, or outside a project\)/);
 });
