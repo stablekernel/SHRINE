@@ -6,7 +6,7 @@ allowed-tools: Bash(node --version), Bash(shrine-inspect version:*), Bash(shrine
 
 # SHRINE Inspect
 
-Skill version: 0.1.2
+Skill version: 0.1.3
 
 This skill only starts the `shrine-inspect` CLI and watches it. The CLI does every read, every gate, and every judge call.
 
@@ -31,7 +31,7 @@ This skill only starts the `shrine-inspect` CLI and watches it. The CLI does eve
 2. Check the CLI. Run:
 
    ```bash
-   shrine-inspect version --skill-version 0.1.2
+   shrine-inspect version --skill-version 0.1.3
    ```
 
    If the command is not found, or it stops with `E_VERSION`, stop. Tell the user to install the CLI and this skill from the same release (see TRIAL.md in the release).
@@ -39,7 +39,7 @@ This skill only starts the `shrine-inspect` CLI and watches it. The CLI does eve
 3. Start a run in the background. Use `--tier T1` only when the user asked for judging ("Pulse"); else use `--tier T0`. Session id: `${CLAUDE_SESSION_ID}`. If that id is empty or still shows as a placeholder, leave out `--session-id` and its value. Never leave `--session-id` with nothing after it.
 
    ```bash
-   shrine-inspect start --tier T0 --session-id ${CLAUDE_SESSION_ID} --skill-version 0.1.2 --json
+   shrine-inspect start --tier T0 --session-id ${CLAUDE_SESSION_ID} --skill-version 0.1.3 --json
    ```
 
    Keep the `run_id` from the output.
@@ -47,7 +47,7 @@ This skill only starts the `shrine-inspect` CLI and watches it. The CLI does eve
 4. Watch the run. Run this about every 15 seconds while the state is `running`:
 
    ```bash
-   shrine-inspect status <run_id> --skill-version 0.1.2 --json
+   shrine-inspect status <run_id> --skill-version 0.1.3 --json
    ```
 
    - `running`: give the user one short line with the phase. Check again.
