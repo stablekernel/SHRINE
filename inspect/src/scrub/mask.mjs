@@ -193,7 +193,10 @@ export function underHome(path, home) {
 }
 
 // Locator words the scorer writes itself (the stack-gap kinds and the setup row).
-const LOCATOR_WORDS = new Set(['setup', 'hooks', 'skills', 'memory']);
+const LOCATOR_WORDS = new Set(['setup', 'hooks', 'skills', 'memory', 'session history']);
+// A judged locator: an episode id (a hash of the session id) and a bundle turn id
+// ("e-3fa9c2d1b7e0 t04"). Both are made by code, so neither can hold a name or path.
+const EPISODE_LOCATOR = /^e-[0-9a-f]{12}(?: t\d{2,4})?$/;
 const LINE_ANCHOR = /#L\d+(?:-L?\d+)?/;
 
 // Masks a value known to be a path, segment by segment, so folder names with spaces
@@ -211,6 +214,7 @@ export function maskPath(value, known) {
   // locator word or tool name: the whole value is that name.
   const id = known?.ids?.find((i) => i.value === value);
   if (id) return id.placeholder;
+  if (EPISODE_LOCATOR.test(value)) return value;
   if (!/[\\/]/.test(value)) return LOCATOR_WORDS.has(value) || TOOL_FILES.has(value) ? value : maskBase(mask(value, known));
   let p = value.replace(PROJECT_FOLDER, '$1<project-folder>');
   const rest = underHome(p, known?.home);

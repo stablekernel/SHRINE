@@ -3,7 +3,8 @@ import assert from 'node:assert/strict';
 import { readFileSync } from 'node:fs';
 import { fileURLToPath } from 'node:url';
 import { renderReport, shareSafeFindings, PREVIEW_LABEL, SAFE_MASK_NOTE } from '../../src/render/report.mjs';
-import { buildIdentifiers } from '../../src/scrub/mask.mjs';
+import { buildIdentifiers, maskPath } from '../../src/scrub/mask.mjs';
+import { t1Findings } from '../synth/t1-findings.mjs';
 import { score } from '../../src/scorer/score.mjs';
 import { copy } from '../../src/copy/templates.mjs';
 import * as min from '../schema/minimal.mjs';
@@ -101,6 +102,21 @@ test('toggle label and share-safe file', () => {
   const evidence = safe.findings.flatMap((f) => f.evidence);
   assert.ok(evidence.some((e) => e.kind !== 'mechanical'), 'the mock carries evidence that had excerpts');
   for (const e of evidence) assert.equal(e.excerpt_scrubbed ?? null, null);
+});
+
+test('share-safe copy keeps judged evidence locators', () => {
+  const raw = t1Findings();
+  const known = buildIdentifiers({ osUser: 'jdoe', home: '/home/jdoe', projects: ['bad-project'] });
+  const judged = (d) => d.findings.concat(d.worth_a_look).filter((f) => f.provenance === 'judged');
+  assert.ok(judged(raw).length, 'the fixture has judged findings');
+  const safe = shareSafeFindings(raw, known, pivots);
+  const locs = (d) => judged(d).flatMap((f) => [f.anchor, ...f.evidence.map((e) => e.locator)]);
+  assert.deepEqual(locs(safe), locs(raw));
+  assert.ok(locs(safe).includes('session history'));
+  assert.ok(locs(safe).some((l) => /^e-[0-9a-f]{12} t\d+$/.test(l)));
+  // Only code-made locators pass: a name in the same shape is still masked.
+  assert.equal(maskPath('e-initechcorp t01', known), '<file>');
+  assert.equal(maskPath('bad-project t01', known), '<file>');
 });
 
 test('share-safe copy masks skipped-file paths', () => {
