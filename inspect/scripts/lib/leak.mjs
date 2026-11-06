@@ -1,6 +1,7 @@
 // Leak check for a rendered report (release dry run, real-run driver, T1 leak
-// test). Secrets, paths, prompts, and absolute paths match anywhere in the raw
-// page. Project names and the OS user are often ordinary words ("scope",
+// test). Secrets, paths, and prompts match anywhere in the page, raw or
+// decoded (HTML entities, JSON strings); absolute paths in the raw page.
+// Project names and the OS user are often ordinary words ("scope",
 // "skills", "root"), so they match as whole tokens, and only outside text this
 // package ships itself: the inlined assets, catalogue strings, and the fixed
 // parts of string literals in src/. Dependency free: the dry-run CI job has no
@@ -133,25 +134,74 @@ export function shippedText(root = join(PKG_ROOT, 'src')) {
   return cached;
 }
 
+const ENTITY = { quot: '"', apos: "'", lt: '<', gt: '>', amp: '&', nbsp: ' ' };
 const decode = (s) =>
-  s
-    .replace(/&quot;/g, '"')
-    .replace(/&#0*39;|&#x0*27;|&apos;/gi, "'")
-    .replace(/&lt;/g, '<')
-    .replace(/&gt;/g, '>')
-    .replace(/&amp;/g, '&');
+  s.replace(/&(?:#(\d+)|#x([\da-f]+)|([a-z]+));/gi, (all, d, h, nm) => {
+    const cp = d ? Number(d) : h ? parseInt(h, 16) : null;
+    if (cp !== null) return cp <= 0x10ffff ? String.fromCodePoint(cp) : all;
+    return ENTITY[nm.toLowerCase()] ?? all;
+  });
+
+const JSON_BLOCK = /(<script type="application\/json"[^>]*>)([\s\S]*?)(<\/script>)/g;
+const parseJson = (body) => {
+  try {
+    return { ok: true, data: JSON.parse(body) };
+  } catch {
+    return { ok: false };
+  }
+};
+
+// Every string in the page's JSON data blocks, object keys included.
+function jsonStrings(html) {
+  const out = [];
+  const visit = (v) => {
+    if (typeof v === 'string') out.push(v);
+    else if (Array.isArray(v)) v.forEach(visit);
+    else if (v && typeof v === 'object') for (const [k, x] of Object.entries(v)) out.push(k), visit(x);
+  };
+  for (const m of html.matchAll(JSON_BLOCK)) {
+    const r = parseJson(m[2]);
+    if (r.ok) visit(r.data);
+  }
+  return out;
+}
+
+// A name boundary: not a letter, digit, or hyphen, so "acme" is found in
+// "acme_billing" and "acmeBilling" (camel case: lower then upper) but not in
+// "acmes", "pacme", or "acme-billing".
+export const nameRe = (w, flags = '') => {
+  const pre = /^[A-Z]/.test(w) ? '(?<![A-Z\\d-])' : '(?<![A-Za-z\\d-])';
+  const post = /[a-z]$/.test(w) ? '(?![a-z\\d-])' : '(?![A-Za-z\\d-])';
+  return new RegExp(`${pre}${esc(w)}${post}`, flags);
+};
+
+// Cut each whole occurrence of a shipped chunk, except where the chunk's first
+// or last character runs on into a word character outside it: there the chunk
+// may hold half of a name ("... approve" + "-billing").
+const WORD = /[\w-]/;
+function cut(t, c, sep) {
+  const head = WORD.test(c[0]);
+  const tail = WORD.test(c.at(-1));
+  let out = '';
+  let from = 0;
+  for (let at = t.indexOf(c); at >= 0; at = t.indexOf(c, at + 1)) {
+    if (at < from) continue;
+    if (head && WORD.test(t[at - 1] ?? '')) continue;
+    if (tail && WORD.test(t[at + c.length] ?? '')) continue;
+    out += t.slice(from, at) + sep;
+    from = at + c.length;
+  }
+  return out + t.slice(from);
+}
 
 // The page with its JSON data blocks flattened to their values (and any key
 // the package does not use itself), entities decoded, and shipped text cut out.
 export function unshipped(html, shipped = shippedText()) {
   const SEP = '\u0000';
-  const flat = html.replace(/(<script type="application\/json"[^>]*>)([\s\S]*?)(<\/script>)/g, (all, a, body, b) => {
-    let data;
-    try {
-      data = JSON.parse(body);
-    } catch {
-      return all;
-    }
+  const flat = html.replace(JSON_BLOCK, (all, a, body, b) => {
+    const r = parseJson(body);
+    if (!r.ok) return all;
+    const data = r.data;
     const parts = [];
     const visit = (v) => {
       if (typeof v === 'string') parts.push(v);
@@ -172,7 +222,7 @@ export function unshipped(html, shipped = shippedText()) {
     return `${a}${SEP}${parts.join(SEP)}${SEP}${b}`;
   });
   let t = decode(flat);
-  for (const c of shipped.chunks) if (t.includes(c)) t = t.split(c).join(SEP);
+  for (const c of shipped.chunks) if (t.includes(c)) t = cut(t, c, SEP);
   return t;
 }
 
@@ -205,15 +255,34 @@ function label(rest, at, n, shipped) {
   return new RegExp(`^${esc(n)}: [\\d,]+$`).test(run);
 }
 
+// The page as raw HTML, with entities decoded, as text (tags dropped or read
+// as spaces, <br> as a newline), and each JSON data string: the report escapes
+// & " < > in HTML and quotes and newlines in JSON, so a needle can only match
+// once decoded. Whitespace runs compare as one space, for wrapped text.
+const squash = (s) => s.replace(/\s+/g, ' ').trim();
+function views(html) {
+  const dec = decode(html);
+  const br = html.replace(/<br\s*\/?>/gi, '\n');
+  const list = [html, dec, decode(br.replace(/<[^>]*>/g, '')), decode(br.replace(/<[^>]*>/g, ' ')), ...jsonStrings(html)];
+  return { list, squashed: list.map(squash) };
+}
+
 // Needles found in an HTML report.
 export function leaks(text, { secrets = [], paths = [], names = [], prompts = [], user = null }, shipped = shippedText()) {
   const found = [];
+  let v = null;
+  const has = (n) => {
+    if (text.includes(n)) return true;
+    v ??= views(text);
+    const s = squash(n);
+    return v.list.some((x) => x.includes(n)) || (s !== '' && v.squashed.some((x) => x.includes(s)));
+  };
   for (const [kind, list] of [['secret', secrets], ['path', paths], ['prompt', prompts]]) {
-    for (const n of list) if (n && text.includes(n)) found.push(`${kind}: ${kind === 'secret' ? `${n.slice(0, 4)}...` : n}`);
+    for (const n of list) if (n && has(n)) found.push(`${kind}: ${kind === 'secret' ? `${n.slice(0, 4)}...` : n}`);
   }
   if (names.some(Boolean)) {
     const rest = unshipped(text, shipped);
-    for (const n of names) if (n && [...rest.matchAll(wordRe(n, 'g'))].some((m) => !label(rest, m.index, n, shipped))) found.push(`name: ${n}`);
+    for (const n of names) if (n && [...rest.matchAll(nameRe(n, 'g'))].some((m) => !label(rest, m.index, n, shipped))) found.push(`name: ${n}`);
   }
   if (userMentions(text, user, shipped).length) found.push('user name');
   const abs = text.match(/\/(Users|home|private|var\/folders|tmp)\/[\w.-]+\//);

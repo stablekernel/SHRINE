@@ -9,7 +9,7 @@ import assert from 'node:assert/strict';
 import { readFileSync } from 'node:fs';
 import { fileURLToPath } from 'node:url';
 import { renderReport } from '../../src/render/report.mjs';
-import { leaks, literals, userMentions, wordRe } from '../../scripts/lib/leak.mjs';
+import { leaks, literals, shippedText, userMentions, wordRe } from '../../scripts/lib/leak.mjs';
 
 const golden = JSON.parse(readFileSync(fileURLToPath(new URL('../golden/bad-setup/findings.json', import.meta.url)), 'utf8'));
 const page = renderReport(golden, { shareSafe: true });
@@ -31,6 +31,37 @@ test('the same words planted in page text or the findings JSON are found', () =>
   }
   // A word inside a longer, unshipped run still counts.
   assert.deepEqual(leaks(page.replace('<body>', '<body><li>skills: 3 in skills-repo and skills</li>'), { names: ['skills'] }), ['name: skills']);
+});
+
+test('a shipped string that ends inside a name does not hide the name', () => {
+  const { chunks } = shippedText();
+  const chunk = chunks.find((c) => /\s[a-z]{4,}$/.test(c) && c.length < 80 && !/[<>]/.test(c) && !page.includes(c));
+  const last = chunk.match(/([a-z]+)$/)[1];
+  const n = `${last}-billing`;
+  const s = `${chunk.slice(0, -last.length)}${n}`;
+  assert.deepEqual(leaks(page.replace('<body>', `<body><p>${s} repo</p>`), { names: [n] }), [`name: ${n}`], 'text');
+  assert.deepEqual(leaks(plantJson(page, s), { names: [n] }), [`name: ${n}`], 'json');
+  // The whole shipped string, alone, is still cut.
+  assert.deepEqual(leaks(page.replace('<body>', `<body><p>${chunk}</p>`), { names: [last] }), []);
+});
+
+test('a name joined by underscore or camel case is found; a longer word is not', () => {
+  for (const [s, n] of [['acme_billing', 'acme'], ['acmeBilling', 'acme'], ['billing_acme', 'acme'], ['billingAcme', 'Acme'], ['acme_Billing', 'acme']]) {
+    assert.deepEqual(leaks(plantText(page, s), { names: [n] }), [`name: ${n}`], `text ${s}`);
+    assert.deepEqual(leaks(plantJson(page, s), { names: [n] }), [`name: ${n}`], `json ${s}`);
+  }
+  for (const s of ['acmes', 'pacme', 'acme2', 'acme-billing']) assert.deepEqual(leaks(plantText(page, s), { names: ['acme'] }), [], s);
+});
+
+test('a prompt with quotes, ampersand, and a newline is found HTML- or JSON-escaped', () => {
+  const p = 'Don\'t touch the "prod" config & rerun\nthen stop';
+  const html = p.replace(/&/g, '&amp;').replace(/</g, '&lt;').replace(/>/g, '&gt;').replace(/"/g, '&quot;');
+  assert.deepEqual(leaks(page.replace('<body>', `<body><p>${html}</p>`), { prompts: [p] }), [`prompt: ${p}`], 'text');
+  assert.deepEqual(leaks(page.replace('<body>', `<body><p>${html.replace('\n', '<br>\n  ')}</p>`), { prompts: [p] }), [`prompt: ${p}`], 'text, line break markup');
+  assert.deepEqual(leaks(plantJson(page, p), { prompts: [p] }), [`prompt: ${p}`], 'json');
+  const secret = 'sk-"a&b<c>\nd';
+  assert.deepEqual(leaks(plantJson(page, secret), { secrets: [secret] }), ['secret: sk-"...'], 'secret json');
+  assert.deepEqual(leaks(page, { prompts: [p], secrets: [secret] }), []);
 });
 
 test('a configured count label ("skills: 112") is not a leak; the bare word is', () => {
