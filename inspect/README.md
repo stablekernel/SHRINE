@@ -128,7 +128,7 @@ T1 trial (recorded, not fixed):
 
 No-network lint (`test/lint/lint.test.mjs`):
 
-- It guards against accidental network use, not deliberately hidden code: a property name held in a variable (`x[k]`) cannot be known statically
+- It guards against accidental network use, not deliberately hidden code: a property name held in a variable (`x[k]`) or decoded at run time (char codes, base64) cannot be known statically
 - `node:child_process` is allowed: only `src/io/proc.mjs` spawns (the read-only lint), and it runs git, this package's bin, and the judge command
 
 ## Develop

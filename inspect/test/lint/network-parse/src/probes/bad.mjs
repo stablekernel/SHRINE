@@ -8,3 +8,7 @@ export const F = Object.getOwnPropertyDescriptor(Object.getPrototypeOf(() => 0),
 export const k = (s) => o['fe' + s];
 import '../../../scripts/x.mjs';
 export const swap = () => process.execve('/bin/sh', []);
+export const t = () => ({})[`constructor`];
+export const r = () => ({})[String.raw`constructor`];
+export const cc = () => ({})['constr'.concat('uctor')];
+export const j = () => ({})[['constr', 'uctor'].join('')];

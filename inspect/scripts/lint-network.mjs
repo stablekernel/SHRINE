@@ -12,12 +12,15 @@
 // A guard against accidental network use, not a sandbox: a property name built at
 // run time from variables cannot be known statically (see README, Known limits).
 import { readFileSync } from 'node:fs';
-import { dirname, join, relative, resolve, sep } from 'node:path';
+import { dirname, isAbsolute, join, relative, resolve, sep } from 'node:path';
+import { isBuiltin } from 'node:module';
 import { parse } from 'acorn';
 import { lintRoot, rel, report, walk } from './lib/walk.mjs';
 
-// vm and module run or load code by a computed name; inspector opens a socket.
-const MODULE = /^(node:)?(http|https|http2|net|tls|dgram|dns|dns\/promises|undici|worker_threads|vm|module|inspector)$/;
+// vm and module run or load code by a computed name; inspector opens a socket;
+// cluster forks; process would alias process past the rule below. Subpaths too
+// ("node:inspector/promises").
+const MODULE = /^(node:)?(http|https|http2|net|tls|dgram|dns|undici|worker_threads|vm|module|inspector|cluster|process)(\/.*)?$/;
 const NET_GLOBALS = new Set(['fetch', 'WebSocket', 'EventSource', 'XMLHttpRequest']);
 // The global object reaches every global by name, so code never names it.
 const GLOBAL_OBJECTS = new Set(['globalThis', 'global', 'self', 'window', 'navigator']);
@@ -53,12 +56,23 @@ function isReference(parent, key) {
   return true;
 }
 
-// A string put together from parts: a template with a ${ } or a "+" with a string
-// in it ("'fe' + 'tch'"). Arithmetic ("i + 1") is not one.
-const isString = (n) => (n.type === 'Literal' && typeof n.value === 'string') || n.type === 'TemplateLiteral';
-const builtString = (n) =>
-  (n.type === 'TemplateLiteral' && n.expressions.length > 0) ||
-  (n.type === 'BinaryExpression' && n.operator === '+' && (isString(n.left) || isString(n.right) || builtString(n.left) || builtString(n.right)));
+// A computed key built at run time from string pieces that could spell a guarded
+// name ("'fe' + 'tch'", "'constr'.concat(x)", "['c', 'tor'].join('')"): a piece
+// (a string, or a template's text) that is part of one. "x[a.split('/')[0]]" and
+// "x[i + 1]" are not; one whole plain string is checked as itself.
+const GUARDED = () => [...NET_GLOBALS, ...GLOBAL_OBJECTS, ...DYNAMIC, ...NEVER, 'process'];
+function spellsGuarded(n) {
+  let found = false;
+  const piece = (t) => {
+    if (t && GUARDED().some((g) => g.includes(t))) found = true;
+  };
+  visit(n, (c) => {
+    if (c.type === 'Literal' && typeof c.value === 'string') piece(c.value);
+    if (c.type === 'TemplateElement') piece(c.value.cooked ?? c.value.raw);
+  });
+  return found;
+}
+const builtString = (n) => staticText(n) === null && spellsGuarded(n);
 
 // The literal text of a module specifier, or null when it is computed.
 const staticText = (n) => (n?.type === 'Literal' && typeof n.value === 'string' ? n.value : n?.type === 'TemplateLiteral' && !n.expressions.length ? n.quasis[0].value.cooked : null);
@@ -79,11 +93,17 @@ function lint(root, file, name) {
   const specifier = (node, source) => {
     const s = staticText(source);
     if (s === null) return add(node, 'module loaded by a computed name');
+    // Only node: built-ins and relative files inside src and bin: a package, an
+    // absolute or file: path, or a data: URL is code this lint never reads.
     if (MODULE.test(s)) add(node, `network module ${s}`);
-    if (s.startsWith('.')) {
+    else if (s.startsWith('.')) {
       const target = resolve(dirname(file), s);
-      if (!allowed.some((d) => !relative(d, target).startsWith('..') && !relative(d, target).startsWith(sep))) add(node, `import from outside src and bin: ${s}`);
-    }
+      const inside = (d) => {
+        const r = relative(d, target);
+        return !(r === '..' || r.startsWith(`..${sep}`) || isAbsolute(r));
+      };
+      if (!allowed.some(inside)) add(node, `import from outside src and bin: ${s}`);
+    } else if (!(s.startsWith('node:') && isBuiltin(s))) add(node, `import of code this lint does not read: ${s}`);
   };
   visit(ast, (node, parent, key) => {
     switch (node.type) {
@@ -114,6 +134,9 @@ function lint(root, file, name) {
       }
       case 'Literal':
         if (typeof node.value === 'string' && NEVER.has(node.value)) add(node, `${node.value} reached`);
+        break;
+      case 'TemplateElement':
+        if (NEVER.has(node.value.cooked ?? node.value.raw)) add(node, `${node.value.cooked ?? node.value.raw} reached`);
         break;
       case 'MemberExpression':
         // A key put together at run time ("x['constr' + 'uctor']") hides the name.

@@ -18,3 +18,4 @@ export class E extends Error {
   }
 }
 export const pick = (o, k) => o[k];
+export const first = (o, p) => o[p.split('/')[0]];
