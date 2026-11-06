@@ -125,7 +125,7 @@ export async function continueRun(folder, ctx, io) {
       excluded: listing.excluded.length,
       history: itemized,
       own_session: state.own ? { id: state.own.id, project: state.own.project, reason: state.own.reason } : null,
-      tier: { offered: 'T0', note: GATE_B_NOTE },
+      tier: state.tier === 'T1' ? { offered: 'T1', note: 'Tier: T1 requested. Judging is offered at Gate B, after the scan; T0 stays pre-selected.' } : { offered: 'T0', note: GATE_B_NOTE },
     };
     folder.writeJson('gate.json', gate);
     state.phase = 'gate_a';
@@ -201,7 +201,7 @@ export async function continueRun(folder, ctx, io) {
   const need = history ? { ...history.need, ...(usage ? {} : { rule: 'setup_only' }) } : { consented: historyConsented };
   // A resumed run keeps the line it already showed.
   const shown = folder.isDone('gate_b') ? readJson(folder.path('gate-b.json')) : null;
-  const gateB = shown ?? { gate: 'B', tier: state.gates.B?.choice ?? 'T0', by: state.gates.B?.by ?? 'flag', need, line: copy.needLine(need), note: state.tier === 'T1' ? (t1Note ?? 'Tier 1 offered after the scan; T0 pre-selected.') : GATE_B_NOTE, ...(t1 && !t1Note ? { offer: t1.gate } : {}) };
+  const gateB = shown ?? { gate: 'B', tier: state.gates.B?.choice ?? 'T0', by: state.gates.B?.by ?? 'flag', need, line: copy.needLine(need, { t1: Boolean(t1 && !t1Note) }), note: state.tier === 'T1' ? (t1Note ?? 'Tier 1 offered after the scan; T0 pre-selected.') : GATE_B_NOTE, ...(t1 && !t1Note ? { offer: t1.gate } : {}) };
   if (!shown) {
     folder.writeJson('gate-b.json', gateB);
     folder.markDone('gate_b');

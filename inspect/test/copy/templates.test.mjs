@@ -167,6 +167,9 @@ test('Gate B need line: one plain sentence per history-size rule', () => {
   assert.equal(lines.thin, 'Do you need more than a scan yet? Not yet: 6 sessions and 40 of your messages over 5 days is limited history, under 10 sessions, so a scan is all it supports.');
   assert.equal(lines.enough, 'Do you need more than a scan yet? Maybe: 66 sessions and 1171 of your messages over 30 days is enough history for a deeper look; this version offers the scan only.');
   assert.match(lines.empty, /^Do you need more than a scan yet\? Unknown/);
+  const t1 = copy.needLine({ consented: true, rule: 'probe', sessions: 66, human_messages: 1171, span_days: 30 }, { t1: true });
+  assert.equal(t1, 'Do you need more than a scan yet? Maybe: 66 sessions and 1171 of your messages over 30 days is enough history for a deeper look; T1 below judges a sample.');
+  lines.t1 = t1;
   for (const l of Object.values(lines)) {
     assert.ok(!l.includes('\n'), 'one line');
     assert.deepEqual(copyProblems(l), [], l);

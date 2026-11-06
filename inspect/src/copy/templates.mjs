@@ -230,7 +230,7 @@ export function dedupeLine(c) {
 
 // The "do you need it yet" line shown at Gate B, before a depth is chosen. need:
 // {consented, rule, sessions, human_messages, span_days}; rule is historyRule().
-export function needLine(need) {
+export function needLine(need, { t1 = false } = {}) {
   const q = 'Do you need more than a scan yet?';
   if (!need?.consented) return `${q} Unknown: session history was not read.`;
   if (need.rule === 'setup_only') return `${q} Unknown: no session in the window could be used.`;
@@ -239,7 +239,7 @@ export function needLine(need) {
   if (need.rule === 'limited') return `${q} Not yet: ${what} is limited history, under ${h.limited_sessions} sessions, so a scan is all it supports.`;
   // Enough sessions, but few messages or a short span: still thin (provisional bars).
   if (need.human_messages < h.need_min_messages || need.span_days < h.need_min_days) return `${q} Not yet: ${what} is a short history, under ${h.need_min_messages} messages or ${h.need_min_days} days, so a scan is all it supports.`;
-  return `${q} Maybe: ${what} is enough history for a deeper look; this version offers the scan only.`;
+  return `${q} Maybe: ${what} is enough history for a deeper look; ${t1 ? 'T1 below judges a sample' : 'this version offers the scan only'}.`;
 }
 
 // Appendix lines for the usage counts block. Every regex-based count says it is a count only.
@@ -296,6 +296,7 @@ export function usageLines(u) {
 
 const num = (n) => Number(n ?? 0).toLocaleString('en-US');
 const J = THRESHOLDS.judged;
+const MEASURED_ON = J.estimate.measured_on;
 
 // Appendix lines for a T1 run's judging block. s: judgedFindings().summary plus
 // the sample and the Gate B estimate (see mergeJudged).
@@ -333,7 +334,7 @@ export function gateBLines(g) {
   lines.push(`Tier T1, Pulse: judge ${g.episodes} ${pl(g.episodes, 'episode')}${where}, dated ${(g.from ?? '').slice(0, 10)} to ${(g.to ?? '').slice(0, 10)}, about ${num(g.tokens_low)} to ${num(g.tokens_high)} tokens on your own account, about ${g.minutes} ${pl(g.minutes, 'minute')}.`);
   if (g.version) lines.push(`Judge: Claude Code ${g.version}, the version in your newest session log.`);
   if (g.thin) lines.push(`Thin evidence: only ${g.eligible} ${pl(g.eligible, 'episode')} had a correction candidate.`);
-  lines.push('The token and time figures use a per-call overhead not yet measured on your setup.');
+  lines.push(`The token and time figures use a per-call overhead measured on Claude Code ${MEASURED_ON}, not on your setup.`);
   lines.push(`Judging stops early past ${num(g.tokens_high)} tokens, past ${Math.ceil(g.minutes * J.abort.time_box_factor)} minutes, or when over ${Math.round(J.abort.error_rate * 100)}% of answers are invalid; you then keep partial results or stop.`);
   for (const d of g.disclosure ?? []) lines.push(d);
   lines.push('Judged findings are candidates: a model read the episodes and its accuracy is not yet measured.');
@@ -407,7 +408,7 @@ export const copy = {
   },
   unknowable: () => [...UNKNOWABLE],
   usageLines: (u) => usageLines(u),
-  needLine: (n) => needLine(n),
+  needLine: (n, o) => needLine(n, o),
   dominanceLine: (c) => dominanceLine(c),
   gapLabel: (kind, minutes) => gapLabel(kind, minutes),
   judgingLines: (x) => judgingLines(x),
