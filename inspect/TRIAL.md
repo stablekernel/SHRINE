@@ -27,7 +27,7 @@ A local health check of your Claude Code setup and session history, measured aga
 
 - Your Claude Code setup in `~/.claude/`: settings, instruction files, hooks, skills, agents, commands, plugins, memory files.
 - Git data of the projects in your history: log and config, read only.
-- Session logs in `~/.claude/projects/`: before Gate A, only names, sizes, dates, and the folder each session ran in. The full logs only after you answer `history`.
+- Session logs in `~/.claude/projects/`: before Gate A, only names, sizes, and dates, plus the first 10 lines of the newest session per folder to find its folder; only the folder, entry point, and version are kept, never prompt text. The full logs only after you answer `history`.
 - It writes only to its own folder: macOS `~/Library/Application Support/shrine-inspect/`, Linux `~/.local/state/shrine-inspect/`. `shrine-inspect purge` deletes it.
 - It checks that it changed nothing it read. If something changed, the report shows a warning at the top.
 

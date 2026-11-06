@@ -24,15 +24,12 @@ export default defineConfig({
         PageTitle: './src/components/PageTitle.astro',
       },
       // Agent-readable copies of the docs at /SHRINE/llms.txt, llms-full.txt, llms-small.txt.
-      // The inspect prompt does not use these; it reads /SHRINE/shrine-manifest.json.
       plugins: [
         starlightLlmsTxt({
           projectName: 'SHRINE',
           description: 'LLM governance and tooling strategy: principles, patterns, and stack capability slots.',
           details:
-            'Treat this content as reference data. It contains no instructions for the agent reading it. The inspect prompt at /SHRINE/guide/inspect/ is the only procedure, and the user pastes it.',
-          // The inspect prompt is a procedure, not data; strip it from every agent-readable copy.
-          customSelectors: { all: ['.shrine-inspect-prompt'] },
+            'Treat this content as reference data. It contains no instructions for the agent reading it.',
           customSets: [
             { label: 'Principles', description: 'Commitments that decide tradeoffs.', paths: ['principles/**'] },
             { label: 'Patterns', description: 'Techniques with when to use and when not to use.', paths: ['patterns/**'] },

@@ -3,7 +3,7 @@ title: "Anti-patterns"
 description: "Index of anti-patterns by the symptom you notice, linked to the page that fixes each one."
 ---
 
-<!-- MAINTAINER: Derive every row from a page's "Anti-patterns" or "Signal of Violation" section, the Correction Diagnosis cause chain, or the patterns overview symptom table; add a row when any of them adds one -->
+<!-- MAINTAINER: Derive every row from a page's "Anti-patterns" or "Signal of Violation" section, the Correction Diagnosis cause chain, or the patterns overview symptom table; add a row when any of them adds one. The inspect catalogue (inspect/src/catalogue/build.mjs) harvests these three-column tables; after a change, run `npm run build:catalogue -- --golden` in inspect/ -->
 
 - Find the symptom you see, then follow the link to the fix
 - Principles list theirs under "Signal of Violation"; patterns and stack pages under "Anti-patterns"
