@@ -179,8 +179,11 @@ export function buildBundle({ episode, transcript, fallbackConfig = [], known, n
       }
       if (e.kind === 'assistant_text') {
         if (!assistant.text) assistant.text = clean(e.head ?? e.text, known).slice(0, caps.assistant_chars);
-        lastReply = { turn: assistant, text: e.text };
+        lastReply = { turn: assistant, text: e.text, tool_after: false };
       }
+      // A tool call after the text means the agent went on: the question, if any,
+      // was not left for the person (the episode cutter reads it the same way).
+      if (e.kind === 'tool_use' && lastReply?.turn === assistant) lastReply.tool_after = true;
       if (e.kind === 'tool_use' && assistant.tools.length < caps.tools_per_turn && !assistant.tools.includes(e.name)) assistant.tools.push(clean(e.name, known).slice(0, 64));
     }
     lastKind = e.kind;
@@ -232,7 +235,7 @@ export function buildBundle({ episode, transcript, fallbackConfig = [], known, n
     episode_id: episode.id,
     nonce,
     episode_end: episode.terminal ?? null,
-    end_signals: endSignals(episode, lastTurn?.role === 'assistant' ? lastTurn : null, lastReply && lastTurn === lastReply.turn ? lastReply.text : ''),
+    end_signals: endSignals(episode, lastTurn?.role === 'assistant' ? lastTurn : null, lastReply && lastTurn === lastReply.turn && !lastReply.tool_after ? lastReply.text : ''),
     omitted_turns: 0,
     turns,
     config: [],

@@ -229,13 +229,16 @@ test('asksPerson: a question, lettered choices, or a questions list at the end; 
 });
 
 test('end signals: computed by code from the last reply and later git and episode links', () => {
-  const ev = [...events(), { t: at(9), kind: 'assistant_text', text: 'Pick one: A) keep B) drop', head: 'Two ways.' }, { t: at(9), kind: 'tool_use', name: 'Agent', id: 'a1' }];
+  const ev = [...events(), { t: at(9), kind: 'tool_use', name: 'Agent', id: 'a1' }, { t: at(9), kind: 'assistant_text', text: 'Pick one: A) keep B) drop', head: 'Two ways.' }];
   const b = buildBundle({ episode: { ...episode, downstream: [{ kind: 'revert', ref: 'x', delta_hours: 2, link: 'hard' }, { kind: 'episode', ref: 'e-2', delta_hours: 1, link: 'soft' }] }, transcript: { events: ev, snapshot }, known, nonce: 'n' });
   assert.deepEqual(payloadOf(b).end_signals, { asks_person: true, started_agent: true, reverted: true, fixup_later: false, continued_later: true });
   // Ending on a human turn: nothing in a reply is open.
   const h = buildBundle({ episode, transcript: { events: events(), snapshot }, known, nonce: 'n' });
   assert.deepEqual(payloadOf(h).end_signals, { asks_person: false, started_agent: false, reverted: false, fixup_later: false, continued_later: false });
   assert.match(TEMPLATE, /end_signals/);
+  // A tool call after the question: the agent went on, so nothing was left open.
+  const went = buildBundle({ episode, transcript: { events: [...events(), { t: at(9), kind: 'assistant_text', text: 'Should I run the tests?' }, { t: at(9), kind: 'tool_use', name: 'Bash', id: 'b1' }], snapshot }, known, nonce: 'n' });
+  assert.equal(payloadOf(went).end_signals.asks_person, false);
   // The linker's flags cover every link; downstream keeps only the nearest few.
   const near = Array.from({ length: 5 }, (_, i) => ({ kind: 'episode', ref: `e-${i}`, delta_hours: i, link: 'soft' }));
   const f = buildBundle({ episode: { ...episode, downstream: near, rework: true, possible_fix: true, possible_rework: true }, transcript: { events: events(), snapshot }, known, nonce: 'n' });
