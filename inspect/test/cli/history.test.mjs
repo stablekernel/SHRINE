@@ -45,7 +45,19 @@ test('Gate A is itemized: projects, date range, size, size-based estimate, tier 
   assert.ok(g.history.bytes > 0);
   assert.equal(typeof g.history.estimate_seconds, 'number');
   assert.ok(g.history.from <= g.history.to);
-  assert.match(g.tier.note, /Deeper tiers are not available/);
+  assert.match(g.tier.note, /Run with --tier T1 to be offered judging at Gate B/);
+  h.cleanup();
+});
+
+test('Gate A of a T1 run says judging is offered at Gate B, not "scan only"', async () => {
+  const h = homeWithHistory();
+  const state = mkdtempSync(join(tmpdir(), 'si-st-'));
+  const r = await inproc(['run', '--tier', 'T1'], h, state);
+  assert.equal(r.code, 3);
+  const g = json(runDir(state), 'gate.json');
+  assert.equal(g.tier.offered, 'T1');
+  assert.doesNotMatch(g.tier.note, /scan only|Run with --tier T1/);
+  assert.match(g.tier.note, /Gate B/);
   h.cleanup();
 });
 

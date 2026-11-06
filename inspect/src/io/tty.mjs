@@ -10,9 +10,20 @@ export async function prompt(question, { input = process.stdin, output = process
       exit: EXIT.GATE_WAITING,
     });
   }
+  // Silence is no answer: input that already ended, or ends (Ctrl-D) before a
+  // line, resolves to '' so the caller leaves the gate paused. A pending
+  // question on an ended stream would otherwise never settle.
+  if (input.readableEnded || input.destroyed) {
+    output.write(`${question}\n`);
+    return '';
+  }
   const rl = createInterface({ input, output });
   try {
-    return (await rl.question(question)).trim();
+    output.write(question);
+    return await new Promise((resolve) => {
+      rl.once('line', (a) => resolve(a.trim()));
+      rl.once('close', () => resolve(''));
+    });
   } finally {
     rl.close();
   }

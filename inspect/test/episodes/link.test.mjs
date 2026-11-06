@@ -104,7 +104,7 @@ test('after one git timeout in a repo, git() skips that repo and repoCommits rep
   const path = process.env.PATH;
   resetGitTimeouts();
   setGitVersion([2, 50, 1]);
-  setSpawnTimeout(300);
+  setSpawnTimeout(1500);
   try {
     process.env.PATH = `${bin}:${path}`;
     const first = git(['rev-parse', 'HEAD'], { cwd: r.root });
@@ -153,7 +153,7 @@ test('a git log that fails is a distinct failure, never an empty commit list', a
     fake(128, 'fatal: not a git repository (or any of the parent directories): .git');
     assert.deepEqual(repoCommits(r.root, { since: T0 - H, until: T0 + H }), [], 'not a repo: no history to read');
     writeFileSync(join(bin, 'git'), '#!/bin/sh\nsleep 5\n');
-    setSpawnTimeout(300);
+    setSpawnTimeout(1500);
     try {
       assert.deepEqual(repoCommits(r.root, { since: T0 - H, until: T0 + H }), { failed: 'timed out' });
     } finally {

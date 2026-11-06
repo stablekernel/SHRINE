@@ -136,6 +136,18 @@ export function isDir(path) {
   return stat(path)?.isDirectory() ?? false;
 }
 
+// A regular file (symlinks followed) the current user can execute.
+export function isFile(path) {
+  const s = stat(path);
+  if (!s?.isFile()) return false;
+  try {
+    fs.accessSync(path, fs.constants.X_OK);
+    return true;
+  } catch {
+    return false;
+  }
+}
+
 // Directory entries as {name, dir}; empty when the folder is missing.
 export function list(path) {
   record({ op: 'list', path, mode: 'r' });

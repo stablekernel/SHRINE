@@ -147,7 +147,53 @@ const FINDINGS = {
       { headline: `${m.flagged} ${pl(m.flagged, 'episode')} to check`, sub: 'Each one is listed in the evidence', metric: 'flagged' },
     ],
   }),
+  // Judged kinds (T1). Every one is a candidate: the title says so, and the
+  // report adds the plain caveat.
+  late_constraint: ({ metric: m }) => ({
+    icon: 'compass',
+    title: 'Constraints arrived after the work started (candidate)',
+    short: `${m.hits} of ${m.judged} judged episodes`,
+    lead: 'In some judged episodes, a rule or limit the agent needed arrived in your second or third message, after it had started. A model judged these, so treat them as leads.',
+    why: [
+      `${m.hits} of ${m.judged} judged ${pl(m.judged, 'episode')} had a correction in your second or third message that supplied a constraint.`,
+      'That constraint was in neither your first message nor the instruction files loaded for that session.',
+      'Code flags the correction candidates; a model judged whether each one supplied a constraint.',
+    ],
+    problem: [
+      'Each late constraint costs a round trip, and the agent redoes work it already did.',
+      'A constraint that lives only in chat comes back in later sessions.',
+    ],
+    benefit: [
+      { headline: `${m.human_turns} ${pl(m.human_turns, 'message')} after these corrections`, sub: 'Fewer when the constraint comes first', metric: 'human_turns' },
+      { headline: `${m.corrections} ${pl(m.corrections, 'correction')} to review`, sub: 'Each is listed in the evidence', metric: 'corrections' },
+    ],
+  }),
+  ignored_instruction: ({ metric: m }) => ({
+    icon: 'layers',
+    title: 'Loaded rules were restated in chat (candidate)',
+    short: `${m.hits} of ${m.judged} judged episodes`,
+    lead: 'In some judged episodes, you corrected the agent with a rule your loaded instruction files already held. A model judged these, so treat them as leads.',
+    why: [
+      `${m.hits} of ${m.judged} judged ${pl(m.judged, 'episode')} had a correction that repeated a rule from a loaded instruction file.`,
+      'The rule was matched by an exact quote from the instruction text loaded for that session.',
+      'Code flags the correction candidates; a model judged whether each one repeated a loaded rule.',
+    ],
+    problem: [
+      'A rule the agent does not follow is a rule you enforce by hand.',
+      'Restating it in chat fixes one session, not the next.',
+    ],
+    benefit: [
+      { headline: `${m.corrections} ${pl(m.corrections, 'correction')} a check could catch`, sub: 'A hook or gate runs the rule for you', metric: 'corrections' },
+      { headline: `${m.human_turns} ${pl(m.human_turns, 'message')} after these corrections`, sub: 'Fewer when the rule is enforced', metric: 'human_turns' },
+    ],
+  }),
 };
+
+// Dashed timeline gap label for a judged finding.
+export function gapLabel(kind, minutes) {
+  const span = `${minutes} ${pl(minutes, 'minute')}`;
+  return kind === 'late_constraint' ? `Constraint arrived ${span} in` : `Rule restated ${span} in`;
+}
 
 const pctOf = (r) => `${Math.round(r * 100)}%`;
 function controlSentence(c) {
@@ -184,7 +230,7 @@ export function dedupeLine(c) {
 
 // The "do you need it yet" line shown at Gate B, before a depth is chosen. need:
 // {consented, rule, sessions, human_messages, span_days}; rule is historyRule().
-export function needLine(need) {
+export function needLine(need, { t1 = false } = {}) {
   const q = 'Do you need more than a scan yet?';
   if (!need?.consented) return `${q} Unknown: session history was not read.`;
   if (need.rule === 'setup_only') return `${q} Unknown: no session in the window could be used.`;
@@ -193,7 +239,7 @@ export function needLine(need) {
   if (need.rule === 'limited') return `${q} Not yet: ${what} is limited history, under ${h.limited_sessions} sessions, so a scan is all it supports.`;
   // Enough sessions, but few messages or a short span: still thin (provisional bars).
   if (need.human_messages < h.need_min_messages || need.span_days < h.need_min_days) return `${q} Not yet: ${what} is a short history, under ${h.need_min_messages} messages or ${h.need_min_days} days, so a scan is all it supports.`;
-  return `${q} Maybe: ${what} is enough history for a deeper look; this version offers the scan only.`;
+  return `${q} Maybe: ${what} is enough history for a deeper look; ${t1 ? 'T1 below judges a sample' : 'this version offers the scan only'}.`;
 }
 
 // Appendix lines for the usage counts block. Every regex-based count says it is a count only.
@@ -248,6 +294,56 @@ export function usageLines(u) {
   return lines;
 }
 
+const num = (n) => Number(n ?? 0).toLocaleString('en-US');
+const J = THRESHOLDS.judged;
+const MEASURED_ON = J.estimate.measured_on;
+
+// Appendix lines for a T1 run's judging block. s: judgedFindings().summary plus
+// the sample and the Gate B estimate (see mergeJudged).
+export function judgingLines(s) {
+  const o = s.outcomes ?? {};
+  const x = s.sample ?? {};
+  const calls = s.calls ?? s.planned;
+  const lines = [
+    `${s.judged} of ${s.planned} sampled ${pl(s.planned, 'episode')} judged in ${calls} model ${pl(calls, 'call')}, retries included${s.model_ids?.length ? ` (${s.model_ids.join(', ')})` : ''}.`,
+    `Outcomes: ${o.resolved ?? 0} resolved, ${o.abandoned ?? 0} abandoned, ${o.reworked ?? 0} reworked, ${o.unknown ?? 0} could not tell.`,
+    `Corrections traced: ${s.corrections_traced} on code-flagged ${pl(s.corrections_traced, 'turn')}; ${s.unknown_verdicts} could not be attributed and are counted only.`,
+    `Answers rejected: ${s.invalid} invalid, ${s.refusals ?? 0} ${pl(s.refusals ?? 0, 'refusal')}.`,
+    `Tokens used: ${s.tokens_floor ? 'at least ' : ''}${num(s.tokens_used)} tokens on your own account${s.estimate ? `, against an estimate of ${num(s.estimate.tokens_low)} to ${num(s.estimate.tokens_high)} tokens` : ''}.`,
+    `A judged finding needs ${s.bar} ${pl(s.bar, 'episode')} and a code-flagged correction in each.`,
+    'Judged findings stay candidates until the judge is measured against labelled episodes.',
+  ];
+  if (s.partial) lines.push(`Partial: ${s.judged} of ${s.planned} ${pl(s.planned, 'episode')} judged. Judging stopped early and you kept the partial results.`);
+  if (s.estimate && s.tokens_used > s.estimate.tokens_high) lines.push(`Tokens passed the approved upper bound of ${num(s.estimate.tokens_high)} tokens on the last call.`);
+  if (s.tokens_floor) lines.push('Some calls ended without a usage report (a timeout or a cut-off answer), so their input size was counted instead.');
+  if (x.thin) lines.push(`Thin evidence: fewer than ${J.episodes} episodes had a correction candidate, so every one of them was judged.`);
+  if (x.small_history) lines.push(`Fewer than ${J.thin_total_episodes} episodes in the window: no control comparison at this tier.`);
+  if (x.cap_relaxed) lines.push(`One project held most episodes, so the cap of ${J.per_project} episodes per project was relaxed.`);
+  return lines;
+}
+
+// Gate B lines for a T1 offer. g: {available, episodes, projects, from, to,
+// tokens_low, tokens_high, minutes, eligible, thin, disclosure}.
+export function gateBLines(g) {
+  const lines = ['Tier T0 (pre-selected): scan only, no model calls.'];
+  if (!g.available?.ok) {
+    lines.push(`Tier T1 is not available here: ${g.available?.reason ?? 'unknown reason'}. Only T0 is offered.`);
+    return lines;
+  }
+  const where = g.projects?.length ? ` from ${joinAnd(g.projects)}` : '';
+  lines.push(`Tier T1, Pulse: judge ${g.episodes} ${pl(g.episodes, 'episode')}${where}, dated ${(g.from ?? '').slice(0, 10)} to ${(g.to ?? '').slice(0, 10)}, about ${num(g.tokens_low)} to ${num(g.tokens_high)} tokens on your own account, about ${g.minutes} ${pl(g.minutes, 'minute')}.`);
+  if (g.version) lines.push(`Judge: Claude Code ${g.version}, the version in your newest session log.`);
+  if (g.thin) lines.push(`Thin evidence: only ${g.eligible} ${pl(g.eligible, 'episode')} had a correction candidate.`);
+  lines.push(`The token and time figures use a per-call overhead measured on Claude Code ${MEASURED_ON}, not on your setup.`);
+  lines.push(`Judging stops early past ${num(g.tokens_high)} tokens, past ${Math.ceil(g.minutes * J.abort.time_box_factor)} minutes, or when over ${Math.round(J.abort.error_rate * 100)}% of answers are invalid; you then keep partial results or stop.`);
+  for (const d of g.disclosure ?? []) lines.push(d);
+  lines.push('Judged findings are candidates: a model read the episodes and its accuracy is not yet measured.');
+  return lines;
+}
+
+const SAMPLE_JUDGING = { planned: 12, judged: 11, invalid: 0, refusals: 0, outcomes: { resolved: 7, abandoned: 2, reworked: 1, unknown: 1 }, corrections_traced: 14, unknown_verdicts: 3, bar: 3, tokens_used: 41200, model_ids: ['model-a'], estimate: { tokens_low: 38000, tokens_high: 54000, minutes: 5 } };
+const SAMPLE_GATE_B = { available: { ok: true }, episodes: 12, projects: ['project-a', 'project-b'], from: '2026-10-06T00:00:00Z', to: '2026-11-04T00:00:00Z', tokens_low: 38000, tokens_high: 54000, minutes: 5, eligible: 9, thin: true, disclosure: ['Each judge call is one headless call on your own login.'] };
+
 export const HISTORY_NOTES = {
   limited: `Limited history: fewer than ${THRESHOLDS.history.limited_sessions} sessions in the window, so usage counts may not reflect usual work.`,
   none: 'Session history was approved, but no sessions were found in the window.',
@@ -293,8 +389,8 @@ export function emptyStates({ checks, notPassed = 0, tier = 'T0', historyRead = 
       amplify: { title: 'Nothing cleared the bar yet.', body: 'More session history or a deeper tier adds usage findings.' },
       working: { title: 'Nothing cleared the bar yet.', body: 'Praise needs measured evidence from Tier 2 or deeper. Presence alone earns nothing.' },
     },
-    attribution: 'Needs Tier 1 or deeper',
-    attribution_body: 'Who owned each correction needs judged episodes. Only the prompt share is prompting advice.',
+    attribution: tier === 'T0' ? 'Needs Tier 1 or deeper' : 'No correction traced',
+    attribution_body: tier === 'T0' ? 'Who owned each correction needs judged episodes. Only the prompt share is prompting advice.' : 'The judged episodes held no code-flagged correction the judge confirmed.',
     before_after: 'Example from SHRINE',
   };
 }
@@ -312,8 +408,11 @@ export const copy = {
   },
   unknowable: () => [...UNKNOWABLE],
   usageLines: (u) => usageLines(u),
-  needLine: (n) => needLine(n),
+  needLine: (n, o) => needLine(n, o),
   dominanceLine: (c) => dominanceLine(c),
+  gapLabel: (kind, minutes) => gapLabel(kind, minutes),
+  judgingLines: (x) => judgingLines(x),
+  gateBLines: (g) => gateBLines(g),
   notes: HISTORY_NOTES,
 };
 
@@ -324,6 +423,8 @@ export const SAMPLE_PROBES = {
   blanket_permissions: { metric: { count: 2, rules: 1, settings: 1 }, items: [{ rule: 'Bash' }, { rule: 'defaultMode: bypassPermissions' }] },
   stack_gap: { metric: { hooks: 0, skills: 0, memory: 1, missing: ['hooks', 'skills'] }, items: [] },
   short_retention: { metric: { days: 30, source: 'default', threshold_days: 30 }, items: [] },
+  late_constraint: { metric: { hits: 4, judged: 12, corrections: 5, tokens: 42000, human_turns: 9, sessions: 4, repos: 2 } },
+  ignored_instruction: { metric: { hits: 1, judged: 1, corrections: 1, tokens: 900, human_turns: 1, sessions: 1, repos: 1 } },
   done_without_test: {
     metric: { flagged: 6, claims: 12, rate: 0.5, threshold: 0.3 },
     control: { flagged: { hits: 3, n: 6, rate: 0.5 }, rest: { hits: 10, n: 80, rate: 0.125 }, diff_points: 37.5 },
@@ -346,6 +447,7 @@ export function sampleCopy() {
     clear: Object.keys(CLEAR).map((k) => copy.clear(k)),
     unknowable: copy.unknowable(),
     empty: [0, 1, 2].flatMap((notPassed) => [false, true].map((historyRead) => emptyStates({ checks: 10, notPassed, historyRead }))),
+    empty_t1: emptyStates({ checks: 10, tier: 'T1', historyRead: true }),
     usage: usageLines(SAMPLE_USAGE),
     usage_no_control: usageLines({ ...SAMPLE_USAGE, kinds: [{ ...SAMPLE_USAGE.kinds[0], control: { flagged: { hits: 1, n: 4, rate: 0.25 }, rest: { hits: 0, n: 3, rate: 0 }, diff_points: 25 } }] }),
     usage_one_project: usageLines({ ...SAMPLE_USAGE, counts: { ...SAMPLE_USAGE.counts, projects: 1, top_project_episodes: 136, top_project_share: 1, resent_messages: 1, forked_sessions: 1, copied_messages: 1, forked_sessions_dropped: 0 } }),
@@ -357,6 +459,10 @@ export function sampleCopy() {
       { consented: true, rule: 'probe', sessions: 66, human_messages: 1171, span_days: 30 },
     ].map(needLine),
     notes: HISTORY_NOTES,
+    gaps: [1, 12].flatMap((n) => ['late_constraint', 'ignored_instruction'].map((k) => gapLabel(k, n))),
+    judging: [judgingLines(SAMPLE_JUDGING), judgingLines({ ...SAMPLE_JUDGING, partial: true, invalid: 1, refusals: 1, calls: 13, tokens_used: 60000, tokens_floor: true, sample: { thin: true, small_history: true, cap_relaxed: true } })],
+    gate_b: [gateBLines(SAMPLE_GATE_B), gateBLines({ ...SAMPLE_GATE_B, available: { ok: false, reason: 'no claude command on PATH' } })],
+    caveat: 'A model read these episodes. Its accuracy is not yet measured. Treat this as a lead, not a verdict.',
   };
 }
 

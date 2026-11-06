@@ -37,3 +37,10 @@ for (const script of ['lint-readonly.mjs', 'lint-copy.mjs', 'lint-network.mjs'])
     assert.equal(r.status, 0, r.stdout + r.stderr);
   });
 }
+
+test('lint-network fails on an environment or key read in judge code', () => {
+  const r = lint('lint-network.mjs', join(here, 'judge'));
+  assert.equal(r.status, 1, r.stdout + r.stderr);
+  assert.match(r.stdout, /environment read in judge code/);
+  assert.match(r.stdout, /key variable ANTHROPIC_API_KEY/);
+});

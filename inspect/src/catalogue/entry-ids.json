@@ -53,5 +53,15 @@
     "page_id": "principles/fail-fast-recover-smart",
     "anchor": "signal-of-violation",
     "match": "no mid-run checks"
+  },
+  "problem-before-prescription.sov.late-constraint": {
+    "page_id": "principles/problem-before-prescription",
+    "anchor": "signal-of-violation",
+    "match": "constraints surface only after code exists"
+  },
+  "authority-cascade.sov.rule-practice-gap": {
+    "page_id": "principles/authority-cascade",
+    "anchor": "signal-of-violation",
+    "match": "written rule and daily practice disagree"
   }
 }

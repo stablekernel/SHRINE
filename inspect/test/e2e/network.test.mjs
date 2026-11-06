@@ -11,6 +11,7 @@ import { addHistory } from '../synth/history.mjs';
 const BIN = fileURLToPath(new URL('../../bin/shrine-inspect.mjs', import.meta.url));
 const STUB = fileURLToPath(new URL('./no-network.cjs', import.meta.url));
 const CHILD = fileURLToPath(new URL('./history-under-stub.mjs', import.meta.url));
+const T1_CHILD = fileURLToPath(new URL('./t1-under-stub.mjs', import.meta.url));
 const DAY = 86400000;
 
 function stubbedEnv(h) {
@@ -74,6 +75,22 @@ test('a T0 run that reads history (streaming, git linker, usage probes) makes no
   const spy = readFileSync(join(dir, 'spy.jsonl'), 'utf8');
   assert.ok(spy.includes('"stream"'), 'session logs were streamed');
   assert.ok(/"cmd":"git"[^\n]*"log"/.test(spy), 'the linker ran git');
+  assert.equal(blocked(log), '');
+  h.cleanup();
+});
+
+test('a full T1 run with the fake judge makes no network call from the CLI process', () => {
+  const h = makeHome('good', { sessionMtime: new Date(Date.parse(FIXED_NOW) - 25 * DAY) });
+  addHistory(h, 'late', { nowMs: Date.parse(FIXED_NOW) });
+  const { env, log } = stubbedEnv(h);
+  const r = spawnSync(process.execPath, [T1_CHILD], { encoding: 'utf8', env });
+  assert.equal(r.status, 0, r.stderr);
+  const { first, second, dir } = JSON.parse(r.stdout);
+  assert.equal(first, 3, 'paused at Gate B');
+  assert.equal(second, 0, r.stderr);
+  const findings = JSON.parse(readFileSync(join(dir, 'findings.json'), 'utf8'));
+  assert.equal(findings.tier, 'T1');
+  assert.equal(findings.judging.judged, 12);
   assert.equal(blocked(log), '');
   h.cleanup();
 });

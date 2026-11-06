@@ -78,7 +78,7 @@
           "line": 45
         },
         {
-          "entry_id": "principles/authority-cascade#f0047b535b",
+          "entry_id": "authority-cascade.sov.rule-practice-gap",
           "text": "Written rule and daily practice disagree: the team convention says one thing, merged code does another",
           "anchor": "signal-of-violation",
           "line": 46
@@ -247,7 +247,7 @@
           "line": 70
         },
         {
-          "entry_id": "principles/problem-before-prescription#342d913ed3",
+          "entry_id": "problem-before-prescription.sov.late-constraint",
           "text": "Constraints surface only after code exists",
           "anchor": "signal-of-violation",
           "line": 71
@@ -3248,6 +3248,28 @@
       "url": "https://stablekernel.github.io/SHRINE/principles/fail-fast-recover-smart/#signal-of-violation",
       "url_pinned": "https://github.com/stablekernel/SHRINE/blob/71e82a0e6f729e88c7e40040310fd33068c067f3/docs/src/content/docs/principles/fail-fast-recover-smart.md#L89",
       "quote": "No mid-run checks: a bad intermediate output surfaces steps later as an unrelated error"
+    },
+    "problem-before-prescription.sov.late-constraint": {
+      "entry_id": "problem-before-prescription.sov.late-constraint",
+      "page_id": "principles/problem-before-prescription",
+      "anchor": "signal-of-violation",
+      "title": "Problem Before Prescription",
+      "section": "principle",
+      "status": "ratified",
+      "url": "https://stablekernel.github.io/SHRINE/principles/problem-before-prescription/#signal-of-violation",
+      "url_pinned": "https://github.com/stablekernel/SHRINE/blob/71e82a0e6f729e88c7e40040310fd33068c067f3/docs/src/content/docs/principles/problem-before-prescription.md#L71",
+      "quote": "Constraints surface only after code exists"
+    },
+    "authority-cascade.sov.rule-practice-gap": {
+      "entry_id": "authority-cascade.sov.rule-practice-gap",
+      "page_id": "principles/authority-cascade",
+      "anchor": "signal-of-violation",
+      "title": "Authority Cascade",
+      "section": "principle",
+      "status": "ratified",
+      "url": "https://stablekernel.github.io/SHRINE/principles/authority-cascade/#signal-of-violation",
+      "url_pinned": "https://github.com/stablekernel/SHRINE/blob/71e82a0e6f729e88c7e40040310fd33068c067f3/docs/src/content/docs/principles/authority-cascade.md#L46",
+      "quote": "Written rule and daily practice disagree: the team convention says one thing, merged code does another"
     }
   }
 }

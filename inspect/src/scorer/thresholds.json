@@ -33,5 +33,23 @@
   "history": { "limited_sessions": 10, "need_min_messages": 20, "need_min_days": 7, "idle_minutes": 30, "link_hours": 72, "parse_mb_per_second": 390 },
   "confidence": { "config": 0.9, "label_high": 0.75, "label_medium": 0.5 },
   "minutes_to_apply": { "habit": 5, "instruction": 10, "config": 10, "skill": 30, "hook": 30, "gate": 60 },
-  "start_with_max_minutes": 30
+  "start_with_max_minutes": 30,
+  "judged": {
+    "episodes": 12,
+    "per_project": 4,
+    "corrective_weight": 3,
+    "corrective_session_min": 2,
+    "thin_total_episodes": 20,
+    "bar_episodes": 3,
+    "bar_share": 0.2,
+    "bar_min": 2,
+    "anchor_turns": [1, 2],
+    "confidence": { "base": 0.6, "per_hit": 0.05, "agree_bonus": 0.15, "disagree_cap": 0.5, "candidates_max": 0.74 },
+    "caps": { "human_turn_chars": 1200, "assistant_chars": 400, "turns": 12, "bundle_tokens": 900, "config_chars": 12000, "bytes_per_token": 4, "tools_per_turn": 10 },
+    "estimate": { "overhead_tokens_per_call": 3000, "output_tokens_per_call": 400, "retry_reserve": 0.1, "margin": 0.3, "seconds_per_call": 10, "measured_on": "2.1.318" },
+    "abort": { "error_rate": 0.1, "time_box_factor": 1.5 },
+    "per_call_timeout_ms": 180000,
+    "max_stdout_bytes": 262144,
+    "before_after": { "root_chars": 300, "clause_chars": 200 }
+  }
 }

@@ -52,6 +52,31 @@ export function runFolder(dir) {
       fs.appendFileSync(p, line.endsWith('\n') ? line : `${line}\n`);
       record({ op: 'write', path: p, mode: 'a' });
     },
+    // An empty folder inside the run folder (the judge's working directory).
+    workDir(rel) {
+      const p = inside(rel);
+      fs.mkdirSync(p, { recursive: true });
+      record({ op: 'write', path: p, mode: 'w' });
+      return p;
+    },
+    // Exclusive create: false if the file already exists (another runner won).
+    claim(rel, content) {
+      const p = inside(rel);
+      try {
+        fs.writeFileSync(p, content, { flag: 'wx' });
+      } catch (e) {
+        if (e.code === 'EEXIST') return false;
+        throw e;
+      }
+      record({ op: 'write', path: p, mode: 'w' });
+      return true;
+    },
+    remove(rel) {
+      const p = inside(rel);
+      if (!fs.existsSync(p)) return;
+      fs.rmSync(p, { force: true });
+      record({ op: 'write', path: p, mode: 'rm' });
+    },
     markDone: (phase) => write(`${phase}.done`, `${new Date().toISOString()}\n`),
     isDone: (phase) => fs.existsSync(inside(`${phase}.done`)),
   };

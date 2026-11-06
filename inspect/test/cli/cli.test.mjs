@@ -110,9 +110,13 @@ test('exit codes: usage 2 for unknown command, option, or tier', async () => {
   const state = mkdtempSync(join(tmpdir(), 'si-state-'));
   assert.equal((await inproc(['nope'], h, state)).code, 2);
   assert.equal((await inproc(['run', '--bogus'], h, state)).code, 2);
-  const t1 = await inproc(['run', '--tier', 'T1', '--json'], h, state);
-  assert.equal(t1.code, 2);
-  assert.equal(JSON.parse(t1.stderr).error.code, 'E_TIER');
+  const t2 = await inproc(['run', '--tier', 'T2', '--json'], h, state);
+  assert.equal(t2.code, 2);
+  assert.equal(JSON.parse(t2.stderr).error.code, 'E_TIER');
+  // T1 judges history, so it never runs with --no-history.
+  const noHist = await inproc(['run', '--tier', 'T1', '--no-history', '--json'], h, state);
+  assert.equal(noHist.code, 2);
+  assert.equal(JSON.parse(noHist.stderr).error.code, 'E_TIER');
   h.cleanup();
 });
 
