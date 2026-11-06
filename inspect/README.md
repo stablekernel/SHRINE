@@ -2,7 +2,7 @@
 
 Health check of a Claude Code environment against the SHRINE docs. T0: setup audit plus usage counts from local session logs; local, read-only, no network, zero model calls. T1 ("Pulse", trial): T0 plus 12 sampled episodes judged by your own harness, only after you approve it at Gate B.
 
-Status: pre-release trial (SP3: background runs, a thin skill, a checksummed release). Nothing is published; the docs cutover is separate, and until then the prompt-based inspect in `docs/` stays live. Testers: see [TRIAL.md](TRIAL.md).
+Status: pre-release trial (SP3: background runs, a thin skill, a checksummed release). Nothing is published yet; the docs guide page (`docs/src/content/docs/guide/inspect.mdx`) documents this CLI, and its install steps apply once the owner publishes a release. Testers: see [TRIAL.md](TRIAL.md).
 
 ## Install (trial)
 
