@@ -4,8 +4,10 @@
 // judge command, run one judge process at a time, and stop early on the abort
 // rules. Session text is read only after Gate A consent; nothing is written
 // outside the run folder.
+import { basename } from 'node:path';
 import { fileURLToPath } from 'node:url';
 import { exists, readJson, readText, stat } from '../io/fsread.mjs';
+import { InspectError, EXIT } from './errors.mjs';
 import { armJudge, disarmJudge, runJudge } from '../io/proc.mjs';
 import { drawSample } from '../sample/sample.mjs';
 import { buildBundle, bundleTokens, JUDGE_MARKER, newNonce } from '../judge/bundle.mjs';
@@ -15,6 +17,26 @@ import { episodeTranscripts } from '../adapters/claude-code/transcript.mjs';
 import { DISCLOSURE, judgeAvailable, judgeInvocation, parseJudgeOutput } from '../adapters/claude-code/judge.mjs';
 
 export const PROMPT_TEMPLATE = readText(fileURLToPath(new URL('../judge/classifier.prompt.md', import.meta.url)));
+
+// Running-judge marker: the pid of the process judging this run.
+const RUNNING = 'judging.pid';
+const alive = (pid) => {
+  try {
+    process.kill(pid, 0);
+    return true;
+  } catch (e) {
+    return e.code === 'EPERM';
+  }
+};
+// The live pid judging this run, or null (no marker, or a stale one).
+export function judgingPid(folder) {
+  const p = folder.path(RUNNING);
+  if (!exists(p)) return null;
+  const pid = Number.parseInt(readText(p), 10);
+  return Number.isInteger(pid) && pid > 0 && alive(pid) ? pid : null;
+}
+export const judgeBusy = (folder, pid) =>
+  new InspectError('E_JUDGE_BUSY', `run ${basename(folder.dir)} is already being judged by process ${pid}; nothing was judged now`, { hint: 'wait for it to finish, then run approve again', exit: EXIT.GATE_WAITING });
 
 // The adapter's judge, or the in-process test seam (io.judge). The bin passes no
 // io.judge, so a real run always uses the adapter.
@@ -85,10 +107,15 @@ export async function judgePhase({ folder, order, adapter, t, io }) {
   const J = t.judged;
   const previous = readJudgments(folder);
   const inv = adapter.invocation;
-  // Throws E_SPAWN_DENIED unless facts.json holds a Gate B yes for T1.
-  armJudge(folder.path('facts.json'), inv);
-  const cwd = folder.workDir('judge-cwd');
+  // One judging runner per run: a live marker refuses; a stale one is dropped.
+  const busy = judgingPid(folder);
+  if (busy) throw judgeBusy(folder, busy);
+  folder.remove(RUNNING);
+  if (!folder.claim(RUNNING, `${process.pid}\n`)) throw judgeBusy(folder, judgingPid(folder) ?? 'unknown');
   try {
+    // Throws E_SPAWN_DENIED unless facts.json holds a Gate B yes for T1.
+    armJudge(folder.path('facts.json'), inv);
+    const cwd = folder.workDir('judge-cwd');
     const r = await runWorkOrder({
       order,
       previous,
@@ -104,6 +131,7 @@ export async function judgePhase({ folder, order, adapter, t, io }) {
     return { ...r, lines: [...previous, ...r.lines] };
   } finally {
     disarmJudge();
+    folder.remove(RUNNING);
   }
 }
 

@@ -4,6 +4,7 @@
 import { readJson } from '../io/fsread.mjs';
 import { prompt } from '../io/tty.mjs';
 import { InspectError, EXIT } from './errors.mjs';
+import { judgeBusy, judgingPid } from './pulse.mjs';
 
 export const GATE_A = {
   question: 'Read session history too? T0 never sends anything to a model.',
@@ -14,6 +15,7 @@ export const GATE_C = {
   question: 'Judging stopped early. Keep the partial results, or stop and keep the scan only?',
   choices: ['keep', 'stop'],
 };
+const CHOICES = { A: GATE_A.choices, B: ['T0', 'T1'], C: GATE_C.choices };
 const ABORT_REASON = {
   tokens: 'tokens passed the approved upper bound',
   time: 'judging ran past its time box plus 50%',
@@ -100,11 +102,24 @@ export async function approveCommand({ runId, gate, choice }, io, { findRun, con
   const folder = findRun(ctx.dirs.state, runId);
   const state = readJson(folder.path('state.json'));
   if (!['A', 'B', 'C'].includes(gate)) throw new InspectError('E_GATE', `gate ${gate} does not exist`, { exit: EXIT.USAGE });
+  const choices = CHOICES[gate];
+  if (choice && !choices.includes(choice)) {
+    throw new InspectError('E_CHOICE', `unknown choice ${choice}`, { hint: `one of: ${choices.join(', ')}`, exit: EXIT.USAGE });
+  }
+  // Gate C answered but no report (a crash): finish the report; nothing is judged or asked.
+  if ((gate === 'B' || gate === 'C') && state.gates.C && !folder.isDone('report')) {
+    if (choice && choice !== state.gates[gate]?.choice) {
+      throw new InspectError('E_GATE_ANSWERED', `Gate ${gate} of run ${runId} is already answered ${state.gates[gate]?.choice}`, { hint: `finish the report with: shrine-inspect approve ${runId} ${gate}`, exit: EXIT.USAGE });
+    }
+    return continueRun(folder, ctx, io);
+  }
   // A T1 run that stopped before its report (Ctrl-C, a crash) can be finished.
   // Judging left unfinished resumes only on a fresh typed yes, and only for
   // episodes with no valid line; any other answer or choice spawns nothing.
   if (gate === 'B' && state.gates.B?.choice === 'T1' && !state.gates.C && !state.abort && !['done', 'gate_c', 'scope_changed'].includes(state.phase)) {
     if (!folder.isDone('judgments')) {
+      const pid = judgingPid(folder);
+      if (pid) throw judgeBusy(folder, pid);
       if (choice && choice !== 'T1') {
         throw new InspectError('E_GATE_ANSWERED', `Gate B of run ${runId} was answered T1 and judging is unfinished; nothing was judged now`, { hint: `resume with: shrine-inspect approve ${runId} B, or leave the run as it is`, exit: EXIT.USAGE });
       }

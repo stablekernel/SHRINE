@@ -53,6 +53,10 @@ export async function runWorkOrder({ order, previous = [], invoke, parse, templa
   const lines = [];
   let abort = null;
   let calls = 0;
+  // A resumed run already at the bound spawns nothing.
+  if (todo.length && tokens >= limits.tokensUpper) {
+    return { lines, tokens, invalid, abort: { reason: 'tokens', at: todo[0].episode_id }, calls, ms: 0 };
+  }
   for (const [k, item] of todo.entries()) {
     let retryError = null;
     let line = null;

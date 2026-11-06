@@ -28,9 +28,10 @@ const answer = (prompt) => {
 const envelope = (o, tokens = 100) => JSON.stringify({ type: 'result', structured_output: o, usage: { input_tokens: tokens, output_tokens: 10 } });
 const order = (n) => createWorkOrder({ runId: 'r', seed: 1, bundles: bundles(n), estimate: { tokens_low: 1000, tokens_high: 100000, minutes: 5 }, caps: {} });
 const limits = (o = {}) => ({ tokensUpper: 100000, timeBoxMs: 300000, timeBoxFactor: 1.5, errorRate: 0.1, entryIds: JUDGED_ENTRY_IDS, ...o });
-const run = (o, invoke, extra = {}) => {
+const run = async (o, invoke, extra = {}) => {
   const appended = [];
-  return runWorkOrder({ order: o, invoke, parse: parseJudgeOutput, template: TEMPLATE, append: (l) => appended.push(l), limits: limits(extra.limits), previous: extra.previous ?? [], clock: extra.clock }).then((r) => ({ ...r, appended }));
+  const r = await runWorkOrder({ order: o, invoke, parse: parseJudgeOutput, template: TEMPLATE, append: (l) => appended.push(l), limits: limits(extra.limits), previous: extra.previous ?? [], clock: extra.clock });
+  return { ...r, appended };
 };
 
 test('estimate: bundle tokens plus per-call overhead and output, then a retry reserve and margin for the top', () => {
@@ -41,6 +42,19 @@ test('estimate: bundle tokens plus per-call overhead and output, then a retry re
   assert.equal(r.tokens_high, Math.round(base * (1 + e.retry_reserve) * (1 + e.margin)));
   assert.equal(r.calls, 2);
   assert.ok(r.minutes >= 1);
+});
+
+// Smoke on Claude Code 2.1.318 (12 real calls, packs about 1,340 tokens): overhead
+// 2,830 to 3,120 over bytes / 4, output 146 to 634, total 64,677, 41 seconds.
+test('estimate: 12 packs at the cap land in the 20K to 60K tokens of T1; the top keeps the reserve and margin', () => {
+  const J = THRESHOLDS.judged;
+  const prompt = Math.ceil(Buffer.byteLength(TEMPLATE, 'utf8') / J.caps.bytes_per_token);
+  const r = estimateOrder(Array(J.episodes).fill(J.caps.bundle_tokens + prompt), J.estimate);
+  assert.ok(r.tokens_low >= 20000 && r.tokens_low <= 60000, `low ${r.tokens_low}`);
+  // Known limit: the fixed per-call cost alone (prompt, overhead, output) times 12
+  // with the reserve and margin passes 60K, so the top cannot fit at any pack size.
+  assert.ok(estimateOrder(Array(J.episodes).fill(prompt), J.estimate).tokens_high > 60000);
+  assert.ok(r.minutes <= 5, `minutes ${r.minutes}`);
 });
 
 test('one call per item; every line records tokens, model, and the validated output only', async () => {
@@ -124,4 +138,18 @@ test('a usage-limited call leaves a line with its tokens, not counted as invalid
   assert.equal(r.appended[0].limited, true);
   assert.equal(r.appended[0].tokens.total, 40);
   assert.equal(r.invalid, 0);
+});
+
+test('resume past the token bound: zero calls, abort tokens', async () => {
+  const previous = [{ episode_id: 'e-0', valid: true, tokens: { total: 600 } }, { episode_id: 'e-1', valid: true, tokens: { total: 600 } }];
+  let n = 0;
+  const r = await run(order(5), async (input) => {
+    n++;
+    return { stdout: envelope(answer(input)), ms: 1 };
+  }, { previous, limits: { tokensUpper: 1000 } });
+  assert.equal(n, 0);
+  assert.equal(r.calls, 0);
+  assert.equal(r.abort.reason, 'tokens');
+  assert.equal(r.abort.at, 'e-2');
+  assert.equal(r.tokens, 1200);
 });

@@ -3,6 +3,7 @@
 import { test } from 'node:test';
 import assert from 'node:assert/strict';
 import { createHash } from 'node:crypto';
+import { spawnSync } from 'node:child_process';
 import { existsSync, lstatSync, readFileSync, readdirSync, rmSync, writeFileSync } from 'node:fs';
 import { join, relative } from 'node:path';
 import { fakeJudge, inproc, judgeSpawns, json, lines, piped, plantedHome, runDir, runT1, silentTty, stateDir, tty } from './t1-helpers.mjs';
@@ -263,5 +264,70 @@ test('interrupted judging resumes only on a fresh typed yes; B T0 or any other a
   const yes = await inproc(['approve', r.runId, 'B', '--json'], h, r.state, { stdin: tty('yes'), judge });
   assert.equal(yes.code, 0, yes.stderr);
   assert.equal(readFileSync(log, 'utf8').trim().split('\n').length, 10, 'only the 10 missing episodes');
+  h.cleanup();
+});
+
+// Rewinds a finished run to "judging interrupted after 2 lines".
+function interrupt(dir) {
+  const st = json(dir, 'state.json');
+  writeFileSync(join(dir, 'state.json'), JSON.stringify({ ...st, phase: 'gate_b' }));
+  rmSync(join(dir, 'judgments.done'));
+  const kept = readFileSync(join(dir, 'judgments.jsonl'), 'utf8').split('\n').slice(0, 2).join('\n');
+  writeFileSync(join(dir, 'judgments.jsonl'), `${kept}\n`);
+}
+
+test('a second runner refuses while another judges the run; a stale marker is ignored and removed', async () => {
+  const h = plantedHome([['late', 12, 'aaaa']]);
+  const r = await runT1(h);
+  assert.equal(r.second.code, 0, r.second.stderr);
+  assert.ok(!existsSync(join(r.dir, 'judging.pid')), 'marker removed after judging');
+  interrupt(r.dir);
+  const log = join(r.state, 'second-launches.log');
+  const judge = fakeJudge('auto', log);
+  // A live pid (this test process) holds the run.
+  writeFileSync(join(r.dir, 'judging.pid'), `${process.pid}\n`);
+  const busy = await inproc(['approve', r.runId, 'B', '--json'], h, r.state, { stdin: tty('yes'), judge });
+  assert.equal(busy.code, 3, busy.stderr);
+  assert.match(busy.stderr, /already being judged/);
+  assert.ok(!existsSync(log), 'no judge launched while another runner judges');
+  // A dead pid is stale: judging resumes and the marker is gone after.
+  const dead = spawnSync(process.execPath, ['-e', '']).pid;
+  writeFileSync(join(r.dir, 'judging.pid'), `${dead}\n`);
+  const yes = await inproc(['approve', r.runId, 'B', '--json'], h, r.state, { stdin: tty('yes'), judge });
+  assert.equal(yes.code, 0, yes.stderr);
+  assert.equal(readFileSync(log, 'utf8').trim().split('\n').length, 10);
+  assert.ok(!existsSync(join(r.dir, 'judging.pid')));
+  h.cleanup();
+});
+
+test('Gate C answered but no report (a crash): approve B or C writes the report, no prompt, zero spawns', async () => {
+  const h = plantedHome([['late', 12, 'aaaa']]);
+  const r = await runT1(h, { judge: fakeJudge('invalid') });
+  assert.equal(r.second.code, 3);
+  const k = await inproc(['approve', r.runId, 'C', 'keep', '--json'], h, r.state, { stdin: tty('yes'), judge: fakeJudge('auto') });
+  assert.equal(k.code, 0, k.stderr);
+  const log = join(r.state, 'after-c.log');
+  const judge = fakeJudge('auto', log);
+  for (const gate of ['B', 'C']) {
+    rmSync(join(r.dir, 'report.done'));
+    writeFileSync(join(r.dir, 'state.json'), JSON.stringify({ ...json(r.dir, 'state.json'), phase: 'gate_c' }));
+    // A silent terminal: any prompt would leave the run unanswered.
+    const a = await inproc(['approve', r.runId, gate, '--json'], h, r.state, { stdin: silentTty(), judge });
+    assert.equal(a.code, 0, `${gate}: ${a.stderr}`);
+    assert.ok(existsSync(join(r.dir, 'report.done')));
+    assert.equal(json(r.dir, 'findings.json').judging.partial, true);
+  }
+  assert.ok(!existsSync(log), 'no judge launched');
+  assert.equal(lines(r.dir, 'judgments.jsonl').length, 2);
+  h.cleanup();
+});
+
+test('an unknown choice is E_CHOICE even on an answered gate', async () => {
+  const h = plantedHome([['late', 12, 'aaaa']]);
+  const r = await runT1(h);
+  assert.equal(r.second.code, 0, r.second.stderr);
+  const a = await inproc(['approve', r.runId, 'B', 'bogus', '--json'], h, r.state, { stdin: tty('yes') });
+  assert.equal(a.code, 2);
+  assert.match(a.stderr, /unknown choice bogus/);
   h.cleanup();
 });
