@@ -236,7 +236,7 @@ export function userMentions(text, user, shipped = shippedText()) {
   for (const m of text.matchAll(/<script>([\s\S]*?)<\/script>/g)) if (m[1] === shipped.app) skip.push([m.index, m.index + m[0].length, false]);
   for (const m of text.matchAll(/<style[^>]*>[\s\S]*?<\/style>/g)) skip.push([m.index, m.index + m[0].length, true]);
   const out = [];
-  for (const m of text.matchAll(wordRe(user, 'g'))) {
+  for (const m of text.matchAll(nameRe(user, "g"))) {
     const s = skip.find(([a, b]) => m.index >= a && m.index < b);
     if (s && (!s[2] || /[:.#]/.test(text[m.index - 1]))) continue;
     out.push(text.slice(Math.max(0, m.index - 40), m.index + user.length + 20));
