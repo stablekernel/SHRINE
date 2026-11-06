@@ -105,10 +105,15 @@ Counting (`test/adapters/claude-code/dedupe.test.mjs`):
 
 Background runs (`test/cli/background.test.mjs`):
 
-- A run is "running" while the pid in `worker.pid` is alive; a process killed outright (or a worker that exits before its parent records it) leaves the file, and if the OS reuses that pid, `status` says running until that process ends
+- A run is "running" while the pid in `worker.pid` is alive; a process stopped by Ctrl-C or killed (or a worker that exits before its parent records it) leaves the file, and if the OS reuses that pid, `status` says running and `approve` or `resume` says busy until that process ends; deleting `worker.pid` in the run folder clears it
+- `worker.pid` is checked, then written, not claimed in one step: two `run`, `approve`, or `resume` calls on one run at the same instant can both continue it (judging stays single, below)
+- `purge` does not wait for a running run: it deletes the folder under the worker, which then stops; a judge call already sent still completes
+- `spy.jsonl` is saved before the runner removes `worker.pid`, so that one removal (inside the run folder) is not in it
 - Two `approve --background` calls on one run at the same instant can both start a worker (the busy check and the pid write are not one step)
   - Judging still has one runner: `judging.pid` is claimed by exclusive create, and a live runner's marker is never removed; only two runners finding the same dead marker at the same instant could both claim it
 - The installed link runs whatever `node` is first on PATH later; the installer checks Node 20 only at install time
+- The installer hashes the tarball, then extracts from the same path; a local process that swaps the file in between is not caught
+- `install --skill` replaces the whole `~/.claude/skills/shrine-inspect/` folder when it holds this skill from another release
 - The one-time judging grant sits in `state.json` and the worker's arguments from `approve --background` until the worker reads it; a worker that dies first leaves it there until it expires (5 minutes)
 - `run.log` holds the worker's own messages only; gate prompts appear in the terminal that answers them
 

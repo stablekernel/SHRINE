@@ -7,8 +7,8 @@
 #
 # Installs to ~/.local/share/shrine-inspect/<version>/ and links
 # ~/.local/bin/shrine-inspect to it. --skill also copies the harness skill to
-# ~/.claude/skills/shrine-inspect/ (a copy from another release is replaced;
-# any other file there is left alone).
+# ~/.claude/skills/shrine-inspect/. That folder is replaced whole when it holds
+# this skill from another release; anything else there is left alone.
 # SHRINE_INSPECT_PREFIX and SHRINE_INSPECT_BIN_DIR change the two folders.
 # Exit codes: 0 ok, 1 failed, 2 usage, 3 Node too old or missing, 4 checksum mismatch.
 #

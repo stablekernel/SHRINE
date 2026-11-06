@@ -76,5 +76,5 @@ Share-safe report attached? yes / no
 
 ## Remove
 
-1. `shrine-inspect purge`
+1. Wait for any run to finish (`shrine-inspect status`), then `shrine-inspect purge`
 2. `rm -rf ~/.local/share/shrine-inspect ~/.local/bin/shrine-inspect ~/.claude/skills/shrine-inspect`
