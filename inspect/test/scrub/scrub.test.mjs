@@ -232,6 +232,10 @@ test('the OS user is masked where it is joined to other words', () => {
   const k = buildIdentifiers({ osUser: 'jdoe', home: '/Users/jdoe' });
   assert.equal(mask('Author: Jane <jdoe>', k), 'Author: Jane <<user>>');
   assert.equal(mask('Ask <jdoe> first, then <jdoe-mbp>', k), 'Ask <<user>> first, then <<user>-mbp>');
+  // JSON escapes left in tool output: the user after them is still masked.
+  for (const t of ['Jane\\njdoe says', 'x\\tjdoe', 'x\\rjdoe', 'is \\u003cjdoe\\u003e', 'out: {"author":"Jane\\njdoe"}']) assert.doesNotMatch(mask(t, k), /jdoe/, t);
+  assert.equal(mask('Jane\\njdoe says', k), 'Jane\\n<user> says');
+  assert.equal(mask('a\\nojdoe stays', k), 'a\\nojdoe stays');
   // A placeholder already made is not masked again, for a user named like one.
   for (const [osUser, text] of [['user', 'by <user> on <user>'], ['project', 'in <project-folder> and <project-1>'], ['host', 'at <host>']]) {
     const named = buildIdentifiers({ osUser, projects: ['zz'] });

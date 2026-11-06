@@ -94,6 +94,10 @@ test('the OS user is found JSON- or HTML-escaped, as a project name is', () => {
     assert.notDeepEqual(userMentions(`{"a":1}\n{"note":"${raw}"}\n`, 'jdoe'), [], `JSONL ${raw}`);
   }
   for (const html of ['&#106;doe', 'x&lt;jdoe&gt;', 'by <b>jdoe</b>']) assert.deepEqual(leaks(page.replace('<body>', `<body><p>${html}</p>`), { user: 'jdoe' }), ['user name'], html);
+  // Escaped twice (tool output that printed JSON): the escape is still text after one decode.
+  for (const raw of ['Jane\\\\njdoe', 'x\\\\tjdoe', '\\\\u003cjdoe\\\\u003e']) assert.deepEqual(leaks(plantRaw(page, raw), { user: 'jdoe' }), ['user name'], `twice ${raw}`);
+  assert.deepEqual(leaks(page.replace('<body>', '<body><pre>{"author":"Jane\\njdoe"}</pre>'), { user: 'jdoe' }), ['user name']);
+  assert.deepEqual(userMentions('{"dispatcher":"judge_runner","n":"x\\\\njudge_runner"}', 'runner'), []);
   // Still exempt when escaped: the CSS selector, the shipped script, a joined word.
   assert.deepEqual(userMentions('{"dispatcher":"judge_runner","n":"x\\njudge_runner"}', 'runner'), []);
   assert.deepEqual(leaks(plantRaw(page, 'x\\njudge_runner'), { user: 'runner' }), []);

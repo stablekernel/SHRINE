@@ -259,7 +259,8 @@ export function userMentions(text, user, shipped = shippedText()) {
   for (const m of text.matchAll(SHIPPED_SCRIPT)) if (m[1] === shipped.app) skip.push([m.index, m.index + m[0].length, false]);
   for (const m of text.matchAll(STYLE)) skip.push([m.index, m.index + m[0].length, true]);
   const out = new Set();
-  const re = wordRe(user, 'g');
+  // A whole word, also right after a JSON escape left in text ("\\njdoe", "\\u003cjdoe").
+  const re = new RegExp(`(?:(?<![\\w-])|(?<=\\\\[ntr])|(?<=\\\\u003[cCeE]))${esc(user)}(?![\\w-])`, 'g');
   const at = (s, i) => s.slice(Math.max(0, i - 40), i + user.length + 20);
   for (const m of text.matchAll(re)) {
     const s = skip.find(([a, b]) => m.index >= a && m.index < b);

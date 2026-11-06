@@ -259,7 +259,8 @@ export function mask(text, known) {
     // user named "user" or "project" is not masked twice; "<jdoe>" is still masked.
     if (placeholder === '<user>') {
       const post = /[a-z]$/.test(value) ? '(?![a-z\\d])' : '(?![A-Za-z\\d])';
-      const re = new RegExp(`(?<![A-Za-z\\d])${esc(value)}${post}`, 'g');
+      // Also right after a JSON escape left in tool output ("\\njdoe", "\\u003cjdoe").
+      const re = new RegExp(`(?:(?<![A-Za-z\\d])|(?<=\\\\[ntr])|(?<=\\\\u003[cCeE]))${esc(value)}${post}`, 'g');
       out = out
         .split(PLACEHOLDER)
         .map((part, i) => (i % 2 ? part : part.replace(re, placeholder)))
