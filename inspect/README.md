@@ -49,8 +49,11 @@ Status: pre-release trial (SP3: background runs, a thin skill, a checksummed rel
 - `shrine-inspect status [<run>] [--json]`: `running` (with judging progress), `gate` (with the exact `approve` line to type), `done` (report paths), `died` (no worker, no report), or `stopped`
 - `approve <run> <gate> [choice] --background`: you answer in your terminal, then a worker does the rest
 - `resume <run>`: restarts a stopped run in a worker at its first missing `.done` marker
-  - Unfinished judging needs a fresh typed yes: only `approve <run> B --background` grants it, once; `resume` alone refuses (`E_NEEDS_YES`)
-- Run folder extras: `worker.pid`, `run.log`; a second worker or `approve` on a running run is refused (`E_RUN_BUSY`)
+  - Unfinished judging needs a fresh typed yes: only `approve <run> B --background` grants it, once, for 5 minutes; `resume` alone refuses (`E_NEEDS_YES`)
+  - `resume` also refuses a run waiting at a gate (`E_GATE_WAITING`) or stopped by a history change (`E_RUN_STOPPED`)
+- Run folder extras: `worker.pid` (the one process running the run, foreground or background; removed on exit) and `run.log`
+  - While that process lives, `status` says running, and `approve`, `resume`, or another worker is refused (`E_RUN_BUSY`)
+- `--background` goes only with `approve` (`start` is always in the background)
 
 ## T1 "Pulse" (trial)
 
@@ -102,10 +105,11 @@ Counting (`test/adapters/claude-code/dedupe.test.mjs`):
 
 Background runs (`test/cli/background.test.mjs`):
 
-- A run is "running" while the pid in `worker.pid` is alive; the worker removes the file on exit, but a worker killed outright leaves it, and if the OS reuses that pid, `status` says running until that process ends
-- Two `approve --background` calls on one run at the same instant can both start a worker (the busy check and the pid write are not one step); `judging.pid` still allows only one judge runner
+- A run is "running" while the pid in `worker.pid` is alive; a process killed outright (or a worker that exits before its parent records it) leaves the file, and if the OS reuses that pid, `status` says running until that process ends
+- Two `approve --background` calls on one run at the same instant can both start a worker (the busy check and the pid write are not one step)
+  - Judging still has one runner: `judging.pid` is claimed by exclusive create, and a live runner's marker is never removed; only two runners finding the same dead marker at the same instant could both claim it
 - The installed link runs whatever `node` is first on PATH later; the installer checks Node 20 only at install time
-- The one-time judging grant sits in `state.json` and the worker's arguments for the moment between `approve --background` and the worker starting
+- The one-time judging grant sits in `state.json` and the worker's arguments from `approve --background` until the worker reads it; a worker that dies first leaves it there until it expires (5 minutes)
 - `run.log` holds the worker's own messages only; gate prompts appear in the terminal that answers them
 
 T1 trial (recorded, not fixed):
