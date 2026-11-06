@@ -53,6 +53,14 @@ function newRunId() {
 }
 
 export async function runCommand(opts, io) {
+  const { folder, ctx } = createRun(opts, io);
+  return continueRun(folder, ctx, io);
+}
+
+// Checks the options, creates the run folder and its state.json; reads nothing
+// but the harness folder's presence. `run` continues in this process, `start` in
+// a background worker.
+export function createRun(opts, io) {
   if (opts.tier !== 'T0' && opts.tier !== 'T1') {
     throw new InspectError('E_TIER', `tier ${opts.tier ?? '(none)'} is not available in this version`, { hint: 'use --tier T0 or --tier T1', exit: EXIT.USAGE });
   }
@@ -79,7 +87,7 @@ export async function runCommand(opts, io) {
     gates: { A: opts.noHistory ? { choice: 'no-history', by: 'flag', at } : null, B: opts.tier === 'T0' ? { choice: 'T0', by: 'flag', at } : null },
   };
   folder.writeJson('state.json', state);
-  return continueRun(folder, ctx, io);
+  return { folder, ctx, state };
 }
 
 export function findRun(stateDir, runId) {

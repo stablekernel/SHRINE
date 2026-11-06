@@ -77,6 +77,14 @@ export function runFolder(dir) {
       fs.rmSync(p, { force: true });
       record({ op: 'write', path: p, mode: 'rm' });
     },
+    // An append-mode file descriptor (the background worker's log); the caller closes it.
+    openLog(rel) {
+      const p = inside(rel);
+      const fd = fs.openSync(p, 'a');
+      record({ op: 'write', path: p, mode: 'a' });
+      return fd;
+    },
+    closeLog: (fd) => fs.closeSync(fd),
     markDone: (phase) => write(`${phase}.done`, `${new Date().toISOString()}\n`),
     isDone: (phase) => fs.existsSync(inside(`${phase}.done`)),
   };

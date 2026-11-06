@@ -8,7 +8,7 @@ import { basename } from 'node:path';
 import { fileURLToPath } from 'node:url';
 import { exists, readJson, readText, stat } from '../io/fsread.mjs';
 import { InspectError, EXIT } from './errors.mjs';
-import { armJudge, disarmJudge, runJudge } from '../io/proc.mjs';
+import { armJudge, disarmJudge, pidAlive, runJudge } from '../io/proc.mjs';
 import { drawSample } from '../sample/sample.mjs';
 import { buildBundle, bundleTokens, JUDGE_MARKER, newNonce } from '../judge/bundle.mjs';
 import { CLASSIFIER_SCHEMA, JUDGED_ENTRY_IDS } from '../judge/validate.mjs';
@@ -20,14 +20,7 @@ export const PROMPT_TEMPLATE = readText(fileURLToPath(new URL('../judge/classifi
 
 // Running-judge marker: the pid of the process judging this run.
 const RUNNING = 'judging.pid';
-const alive = (pid) => {
-  try {
-    process.kill(pid, 0);
-    return true;
-  } catch (e) {
-    return e.code === 'EPERM';
-  }
-};
+const alive = pidAlive;
 // The live pid judging this run, or null (no marker, or a stale one).
 export function judgingPid(folder) {
   const p = folder.path(RUNNING);

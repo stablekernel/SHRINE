@@ -5,6 +5,7 @@ import { readJson } from '../io/fsread.mjs';
 import { prompt } from '../io/tty.mjs';
 import { InspectError, EXIT } from './errors.mjs';
 import { judgeBusy, judgingPid } from './pulse.mjs';
+import { assertIdle, launchWorker } from './background.mjs';
 
 export const GATE_A = {
   question: 'Read session history too? T0 never sends anything to a model.',
@@ -101,6 +102,16 @@ export async function approveCommand({ runId, gate, choice }, io, { findRun, con
   const ctx = context(io);
   const folder = findRun(ctx.dirs.state, runId);
   const state = readJson(folder.path('state.json'));
+  assertIdle(folder, runId);
+  // --background: the answer is typed here; the rest of the run goes to a
+  // detached worker, granted this one yes, so it survives a closed terminal.
+  const proceed = () => {
+    if (!io.background) return continueRun(folder, ctx, io);
+    const r = launchWorker(folder, ctx, io, { grant: true });
+    if (io.json) io.stdout.write(`${JSON.stringify({ ...r, background: true })}\n`);
+    else io.stdout.write(`Continuing run ${r.run_id} in the background (process ${r.pid}).\nLog: ${r.log}\nCheck it with: shrine-inspect status ${r.run_id}\n`);
+    return { code: EXIT.OK, summary: r };
+  };
   if (!['A', 'B', 'C'].includes(gate)) throw new InspectError('E_GATE', `gate ${gate} does not exist`, { exit: EXIT.USAGE });
   const choices = CHOICES[gate];
   if (choice && !choices.includes(choice)) {
@@ -111,7 +122,7 @@ export async function approveCommand({ runId, gate, choice }, io, { findRun, con
     if (choice && choice !== state.gates[gate]?.choice) {
       throw new InspectError('E_GATE_ANSWERED', `Gate ${gate} of run ${runId} is already answered ${state.gates[gate]?.choice}`, { hint: `finish the report with: shrine-inspect approve ${runId} ${gate}`, exit: EXIT.USAGE });
     }
-    return continueRun(folder, ctx, io);
+    return proceed();
   }
   // A T1 run that stopped before its report (Ctrl-C, a crash) can be finished.
   // Judging left unfinished resumes only on a fresh typed yes, and only for
@@ -126,12 +137,12 @@ export async function approveCommand({ runId, gate, choice }, io, { findRun, con
       const a = await prompt('Judging stopped before it finished. Resume the remaining episodes on the Gate B approval you gave? Type yes: ', { input: io.stdin, output: io.stderr });
       if (!/^(yes|y)$/i.test(a)) throw new InspectError('E_NOT_ANSWERED', 'judging was not resumed; no model was called', { exit: EXIT.GATE_WAITING });
     }
-    return continueRun(folder, ctx, io);
+    return proceed();
   }
   if (state.gates[gate]) throw new InspectError('E_GATE_ANSWERED', `Gate ${gate} of run ${runId} is already answered`, { exit: EXIT.USAGE });
   const g = readJson(folder.path('gate.json'));
   if (g.gate !== gate) throw new InspectError('E_GATE', `run ${runId} is waiting at Gate ${g.gate}, not Gate ${gate}`, { exit: EXIT.USAGE });
   state.gates[gate] = gate === 'B' ? await askGateB(g, choice, io) : await askGate(g, choice, io);
   folder.writeJson('state.json', state);
-  return continueRun(folder, ctx, io);
+  return proceed();
 }

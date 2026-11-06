@@ -35,6 +35,30 @@ export function disarmJudge() {
   armed = null;
 }
 
+// True when a process with this pid exists (EPERM: it exists, owned by another user).
+export function pidAlive(pid) {
+  if (!Number.isInteger(pid) || pid <= 0) return false;
+  try {
+    process.kill(pid, 0);
+    return true;
+  } catch (e) {
+    return e.code === 'EPERM';
+  }
+}
+
+// A background worker: this package's own bin, detached from the terminal (its
+// own session, so closing the terminal does not stop it), stdout and stderr
+// appended to logFd, stdin closed. Returns the child pid.
+export function spawnWorker(args, { env, cwd, logFd }) {
+  const argv = [OWN_BIN, ...args];
+  checkSpawn(process.execPath, argv);
+  const t_start = Date.now();
+  const child = spawn(process.execPath, argv, { cwd, env, detached: true, stdio: ['ignore', logFd, logFd], windowsHide: true });
+  child.unref();
+  record({ op: 'spawn', cmd: process.execPath, args: logArgs(argv), cwd, mode: 'x', t_start, worker: true });
+  return child.pid;
+}
+
 // Long arguments (the judge schema and prompt) are logged by size only.
 const logArgs = (args) => args.map((a) => (a.length > 120 ? `<${a.length} chars>` : a));
 
