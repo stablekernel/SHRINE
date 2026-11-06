@@ -17,3 +17,4 @@ export class E extends Error {
     super(message);
   }
 }
+export const pick = (o, k) => o[k];

@@ -126,6 +126,11 @@ T1 trial (recorded, not fixed):
 - The harness version shown at Gate B comes from your newest session log, not from the installed command
 - A session whose loaded-instructions snapshot is logged only after an episode starts is read as "may have changed", so its corrections stay "could not tell"
 
+No-network lint (`test/lint/lint.test.mjs`):
+
+- It guards against accidental network use, not deliberately hidden code: a property name held in a variable (`x[k]`) cannot be known statically
+- `node:child_process` is allowed: only `src/io/proc.mjs` spawns (the read-only lint), and it runs git, this package's bin, and the judge command
+
 ## Develop
 
 - Node 20 or newer; no runtime dependencies

@@ -3,150 +3,131 @@
 // no environment variable and names no API key or token variable: the model call
 // is the user's own harness, which handles its own login.
 //
-// The global rules are structural, not a list of call shapes: in code (comments
-// and string text removed) any bare name of a network global or of the global
-// object is a problem, however it is then used (called, aliased, passed, or
-// wrapped as "(0, fetch)"). Only property access ("opts.fetch") is not a bare name.
+// The rules are structural, on a real parse (acorn), not on call shapes: any
+// reference to a network global or to the global object is a problem, however it
+// is then used (called, aliased, passed, or wrapped as "(0, fetch)"). Only a
+// property name ("opts.fetch") is not a reference. Escapes in names ("fetch")
+// are decoded by the parser, and comments, strings, and regexes are never code.
+//
+// A guard against accidental network use, not a sandbox: a property name built at
+// run time from variables cannot be known statically (see README, Known limits).
 import { readFileSync } from 'node:fs';
-import { join } from 'node:path';
+import { dirname, join, relative, resolve, sep } from 'node:path';
+import { parse } from 'acorn';
 import { lintRoot, rel, report, walk } from './lib/walk.mjs';
 
 // vm and module run or load code by a computed name; inspector opens a socket.
 const MODULE = /^(node:)?(http|https|http2|net|tls|dgram|dns|dns\/promises|undici|worker_threads|vm|module|inspector)$/;
-// Module specifiers in import and require forms, matched on the whole file so an
-// import split over lines ("import {\n  request,\n} from 'node:http'") is seen.
-const SPECIFIERS = [
-  /\b(?:import|export)\b[^;'"`]*?\bfrom\s*(['"])([^'"\n]+)\1/g,
-  /\bimport\s*(['"])([^'"\n]+)\1/g,
-  /\b(?:import|require)\s*\(\s*(['"`])([^'"`\n]+)\1\s*\)/g,
-];
-// import(x) or require(x) with a computed name hides which module it loads.
-const COMPUTED_LOAD = /\b(?:import|require)\s*\((?!\s*(?:['"][^'"\n]+['"]|`[^`$\n]+`)\s*\))/g;
-// A bare name: not a property ("a.fetch", "a?.fetch") and not part of a longer name.
-const bare = (names) => new RegExp(String.raw`(?<!\.\s*)(?<![\w$])(${names})(?![\w$])`, 'g');
-const NET_GLOBAL = bare('fetch|WebSocket|EventSource|XMLHttpRequest');
+const NET_GLOBALS = new Set(['fetch', 'WebSocket', 'EventSource', 'XMLHttpRequest']);
 // The global object reaches every global by name, so code never names it.
-const GLOBAL_OBJECT = bare('globalThis|global|self|window|navigator');
-// Code built from strings or a global read by reflection hides what it calls.
-const DYNAMIC = bare('eval|Function|Reflect');
-// Named anywhere, as a property or in a string ("x['constructor']"): a beacon send,
-// a module loaded by name or a raw binding, and the constructor of any function,
-// which compiles code from a string. A class's own "constructor(" opening a line
-// is the one exception.
-const ANY_ACCESS = /(?<![\w$])(sendBeacon|getBuiltinModule|createRequire|binding|_linkedBinding|dlopen|constructor)(?![\w$])/g;
-const CLASS_CONSTRUCTOR = /^[ \t]*constructor\s*\(/;
-// process only by a named property ("process.argv"): a bracket ("process['x']")
-// or a bare use (an alias, a destructure) hides which property is read.
-const PROCESS_OTHER = /(?<!\.\s*)(?<![\w$])process(?![\w$])(?!\s*(?:\?\.|\.)\s*[A-Za-z_$])/g;
-const ENV_READ = /\bprocess\s*(?:\?\.|\.)\s*env\b/;
+const GLOBAL_OBJECTS = new Set(['globalThis', 'global', 'self', 'window', 'navigator']);
+// Code built from strings, or a global read by reflection.
+const DYNAMIC = new Set(['eval', 'Function', 'Reflect']);
+// Names never used, as a property, a key, or a whole string: a beacon send, a
+// module loaded by name or a raw binding, a process image swap (execve), and the routes to the Function
+// constructor (which compiles code from a string) through prototypes.
+const NEVER = new Set(['sendBeacon', 'getBuiltinModule', 'createRequire', 'binding', '_linkedBinding', 'dlopen', 'constructor', 'getPrototypeOf', 'setPrototypeOf', 'getOwnPropertyDescriptor', 'getOwnPropertyDescriptors', '__proto__', '__lookupGetter__', '__lookupSetter__', '__defineGetter__', '__defineSetter__', 'execve']);
 const KEY_NAME = /\b[A-Z_]*(API_KEY|AUTH_TOKEN|ACCESS_TOKEN|SECRET_KEY)\b/;
 const isJudgeCode = (r) => r.startsWith('src/judge/') || /^src\/adapters\/[^/]+\/judge\.mjs$/.test(r);
 
-// Characters after which "/" starts a regex literal, not a division.
-const REGEX_AFTER = new Set('(,=:[!&|?{};+-*%<>~^'.split(''));
-const REGEX_KEYWORD = /(?:^|[^\w$])(?:return|typeof|instanceof|in|of|new|delete|void|throw|case|do|else|yield|await)$/;
-
-// Returns { comments: source with comments blanked, code: source with comments
-// and string, template, and regex text blanked }. Newlines are kept, so line
-// numbers hold. Code inside a template's ${ } stays code.
-export function strip(src) {
-  const comments = src.split('');
-  const code = src.split('');
-  const blank = (arr, from, to) => {
-    for (let k = from; k < to; k++) if (arr[k] !== '\n') arr[k] = ' ';
-  };
-  const braces = []; // brace depth at each open ${ , innermost last
-  let depth = 0;
-  let i = 0;
-  let last = ''; // last code character that is not a space
-  const lastWord = () => src.slice(Math.max(0, i - 12), i).trimEnd();
-  const template = () => {
-    // At a template's text (after ` or }). Ends at ` or at ${.
-    const start = i;
-    while (i < src.length && src[i] !== '`' && !(src[i] === '$' && src[i + 1] === '{')) i += src[i] === '\\' ? 2 : 1;
-    blank(code, start, i);
-    if (src[i] === '`') {
-      i++;
-      last = '`';
-    } else if (i < src.length) {
-      i += 2;
-      braces.push(depth);
-      depth++;
-      last = '{';
-    }
-  };
-  while (i < src.length) {
-    const c = src[i];
-    const d = src[i + 1];
-    if (c === '/' && d === '/') {
-      const end = src.indexOf('\n', i);
-      const to = end < 0 ? src.length : end;
-      blank(comments, i, to);
-      blank(code, i, to);
-      i = to;
-    } else if (c === '/' && d === '*') {
-      const end = src.indexOf('*/', i + 2);
-      const to = end < 0 ? src.length : end + 2;
-      blank(comments, i, to);
-      blank(code, i, to);
-      i = to;
-    } else if (c === "'" || c === '"') {
-      const start = ++i;
-      while (i < src.length && src[i] !== c && src[i] !== '\n') i += src[i] === '\\' ? 2 : 1;
-      blank(code, start, i);
-      i++;
-      last = c;
-    } else if (c === '`') {
-      i++;
-      template();
-    } else if (c === '}' && braces.length && braces[braces.length - 1] === depth - 1) {
-      braces.pop();
-      depth--;
-      i++;
-      template();
-    } else if (c === '/' && (last === '' || REGEX_AFTER.has(last) || REGEX_KEYWORD.test(lastWord()))) {
-      const start = ++i;
-      let inClass = false;
-      while (i < src.length && src[i] !== '\n' && (inClass || src[i] !== '/')) {
-        if (src[i] === '[') inClass = true;
-        else if (src[i] === ']') inClass = false;
-        i += src[i] === '\\' ? 2 : 1;
-      }
-      blank(code, start, i);
-      i++;
-      last = '/';
-    } else {
-      if (c === '{') depth++;
-      else if (c === '}') depth--;
-      if (!/\s/.test(c)) last = c;
-      i++;
-    }
+// Every node with its parent and the key it sits under.
+function visit(node, fn, parent = null, key = null) {
+  if (!node || typeof node.type !== 'string') return;
+  fn(node, parent, key);
+  for (const [k, v] of Object.entries(node)) {
+    if (k === 'loc') continue;
+    if (Array.isArray(v)) v.forEach((c) => visit(c, fn, node, k));
+    else if (v && typeof v === 'object') visit(v, fn, node, k);
   }
-  return { comments: comments.join(''), code: code.join('') };
 }
 
-function lint(file, name) {
+// An identifier that names a binding or reads one, not a property name or label.
+function isReference(parent, key) {
+  if (!parent) return true;
+  if (parent.type === 'MemberExpression' && key === 'property' && !parent.computed) return false;
+  if ((parent.type === 'Property' || parent.type === 'MethodDefinition' || parent.type === 'PropertyDefinition') && key === 'key' && !parent.computed && !parent.shorthand) return false;
+  if (['LabeledStatement', 'BreakStatement', 'ContinueStatement'].includes(parent.type)) return false;
+  if (parent.type === 'MetaProperty') return false;
+  if (parent.type === 'ExportSpecifier' && key === 'exported') return false;
+  if (parent.type === 'ImportSpecifier' && key === 'imported') return false;
+  return true;
+}
+
+// A string put together from parts: a template with a ${ } or a "+" with a string
+// in it ("'fe' + 'tch'"). Arithmetic ("i + 1") is not one.
+const isString = (n) => (n.type === 'Literal' && typeof n.value === 'string') || n.type === 'TemplateLiteral';
+const builtString = (n) =>
+  (n.type === 'TemplateLiteral' && n.expressions.length > 0) ||
+  (n.type === 'BinaryExpression' && n.operator === '+' && (isString(n.left) || isString(n.right) || builtString(n.left) || builtString(n.right)));
+
+// The literal text of a module specifier, or null when it is computed.
+const staticText = (n) => (n?.type === 'Literal' && typeof n.value === 'string' ? n.value : n?.type === 'TemplateLiteral' && !n.expressions.length ? n.quasis[0].value.cooked : null);
+
+function lint(root, file, name) {
   const problems = [];
-  const { comments, code } = strip(readFileSync(file, 'utf8'));
-  const lineAt = (index) => comments.slice(0, index).split('\n').length;
-  const add = (index, message) => problems.push({ file: name, line: lineAt(index), message });
-  for (const re of SPECIFIERS) {
-    for (const m of comments.matchAll(re)) if (MODULE.test(m[2])) add(m.index, `network module ${m[2]}`);
+  const add = (node, message) => problems.push({ file: name, line: node.loc.start.line, message });
+  const src = readFileSync(file, 'utf8');
+  const comments = [];
+  let ast;
+  try {
+    ast = parse(src, { ecmaVersion: 'latest', sourceType: 'module', locations: true, allowHashBang: true, onComment: comments });
+  } catch (e) {
+    return [{ file: name, line: e.loc?.line ?? 1, message: `not parsed: ${e.message}` }];
   }
-  for (const m of comments.matchAll(COMPUTED_LOAD)) add(m.index, 'module loaded by a computed name');
-  for (const m of code.matchAll(NET_GLOBAL)) add(m.index, `network global ${m[1]}`);
-  for (const m of code.matchAll(GLOBAL_OBJECT)) add(m.index, `global object ${m[1]}`);
-  for (const m of code.matchAll(DYNAMIC)) add(m.index, `dynamic code or reflection ${m[1]}`);
-  for (const m of comments.matchAll(ANY_ACCESS)) {
-    const lineStart = comments.lastIndexOf('\n', m.index) + 1;
-    if (!(m[1] === 'constructor' && CLASS_CONSTRUCTOR.test(comments.slice(lineStart, m.index + 13)))) add(m.index, `${m[1]} reached`);
-  }
-  for (const m of code.matchAll(PROCESS_OTHER)) add(m.index, 'process used other than by a named property');
-  if (isJudgeCode(name)) {
-    code.split('\n').forEach((line, i) => {
-      if (ENV_READ.test(line)) problems.push({ file: name, line: i + 1, message: 'environment read in judge code' });
-    });
-    comments.split('\n').forEach((line, i) => {
+  const judge = isJudgeCode(name);
+  const allowed = [join(root, 'src'), join(root, 'bin')];
+  const specifier = (node, source) => {
+    const s = staticText(source);
+    if (s === null) return add(node, 'module loaded by a computed name');
+    if (MODULE.test(s)) add(node, `network module ${s}`);
+    if (s.startsWith('.')) {
+      const target = resolve(dirname(file), s);
+      if (!allowed.some((d) => !relative(d, target).startsWith('..') && !relative(d, target).startsWith(sep))) add(node, `import from outside src and bin: ${s}`);
+    }
+  };
+  visit(ast, (node, parent, key) => {
+    switch (node.type) {
+      case 'ImportDeclaration':
+      case 'ExportAllDeclaration':
+      case 'ExportNamedDeclaration':
+        if (node.source) specifier(node, node.source);
+        break;
+      case 'ImportExpression':
+        specifier(node, node.source);
+        break;
+      case 'CallExpression':
+        if (node.callee.type === 'Identifier' && node.callee.name === 'require') specifier(node, node.arguments[0]);
+        break;
+      case 'Identifier': {
+        const n = node.name;
+        if (isReference(parent, key)) {
+          if (NET_GLOBALS.has(n)) add(node, `network global ${n}`);
+          if (GLOBAL_OBJECTS.has(n)) add(node, `global object ${n}`);
+          if (DYNAMIC.has(n)) add(node, `dynamic code or reflection ${n}`);
+          // process only by a named property ("process.argv"): a bracket or a bare
+          // use (an alias, a destructure) hides which property is read.
+          if (n === 'process' && !(parent?.type === 'MemberExpression' && key === 'object' && !parent.computed)) add(node, 'process used other than by a named property');
+        }
+        const ctorMethod = parent?.type === 'MethodDefinition' && parent.kind === 'constructor' && key === 'key';
+        if (NEVER.has(n) && !ctorMethod) add(node, `${n} reached`);
+        break;
+      }
+      case 'Literal':
+        if (typeof node.value === 'string' && NEVER.has(node.value)) add(node, `${node.value} reached`);
+        break;
+      case 'MemberExpression':
+        // A key put together at run time ("x['constr' + 'uctor']") hides the name.
+        if (node.computed && builtString(node.property)) add(node, 'property name built at run time');
+        if (judge && !node.computed && node.object.type === 'Identifier' && node.object.name === 'process' && node.property.name === 'env') add(node, 'environment read in judge code');
+        break;
+      default:
+    }
+  });
+  if (judge) {
+    // Comments blanked, keeping line numbers; strings count ("process.env['X_API_KEY']").
+    const chars = src.split('');
+    for (const c of comments) for (let k = c.start; k < c.end; k++) if (chars[k] !== '\n') chars[k] = ' ';
+    chars.join('').split('\n').forEach((line, i) => {
       const k = line.match(KEY_NAME);
       if (k) problems.push({ file: name, line: i + 1, message: `key variable ${k[0]} in judge code` });
     });
@@ -156,4 +137,4 @@ function lint(file, name) {
 
 const root = lintRoot(process.argv);
 const files = ['src', 'bin'].flatMap((d) => walk(join(root, d), (f) => f.endsWith('.mjs')));
-report('lint-network', files.flatMap((file) => lint(file, rel(root, file))));
+report('lint-network', files.flatMap((file) => lint(root, file, rel(root, file))));
