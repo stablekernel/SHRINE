@@ -75,16 +75,20 @@ test('lint-network reads code with a real parser: slashes, escapes, and prototyp
   assert.match(r.stdout, /bad\.mjs:12: constructor reached/);
   assert.match(r.stdout, /bad\.mjs:13: property name built at run time/);
   assert.match(r.stdout, /bad\.mjs:14: property name built at run time/);
+  assert.match(r.stdout, /bad\.mjs:15: property name built at run time/);
+  assert.match(r.stdout, /bad\.mjs:16: property name built at run time/);
 });
 
 test('lint-network allows only node: built-ins and files inside src and bin', () => {
   const r = lint('lint-network.mjs', join(here, 'network-imports'));
   assert.equal(r.status, 1, r.stdout + r.stderr);
-  for (const line of [1, 2, 3, 4, 5]) assert.match(r.stdout, new RegExp(`bad\\.mjs:${line}: import of code this lint does not read`));
+  for (const line of [1, 2, 3, 4, 5, 11, 12, 13, 14]) assert.match(r.stdout, new RegExp(`bad\\.mjs:${line}: import of code this lint does not read`));
   assert.match(r.stdout, /bad\.mjs:6: network module node:inspector\/promises/);
   assert.match(r.stdout, /bad\.mjs:7: network module node:process/);
   assert.match(r.stdout, /bad\.mjs:8: network module node:cluster/);
-  assert.doesNotMatch(r.stdout, /bad\.mjs:9:/, 'a file named ..x.mjs is inside src');
+  // A file named ..x.mjs is inside src, but the walk skips dot names, so it is unread.
+  assert.match(r.stdout, /bad\.mjs:9: import of code this lint does not read/);
+  assert.doesNotMatch(r.stdout, /bad\.mjs:9: import from outside/);
 });
 
 test('lint-network passes literal imports, property access, and names in strings or comments', () => {

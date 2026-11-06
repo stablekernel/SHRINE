@@ -8,3 +8,7 @@ import { env } from 'node:process';
 import cluster from 'node:cluster';
 import './..x.mjs';
 export { open, env, cluster };
+import 'node:_http_client';
+import 'node:repl';
+import './evil.cjs';
+import './.hidden/x.mjs';

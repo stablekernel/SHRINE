@@ -12,3 +12,5 @@ export const t = () => ({})[`constructor`];
 export const r = () => ({})[String.raw`constructor`];
 export const cc = () => ({})['constr'.concat('uctor')];
 export const j = () => ({})[['constr', 'uctor'].join('')];
+export const { ['constr' + 'uctor']: D } = () => 0;
+export const s = (x) => x['xCONSTRUCTOR'.slice(1).toLowerCase()];

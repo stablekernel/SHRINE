@@ -13,7 +13,6 @@
 // run time from variables cannot be known statically (see README, Known limits).
 import { readFileSync } from 'node:fs';
 import { dirname, isAbsolute, join, relative, resolve, sep } from 'node:path';
-import { isBuiltin } from 'node:module';
 import { parse } from 'acorn';
 import { lintRoot, rel, report, walk } from './lib/walk.mjs';
 
@@ -21,6 +20,9 @@ import { lintRoot, rel, report, walk } from './lib/walk.mjs';
 // cluster forks; process would alias process past the rule below. Subpaths too
 // ("node:inspector/promises").
 const MODULE = /^(node:)?(http|https|http2|net|tls|dgram|dns|undici|worker_threads|vm|module|inspector|cluster|process)(\/.*)?$/;
+// The only built-ins src may load: any other (node:repl, node:test, the internal
+// node:_http_client) may run code or open a socket this lint cannot see.
+const BUILTINS = new Set(['child_process', 'crypto', 'fs', 'os', 'path', 'readline', 'readline/promises', 'url'].map((m) => `node:${m}`));
 const NET_GLOBALS = new Set(['fetch', 'WebSocket', 'EventSource', 'XMLHttpRequest']);
 // The global object reaches every global by name, so code never names it.
 const GLOBAL_OBJECTS = new Set(['globalThis', 'global', 'self', 'window', 'navigator']);
@@ -63,8 +65,11 @@ function isReference(parent, key) {
 const GUARDED = () => [...NET_GLOBALS, ...GLOBAL_OBJECTS, ...DYNAMIC, ...NEVER, 'process'];
 function spellsGuarded(n) {
   let found = false;
+  // Either way round and ignoring case: "constr" is part of a name, and
+  // "xCONSTRUCTOR" holds one.
   const piece = (t) => {
-    if (t && GUARDED().some((g) => g.includes(t))) found = true;
+    const l = t?.toLowerCase();
+    if (l && GUARDED().some((g) => g.toLowerCase().includes(l) || l.includes(g.toLowerCase()))) found = true;
   };
   visit(n, (c) => {
     if (c.type === 'Literal' && typeof c.value === 'string') piece(c.value);
@@ -103,7 +108,9 @@ function lint(root, file, name) {
         return !(r === '..' || r.startsWith(`..${sep}`) || isAbsolute(r));
       };
       if (!allowed.some(inside)) add(node, `import from outside src and bin: ${s}`);
-    } else if (!(s.startsWith('node:') && isBuiltin(s))) add(node, `import of code this lint does not read: ${s}`);
+      // The lint reads only .mjs files, and skips names that start with a dot.
+      else if (!s.endsWith('.mjs') || allowed.every((d) => !inside(d) || relative(d, target).split(sep).some((seg) => seg.startsWith('.')))) add(node, `import of code this lint does not read: ${s}`);
+    } else if (!BUILTINS.has(s)) add(node, `import of code this lint does not read: ${s}`);
   };
   visit(ast, (node, parent, key) => {
     switch (node.type) {
@@ -137,6 +144,12 @@ function lint(root, file, name) {
         break;
       case 'TemplateElement':
         if (NEVER.has(node.value.cooked ?? node.value.raw)) add(node, `${node.value.cooked ?? node.value.raw} reached`);
+        break;
+      case 'Property':
+      case 'PropertyDefinition':
+      case 'MethodDefinition':
+        // A key built at run time in an object, a class, or a destructure.
+        if (node.computed && builtString(node.key)) add(node, 'property name built at run time');
         break;
       case 'MemberExpression':
         // A key put together at run time ("x['constr' + 'uctor']") hides the name.
