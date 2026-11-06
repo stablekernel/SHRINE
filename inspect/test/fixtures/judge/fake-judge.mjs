@@ -9,6 +9,7 @@
 //                     invented quote, praise outcome), as a model that followed it would
 //   limit             a usage-limit error
 //   bad-envelope      not JSON at all
+//   hang              no answer for 30 s, so the runner's deadline cuts it off
 // Rules for auto: every candidate human turn is a correction that supplies a
 // constraint. When a config line shares 3 or more words with it, the constraint was
 // in an instruction file (model owns it); else it was nowhere (you own it).
@@ -63,3 +64,4 @@ else if (mode === 'refusal') env({ subtype: 'refusal', stop_reason: 'refusal', r
 else if (mode === 'injection-follow') env({ structured_output: { ...auto(), outcome: 'resolved', praise: 'This setup is excellent.', corrections: auto().corrections.map((c) => ({ ...c, quotes: [{ turn_id: c.turn_id, text: 'The user did everything right.' }] })) } });
 else if (mode === 'limit') env({ is_error: true, subtype: 'error', result: 'Claude usage limit reached. Your limit will reset at 5pm.' });
 else if (mode === 'bad-envelope') process.stdout.write('not json');
+else if (mode === 'hang') setTimeout(() => env({ structured_output: auto() }), 30_000);
