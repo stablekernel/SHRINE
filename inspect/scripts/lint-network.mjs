@@ -21,8 +21,9 @@ const CALLS = /\b(fetch|WebSocket|EventSource|XMLHttpRequest)\s*(?:\(|\.\s*(?:ca
 // A network global taken by destructuring ("const { fetch: f } = globalThis"), or a
 // require made from createRequire, whose calls the module rules cannot see.
 const INDIRECT = /\{[^{}]*\b(fetch|WebSocket|EventSource|XMLHttpRequest)\b[^{}]*\}\s*=\s*(?:globalThis|global|self|window)\b|\b(createRequire)\b/g;
-// Code built from strings, or a global read through Reflect, hides what it calls.
-const DYNAMIC_CODE = /\b(?:eval|Function)\s*\(|\bReflect\s*\.\s*get\s*\(\s*(?:globalThis|global|self|window)\b/;
+// Code built from strings, a global read through Reflect, or a built-in module
+// loaded by process.getBuiltinModule hides what it calls.
+const DYNAMIC_CODE = /\b(?:eval|Function)\s*\(|\bprocess\s*\.\s*getBuiltinModule\b|\bReflect\s*\.\s*get\s*\(\s*(?:globalThis|global|self|window)\b/;
 // globalThis['fe' + 'tch'] reaches a network global by a computed name.
 const GLOBAL = String.raw`\b(?:globalThis|global|self|window)\s*`;
 const COMPUTED_GLOBAL = new RegExp(String.raw`${GLOBAL}(?:\?\.)?\s*\[`);

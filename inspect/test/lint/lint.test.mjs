@@ -47,6 +47,7 @@ test('lint-network fails on a global or module reached by a computed name', () =
   assert.match(r.stdout, /dynamic code or reflected global/);
   assert.match(r.stdout, /network global fetch taken indirectly/);
   assert.match(r.stdout, /require built by createRequire/);
+  assert.match(r.stdout, /bi\.mjs:1: dynamic code or reflected global/);
 });
 
 test('lint-network passes literal imports split over lines or spaced', () => {
