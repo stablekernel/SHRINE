@@ -36,11 +36,11 @@ export function isDoneClaim(text) {
 export const isTestCommand = (command) => matchesAtCommand(command, PATTERNS.test.patterns);
 export const isCorrectionCue = (text) => CUES.some((re) => re.test(text ?? ''));
 
-// Retries: same key within the previous `window` calls, no human turn between.
-export function countRetries(calls, window = PATTERNS.retry.window) {
+// Retries: same key within the previous `span` calls, no human turn between.
+export function countRetries(calls, span = PATTERNS.retry.window) {
   let n = 0;
   calls.forEach((c, i) => {
-    const prev = calls.slice(Math.max(0, i - window), i).filter((p) => p.human_turns_before === c.human_turns_before);
+    const prev = calls.slice(Math.max(0, i - span), i).filter((p) => p.human_turns_before === c.human_turns_before);
     if (prev.some((p) => p.key === c.key)) n++;
   });
   return n;

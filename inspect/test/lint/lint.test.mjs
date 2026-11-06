@@ -35,22 +35,33 @@ test('lint-network fails on an import split over several lines', () => {
   const r = lint('lint-network.mjs', join(here, 'network-multiline'));
   assert.equal(r.status, 1, r.stdout + r.stderr);
   assert.match(r.stdout, /network module node:https/);
-  assert.match(r.stdout, /network call fetch/);
+  assert.match(r.stdout, /network global fetch/);
 });
 
 test('lint-network fails on a global or module reached by a computed name', () => {
   const r = lint('lint-network.mjs', join(here, 'network-computed'));
   assert.equal(r.status, 1, r.stdout + r.stderr);
-  assert.match(r.stdout, /global read by a computed name/);
+  assert.match(r.stdout, /bad\.mjs:2: global object globalThis/);
   assert.match(r.stdout, /module loaded by a computed name/);
-  assert.match(r.stdout, /network call fetch/);
-  assert.match(r.stdout, /dynamic code or reflected global/);
-  assert.match(r.stdout, /network global fetch taken indirectly/);
-  assert.match(r.stdout, /require built by createRequire/);
-  assert.match(r.stdout, /bi\.mjs:1: dynamic code or reflected global/);
+  assert.match(r.stdout, /bad\.mjs:4: network global fetch/);
+  assert.match(r.stdout, /dynamic code or reflection Reflect/);
+  assert.match(r.stdout, /bad\.mjs:6: network global fetch/);
+  assert.match(r.stdout, /req\.mjs:2: createRequire reached/);
+  assert.match(r.stdout, /bi\.mjs:1: getBuiltinModule reached/);
 });
 
-test('lint-network passes literal imports split over lines or spaced', () => {
+test('lint-network fails on any bare network global, not only a call', () => {
+  const r = lint('lint-network.mjs', join(here, 'network-bare'));
+  assert.equal(r.status, 1, r.stdout + r.stderr);
+  for (const line of [1, 2, 3, 8]) assert.match(r.stdout, new RegExp(`bad\\.mjs:${line}: network global fetch`));
+  assert.match(r.stdout, /bad\.mjs:4: process used other than by a named property/);
+  assert.match(r.stdout, /bad\.mjs:5: sendBeacon reached/);
+  assert.match(r.stdout, /bad\.mjs:5: global object navigator/);
+  assert.match(r.stdout, /bad\.mjs:6: constructor reached/);
+  assert.match(r.stdout, /bad\.mjs:7: process used other than by a named property/);
+});
+
+test('lint-network passes literal imports, property access, and names in strings or comments', () => {
   const r = lint('lint-network.mjs', join(here, 'network-clean'));
   assert.equal(r.status, 0, r.stdout + r.stderr);
 });
