@@ -85,8 +85,9 @@ export async function askGate(gate, choice, io) {
   }
   io.stderr.write(`${describe(gate)}\n`);
   const q = choice ? `Confirm ${choice}? Type yes to confirm: ` : `Type one of ${gate.choices.join(', ')}: `;
-  const answer = (await prompt(q, { input: io.stdin, output: io.stderr })).toLowerCase();
-  const picked = choice ? (answer === 'yes' || answer === 'y' ? choice : null) : gate.choices.includes(answer) ? answer : null;
+  // A confirmation needs the whole word, as at Gate B: "y" leaves the gate paused.
+  const answer = (await prompt(q, { input: io.stdin, output: io.stderr })).trim().toLowerCase();
+  const picked = choice ? (answer === 'yes' ? choice : null) : gate.choices.includes(answer) ? answer : null;
   if (!picked) throw new InspectError('E_NOT_ANSWERED', `Gate ${gate.gate} was not answered; the run stays paused`, { exit: EXIT.GATE_WAITING });
   return { choice: picked, by: 'tty', at: new Date().toISOString() };
 }

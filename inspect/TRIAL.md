@@ -21,6 +21,7 @@ A local health check of your Claude Code setup and session history, measured aga
   - The CLI takes an answer only from an interactive terminal. It cannot tell you from a tool that fakes one, so never let an agent run `approve`.
   - Gate A: read your session history too, or not.
   - Gate B (T1 only): judging, with its token and time estimate. T0 is pre-selected; T1 needs a typed `yes`.
+  - A choice named on the `approve` command line is confirmed only by a typed `yes`, at every gate. `y` is not enough.
 - Long runs: `shrine-inspect start --tier T1`, then `shrine-inspect status`. Add `--background` to an `approve` command and the run keeps going after you close the terminal.
 
 ## What it reads

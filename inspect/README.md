@@ -16,6 +16,7 @@ Status: pre-release trial (SP3: background runs, a thin skill, a checksummed rel
 - `node bin/shrine-inspect.mjs run --tier T0 --no-history`: setup and repos only
 - Without `--no-history`, the run pauses at Gate A (exit 3) until you answer in your own terminal: `node bin/shrine-inspect.mjs approve <run> A <no-history|history>`
 - Gate A lists projects, date range, size on disk, and a size-based time estimate; every run asks again
+  - A choice named on the command line is confirmed only by a typed `yes`, at every gate; `y` leaves the run paused
   - Before Gate A: file names, sizes, and dates, plus the first 10 lines of the newest session file per folder, read to find its folder
   - Those lines can hold a prompt; only `cwd`, `entrypoint`, and `version` are kept, and no prompt text is kept or shown
   - The rest of each session is read only after `history`
