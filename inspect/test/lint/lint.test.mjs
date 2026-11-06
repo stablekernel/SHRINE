@@ -31,6 +31,19 @@ test('lint-network fails on an http import', () => {
   assert.match(r.stdout, /node:http/);
 });
 
+test('lint-network fails on an import split over several lines', () => {
+  const r = lint('lint-network.mjs', join(here, 'network-multiline'));
+  assert.equal(r.status, 1, r.stdout + r.stderr);
+  assert.match(r.stdout, /network module node:https/);
+});
+
+test('lint-network fails on a global or module reached by a computed name', () => {
+  const r = lint('lint-network.mjs', join(here, 'network-computed'));
+  assert.equal(r.status, 1, r.stdout + r.stderr);
+  assert.match(r.stdout, /global read by a computed name/);
+  assert.match(r.stdout, /module loaded by a computed name/);
+});
+
 for (const script of ['lint-readonly.mjs', 'lint-copy.mjs', 'lint-network.mjs']) {
   test(`${script} passes on the package itself`, () => {
     const r = lint(script);
