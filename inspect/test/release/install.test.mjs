@@ -96,6 +96,10 @@ test('install --skill copies only the skill, and never overwrites a different co
   assert.deepEqual(readdirSync(target), ['SKILL.md']);
   assert.equal(readFileSync(join(target, 'SKILL.md'), 'utf8'), readFileSync(join(ROOT, 'skill', 'skills', 'shrine-inspect', 'SKILL.md'), 'utf8'));
   assert.match(sh(r.install, ['--skill'], { home }).stdout, /Skill already installed/);
+  // This skill from another release is replaced, so its version matches the CLI.
+  writeFileSync(join(target, 'SKILL.md'), '---\nname: shrine-inspect\n---\nSkill version: 0.0.9\n');
+  assert.match(sh(r.install, ['--skill'], { home }).stdout, /Skill updated/);
+  assert.equal(readFileSync(join(target, 'SKILL.md'), 'utf8'), readFileSync(join(ROOT, 'skill', 'skills', 'shrine-inspect', 'SKILL.md'), 'utf8'));
   writeFileSync(join(target, 'SKILL.md'), 'mine\n');
   const again = sh(r.install, ['--skill'], { home });
   assert.equal(again.status, 0);

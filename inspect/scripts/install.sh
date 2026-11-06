@@ -7,7 +7,8 @@
 #
 # Installs to ~/.local/share/shrine-inspect/<version>/ and links
 # ~/.local/bin/shrine-inspect to it. --skill also copies the harness skill to
-# ~/.claude/skills/shrine-inspect/ (skipped when a different copy is there).
+# ~/.claude/skills/shrine-inspect/ (a copy from another release is replaced;
+# any other file there is left alone).
 # SHRINE_INSPECT_PREFIX and SHRINE_INSPECT_BIN_DIR change the two folders.
 # Exit codes: 0 ok, 1 failed, 2 usage, 3 Node too old or missing, 4 checksum mismatch.
 #
@@ -99,6 +100,11 @@ if [ "$skill" = 1 ]; then
   if [ -e "$target" ]; then
     if diff -r "$src" "$target" >/dev/null 2>&1; then
       echo "Skill already installed: $target"
+    elif grep -q '^name: shrine-inspect$' "$target/SKILL.md" 2>/dev/null && grep -q '^Skill version: ' "$target/SKILL.md" 2>/dev/null; then
+      # This skill from another release: replaced, so its version matches the CLI.
+      rm -rf "$target"
+      cp -R "$src" "$target"
+      echo "Skill updated: $target"
     else
       echo "Skill not copied: $target holds a different copy. Remove it, then run with --skill again."
     fi
