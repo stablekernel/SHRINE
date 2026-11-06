@@ -82,10 +82,9 @@ const FINDINGS = {
       ...(items.some((i) => /^defaultMode:/.test(i.rule)) ? ['set the default permission mode back to ask'] : []),
       ...(items.some((i) => /^skipDangerousModePermissionPrompt:/.test(i.rule)) ? ['turn the dangerous-mode prompt back on'] : []),
     ];
-    const todo = [
-      ...(allows ? [`${allows} allow ${pl(allows, 'rule')} to scope`] : []),
-      ...(settings ? [`${settings} ${pl(settings, 'setting')} to set back to ask`] : []),
-    ];
+    // Short enough to stay on one line; a mix is "entries", never "rules".
+    const todo = allows && settings ? `${m.count} entries to fix` : allows ? `${allows} ${pl(allows, 'rule')} to scope` : `${settings} ${pl(settings, 'setting')} to reset`;
+    const todoSub = allows && settings ? 'Scope the rules; set the settings back to ask' : allows ? 'Each becomes a narrow allow or a prompt' : 'Each one asks again before a risky step';
     return {
       icon: 'hand',
       title: 'Shell or file writes run without a pause',
@@ -101,7 +100,7 @@ const FINDINGS = {
       ],
       benefit: [
         { headline: 'Judgment where it counts', sub: 'You decide at the risky step only', metric: 'count' },
-        { headline: joinAnd(todo), sub: allows ? 'Each becomes a narrow allow or a prompt' : 'Each one asks again before a risky step', metric: 'count' },
+        { headline: todo, sub: todoSub, metric: 'count' },
       ],
       ...(steps.length ? { action: `${steps[0][0].toUpperCase()}${joinAnd(steps).slice(1)}.` } : {}),
     };
