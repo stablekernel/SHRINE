@@ -2,11 +2,12 @@
 
 Health check of a Claude Code environment against the SHRINE docs. T0: setup audit plus usage counts from local session logs; local, read-only, no network, zero model calls. T1 ("Pulse", trial): T0 plus 12 sampled episodes judged by your own harness, only after you approve it at Gate B.
 
-Status: pre-release trial (SP3: background runs, a thin skill, a checksummed release). Nothing is published yet; the docs guide page (`docs/src/content/docs/guide/inspect.mdx`) documents this CLI, and its install steps apply once the owner publishes a release. Testers: see [TRIAL.md](TRIAL.md).
+Status: pre-release trial (background runs, a thin skill, a checksummed release). Releases: [`inspect-v*` on the releases page](https://github.com/stablekernel/SHRINE/releases). Install and first run: [TRIAL.md](TRIAL.md); the docs guide page (`docs/src/content/docs/guide/inspect.mdx`) documents this CLI.
 
 ## Install (trial)
 
-- From the release files: `sh install.sh --skill` checks Node 20 or newer and the SHA-256 pinned in `install.sh`, then extracts to `~/.local/share/shrine-inspect/<version>/` and links `~/.local/bin/shrine-inspect`
+- Steps to copy and paste: [TRIAL.md](TRIAL.md)
+- From the release files: `sh install.sh [--skill] [path/to/tgz]` checks Node 20 or newer and the SHA-256 pinned in `install.sh`, then extracts to `~/.local/share/shrine-inspect/<version>/` and links `~/.local/bin/shrine-inspect`
 - A changed tarball exits 4 and installs nothing; `--skill` copies only the skill to `~/.claude/skills/shrine-inspect/`
 - The skill (`skill/`) is a thin driver: it checks Node, runs `start` and `status`, and sends you to your own terminal for every gate; it holds no logic
 - `shrine-inspect version --skill-version <v>`: any command refuses a skill from another release before it reads anything (exit 2, `E_VERSION`)
@@ -40,8 +41,19 @@ Status: pre-release trial (SP3: background runs, a thin skill, a checksummed rel
 - Output: one run folder under the state dir with `state.json`, `scan.json`, `gate-b.json`, `facts.json`, `findings.json`, `verify.json`, `report.html`, `report.share-safe.html`, `spy.jsonl`, `gate.json` when a gate paused the run, and a `<phase>.done` marker per phase
 - `report.share-safe.html` masks names, paths, and hosts and drops session excerpts; it may mask extra words, to keep names out
 - `facts.json` holds counts, generic timeline labels, and scrubbed paths; no prompt or reply text
+- `shrine-inspect --help` (or `-h`, or no command) prints usage and exits 0; an unknown command exits 2
+- `shrine-inspect check-share [<run> | <file>] [--json]`: checks a share-safe report against this machine (see Share-safe check below)
 - `node bin/shrine-inspect.mjs purge` deletes the state and cache dirs, only if this tool created them
 - Exit codes: 0 ok, 1 internal, 2 usage, 3 gate waiting, 4 unsupported format (history approved but no session log parsed; setup-only report written), 5 integrity failure
+
+## Share-safe check
+
+- `shrine-inspect check-share` checks the newest run's `report.share-safe.html`; pass a run id, or the path of the file you will send
+- Read-only, no network; uses the same leak check as the release dry run (`src/verify/leak.mjs`)
+- Needles: OS user, home, git author names and emails, project, repo, and org names (read again as the run read them), project folders, and the session excerpts of the local findings
+- Secrets are not needles: they are removed before anything is written, so there is nothing local to compare
+- Control: the same name check on `report.html`; it says when the local report has no name to find, so a pass could not be shown to fail
+- Exit 0 when nothing is found, 5 when something is; it prints what it found
 
 ## Background runs
 
@@ -69,7 +81,8 @@ Status: pre-release trial (SP3: background runs, a thin skill, a checksummed rel
   - Every string is scrubbed for secrets, then masked (names, paths, hosts) before a judge or a file sees it; about 900 tokens per pack at most
   - Over the cap: replies cut first, then instruction files (to about 2,000 characters), then later messages
 - Gate B estimate: pack size (bytes / 4) plus a per-call overhead and output measured on Claude Code 2.1.318, then 10% retry reserve and 30% margin on the top
-  - Minutes: 10 seconds per call, judging only (not the scan or time at gates); measured runs of 12 calls took 41 seconds and 4.0 minutes end to end, the second with 38 seconds of judging
+  - Minutes: 10 seconds per call, judging only (not the scan or time at gates); real time varies by machine, login, and network
+  - The judging time limit (the estimate plus 50%) is the only fixed time figure
   - Session text is data for the judge, never instructions: it sits inside a fence named by a random nonce, and the judge prompt says so
 - Judge: one headless `claude --print` call per episode, one at a time, on your own install and login
   - No session saved, no tools, no MCP servers, your user, project, and local settings files ignored (so no user hooks or plugins), no CLAUDE.md, no auto-memory, non-essential traffic off; output forced to a strict JSON schema
@@ -125,12 +138,12 @@ Background runs (`test/cli/background.test.mjs`):
 T1 trial (recorded, not fixed):
 
 - Judge isolation was checked once, on one setup with 2.1.318 (only the structured-output tool, no MCP servers, no user plugins, no hooks fired, user model setting ignored); no probe checks it on your setup
-- At 12 episodes the top of the Gate B range passes 60K tokens at any pack size: the fixed cost per call (prompt, overhead, output; about 4K) times 12, plus reserve and margin (`test/judge/workorder.test.mjs`)
+- At 12 episodes the top of the Gate B range is tens of thousands of tokens at any pack size: the fixed cost per call (prompt, overhead, output) times 12, plus reserve and margin (`test/judge/workorder.test.mjs`)
 - A correction you later reversed still gives a before and after from your own words
 - The harness version shown at Gate B comes from your newest session log, not from the installed command
 - A session whose loaded-instructions snapshot is logged only after an episode starts is read as "may have changed", so its corrections stay "could not tell"
 
-Leak check, dry run only (`test/release/leak-known-limits.test.mjs`):
+Leak check, `check-share` and the dry run (`test/release/leak-known-limits.test.mjs`):
 
 - It finds the OS user as a whole word only: `jdoe-mbp` or `jdoe_mbp` is not found (share-safe masking does mask these)
 - With no home path given as a needle, it misses `/Users/jdoe` with no trailing slash, `/root/...`, `C:\Users\...`, and `/Volumes/...`
@@ -156,8 +169,8 @@ No-network lint (`test/lint/lint.test.mjs`):
 - `UPDATE_GOLDEN=1 node scripts/test.mjs scorer/judged`: refresh `test/golden/t1-pulse/` after a reviewed change
 - `node scripts/release.mjs [--out <dir>]`: offline, deterministic build of `shrine-inspect-<version>.tgz`, a pinned `install.sh`, and `SHA256SUMS` (default `dist/`)
   - Ships the package.json `files` list, a package.json without scripts or devDependencies, and the repo root `LICENSE` and `NOTICE`
-- `node scripts/dry-run.mjs [--dir <work>] [--require-node20]`: builds, installs into a clean HOME with a synthetic history, runs a background T1 with a stand-in judge (no model call), then the read-only hash check and share-safe leak check; prints and keeps a transcript
-  - Leak check (`scripts/lib/leak.mjs`): secrets, paths, and prompts match anywhere; project names and the OS user match as whole words outside text the package ships (catalogue, copy, inlined CSS and script), so `SHRINE` or `root` (`:root`) are not false leaks; a control proves it still finds names in the local report
+- `node scripts/dry-run.mjs [--dir <work>] [--require-node20]`: builds, installs into a clean HOME with a synthetic history, runs a background T1 with a stand-in judge (no model call), then the read-only hash check, the share-safe leak check, and the installed `check-share`; prints and keeps a transcript
+  - Leak check (`src/verify/leak.mjs`): secrets, paths, and prompts match anywhere; project names and the OS user match as whole words outside text the package ships (catalogue, copy, inlined CSS and script), so `SHRINE` or `root` (`:root`) are not false leaks; a control proves it still finds names in the local report
   - It can false-alarm on a word the tool itself prints outside that shipped text (a name equal to a word the report builds at run time); check the quoted context before treating it as a leak
   - Node 20 from this Node, nvm, fnm, or volta; otherwise it reports the gap
 - Releases: a pushed `inspect-v<version>` tag builds a draft GitHub release; the owner publishes it
