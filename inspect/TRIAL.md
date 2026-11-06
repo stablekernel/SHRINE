@@ -187,7 +187,7 @@ shrine-inspect check-share
 
 - T0: nothing leaves your machine. No network, no model calls.
 - T1: 12 short episode excerpts go to your own Claude Code login, one call each, billed to your account like normal use. Secrets are removed and names, paths, and hosts are masked first.
-- Each excerpt holds your messages, the start of each reply, the end of the last reply, how the episode ended, and only the instruction lines that match your corrections. Code searches all your loaded instruction files for those lines; the rest stay on your machine.
+- Each excerpt holds your messages, the start of each reply, the end of the last reply, how the episode ended (with end signals code computed, such as an open question for you), and only the instruction lines that match your corrections. Code searches all your loaded instruction files for those lines; the rest stay on your machine.
 - Nothing goes to SHRINE, Stable Kernel, or any other service. No telemetry.
 
 ## Read the report
