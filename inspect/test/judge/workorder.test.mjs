@@ -3,7 +3,8 @@ import assert from 'node:assert/strict';
 import { readFileSync } from 'node:fs';
 import { fileURLToPath } from 'node:url';
 import { buildBundle } from '../../src/judge/bundle.mjs';
-import { createWorkOrder, estimateOrder, runWorkOrder } from '../../src/judge/workorder.mjs';
+import { createWorkOrder, cutOffCount, estimateOrder, runWorkOrder } from '../../src/judge/workorder.mjs';
+import { judgingLines } from '../../src/copy/templates.mjs';
 import { JUDGED_ENTRY_IDS } from '../../src/judge/validate.mjs';
 import { parseJudgeOutput } from '../../src/adapters/claude-code/judge.mjs';
 import { buildIdentifiers } from '../../src/scrub/mask.mjs';
@@ -111,6 +112,87 @@ test('abort: time box plus 50%', async () => {
     return { stdout: envelope(answer(input)), ms: 1 };
   }, { clock: () => now, limits: { timeBoxMs: 300000 } });
   assert.equal(r.abort.reason, 'time');
+});
+
+// The box was checked only between calls, so one slow call (up to its own
+// 180 s cap, twice with the retry) could run far past the quoted minutes.
+test('time box is a hard deadline: each call gets only the time left, and no retry starts past it', async () => {
+  let now = 0;
+  const given = [];
+  const r = await run(order(4), async (input, o) => {
+    given.push(o.timeoutMs);
+    now += o.timeoutMs; // a hung call runs to its timeout
+    return { stdout: '', timedOut: true, ms: o.timeoutMs };
+  }, { clock: () => now, limits: { timeBoxMs: 120000 } });
+  assert.deepEqual(given, [180000]);
+  assert.equal(r.appended.length, 1);
+  assert.equal(r.appended[0].attempts, 1);
+  assert.equal(r.abort.reason, 'time');
+  assert.ok(r.ms <= 180000, `ran ${r.ms} ms`);
+});
+
+test('a call cut off by the time box is its own line, not a judge error; a per-call timeout still is', async () => {
+  let now = 0;
+  const cut = await run(order(4), async (input, o) => {
+    now += o.timeoutMs;
+    return { stdout: '', timedOut: true, ms: o.timeoutMs };
+  }, { clock: () => now, limits: { timeBoxMs: 120000 } });
+  assert.equal(cut.appended[0].cut_off, true);
+  assert.deepEqual(cut.appended[0].errors, ['$: cut off by the time limit']);
+  assert.equal(cut.invalid, 0);
+  assert.equal(cutOffCount(cut.appended), 1);
+  // Judged later, on a resume: no longer cut off.
+  assert.equal(cutOffCount([...cut.appended, { episode_id: cut.appended[0].episode_id, valid: true }]), 0);
+  // Cut off again, then rejected on a later run: invalid only, not also cut off.
+  assert.equal(cutOffCount([cut.appended[0], { episode_id: cut.appended[0].episode_id, valid: false }]), 0);
+  // A retry cut off keeps the first answer's rejection.
+  let t = 0;
+  const retry = await run(order(1), async (input, o) => {
+    t += 60000;
+    return t < 120000 ? { stdout: envelope({ nope: true }), ms: 1 } : { stdout: '', timedOut: true, ms: o.timeoutMs };
+  }, { clock: () => t, limits: { timeBoxMs: 80000 } });
+  assert.equal(retry.appended[0].cut_off, undefined);
+  assert.equal(retry.invalid, 1);
+  // A call that hits its own cap well before the deadline is the judge's failure.
+  const slow = await run(order(1), async () => ({ stdout: '', timedOut: true, ms: 1 }));
+  assert.equal(slow.appended[0].cut_off, undefined);
+  assert.deepEqual(slow.appended[0].errors, ['$: timed out']);
+  assert.equal(slow.invalid, 1);
+});
+
+test('a limit passed on the last item is returned as late, not dropped', async () => {
+  let now = 0;
+  const r = await run(order(2), async (input) => {
+    now += 200000;
+    return { stdout: envelope(answer(input)), ms: 1 };
+  }, { clock: () => now, limits: { timeBoxMs: 200000 } });
+  assert.equal(r.abort, null);
+  assert.deepEqual(r.late, { reason: 'time', at: 'e-1' });
+  assert.equal(r.appended.length, 2);
+  const clean = await run(order(2), async (input) => ({ stdout: envelope(answer(input)), ms: 1 }));
+  assert.equal(clean.late, null);
+});
+
+test('the judging block names cut-off episodes and a late time box apart from rejected answers', () => {
+  const s = { planned: 3, judged: 2, invalid: 0, refusals: 0, cut_off: 1, late: 'time', outcomes: {}, corrections_traced: 0, unknown_verdicts: 0, bar: 3, tokens_used: 10 };
+  const lines = judgingLines(s);
+  assert.ok(lines.includes('Answers rejected: 0 invalid, 0 refusals.'), lines.join('\n'));
+  assert.ok(lines.includes('Cut off by the time limit: 1 episode, left unjudged. These are not judge errors.'));
+  assert.ok(lines.some((l) => /past its time box plus 50% on the last episode/.test(l)));
+  assert.ok(judgingLines({ ...s, late: 'errors' }).some((l) => /Invalid answers passed 10% on the last episode/.test(l)));
+  const none = judgingLines({ ...s, cut_off: 0, late: null });
+  assert.ok(!none.some((l) => /Cut off|on the last episode/.test(l)));
+});
+
+test('the deadline shrinks the timeout of later calls', async () => {
+  let now = 0;
+  const given = [];
+  await run(order(3), async (input, o) => {
+    given.push(o.timeoutMs);
+    now += 60000;
+    return { stdout: envelope(answer(input)), ms: 60000 };
+  }, { clock: () => now, limits: { timeBoxMs: 120000 } });
+  assert.deepEqual(given, [180000, 120000, 60000]);
 });
 
 test('a usage limit stops at once and leaves the episode unjudged', async () => {

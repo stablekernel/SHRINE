@@ -17,3 +17,7 @@ test('known limit: a path followed by a parenthesis can swallow the next word', 
 test('known limit: a short lowercase name part after a dot is kept as an extension', () => {
   assert.equal(maskBase('acme.corp'), '<file>.corp');
 });
+
+test('known limit: an OS user named like a common word over-masks joined words', () => {
+  assert.equal(mask('the test-runner ran', buildIdentifiers({ osUser: 'runner' })), 'the test-<user> ran');
+});

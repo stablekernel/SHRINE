@@ -1,0 +1,15 @@
+import 'data:text/javascript,fetch(1)';
+export const d = () => import('data:text/javascript,export default 1');
+import '/etc/x.mjs';
+import 'file:///etc/x.mjs';
+import 'playwright';
+import { open } from 'node:inspector/promises';
+import { env } from 'node:process';
+import cluster from 'node:cluster';
+import './..x.mjs';
+export { open, env, cluster };
+import 'node:_http_client';
+import 'node:repl';
+import './evil.cjs';
+import './.hidden/x.mjs';
+import 'node:fsx/promises';

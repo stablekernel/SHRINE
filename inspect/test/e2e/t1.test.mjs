@@ -38,7 +38,8 @@ test('T1 pauses at Gate B until a typed yes: zero judge spawns, no work order, t
   assert.ok(g.offer.tokens_low > 0 && g.offer.tokens_high > g.offer.tokens_low);
   assert.ok(g.offer.minutes >= 1);
   assert.ok(g.lines.some((l) => /^Tier T0 \(pre-selected\)/.test(l)));
-  assert.ok(g.lines.some((l) => /judge 12 episodes from .*, about [\d,]+ to [\d,]+ tokens on your own account, about \d+ minutes?\./.test(l)));
+  assert.ok(g.lines.some((l) => /judge 12 episodes from .*, about [\d,]+ to [\d,]+ tokens on your own account, about \d+ minutes? of judging after the scan\./.test(l)));
+  assert.ok(g.lines.some((l) => /past \d+ minutes of judging \(a call still running is cut off\)/.test(l)));
   assert.equal(json(dir, 'state.json').gates.B, null);
   assert.ok(!existsSync(join(dir, 'workorder.json')), 'no work order before a yes');
   assert.ok(!existsSync(join(dir, 'judgments.jsonl')));
@@ -191,6 +192,46 @@ test('invalid answers past 10% stop judging at Gate C; keep gives a partial repo
   const f = json(r.dir, 'findings.json');
   assert.equal(f.judging.partial, true);
   assert.equal(lines(r.dir, 'judgments.jsonl').length, 2, 'keep never judges more');
+  h.cleanup();
+});
+
+// Pause a run at Gate B, then plant a work order of `n` real items with a time box
+// so short that the first call is cut off, and approve B with a judge that hangs.
+async function cutOffRun(h, n) {
+  const donor = await runT1(h);
+  const order = json(donor.dir, 'workorder.json');
+  const state = stateDir();
+  await inproc(['run', '--tier', 'T1', '--json'], h, state, { stdin: tty('history') });
+  const dir = runDir(state);
+  const runId = dir.split('/').at(-1);
+  writeFileSync(join(dir, 'workorder.json'), JSON.stringify({ ...order, run_id: runId, estimate: { ...order.estimate, minutes: 0.0001 }, items: order.items.slice(0, n) }));
+  const second = await inproc(['approve', runId, 'B', 'T1', '--json'], h, state, { stdin: tty('yes'), judge: fakeJudge('hang') });
+  return { state, dir, runId, second };
+}
+
+test('a call cut off by the time box: Gate C and status name it apart from invalid answers', async () => {
+  const h = plantedHome([['late', 12, 'aaaa']]);
+  const r = await cutOffRun(h, 2);
+  assert.equal(r.second.code, 3, 'Gate C waits');
+  assert.equal(json(r.dir, 'state.json').abort.reason, 'time');
+  assert.deepEqual(lines(r.dir, 'judgments.jsonl').map((l) => l.cut_off), [true]);
+  assert.ok(json(r.dir, 'gate.json').lines.includes('Cut off by the time limit: 1 episode, left unjudged.'));
+  const s = await inproc(['status', r.runId], h, r.state);
+  assert.match(s.stdout, /waiting at Gate C for your answer, 1 cut off by the time limit\n/);
+  h.cleanup();
+});
+
+test('a time box passed on the last episode is kept as late and shown in the report', async () => {
+  const h = plantedHome([['late', 12, 'aaaa']]);
+  const r = await cutOffRun(h, 1);
+  assert.equal(r.second.code, 0, r.second.stderr);
+  assert.equal(json(r.dir, 'state.json').late.reason, 'time');
+  const f = json(r.dir, 'findings.json');
+  assert.equal(f.judging.late, 'time');
+  assert.equal(f.judging.cut_off, 1);
+  const html = readFileSync(join(r.dir, 'report.html'), 'utf8');
+  assert.match(html, /ran past its time box plus 50% on the last episode/);
+  assert.match(html, /Cut off by the time limit: 1 episode, left unjudged/);
   h.cleanup();
 });
 

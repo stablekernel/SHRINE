@@ -193,25 +193,32 @@ export function underHome(path, home) {
 }
 
 // Locator words the scorer writes itself (the stack-gap kinds and the setup row).
-const LOCATOR_WORDS = new Set(['setup', 'hooks', 'skills', 'memory']);
+// They stay only in a locator field (locator, anchor), where code writes them; anywhere else
+// ("project": "sample") the same word may be a user's name and is masked.
+const LOCATOR_WORDS = new Set(['setup', 'hooks', 'skills', 'memory', 'session history', 'control', 'sample']);
+// A judged locator: an episode id (a hash of the session id) and a bundle turn id
+// ("e-3fa9c2d1b7e0 t04"). Both are made by code, so neither can hold a name or path.
+const EPISODE_LOCATOR = /^e-[0-9a-f]{12}(?: t\d{2,4})?$/;
 const LINE_ANCHOR = /#L\d+(?:-L?\d+)?/;
 
 // Masks a value known to be a path, segment by segment, so folder names with spaces
 // or any other characters never survive. Every value is split on separators, so a
 // relative path or a free-form value never falls back to the looser free-text
 // rules; a value with no separator is a file name. An anchor keeps only its #Lnn.
-export function maskPath(value, known) {
+// locator: the value is in a locator field, where code-made locators stay.
+export function maskPath(value, known, { locator = false } = {}) {
   if (typeof value !== 'string' || value === '') return value;
   const anchor = LINE_ANCHOR.exec(value);
   if (anchor) {
     const before = value.slice(0, anchor.index).trimEnd();
-    return `${before ? maskPath(before, known) : ''}${anchor[0]}`;
+    return `${before ? maskPath(before, known, { locator }) : ''}${anchor[0]}`;
   }
   // A known identifier (a project named "skills") is masked even when it is also a
   // locator word or tool name: the whole value is that name.
   const id = known?.ids?.find((i) => i.value === value);
   if (id) return id.placeholder;
-  if (!/[\\/]/.test(value)) return LOCATOR_WORDS.has(value) || TOOL_FILES.has(value) ? value : maskBase(mask(value, known));
+  if (locator && (EPISODE_LOCATOR.test(value) || LOCATOR_WORDS.has(value))) return value;
+  if (!/[\\/]/.test(value)) return TOOL_FILES.has(value) ? value : maskBase(mask(value, known));
   let p = value.replace(PROJECT_FOLDER, '$1<project-folder>');
   const rest = underHome(p, known?.home);
   if (rest != null) p = `~${rest}`;
@@ -227,6 +234,9 @@ export function maskPath(value, known) {
   return `${lead}${kept}${base}`;
 }
 
+// The placeholders this file writes, and the session's own tags, as whole tokens.
+const PLACEHOLDER = /(<(?:user|email|ip|host|path|file|synthetic|project-folder|(?:author-email|author|project|repo|org)-\d+|bash-stdout|bash-stderr|command-name|command-message|local-command-stdout|task-notification)>)/;
+
 export function mask(text, known) {
   if (typeof text !== 'string' || text === '') return text;
   // Claude Code project folders encode the full cwd (home, org, and repo names).
@@ -240,6 +250,21 @@ export function mask(text, known) {
       // Whole value, or a whole path segment; never inside a sentence.
       if (out === value) out = placeholder;
       else out = out.replace(new RegExp(`(?<=[/\\\\])${esc(value)}(?![\\w-]|\\.\\w)`, 'g'), placeholder);
+      continue;
+    }
+    // The OS user also where it is joined to other words ("jdoe-mbp", "jdoe_mbp",
+    // "jdoeMBP"), as host names and shell prompts write it: a hyphen, an
+    // underscore, or a capital after a lowercase end is a word break.
+    // A placeholder already made ("<user>", "<project-folder>") is skipped, so an OS
+    // user named "user" or "project" is not masked twice; "<jdoe>" is still masked.
+    if (placeholder === '<user>') {
+      const post = /[a-z]$/.test(value) ? '(?![a-z\\d])' : '(?![A-Za-z\\d])';
+      // Also right after a JSON escape left in tool output ("\\njdoe", "\\u003cjdoe").
+      const re = new RegExp(`(?:(?<![A-Za-z\\d])|(?<=\\\\[ntr])|(?<=\\\\u003[cCeE]))${esc(value)}${post}`, 'g');
+      out = out
+        .split(PLACEHOLDER)
+        .map((part, i) => (i % 2 ? part : part.replace(re, placeholder)))
+        .join('');
       continue;
     }
     out = out.replace(new RegExp(`(?<![\\w-])${esc(value)}(?![\\w-])`, 'g'), placeholder);
@@ -267,11 +292,13 @@ export function mask(text, known) {
 // Keys whose values are file paths (or, for project, cwds, and the like, may be):
 // masked segment by segment. A value that does not look like a path falls back to mask().
 const PATH_KEYS = new Set(['path', 'paths', 'path_scrubbed', 'locator', 'anchor', 'changed_paths', 'cwd', 'cwds', 'touched_files', 'root', 'roots', 'project', 'projects', 'repo', 'file', 'files', 'dir']);
+// Fields only code writes a locator into: an evidence locator and a finding's anchor.
+const LOCATOR_KEYS = new Set(['locator', 'anchor']);
 const KEEP = new Set(['shrine_refs', 'shrine_ref', 'shrine', 'url', 'url_pinned', 'entry_id', 'page_id', 'id', 'finding_id', 'item']);
 
 export function maskDeep(value, known, key = '') {
   if (KEEP.has(key)) return value;
-  if (typeof value === 'string') return PATH_KEYS.has(key) ? maskPath(value, known) : mask(value, known);
+  if (typeof value === 'string') return PATH_KEYS.has(key) ? maskPath(value, known, { locator: LOCATOR_KEYS.has(key) }) : mask(value, known);
   if (Array.isArray(value)) return value.map((v) => maskDeep(v, known, key));
   if (value && typeof value === 'object') return Object.fromEntries(Object.entries(value).map(([k, v]) => [k, maskDeep(v, known, k)]));
   return value;

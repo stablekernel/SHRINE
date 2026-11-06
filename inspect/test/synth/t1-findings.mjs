@@ -36,7 +36,8 @@ function output(b, kind) {
   return base;
 }
 
-export function t1Findings() {
+// extra: more judgments.jsonl lines; late: a limit passed on the last episode.
+export function t1Findings({ extra = [], late = null } = {}) {
   const known = buildIdentifiers({ projects: ['bad-project'] });
   const eps = Array.from({ length: 12 }, (_, i) => episode(i));
   const bundles = eps.map((e, i) => buildBundle({ episode: e.ep, transcript: e.transcript, known, nonce: `0000${String(i).padStart(4, '0')}` }));
@@ -47,7 +48,7 @@ export function t1Findings() {
     return { judge: 'episode_classifier', judge_version: 1, model_id: 'fixture-model', episode_id: b.episode_id, valid: true, output: v.output, attempts: 1, refusal: false, errors: [], latency_ms: 21000, tokens: { in: 3800, out: 400, cache_read: 0, cache_write: 0, total: 4200 } };
   });
   const episodes = new Map(eps.map((e) => [e.ep.id, e.ep]));
-  const judged = judgedFindings({ lines, order, episodes, catalogue: load('../../src/catalogue/catalogue.json'), pivots: load('../../src/catalogue/generic-pivots.json'), copy, t: THRESHOLDS });
+  const judged = judgedFindings({ lines: [...lines, ...extra], late, order, episodes, catalogue: load('../../src/catalogue/catalogue.json'), pivots: load('../../src/catalogue/generic-pivots.json'), copy, t: THRESHOLDS });
   const base = t0HistoryFindings();
   base.run = { ...base.run, id: 't1-visual', seed: 4242 };
   const sample = { seed: 4242, size: 12, eligible: 30, total_episodes: 136, thin: false, small_history: false, cap_relaxed: true };

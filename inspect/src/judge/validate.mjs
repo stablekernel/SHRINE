@@ -10,6 +10,18 @@ import { readJson } from '../io/fsread.mjs';
 export const CLASSIFIER_SCHEMA = readJson(fileURLToPath(new URL('./classifier.schema.json', import.meta.url)));
 export const JUDGED_ENTRY_IDS = CLASSIFIER_SCHEMA.properties.corrections.items.properties.entry_ids.items.enum;
 
+// A quote proves a claim only when it is long enough to be specific: 12 characters
+// after trim is about two words ("use tabs not"), where a single word or letter
+// ("a", "test") is found in almost any turn or config block. A quote of the whole
+// turn or block (a short "Use tabs.") also counts: it cannot be more specific.
+// A quote with no letter or digit ("............") is never proof.
+export const MIN_QUOTE_CHARS = 12;
+export function isProof(text, source) {
+  const s = typeof text === 'string' ? text.trim() : '';
+  if (!/[\p{L}\p{N}]/u.test(s)) return false;
+  return s.length >= MIN_QUOTE_CHARS || s === (typeof source === 'string' ? source.trim() : null);
+}
+
 // The subset of JSON Schema the classifier schema uses.
 export function checkSchema(schema, v, path = '$', errors = []) {
   const err = (code) => errors.push(`${path}: ${code}`);
@@ -69,13 +81,18 @@ export function validateJudgment(output, bundle, { catalogueIds = new Set(JUDGED
       const at = qt ? qt.text.indexOf(q.text) : -1;
       if (!qt) errors.push(`${p}.quotes[${j}].turn_id: no such turn`);
       else if (at < 0) errors.push(`${p}.quotes[${j}].text: not an exact copy from that turn`);
-      return { turn_id: q.turn_id, start: at, end: at + q.text.length, text: q.text };
+      // An exact copy too short to be specific stays, but unverified (start -1): it is
+      // never proof the constraint was in an earlier prompt.
+      const start = at >= 0 && !isProof(q.text, qt.text) ? -1 : at;
+      return { turn_id: q.turn_id, start, end: start + q.text.length, text: q.text };
     });
     let configRef = null;
     if (c.config_ref) {
       const cfg = configs.get(c.config_ref.config_id);
-      const at = cfg ? cfg.text.indexOf(c.config_ref.text) : -1;
-      // A quote that is not an exact copy is "not found" (spec 5), not an invalid answer.
+      const found = cfg ? cfg.text.indexOf(c.config_ref.text) : -1;
+      const at = found >= 0 && isProof(c.config_ref.text, cfg.text) ? found : -1;
+      // A quote that is not an exact copy, or too short to be specific, is "not
+      // found" (spec 5), not an invalid answer.
       if (!cfg) errors.push(`${p}.config_ref.config_id: no such config block`);
       configRef = { config_id: c.config_ref.config_id, start: at, end: at + c.config_ref.text.length };
     }

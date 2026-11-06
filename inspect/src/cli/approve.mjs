@@ -68,7 +68,7 @@ export async function askGateB(gate, choice, io) {
         ? 'Type yes to approve T1, or T0 for the scan only: '
         : 'Type T0 to continue with the scan only: ';
   const answer = (await prompt(q, { input: io.stdin, output: io.stderr })).trim();
-  const yes = /^(yes|y)$/i.test(answer);
+  const yes = /^yes$/i.test(answer);
   let picked = null;
   if (choice) picked = yes ? choice : null;
   else if (t1 && yes) picked = 'T1';
@@ -85,8 +85,9 @@ export async function askGate(gate, choice, io) {
   }
   io.stderr.write(`${describe(gate)}\n`);
   const q = choice ? `Confirm ${choice}? Type yes to confirm: ` : `Type one of ${gate.choices.join(', ')}: `;
-  const answer = (await prompt(q, { input: io.stdin, output: io.stderr })).toLowerCase();
-  const picked = choice ? (answer === 'yes' || answer === 'y' ? choice : null) : gate.choices.includes(answer) ? answer : null;
+  // A confirmation needs the whole word, as at Gate B: "y" leaves the gate paused.
+  const answer = (await prompt(q, { input: io.stdin, output: io.stderr })).trim().toLowerCase();
+  const picked = choice ? (answer === 'yes' ? choice : null) : gate.choices.includes(answer) ? answer : null;
   if (!picked) throw new InspectError('E_NOT_ANSWERED', `Gate ${gate.gate} was not answered; the run stays paused`, { exit: EXIT.GATE_WAITING });
   return { choice: picked, by: 'tty', at: new Date().toISOString() };
 }
@@ -135,7 +136,7 @@ export async function approveCommand({ runId, gate, choice }, io, { findRun, con
         throw new InspectError('E_GATE_ANSWERED', `Gate B of run ${runId} was answered T1 and judging is unfinished; nothing was judged now`, { hint: `resume with: shrine-inspect approve ${runId} B, or leave the run as it is`, exit: EXIT.USAGE });
       }
       const a = await prompt('Judging stopped before it finished. Resume the remaining episodes on the Gate B approval you gave? Type yes: ', { input: io.stdin, output: io.stderr });
-      if (!/^(yes|y)$/i.test(a)) throw new InspectError('E_NOT_ANSWERED', 'judging was not resumed; no model was called', { exit: EXIT.GATE_WAITING });
+      if (!/^yes$/i.test(a)) throw new InspectError('E_NOT_ANSWERED', 'judging was not resumed; no model was called', { exit: EXIT.GATE_WAITING });
     }
     return proceed();
   }

@@ -217,6 +217,35 @@ test('a name part that only looks like an extension is masked with the name', ()
   assert.equal(maskBase('data.json'), '<file>.json');
 });
 
+test('the OS user is masked where it is joined to other words', () => {
+  for (const home of ['/Users/jdoe', null]) {
+    const k = buildIdentifiers({ osUser: 'jdoe', home });
+    const cases = {
+      'host jdoe_mbp done': 'host <user>_mbp done',
+      'jdoe@jdoe-mbp:~ $': '<user>@<user>-mbp:~ $',
+      'on jdoeMBP now': 'on <user>MBP now',
+      'ssh jdoe@buildbox': 'ssh <user>@buildbox',
+      'id jdoe2 and ajdoe and jdoes stay': 'id jdoe2 and ajdoe and jdoes stay',
+    };
+    for (const [input, want] of Object.entries(cases)) assert.equal(mask(input, k), want, `${home}: ${input}`);
+  }
+  const k = buildIdentifiers({ osUser: 'jdoe', home: '/Users/jdoe' });
+  assert.equal(mask('Author: Jane <jdoe>', k), 'Author: Jane <<user>>');
+  assert.equal(mask('Ask <jdoe> first, then <jdoe-mbp>', k), 'Ask <<user>> first, then <<user>-mbp>');
+  // JSON escapes left in tool output: the user after them is still masked.
+  for (const t of ['Jane\\njdoe says', 'x\\tjdoe', 'x\\rjdoe', 'is \\u003cjdoe\\u003e', 'out: {"author":"Jane\\njdoe"}']) assert.doesNotMatch(mask(t, k), /jdoe/, t);
+  assert.equal(mask('Jane\\njdoe says', k), 'Jane\\n<user> says');
+  assert.equal(mask('a\\nojdoe stays', k), 'a\\nojdoe stays');
+  // A placeholder already made is not masked again, for a user named like one.
+  for (const [osUser, text] of [['user', 'by <user> on <user>'], ['project', 'in <project-folder> and <project-1>'], ['host', 'at <host>']]) {
+    const named = buildIdentifiers({ osUser, projects: ['zz'] });
+    assert.equal(mask(text, named), text, osUser);
+    assert.equal(mask(mask(`${osUser} said`, named), named), '<user> said', osUser);
+  }
+  const dotted = buildIdentifiers({ osUser: 'jane.doe', home: '/Users/jane.doe' });
+  assert.equal(mask('box jane.doe-mbp and jane-doe_laptop', dotted), 'box <user>-mbp and <user>_laptop');
+});
+
 test('free-text home replacement only matches the home at a path boundary', () => {
   const k = buildIdentifiers({ osUser: 'gavin', home: '/Users/gavin' });
   const cases = {
@@ -275,7 +304,7 @@ test('maskPath masks path-typed fields segment by segment', () => {
     '~/.claude/CLAUDE.md': '~/.claude/CLAUDE.md',
   };
   for (const [input, want] of Object.entries(cases)) assert.equal(maskPath(input, k), want, input);
-  assert.equal(maskPath('setup', k), 'setup');
+  assert.equal(maskPath('setup', k, { locator: true }), 'setup');
   const deep = maskDeep({ integrity: { changed_paths: ['~/Client Work/acme/x.md'] }, skipped_files: [{ path_scrubbed: '~/A B/c d/e.md' }] }, k);
   assert.deepEqual(deep.integrity.changed_paths, ['~/<path>/<file>.md']);
   assert.equal(deep.skipped_files[0].path_scrubbed, '~/<path>/<file>.md');
@@ -292,7 +321,8 @@ test('maskPath masks relative paths, bare file names, and anchors under path key
     '#L3 Initech Corp/x.md': '#L3',
     'docs/Initech Corp/x.md#L3-L9': '<path>/<file>.md#L3-L9',
     'CLAUDE.md': 'CLAUDE.md',
-    skills: 'skills',
+    // A locator word outside a locator field may be a user's name.
+    skills: '<file>',
     // A bare name with no extension or a code extension: still a file name.
     'initech-merger': '<file>',
     'acme.ts': '<file>.ts',
@@ -401,7 +431,18 @@ test('share-safe basenames: tool file names and session ids stay, other names ke
 test('a project named like a locator word is masked under a path key', () => {
   const known = buildIdentifiers({ projects: ['skills', 'acme-api'] });
   assert.deepEqual(maskDeep({ projects: ['skills', 'acme-api'], path: 'skills' }, known), { projects: ['<project-2>', '<project-1>'], path: '<project-2>' });
-  assert.equal(maskPath('hooks', known), 'hooks', 'a locator word that is no project stays');
+  assert.equal(maskPath('hooks', known, { locator: true }), 'hooks', 'a locator word that is no project stays in a locator');
+});
+
+test('locator words and episode ids stay only in a locator field', () => {
+  const known = buildIdentifiers({});
+  const out = maskDeep({ locator: 'control', project: 'control', repo: 'sample', cwd: 'session history', anchor: 'e-3fa9c2d1b7e0 t04', path: 'e-3fa9c2d1b7e0 t04' }, known);
+  assert.deepEqual(out, { locator: 'control', project: '<file>', repo: '<file>', cwd: '<file>', anchor: 'e-3fa9c2d1b7e0 t04', path: '<file>' });
+  for (const w of ['setup', 'hooks', 'skills', 'memory', 'session history', 'control', 'sample', 'e-3fa9c2d1b7e0 t04']) {
+    assert.equal(maskDeep({ locator: w }, known).locator, w);
+    assert.equal(maskDeep({ anchor: w }, known).anchor, w);
+    assert.notEqual(maskDeep({ project: w }, known).project, w);
+  }
 });
 
 test('free text masks URL queries and fragments, IPv6 hosts, URL user and host, and non-ASCII emails', () => {

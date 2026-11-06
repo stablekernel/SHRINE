@@ -118,7 +118,7 @@ export async function judgePhase({ folder, order, adapter, t, io }) {
       order,
       previous,
       template: PROMPT_TEMPLATE,
-      invoke: (input) => runJudge({ cmd: inv.cmd, args: inv.args, env: inv.env, cwd, input, timeoutMs: J.per_call_timeout_ms, maxStdout: J.max_stdout_bytes }),
+      invoke: (input, o = {}) => runJudge({ cmd: inv.cmd, args: inv.args, env: inv.env, cwd, input, timeoutMs: Math.min(J.per_call_timeout_ms, o.timeoutMs ?? Infinity), maxStdout: J.max_stdout_bytes }),
       parse: adapter.parse,
       append: (line) => folder.append('judgments.jsonl', JSON.stringify(line)),
       limits: { tokensUpper: order.estimate.tokens_high, timeBoxMs: order.estimate.minutes * 60000, timeBoxFactor: J.abort.time_box_factor, errorRate: J.abort.error_rate, entryIds: JUDGED_ENTRY_IDS, catalogueIds: new Set(JUDGED_ENTRY_IDS) },

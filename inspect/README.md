@@ -16,6 +16,7 @@ Status: pre-release trial (SP3: background runs, a thin skill, a checksummed rel
 - `node bin/shrine-inspect.mjs run --tier T0 --no-history`: setup and repos only
 - Without `--no-history`, the run pauses at Gate A (exit 3) until you answer in your own terminal: `node bin/shrine-inspect.mjs approve <run> A <no-history|history>`
 - Gate A lists projects, date range, size on disk, and a size-based time estimate; every run asks again
+  - A choice named on the command line is confirmed only by a typed `yes`, at every gate; `y` leaves the run paused
   - Before Gate A: file names, sizes, and dates, plus the first 10 lines of the newest session file per folder, read to find its folder
   - Those lines can hold a prompt; only `cwd`, `entrypoint`, and `version` are kept, and no prompt text is kept or shown
   - The rest of each session is read only after `history`
@@ -68,13 +69,16 @@ Status: pre-release trial (SP3: background runs, a thin skill, a checksummed rel
   - Every string is scrubbed for secrets, then masked (names, paths, hosts) before a judge or a file sees it; about 900 tokens per pack at most
   - Over the cap: replies cut first, then instruction files (to about 2,000 characters), then later messages
 - Gate B estimate: pack size (bytes / 4) plus a per-call overhead and output measured on Claude Code 2.1.318, then 10% retry reserve and 30% margin on the top
+  - Minutes: 10 seconds per call, judging only (not the scan or time at gates); measured runs of 12 calls took 41 seconds and 4.0 minutes end to end, the second with 38 seconds of judging
   - Session text is data for the judge, never instructions: it sits inside a fence named by a random nonce, and the judge prompt says so
 - Judge: one headless `claude --print` call per episode, one at a time, on your own install and login
   - No session saved, no tools, no MCP servers, your user, project, and local settings files ignored (so no user hooks or plugins), no CLAUDE.md, no auto-memory, non-essential traffic off; output forced to a strict JSON schema
-  - Managed (org) settings still apply; Claude Code may update its own `~/.claude.json` on each launch
+  - Managed (org) settings still apply; Claude Code may update its own state and cache files (`~/.claude.json`, files under `~/.claude/`) on each launch
   - Every judge prompt starts with `SHRINE inspect judge v1:`; any saved judge session counts as housekeeping in later runs and is never judged
   - Invalid output gets one retry with the validator's error; quotes must be exact copies from the episode; no judge free text reaches the report
-- Stops early (Gate C, keep partial or stop) past the approved token upper bound, past the time box plus 50%, at over 10% invalid answers, or on a usage limit
+- Stops early (Gate C, keep partial or stop) past the approved token upper bound, past the time box plus 50% (a hard deadline: a call still running is cut off), at over 10% invalid answers, or on a usage limit
+- An episode cut off by the time box is left unjudged and named apart in the report and `status`, not counted as an invalid answer
+- A limit passed on the last episode has nothing left to stop; the report says so
   - Judging stopped part way resumes only on a fresh typed yes (`approve <run> B`); a resume already past the token bound makes no call
   - One runner per run: a second `approve` while judging runs is refused (`E_JUDGE_BUSY`); a marker left by a dead process is ignored
   - Gate C answered but no report (a crash): `approve <run> B` or `C` writes the report, with no prompt and no judge call
@@ -90,6 +94,7 @@ Recorded, not fixed; a test pins each one, so a change is deliberate.
 
 Masking (`test/scrub/known-limits.test.mjs`):
 
+- The OS user is also masked where joined by a hyphen, an underscore, or a capital (`jdoe-mbp` gives `<user>-mbp`), so a user named like a common word (`runner`) can over-mask words such as `test-runner`
 - Share-safe may over-mask words near a path or document name: `Read ~/work/api Then Stop` gives `Read ~/<path>/<file>`
 - In free text, a path followed by a parenthesis can swallow the next word: `~/work/api (git timed out)` gives `~/<path>/<file> timed out)`
 - A lowercase name part of 4 characters or fewer after a dot is kept as an extension: `acme.corp` gives `<file>.corp`
@@ -114,7 +119,7 @@ Background runs (`test/cli/background.test.mjs`):
 - The installed link runs whatever `node` is first on PATH later; the installer checks Node 20 only at install time
 - The installer hashes the tarball, then extracts from the same path; a local process that swaps the file in between is not caught
 - `install --skill` replaces the whole `~/.claude/skills/shrine-inspect/` folder when it holds this skill from another release
-- The one-time judging grant sits in `state.json` and the worker's arguments from `approve --background` until the worker reads it; a worker that dies first leaves it there until it expires (5 minutes)
+- The one-time judging grant sits in `state.json` and the worker's environment (never its arguments) from `approve --background` until the worker reads it; a worker that dies first leaves it there until it expires (5 minutes)
 - `run.log` holds the worker's own messages only; gate prompts appear in the terminal that answers them
 
 T1 trial (recorded, not fixed):
@@ -124,6 +129,17 @@ T1 trial (recorded, not fixed):
 - A correction you later reversed still gives a before and after from your own words
 - The harness version shown at Gate B comes from your newest session log, not from the installed command
 - A session whose loaded-instructions snapshot is logged only after an episode starts is read as "may have changed", so its corrections stay "could not tell"
+
+Leak check, dry run only (`test/release/leak-known-limits.test.mjs`):
+
+- It finds the OS user as a whole word only: `jdoe-mbp` or `jdoe_mbp` is not found (share-safe masking does mask these)
+- With no home path given as a needle, it misses `/Users/jdoe` with no trailing slash, `/root/...`, `C:\Users\...`, and `/Volumes/...`
+- It does not decode percent-encoding, so a secret written as `sk%2Dabc` in a link is not found
+
+No-network lint (`test/lint/lint.test.mjs`):
+
+- It guards against accidental network use, not deliberately hidden code: a property name held in a variable (`x[k]`) or decoded at run time (char codes, base64, a reversed string) cannot be known statically
+- `node:child_process` is allowed: only `src/io/proc.mjs` spawns (the read-only lint), and it runs git, this package's bin, and the judge command
 
 ## Develop
 
@@ -141,6 +157,8 @@ T1 trial (recorded, not fixed):
 - `node scripts/release.mjs [--out <dir>]`: offline, deterministic build of `shrine-inspect-<version>.tgz`, a pinned `install.sh`, and `SHA256SUMS` (default `dist/`)
   - Ships the package.json `files` list, a package.json without scripts or devDependencies, and the repo root `LICENSE` and `NOTICE`
 - `node scripts/dry-run.mjs [--dir <work>] [--require-node20]`: builds, installs into a clean HOME with a synthetic history, runs a background T1 with a stand-in judge (no model call), then the read-only hash check and share-safe leak check; prints and keeps a transcript
+  - Leak check (`scripts/lib/leak.mjs`): secrets, paths, and prompts match anywhere; project names and the OS user match as whole words outside text the package ships (catalogue, copy, inlined CSS and script), so `SHRINE` or `root` (`:root`) are not false leaks; a control proves it still finds names in the local report
+  - It can false-alarm on a word the tool itself prints outside that shipped text (a name equal to a word the report builds at run time); check the quoted context before treating it as a leak
   - Node 20 from this Node, nvm, fnm, or volta; otherwise it reports the gap
 - Releases: a pushed `inspect-v<version>` tag builds a draft GitHub release; the owner publishes it
 - License: Apache-2.0 (repo root `LICENSE` and `NOTICE`). Ideas (counting messages, dropping resends and forks, a repo-concentration warning) came from justin-carper/reflect (MIT); no code or prompt text was copied

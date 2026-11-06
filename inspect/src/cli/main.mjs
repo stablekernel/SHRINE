@@ -3,7 +3,7 @@ import { InspectError, EXIT } from './errors.mjs';
 import { runCommand, continueRun, createRun, findRun, context } from './run.mjs';
 import { approveCommand } from './approve.mjs';
 import { purgeCommand } from './purge.mjs';
-import { resumeCommand, startCommand, statusCommand } from './background.mjs';
+import { GRANT_ENV, resumeCommand, startCommand, statusCommand } from './background.mjs';
 import { TOOL_VERSION } from '../scorer/score.mjs';
 
 const USAGE = `usage:
@@ -20,7 +20,7 @@ Any command takes --skill-version <v>: a mismatch with this CLI stops before any
 export const COMMANDS = Object.freeze(['run', 'start', 'status', 'approve', 'resume', 'purge', 'version']);
 
 export function parseArgs(argv) {
-  const out = { cmd: argv[0], positional: [], json: false, noHistory: false, tier: null, sessionId: null, background: false, worker: false, grant: null, skillVersion: null };
+  const out = { cmd: argv[0], positional: [], json: false, noHistory: false, tier: null, sessionId: null, background: false, worker: false, skillVersion: null };
   const value = (i, name) => {
     const v = argv[i];
     if (!v || v.startsWith('--')) throw new InspectError('E_USAGE', `${name} needs a value`, { hint: USAGE, exit: EXIT.USAGE });
@@ -30,15 +30,17 @@ export function parseArgs(argv) {
     const a = argv[i];
     if (a === '--json') out.json = true;
     else if (a === '--background') out.background = true;
-    // --worker and --grant: set only by this CLI when it starts its own worker.
+    // --worker: set only by this CLI when it starts its own worker.
     else if (a === '--worker') out.worker = true;
-    else if (a === '--grant') out.grant = value(++i, '--grant');
     else if (a === '--skill-version') out.skillVersion = value(++i, '--skill-version');
     else if (a.startsWith('--skill-version=')) out.skillVersion = a.slice(16);
     else if (a === '--no-history') out.noHistory = true;
     else if (a === '--session-id' || a.startsWith('--session-id=')) {
+      // A value never starts with "-": "--session-id --skill-version 0.1.0" (an
+      // empty session variable) must not swallow the next flag and skip the
+      // version check.
       out.sessionId = a.includes('=') ? a.slice(13) : argv[++i];
-      if (!out.sessionId || !/^[\w-]+$/.test(out.sessionId)) throw new InspectError('E_USAGE', 'bad --session-id', { hint: USAGE, exit: EXIT.USAGE });
+      if (!out.sessionId || !/^[A-Za-z0-9][\w-]*$/.test(out.sessionId)) throw new InspectError('E_USAGE', 'bad --session-id', { hint: USAGE, exit: EXIT.USAGE });
     }
     else if (a === '--tier') out.tier = argv[++i];
     else if (a.startsWith('--tier=')) out.tier = a.slice(7);
@@ -60,7 +62,12 @@ export async function main(argv, io) {
     if (args.background && args.cmd !== 'approve') {
       throw new InspectError('E_USAGE', '--background goes with approve; start already runs in the background', { hint: USAGE, exit: EXIT.USAGE });
     }
-    const cio = { ...io, json, background: args.background };
+    // A worker's one-time grant comes in its environment, never in argv, and is
+    // dropped from the environment passed on (to a judge, or a later worker).
+    const { [GRANT_ENV]: grant, ...env } = io.env ?? {};
+    // Git children read process.env: the grant leaves it too.
+    delete process.env[GRANT_ENV];
+    const cio = { ...io, env, json, background: args.background };
     const deps = { findRun, continueRun, context };
     if (args.cmd === 'version') {
       io.stdout.write(json ? `${JSON.stringify({ version: TOOL_VERSION })}\n` : `shrine-inspect ${TOOL_VERSION}\n`);
@@ -69,7 +76,7 @@ export async function main(argv, io) {
     if (args.cmd === 'run') return (await runCommand(args, cio)).code;
     if (args.cmd === 'start') return startCommand(args, cio, { createRun }).code;
     if (args.cmd === 'status') return statusCommand({ runId: args.positional[0] }, cio, deps).code;
-    if (args.cmd === 'resume') return (await resumeCommand({ runId: args.positional[0], worker: args.worker, grant: args.grant }, cio, deps)).code;
+    if (args.cmd === 'resume') return (await resumeCommand({ runId: args.positional[0], worker: args.worker, grant: args.worker ? grant ?? null : null }, cio, deps)).code;
     if (args.cmd === 'approve') {
       const [runId, gate, choice] = args.positional;
       return (await approveCommand({ runId, gate, choice }, cio, deps)).code;

@@ -32,8 +32,10 @@ jobs:
       - run: npm ci
       - run: npm run lint
       - run: npm test
+      # On the Node 20 leg a missing Node 20 is fatal, as in inspect.yml; the
+      # Node 22 leg has no Node 20 to find, so there it stays a reported gap.
       - name: Release dry run
-        run: node scripts/dry-run.mjs
+        run: node scripts/dry-run.mjs ${{ matrix.node == 20 && '--require-node20' || '' }}
 
   release:
     needs: test

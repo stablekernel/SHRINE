@@ -28,6 +28,7 @@ import { abortReason, askGate, askGateB, GATE_A, GATE_B_NOTE, GATE_C } from './a
 import { createWorkOrder, judgeAdapter, judgePhase, prepareT1, readJudgments, readOrder } from './pulse.mjs';
 import { newSeed } from '../sample/prng.mjs';
 import { judgedFindings, mergeJudged } from '../scorer/judged.mjs';
+import { cutOffCount } from '../judge/workorder.mjs';
 import { THRESHOLDS } from '../probes/config.mjs';
 import { estimateSeconds, scanHistory } from './scan.mjs';
 import { ownSession } from '../adapters/claude-code/sessions.mjs';
@@ -306,7 +307,8 @@ async function continueRunInner(folder, ctx, io) {
       if (r.abort) {
         const ok = lines.filter((l) => l.valid).length;
         const used = lines.reduce((n, l) => n + (l.tokens?.total ?? 0), 0);
-        const gate = { gate: 'C', ...GATE_C, reason: r.abort.reason, lines: [`Reason: ${abortReason(r.abort.reason)}.`, `Judged so far: ${ok} of ${order.items.length} episodes, ${used.toLocaleString('en-US')} tokens.`] };
+        const cut = cutOffCount(lines);
+        const gate = { gate: 'C', ...GATE_C, reason: r.abort.reason, lines: [`Reason: ${abortReason(r.abort.reason)}.`, `Judged so far: ${ok} of ${order.items.length} episodes, ${used.toLocaleString('en-US')} tokens.`, ...(cut ? [`Cut off by the time limit: ${cut} ${cut === 1 ? 'episode' : 'episodes'}, left unjudged.`] : [])] };
         folder.writeJson('gate.json', gate);
         state.phase = 'gate_c';
         state.abort = r.abort;
@@ -319,7 +321,14 @@ async function continueRunInner(folder, ctx, io) {
         }
         state.gates.C = await askGate(gate, null, io);
         folder.writeJson('state.json', state);
-      } else folder.markDone('judgments');
+      } else {
+        // A limit passed on the last episode: nothing was left to stop, but the report says so.
+        if (r.late) {
+          state.late = r.late;
+          folder.writeJson('state.json', state);
+        }
+        folder.markDone('judgments');
+      }
     } else {
       lines = readJudgments(folder);
     }
@@ -329,7 +338,7 @@ async function continueRunInner(folder, ctx, io) {
     } else {
       const byId = new Map();
       for (const e of history.episodes) byId.set(e.id, { ...e, repo: history.roots.get(e.session_id) ?? null });
-      judged = { result: judgedFindings({ lines, order, episodes: byId, catalogue, pivots: PIVOTS, copy, t: T, partial: state.gates.C?.choice === 'keep' }), order, lines };
+      judged = { result: judgedFindings({ lines, order, episodes: byId, catalogue, pivots: PIVOTS, copy, t: T, partial: state.gates.C?.choice === 'keep', late: state.late?.reason ?? null }), order, lines };
     }
   }
 

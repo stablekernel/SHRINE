@@ -120,7 +120,7 @@ export const findingsSchema = obj(
     git_history_skipped: int,
     thresholds: dict(any),
     history: obj({ consented: bool, read: bool, sessions: nullable(int) }),
-    judging: obj({ planned: int, judged: int, invalid: int, outcomes: dict(int), corrections_traced: int, unknown_verdicts: int, bar: int, partial: bool, tokens_used: int }, { refusals: int, model_ids: arr(str), sample: nullable(dict(any)), estimate: nullable(dict(any)), lines: arr(str) }),
+    judging: obj({ planned: int, judged: int, invalid: int, outcomes: dict(int), corrections_traced: int, unknown_verdicts: int, bar: int, partial: bool, tokens_used: int }, { refusals: int, cut_off: int, late: nullable(str), model_ids: arr(str), sample: nullable(dict(any)), estimate: nullable(dict(any)), lines: arr(str) }),
     usage: obj({ counts: dict(nullable(num)), kinds: arr(obj({ kind: str, ship: oneOf(['appendix', 'candidates']), hit: bool, metric: dict(any) }, { applicable: bool, control: nullable(dict(any)) })), lines: arr(str) }, { automation: nullable(obj({ housekeeping: int, total: int, share: num }, { spawned: int, spawned_linked: int, spawned_parents: int, unattributed: int })), limited: bool, excluded_own: bool }),
   },
 );

@@ -15,6 +15,7 @@ import { chmodSync, copyFileSync, existsSync, lstatSync, mkdirSync, mkdtempSync,
 import { homedir, tmpdir } from 'node:os';
 import { basename, delimiter, dirname, join, relative, resolve, sep } from 'node:path';
 import { fileURLToPath } from 'node:url';
+import { leaks } from './lib/leak.mjs';
 
 const PKG_ROOT = fileURLToPath(new URL('..', import.meta.url));
 const VERSION = JSON.parse(readFileSync(join(PKG_ROOT, 'package.json'), 'utf8')).version;
@@ -82,20 +83,8 @@ export function treeDiff(a, b) {
   return out;
 }
 
-// Needles found in an HTML report. user: matched as a whole word only.
-export function leaks(text, { secrets = [], paths = [], names = [], prompts = [], user = null }) {
-  const found = [];
-  for (const [kind, list] of [['secret', secrets], ['path', paths], ['name', names], ['prompt', prompts]]) {
-    for (const n of list) if (n && text.includes(n)) found.push(`${kind}: ${kind === 'secret' ? `${n.slice(0, 4)}...` : n}`);
-  }
-  // The user name as a whole word, outside the page's own CSS and script (a user
-  // named root would match the stylesheet's :root).
-  const body = text.replace(/<style[\s\S]*?<\/style>|<script[\s\S]*?<\/script>/g, '');
-  if (user && new RegExp(`(?<![\\w-])${user.replace(/[.*+?^${}()|[\]\\]/g, '\\$&')}(?![\\w-])`).test(body)) found.push('user name');
-  const abs = text.match(/\/(Users|home|private|var\/folders|tmp)\/[\w.-]+\//);
-  if (abs) found.push(`absolute path: ${abs[0]}`);
-  return found;
-}
+// The leak check lives in lib/leak.mjs (shared with the T1 leak test).
+export { leaks };
 
 const q = (s) => `'${String(s).replaceAll("'", `'\\''`)}'`;
 
@@ -251,7 +240,9 @@ function main() {
   say(`Leak check (share-safe): ${nd.secrets.length} secret tokens, ${nd.paths.length} paths, ${nd.names.length} names, ${nd.prompts.length} prompts, OS user, absolute paths; found ${found.length}${found.length ? `: ${found.join(', ')}` : ''}`);
   check(found.length === 0, 'share-safe report leaks nothing planted');
   const local = readFileSync(s.report, 'utf8');
-  check(nd.names.some((x) => local.includes(x)) || nd.prompts.some((x) => local.includes(x)), 'control: the local report does name planted items, so the leak check can fail');
+  const control = leaks(local, { names: nd.names });
+  say(`Leak check control (local report): found ${control.length}${control.length ? `: ${control.join(', ')}` : ''}`);
+  check(control.length > 0, 'control: the same check finds planted names in the local report, so it can fail');
   return finish();
 }
 

@@ -21,6 +21,7 @@ A local health check of your Claude Code setup and session history, measured aga
   - The CLI takes an answer only from an interactive terminal. It cannot tell you from a tool that fakes one, so never let an agent run `approve`.
   - Gate A: read your session history too, or not.
   - Gate B (T1 only): judging, with its token and time estimate. T0 is pre-selected; T1 needs a typed `yes`.
+  - A choice named on the `approve` command line is confirmed only by a typed `yes`, at every gate. `y` is not enough.
 - Long runs: `shrine-inspect start --tier T1`, then `shrine-inspect status`. Add `--background` to an `approve` command and the run keeps going after you close the terminal.
 
 ## What it reads
@@ -29,6 +30,7 @@ A local health check of your Claude Code setup and session history, measured aga
 - Git data of the projects in your history: log and config, read only.
 - Session logs in `~/.claude/projects/`: before Gate A, only names, sizes, and dates, plus the first 10 lines of the newest session per folder to find its folder; only the folder, entry point, and version are kept, never prompt text. The full logs only after you answer `history`.
 - It writes only to its own folder: macOS `~/Library/Application Support/shrine-inspect/`, Linux `~/.local/state/shrine-inspect/`. `shrine-inspect purge` deletes it.
+- One exception, at T1 only: each judge call launches Claude Code, which may update its own state and cache files (`~/.claude.json`, files under `~/.claude/`).
 - It checks that it changed nothing it read. If something changed, the report shows a warning at the top.
 
 ## What it never sends
@@ -49,9 +51,11 @@ A local health check of your Claude Code setup and session history, measured aga
 
 ## What T1 costs
 
-- Measured on one real run: about 54K tokens and 41 seconds for 12 episodes.
+- Measured on two real runs of 12 episodes: 54K to 65K tokens; 41 seconds and 4.0 minutes from start to report.
+  - The 4.0-minute run judged for 38 seconds; the rest was reading history, the scan, and 2.2 minutes waiting at Gate B.
+- The minutes Gate B shows cover judging only, not the scan or time at the gates.
 - Gate B shows the estimate before you say yes, usually 59K to 84K tokens. It includes a retry reserve and a safety margin.
-- Judging stops and asks you past the approved token limit, past the time estimate plus 50%, at too many invalid answers, or at a usage limit.
+- Judging stops and asks you past the approved token limit, past the time estimate plus 50% (a call still running is cut off), at too many invalid answers, or at a usage limit.
 - T0 costs no tokens.
 
 ## Send feedback

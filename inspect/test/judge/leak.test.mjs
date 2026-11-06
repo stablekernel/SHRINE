@@ -10,6 +10,7 @@ import { join } from 'node:path';
 import { addSession } from '../synth/history.mjs';
 import { plantedCorpus } from '../synth/secrets.mjs';
 import { DAY, NOW, plantedHome, runT1 } from '../e2e/t1-helpers.mjs';
+import { userMentions } from '../../scripts/lib/leak.mjs';
 
 const body = plantedCorpus(11).split('\n').filter((l) => l && !l.startsWith('#') && !l.startsWith('private-key'));
 const STOP = new Set(['Authorization', 'authorization', 'DefaultEndpointsProtocol', 'EndpointSuffix']);
@@ -19,8 +20,9 @@ const sid = (i) => `dddd0000-0000-4000-8000-${String(i).padStart(12, '0')}`;
 test('T1 leak: zero secret survivors, zero absolute paths, zero OS user or author names in every T1 output', async () => {
   const h = plantedHome([]);
   const user = userInfo().username;
-  // Whole word only: a CI user named "runner" is also part of this tool's own "judge_runner".
-  const userRe = new RegExp(`(?<![\\w-])${user.replace(/[.*+?^${}()|[\]\\]/g, '\\$&')}(?![\\w-])`);
+  // Whole word only (a CI user "runner" is part of "judge_runner"); as root in a
+  // container, the report's own :root selector and shipped script are not the user.
+  const userIn = (text) => userMentions(text, user);
   for (let i = 0; i < 12; i++) {
     const secrets = body.slice((i * 4) % body.length, ((i * 4) % body.length) + 4).join(' and ');
     const script = [
@@ -30,6 +32,8 @@ test('T1 leak: zero secret survivors, zero absolute paths, zero OS user or autho
       ['text', `Reading ${h.repo}/src/a.js with ${body[(i + 1) % body.length]}`],
       ['human', `Actually, never print ${body[(i + 2) % body.length]} and do not touch ${h.repo}/.env, Fixture Author said so.`],
       ['text', 'Understood.'],
+      // Angle brackets, as an author line writes it: "Jane <jdoe>".
+      ['human', `Ask <${user}> first, then "${user}" and ${user}'s notes.`],
     ];
     addSession(h, { id: sid(i), startMs: NOW - (20 - i) * DAY, script });
   }
@@ -48,14 +52,16 @@ test('T1 leak: zero secret survivors, zero absolute paths, zero OS user or autho
     if (f === 'facts.json' || f === 'findings.json') continue; // scrubbed display paths (~/...) are kept there, as at T0
     assert.ok(!text.includes(h.home), `home path in ${f}`);
     assert.ok(!text.includes(h.tmp), `fixture path in ${f}`);
-    assert.doesNotMatch(text, userRe, `OS user in ${f}`);
+    assert.deepEqual(userIn(text), [], `OS user in ${f}`);
   }
   // What the judge saw: no OS user, no author name, no absolute path.
   const order = readFileSync(join(r.dir, 'workorder.json'), 'utf8');
-  assert.doesNotMatch(order, userRe, 'OS user in the work order');
+  assert.deepEqual(userIn(order), [], 'OS user in the work order');
+  // The check reads the work order's strings unescaped: a user after "\n" or "\t" counts.
+  for (const sep of ['\n', '\t', '<']) assert.notDeepEqual(userIn(JSON.stringify({ ...JSON.parse(order), planted: `x${sep}${user}` })), [], `escaped ${JSON.stringify(sep)}`);
   assert.ok(!order.includes('Fixture Author'), 'git author in the work order');
   assert.doesNotMatch(order, /"\/(Users|home|private|var|tmp)\//);
   const safe = readFileSync(join(r.dir, 'report.share-safe.html'), 'utf8');
-  assert.doesNotMatch(safe, userRe, 'OS user in the share-safe file');
+  assert.deepEqual(userIn(safe), [], 'OS user in the share-safe file');
   h.cleanup();
 });

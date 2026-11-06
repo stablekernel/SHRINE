@@ -24,7 +24,9 @@ The install steps below apply once the maintainers publish the first release, `i
 
 ## What It Never Does
 
-- Write to your project, your settings, or your history; its only writes go to its own folder
+- Write to your project, your settings, or your history; its own files go only to its own folder
+  - At T1, each judge call launches Claude Code, which may update its own state and cache files (`~/.claude.json`, files under `~/.claude/`)
+  - The installer is separate: it writes the CLI under `~/.local/` and, with `--skill`, the skill to `~/.claude/skills/shrine-inspect/`
 - Send anything off your machine at T0: no network, no model calls
 - Send anything to SHRINE, Stable Kernel, or any telemetry service
 - Call a model without your typed `yes` at Gate B
@@ -79,7 +81,7 @@ The run stops at a gate when it needs your answer. Only you answer, in your own 
 | Tier | What it adds | Tokens | Time |
 | --- | --- | --- | --- |
 | T0 (scan) | Setup and history signals, no model calls | None | Minutes, by history size |
-| T1 (Pulse) | 12 short episodes judged by your own coding agent login | About 54K measured on one run; Gate B shows the estimate first | Under a minute measured; Gate B shows the estimate |
+| T1 (Pulse) | 12 short episodes judged by your own coding agent login | About 54K measured on one run; Gate B shows the estimate first | Judging under a minute measured; whole runs 41 s and 4.0 min (scan and gate waits included); Gate B shows the judging estimate |
 
 - T1 tokens bill to your own account, like normal use
 - Judging stops and asks (Gate C) past the approved token limit, past the time estimate plus 50%, at too many invalid answers, or at a usage limit
@@ -87,8 +89,8 @@ The run stops at a gate when it needs your answer. Only you answer, in your own 
 
 ## Scrubbing and Share-Safe File
 
-- Before any text reaches a judge or a file, secrets are removed and names, paths, and hosts are masked
-- `report.html` is for you
+- Before any session text reaches a judge, secrets are removed and names, paths, and hosts are masked; the packs saved for judging (`workorder.json`) hold only that masked text
+- `report.html` is for you; it is not masked and can show your names, paths, and hosts
 - `report.share-safe.html` masks names, paths, and hosts and drops session excerpts; share only this one
 - Masking can over-mask: a word next to a path may become `<file>`
 
