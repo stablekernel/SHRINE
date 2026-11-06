@@ -33,15 +33,16 @@ const minutesBetween = (a, b) => Math.max(0, Math.round((Date.parse(b) - Date.pa
 
 // How code checked the live config for one flagged turn: 'unavailable' when it
 // may have changed since the episode or code could not read all of it, 'matched'
-// when code searched all of it and every matching line reached the judge, 'none'
-// when code searched all of it and no line matched (that is evidence too), and
-// 'partial' when a matching line was left out for size. A bundle from before the
+// when code searched all of it and the turn's best matching lines (up to
+// config_lines_per_turn) reached the judge, 'none' when code searched all of it
+// and no line matched (that is evidence too), and 'partial' when one of those
+// best lines was left out for size. A bundle from before the
 // search (no config_searched) is 'unavailable' when its config was cut short.
 export function configCheck(bundle, turnId) {
   if (bundle.config_may_have_changed || bundle.config.some((x) => x.may_have_changed) || bundle.config_truncated) return 'unavailable';
   if (bundle.config_searched !== true) return bundle.config.length ? 'matched' : 'none';
   const m = bundle.meta?.config_lines?.[turnId] ?? { matched: 0, sent: 0 };
-  if (m.sent < m.matched) return 'partial';
+  if (m.sent < (m.best ?? m.matched)) return 'partial';
   return m.matched ? 'matched' : 'none';
 }
 

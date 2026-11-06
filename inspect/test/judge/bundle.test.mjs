@@ -63,15 +63,34 @@ test('config: code searches every file and sends only the lines that match a fla
   assert.equal(p.config_searched, true);
   assert.equal(p.config.length, 1, 'the first file holds nothing that matches');
   assert.equal(p.config[0].text, '# Output style\n- Use semicolons in CSV output.');
-  assert.deepEqual(b.meta.config_lines.t03, { matched: 1, sent: 1 });
+  assert.deepEqual(b.meta.config_lines.t03, { matched: 1, best: 1, sent: 1 });
   assert.equal(b.config_truncated, false);
+});
+
+test('config: each flagged turn gets its best lines; one turn with many matches cannot crowd out another', () => {
+  const ev = [
+    { t: at(0), kind: 'human', uuid: 'u1', text: 'Build the export.' },
+    { t: at(1), kind: 'assistant_text', text: 'ok' },
+    { t: at(2), kind: 'interrupt' },
+    { t: at(3), kind: 'human', uuid: 'u2', text: 'Stop, the migration scripts need a dry run first.' },
+    { t: at(4), kind: 'assistant_text', text: 'ok' },
+    { t: at(5), kind: 'interrupt' },
+    { t: at(6), kind: 'human', uuid: 'u3', text: 'Wait, keep semicolons as the CSV separator.' },
+  ];
+  const noise = Array.from({ length: 20 }, (_, i) => `- Rule ${i}: every migration script runs a dry run before apply, ${'with a long explanation '.repeat(4)}`).join('\n');
+  const files = [{ path: '/r/CLAUDE.md', content: `# Data\n${noise}\n# Output\n- Use semicolons as the CSV separator.\n${'- Unrelated filler line here.\n'.repeat(80)}` }];
+  const b = buildBundle({ episode, transcript: { events: ev, snapshot: files }, known, nonce: 'n' });
+  assert.ok(b.meta.config_lines.t03.matched > b.meta.config_lines.t03.best, 'more matches than are sent');
+  assert.equal(b.meta.config_lines.t03.sent, b.meta.config_lines.t03.best);
+  assert.deepEqual(b.meta.config_lines.t05, { matched: 1, best: 1, sent: 1 });
+  assert.match(b.config.map((c) => c.text).join('\n'), /Use semicolons as the CSV separator/);
 });
 
 test('config: no line matches, so config is empty and the search still counts', () => {
   const b = buildBundle({ episode, transcript: { events: events(), snapshot }, known, nonce: 'n' });
   assert.equal(payloadOf(b).config_searched, true);
   assert.deepEqual(b.config, []);
-  assert.deepEqual(b.meta.config_lines.t03, { matched: 0, sent: 0 });
+  assert.deepEqual(b.meta.config_lines.t03, { matched: 0, best: 0, sent: 0 });
 });
 
 test('config: a file the reader had to cut means the search was not over the whole config', () => {

@@ -19,6 +19,7 @@ export const DEFAULT_CAPS = Object.freeze({
   bundle_tokens: 1500,
   config_excerpt_chars: 1600,
   config_line_chars: 240,
+  config_lines_per_turn: 6,
   bytes_per_token: 4,
   tools_per_turn: 10,
 });
@@ -59,7 +60,7 @@ const HEADING = /^\s{0,3}#{1,6}\s+\S/;
 // turns: [{id, words}]. A word found on more than a quarter of the lines (in a
 // config of 8 or more lines) is too common to count. Score: 2 per matching word
 // in the line, 1 per matching word in its heading. Returns every line that scored
-// 2 or more, best first, each with the turns it matched.
+// 2 or more, best first, each with the turns it matched and its score per turn.
 export function matchConfig(files, turns) {
   const rows = [];
   files.forEach((f, fi) => {
@@ -80,16 +81,18 @@ export function matchConfig(files, turns) {
   for (const r of rows) {
     let score = 0;
     const hit = [];
+    const by = {};
     for (const t of turns) {
       const inLine = [...t.words].filter((w) => r.words.has(w) && !common(w)).length;
       const inHead = r.heading ? [...t.words].filter((w) => r.heading.words.has(w) && !r.words.has(w) && !common(w)).length : 0;
       const s = 2 * inLine + inHead;
       if (s >= 2) {
         hit.push(t.id);
+        by[t.id] = s;
         score = Math.max(score, s);
       }
     }
-    if (hit.length) out.push({ ...r, score, turns: hit });
+    if (hit.length) out.push({ ...r, score, by, turns: hit });
   }
   return out.sort((a, b) => b.score - a.score || a.fi - b.fi || a.li - b.li);
 }
@@ -170,10 +173,20 @@ export function buildBundle({ episode, transcript, fallbackConfig = [], known, n
   const files = source.map((f) => ({ path: f.path, text: clean(f.content, known), may_have_changed: f.may_have_changed === true }));
   const flagged = turns.filter((t) => t.candidate).map((t) => ({ id: t.id, words: keywords(t.text) }));
   const matched = matchConfig(files, flagged);
-  for (const t of flagged) meta.config_lines[t.id] = { matched: matched.filter((r) => r.turns.includes(t.id)).length, sent: 0 };
+  // Each flagged turn's best lines go first, taken in turn, so one turn with many
+  // matches cannot crowd out another; then the rest by score, while they fit.
+  const K = caps.config_lines_per_turn;
+  const best = new Map(flagged.map((t) => [t.id, matched.filter((r) => r.by[t.id]).sort((a, b) => b.by[t.id] - a.by[t.id] || a.fi - b.fi || a.li - b.li).slice(0, K)]));
+  for (const t of flagged) meta.config_lines[t.id] = { matched: matched.filter((r) => r.by[t.id]).length, best: best.get(t.id).length, sent: 0 };
+  const order = [];
+  for (let k = 0; k < K; k++) for (const t of flagged) {
+    const r = best.get(t.id)[k];
+    if (r && !order.includes(r)) order.push(r);
+  }
+  for (const r of matched) if (!order.includes(r)) order.push(r);
   let chosen = [];
   let used = 0;
-  for (const r of matched) {
+  for (const r of order) {
     const n = Math.min(r.line.length, caps.config_line_chars) + 1;
     if (used + n > caps.config_excerpt_chars) continue;
     chosen.push(r);
@@ -194,7 +207,8 @@ export function buildBundle({ episode, transcript, fallbackConfig = [], known, n
   };
   const setConfig = () => {
     b.config = configBlocks(chosen, files, known, caps);
-    for (const id of Object.keys(meta.config_lines)) meta.config_lines[id].sent = chosen.filter((r) => r.turns.includes(id)).length;
+    // sent: how many of that turn's best lines reached the judge.
+    for (const id of Object.keys(meta.config_lines)) meta.config_lines[id].sent = best.get(id).filter((r) => chosen.includes(r)).length;
   };
   setConfig();
 

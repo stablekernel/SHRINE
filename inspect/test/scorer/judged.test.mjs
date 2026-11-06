@@ -36,6 +36,8 @@ test('a full config search by code is evidence: no match attributes to you, a ga
   assert.equal(configCheck(searched({ matched: 2, sent: 2 }), 't03'), 'matched');
   assert.equal(codeAttribution(c(), searched({ matched: 2, sent: 2 })), 'user', 'the judge saw every matching line and found the rule absent');
   assert.equal(configCheck(searched({ matched: 3, sent: 1 }), 't03'), 'partial');
+  assert.equal(configCheck(searched({ matched: 40, best: 6, sent: 6 }), 't03'), 'matched', 'the best lines reached the judge');
+  assert.equal(configCheck(searched({ matched: 40, best: 6, sent: 5 }), 't03'), 'partial');
   assert.equal(codeAttribution(c(), searched({ matched: 3, sent: 1 })), 'unknown', 'a matching line was left out for size');
   assert.equal(codeAttribution(c(), searched({ matched: 0, sent: 0 }, { config_may_have_changed: true })), 'unknown', 'a file may have changed since');
   assert.equal(codeAttribution(c(), searched({ matched: 0, sent: 0 }, { config_truncated: true })), 'unknown', 'a file was too long to read in full');
