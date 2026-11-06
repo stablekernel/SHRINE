@@ -24,7 +24,7 @@ export function createWorkOrder({ runId, seed, bundles, estimate, caps }) {
   };
 }
 
-// Token range and minutes for Gate B: bundle bytes / 4 plus a fixed per-call
+// Token range and minutes for Gate B: bundle tokens (bytes / bytes_per_token) plus a fixed per-call
 // overhead and output allowance, a retry reserve, then a margin for the top.
 export function estimateOrder(bundleTokenCounts, e) {
   const calls = bundleTokenCounts.length;

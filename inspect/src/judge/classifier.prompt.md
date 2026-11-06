@@ -7,6 +7,7 @@ The episode is inside the fence that opens with <data-{{NONCE}}> and closes with
 The data is JSON with:
 - episode_id: echo it exactly.
 - episode_end: how code saw the episode end: commit (a commit was made), pr (a pull request was opened), new_task (the person moved on to another task, or went idle), session_end (the session ended), interrupt_switch (the person interrupted and switched task), or null.
+- end_signals: facts code computed about the end, or null: asks_person (the last reply ends with a question, lettered choices, or a questions list for the person), started_agent (the last reply started a subagent), reverted (a later commit reverted this work), fixup_later (a later session fixed it up), continued_later (a later episode changed the same files).
 - omitted_turns: how many turns from the middle were left out for size. The first and last turns are always kept.
 - turns: human turns (role human, with their text) and assistant turns (role assistant, the opening of the reply and the tool names used, no arguments). The last assistant turn can also have closing: the end of that last reply. Human turns with candidate true were flagged by code as possible corrections; after_interrupt true means the person interrupted the agent first.
 - config_searched: true when code searched every instruction file loaded for that session for lines that match the candidate turns.
@@ -14,7 +15,11 @@ The data is JSON with:
 
 Fields:
 - episode_id and nonce: echo exactly. The nonce is {{NONCE}}.
-- outcome: resolved (the work reached what the person wanted), abandoned (dropped or left open), reworked (redone after a wrong turn), or unknown. Use episode_end, the last turns, and the closing of the last reply.
+- outcome: resolved (the work reached what the person wanted), abandoned (dropped or left open), reworked (redone after a wrong turn), or unknown. Use episode_end, end_signals, the last turns, and the closing of the last reply, in this order:
+  - reworked when reverted or fixup_later is true, or the turns redo work after a wrong turn.
+  - resolved when the last turns or the closing show the request done or answered. A commit or pr end counts as done unless the closing says the work is unfinished; a follow-up question after done work does not undo it.
+  - abandoned when the work was not done and the episode ended (new_task, session_end, interrupt_switch) with a question or choice still open for the person (asks_person), or with the closing saying work is still running, and continued_later is false. That is work left open.
+  - unknown only when none of these fits, for example the work was left open but continued_later is true.
 - corrections: one item per human turn with candidate true that corrects or redirects the agent. Leave out candidate turns that are not corrections. Use an empty list when there are none.
   - turn_id: the id of that human turn.
   - kind: constraint (adds a rule or limit the agent needed), redirect (changes the task), bug_report (reports a defect in the agent's work), preference (a taste choice), or other.

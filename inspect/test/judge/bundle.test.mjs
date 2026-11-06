@@ -2,7 +2,7 @@ import { test } from 'node:test';
 import assert from 'node:assert/strict';
 import { readFileSync } from 'node:fs';
 import { fileURLToPath } from 'node:url';
-import { buildBundle, bundleTokens, DEFAULT_CAPS, judgePrompt, JUDGE_MARKER, payloadOf } from '../../src/judge/bundle.mjs';
+import { asksPerson, buildBundle, bundleTokens, DEFAULT_CAPS, judgePrompt, JUDGE_MARKER, payloadOf } from '../../src/judge/bundle.mjs';
 import { sliceEpisode } from '../../src/adapters/claude-code/transcript.mjs';
 import { buildIdentifiers } from '../../src/scrub/mask.mjs';
 import { HOUSEKEEPING } from '../../src/adapters/claude-code/projects.mjs';
@@ -200,4 +200,54 @@ test('a snapshot logged only after the episode started is kept but marked may_ha
   assert.equal(s.snapshot_late, true);
   const b = buildBundle({ episode, transcript: s, known, nonce: 'n' });
   assert.equal(b.config_may_have_changed, true);
+});
+
+test('a snapshot logged right after the root turn, before any reply, is the config loaded for that prompt', () => {
+  const [root, ...rest] = events();
+  // Logged a second after the prompt, so it is after the episode start.
+  const soon = new Date(Date.parse(at(0)) + 1000).toISOString();
+  const tl = [root, { t: soon, kind: 'instructions', files: snapshot }, ...rest];
+  const s = sliceEpisode(tl, episode);
+  assert.equal(s.snapshot_late, false);
+  assert.deepEqual(s.snapshot, snapshot);
+  const b = buildBundle({ episode, transcript: s, known, nonce: 'n' });
+  assert.equal(b.config_may_have_changed, false);
+  // After the agent has replied, a first snapshot stays "may have changed".
+  const late = sliceEpisode([root, rest[0], rest[1], { t: at(1), kind: 'instructions', files: snapshot }, ...rest.slice(2)], episode);
+  assert.equal(late.snapshot_late, true);
+});
+
+test('asksPerson: a question, lettered choices, or a questions list at the end; a plain report is not', () => {
+  assert.ok(asksPerson('All done. Should I open the PR?'));
+  assert.ok(asksPerson('Two options:\n1. Layout: A) grid B) list\n2. Color: A) teal B) gray'));
+  assert.ok(asksPerson('Done with the draft.\n\nQuestions:\n1. Keep the old name'));
+  assert.ok(!asksPerson('All tests pass and the change is committed.'));
+  assert.ok(!asksPerson(''));
+  assert.ok(!asksPerson(`Questions:\n${'filler line\n'.repeat(100)}Done.`), 'only the end of the reply counts');
+});
+
+test('end signals: computed by code from the last reply and later git and episode links', () => {
+  const ev = [...events(), { t: at(9), kind: 'assistant_text', text: 'Pick one: A) keep B) drop', head: 'Two ways.' }, { t: at(9), kind: 'tool_use', name: 'Agent', id: 'a1' }];
+  const b = buildBundle({ episode: { ...episode, downstream: [{ kind: 'revert', ref: 'x', delta_hours: 2, link: 'hard' }, { kind: 'episode', ref: 'e-2', delta_hours: 1, link: 'soft' }] }, transcript: { events: ev, snapshot }, known, nonce: 'n' });
+  assert.deepEqual(payloadOf(b).end_signals, { asks_person: true, started_agent: true, reverted: true, fixup_later: false, continued_later: true });
+  // Ending on a human turn: nothing in a reply is open.
+  const h = buildBundle({ episode, transcript: { events: events(), snapshot }, known, nonce: 'n' });
+  assert.deepEqual(payloadOf(h).end_signals, { asks_person: false, started_agent: false, reverted: false, fixup_later: false, continued_later: false });
+  assert.match(TEMPLATE, /end_signals/);
+});
+
+test('trimming shortens middle replies first; the last reply keeps its full opening and closing', () => {
+  const ev = [];
+  for (let i = 0; i < 12; i++) {
+    ev.push({ t: at(i), kind: 'human', uuid: `u${i}`, text: `next step ${'word '.repeat(150)}${i}` });
+    ev.push({ t: at(i), kind: 'assistant_text', text: `${'tail '.repeat(100)}Final status line.`, head: `${'reply '.repeat(80)}` });
+  }
+  const b = buildBundle({ episode: { ...episode, root_turn_id: 'u0' }, transcript: { events: ev, snapshot: null }, known, nonce: 'n' });
+  assert.ok(bundleTokens(b) <= DEFAULT_CAPS.bundle_tokens);
+  const last = b.turns.at(-1);
+  assert.equal(last.role, 'assistant');
+  assert.equal(last.text.length, DEFAULT_CAPS.assistant_chars);
+  assert.ok(last.closing.endsWith('Final status line.'));
+  assert.equal(b.turns[0].text.length, `next step ${'word '.repeat(150)}0`.length, 'the root prompt stays whole');
+  assert.ok(b.turns.slice(1, -1).filter((t) => t.role === 'assistant').every((t) => t.text.length <= 160));
 });
