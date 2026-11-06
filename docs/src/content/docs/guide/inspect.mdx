@@ -8,7 +8,7 @@ import { Aside, Steps } from '@astrojs/starlight/components';
 *SHRINE Inspect is a local, read-only command-line tool. It measures your AI coding setup and session history against SHRINE and reports what to change first. It changes nothing itself.*
 
 <Aside type="caution" title="Pre-release">
-The install steps below apply once the maintainers publish the first release, `inspect-v0.1.0`, on the [releases page](https://github.com/stablekernel/SHRINE/releases). Until then, trial testers get the release files from a maintainer and follow [TRIAL.md](https://github.com/stablekernel/SHRINE/blob/main/inspect/TRIAL.md).
+This is a trial release. Get the newest `inspect-v*` release from the [releases page](https://github.com/stablekernel/SHRINE/releases). The steps below use `inspect-v0.1.1`. Trial testers also follow [TRIAL.md](https://github.com/stablekernel/SHRINE/blob/main/inspect/TRIAL.md).
 </Aside>
 
 - The first release reads one harness: Claude Code; other harnesses come later
@@ -40,27 +40,82 @@ It checks that it changed nothing it read. If anything changed, the report shows
 
 <Steps>
 
-1. Check the prerequisites: macOS or Linux, Claude Code, and Node 20 or newer (`node --version`)
+1. Check the prerequisites: macOS or Linux, Claude Code, and Node 20 or newer
 
-2. Download the three release files into one folder: `shrine-inspect-<version>.tgz`, `install.sh`, and `SHA256SUMS`
+   ```sh
+   node --version
+   ```
 
-3. Verify them: `shasum -a 256 -c SHA256SUMS` (Linux: `sha256sum -c SHA256SUMS`); every line must say `OK`
+2. Download the three release files into a new folder
 
-4. Install: `sh install.sh --skill`
+   ```sh
+   mkdir -p ~/shrine-inspect-0.1.1 && cd ~/shrine-inspect-0.1.1
+   base=https://github.com/stablekernel/SHRINE/releases/download/inspect-v0.1.1
+   curl -fLO "$base/shrine-inspect-0.1.1.tgz"
+   curl -fLO "$base/install.sh"
+   curl -fLO "$base/SHA256SUMS"
+   ```
+
+3. Verify them; every line must say `OK` (Linux: `sha256sum -c SHA256SUMS`)
+
+   ```sh
+   shasum -a 256 -c SHA256SUMS
+   ```
+
+4. Install from the folder that holds the files
+
+   ```sh
+   sh install.sh --skill
+   ```
+
+   - Usage: `sh install.sh [--skill] [path/to/tgz]`; with no path, it uses the tarball next to `install.sh`, not in your current folder
    - It checks Node, then checks the tarball against the hash pinned in `install.sh`; a mismatch installs nothing
    - The CLI goes to `~/.local/share/shrine-inspect/<version>/`, linked as `~/.local/bin/shrine-inspect`
-   - `--skill` also copies the Claude Code skill; leave it out to use the CLI only
+   - The installer is separate from the tool: with `--skill`, it copies the skill to `~/.claude/skills/shrine-inspect/`; leave it out to use the CLI only
 
-5. Check: `shrine-inspect version`
+5. Put `~/.local/bin` on your PATH, if the installer said so; add the line to `~/.zshrc` or `~/.bashrc` to keep it
+
+   ```sh
+   export PATH="$HOME/.local/bin:$PATH"
+   ```
+
+6. Check the install; `shrine-inspect --help` lists every command
+
+   ```sh
+   shrine-inspect version
+   ```
 
 </Steps>
 
 ## Run
 
-- In your terminal: `shrine-inspect run --tier T0`
-- Or ask your coding agent to run SHRINE Inspect; the skill starts a background run and tells you what to type
-- Long runs: `shrine-inspect start --tier T1`, then `shrine-inspect status`; `status` prints the exact `approve` line for each gate
+- First run, scan only; it asks at Gate A whether to read your session history (type `history` or `no-history`)
+
+  ```sh
+  shrine-inspect run --tier T0
+  ```
+
+- Skip that question and read setup only
+
+  ```sh
+  shrine-inspect run --tier T0 --no-history
+  ```
+
+- T1 run: type `history` at Gate A, then `yes` at Gate B after reading its estimate
+
+  ```sh
+  shrine-inspect run --tier T1
+  ```
+
+- Long runs in the background; `status` prints the exact `approve` line for each gate, and the report paths when done
+
+  ```sh
+  shrine-inspect start --tier T1
+  shrine-inspect status
+  ```
+
 - Add `--background` to an `approve` command, and the run continues after you close the terminal
+- Or ask your coding agent to run SHRINE Inspect; the skill starts a background run and tells you what to type
 
 ## Gates
 
@@ -81,10 +136,11 @@ The run stops at a gate when it needs your answer. Only you answer, in your own 
 | Tier | What it adds | Tokens | Time |
 | --- | --- | --- | --- |
 | T0 (scan) | Setup and history signals, no model calls | None | Minutes, by history size |
-| T1 (Pulse) | 12 short episodes judged by your own coding agent login | About 54K measured on one run; Gate B shows the estimate first | Judging under a minute measured; whole runs 41 s and 4.0 min (scan and gate waits included); Gate B shows the judging estimate |
+| T1 (Pulse) | 12 short episodes judged by your own coding agent login | Tens of thousands; Gate B shows the estimate for your run before anything is sent | Gate B shows the judging minutes; real time varies by machine, login, and network |
 
 - T1 tokens bill to your own account, like normal use
-- Judging stops and asks (Gate C) past the approved token limit, past the time estimate plus 50%, at too many invalid answers, or at a usage limit
+- The judging time limit, the estimate plus 50%, is the only fixed time figure
+- Judging stops and asks (Gate C) past the approved token limit, past that time limit, at too many invalid answers, or at a usage limit
 - Deeper tiers are planned, not in this release
 
 ## Scrubbing and Share-Safe File
@@ -93,6 +149,13 @@ The run stops at a gate when it needs your answer. Only you answer, in your own 
 - `report.html` is for you; it is not masked and can show your names, paths, and hosts
 - `report.share-safe.html` masks names, paths, and hosts and drops session excerpts; share only this one
 - Masking can over-mask: a word next to a path may become `<file>`
+- Before you share, check the copy against your machine; read-only, no network, exit 5 if it finds a name, path, or excerpt
+
+  ```sh
+  shrine-inspect check-share
+  ```
+
+- Reports land in the run folder: `~/Library/Application Support/shrine-inspect/runs/` (macOS) or `~/.local/state/shrine-inspect/runs/` (Linux)
 
 ## Read the Report
 
@@ -107,8 +170,18 @@ The run stops at a gate when it needs your answer. Only you answer, in your own 
 
 ## Remove
 
-1. Wait for any run to finish (`shrine-inspect status`), then run `shrine-inspect purge`
-2. Delete `~/.local/share/shrine-inspect`, `~/.local/bin/shrine-inspect`, and `~/.claude/skills/shrine-inspect`
+1. Wait for any run to finish, then delete inspect's own folder
+
+   ```sh
+   shrine-inspect status
+   shrine-inspect purge
+   ```
+
+2. Delete the install, the link, and the skill
+
+   ```sh
+   rm -rf ~/.local/share/shrine-inspect ~/.local/bin/shrine-inspect ~/.claude/skills/shrine-inspect
+   ```
 
 ## Related
 

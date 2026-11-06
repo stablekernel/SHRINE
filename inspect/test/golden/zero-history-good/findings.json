@@ -3,7 +3,7 @@
   "run": {
     "id": "<run-id>",
     "started_at": "2026-11-04T12:00:00.000Z",
-    "tool_version": "0.1.0",
+    "tool_version": "0.1.1",
     "harness": {
       "name": "Claude Code",
       "version": null

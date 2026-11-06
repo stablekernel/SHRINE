@@ -3,6 +3,7 @@ import { InspectError, EXIT } from './errors.mjs';
 import { runCommand, continueRun, createRun, findRun, context } from './run.mjs';
 import { approveCommand } from './approve.mjs';
 import { purgeCommand } from './purge.mjs';
+import { checkShareCommand } from './checkshare.mjs';
 import { GRANT_ENV, resumeCommand, startCommand, statusCommand } from './background.mjs';
 import { TOOL_VERSION } from '../scorer/score.mjs';
 
@@ -12,12 +13,14 @@ const USAGE = `usage:
   shrine-inspect status [<run>] [--json]
   shrine-inspect approve <run> <A|B|C> [choice] [--background]
   shrine-inspect resume <run> [--json]
+  shrine-inspect check-share [<run> | <report.share-safe.html>] [--json]
   shrine-inspect purge [--json]
   shrine-inspect version
+  shrine-inspect --help
 Any command takes --skill-version <v>: a mismatch with this CLI stops before any read.`;
 
 // Every command, for the skill test: the skill names only these.
-export const COMMANDS = Object.freeze(['run', 'start', 'status', 'approve', 'resume', 'purge', 'version']);
+export const COMMANDS = Object.freeze(['run', 'start', 'status', 'approve', 'resume', 'check-share', 'purge', 'version']);
 
 export function parseArgs(argv) {
   const out = { cmd: argv[0], positional: [], json: false, noHistory: false, tier: null, sessionId: null, background: false, worker: false, skillVersion: null };
@@ -52,6 +55,11 @@ export function parseArgs(argv) {
 
 export async function main(argv, io) {
   let json = argv.includes('--json');
+  // Help: no command, --help, or -h anywhere prints usage and reads nothing.
+  if (argv.length === 0 || argv.includes('--help') || argv.includes('-h') || argv[0] === 'help') {
+    io.stdout.write(`${USAGE}\n`);
+    return EXIT.OK;
+  }
   try {
     const args = parseArgs(argv);
     json = args.json;
@@ -81,6 +89,7 @@ export async function main(argv, io) {
       const [runId, gate, choice] = args.positional;
       return (await approveCommand({ runId, gate, choice }, cio, deps)).code;
     }
+    if (args.cmd === 'check-share') return checkShareCommand({ target: args.positional[0] }, cio, deps).code;
     if (args.cmd === 'purge') return purgeCommand(cio, { context }).code;
     throw new InspectError('E_USAGE', args.cmd ? `unknown command ${args.cmd}` : 'no command', { hint: USAGE, exit: EXIT.USAGE });
   } catch (e) {
