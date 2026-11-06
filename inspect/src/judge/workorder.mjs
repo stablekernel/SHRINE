@@ -43,13 +43,16 @@ export const judgedIds = (lines) => new Set(lines.filter((l) => l.valid).map((l)
 // (abort) past the approved token upper bound, past the time box plus 50%, or
 // when invalid lines pass 10% of the planned calls; a usage or rate limit stops
 // it apart, never counted as a judge error.
-// invoke(input) -> {status, stdout, timedOut, truncated, ms}; parse(stdout) -> adapter envelope.
+// The time box is also a hard deadline inside a call: each call gets at most the
+// time left (its own cap still applies), and no retry starts past it.
+// invoke(input, {timeoutMs}) -> {status, stdout, timedOut, truncated, ms}; parse(stdout) -> adapter envelope.
 export async function runWorkOrder({ order, previous = [], invoke, parse, template, append, limits, clock = Date.now, onProgress = () => {} }) {
   const done = judgedIds(previous);
   const todo = order.items.filter((i) => !done.has(i.episode_id));
   let tokens = previous.reduce((n, l) => n + (l.tokens?.total ?? 0), 0);
   let invalid = previous.filter((l) => !l.valid && !l.limited).length;
   const started = clock();
+  const deadline = started + limits.timeBoxMs * limits.timeBoxFactor;
   const lines = [];
   let abort = null;
   let calls = 0;
@@ -65,7 +68,7 @@ export async function runWorkOrder({ order, previous = [], invoke, parse, templa
     let model = null;
     for (let attempt = 1; attempt <= 2; attempt++) {
       const input = judgePrompt(item.bundle, { template, entryIds: limits.entryIds ?? [], retryError });
-      const r = await invoke(input);
+      const r = await invoke(input, { timeoutMs: Math.max(1000, deadline - clock()) });
       latency += r.ms ?? 0;
       const env = parse(r.stdout);
       calls++;
@@ -89,7 +92,7 @@ export async function runWorkOrder({ order, previous = [], invoke, parse, templa
         line = { valid: true, output: v.output, attempts: attempt, refusal: false, errors: [] };
         break;
       }
-      if (env.refusal || attempt === 2) {
+      if (env.refusal || attempt === 2 || clock() >= deadline) {
         line = { valid: false, output: null, attempts: attempt, refusal: env.refusal, errors: v.errors.slice(0, 10) };
         break;
       }
@@ -105,7 +108,7 @@ export async function runWorkOrder({ order, previous = [], invoke, parse, templa
     onProgress(k + 1, todo.length, tokens);
     if (abort) break;
     if (tokens > limits.tokensUpper) abort = { reason: 'tokens', at: item.episode_id };
-    else if (clock() - started > limits.timeBoxMs * limits.timeBoxFactor) abort = { reason: 'time', at: item.episode_id };
+    else if (clock() >= deadline) abort = { reason: 'time', at: item.episode_id };
     else if (invalid > order.items.length * limits.errorRate) abort = { reason: 'errors', at: item.episode_id };
     if (abort && k + 1 < todo.length) break;
     // Past a limit on the last item: nothing is left to stop; the summary compares totals.

@@ -113,6 +113,34 @@ test('abort: time box plus 50%', async () => {
   assert.equal(r.abort.reason, 'time');
 });
 
+// The box was checked only between calls, so one slow call (up to its own
+// 180 s cap, twice with the retry) could run far past the quoted minutes.
+test('time box is a hard deadline: each call gets only the time left, and no retry starts past it', async () => {
+  let now = 0;
+  const given = [];
+  const r = await run(order(4), async (input, o) => {
+    given.push(o.timeoutMs);
+    now += o.timeoutMs; // a hung call runs to its timeout
+    return { stdout: '', timedOut: true, ms: o.timeoutMs };
+  }, { clock: () => now, limits: { timeBoxMs: 120000 } });
+  assert.deepEqual(given, [180000]);
+  assert.equal(r.appended.length, 1);
+  assert.equal(r.appended[0].attempts, 1);
+  assert.equal(r.abort.reason, 'time');
+  assert.ok(r.ms <= 180000, `ran ${r.ms} ms`);
+});
+
+test('the deadline shrinks the timeout of later calls', async () => {
+  let now = 0;
+  const given = [];
+  await run(order(3), async (input, o) => {
+    given.push(o.timeoutMs);
+    now += 60000;
+    return { stdout: envelope(answer(input)), ms: 60000 };
+  }, { clock: () => now, limits: { timeBoxMs: 120000 } });
+  assert.deepEqual(given, [180000, 120000, 60000]);
+});
+
 test('a usage limit stops at once and leaves the episode unjudged', async () => {
   const r = await run(order(3), async () => ({ stdout: JSON.stringify({ type: 'result', is_error: true, result: 'Usage limit reached' }), ms: 1 }));
   assert.equal(r.abort.reason, 'limit');
