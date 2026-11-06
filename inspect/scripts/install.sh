@@ -70,17 +70,23 @@ dest="$prefix/$PINNED_VERSION"
 top="shrine-inspect-$PINNED_VERSION"
 mkdir -p "$prefix" "$bindir"
 tmp=$(mktemp -d "$prefix/.install.XXXXXX")
-trap 'rm -rf "$tmp"' EXIT INT TERM
+prev="$tmp.previous"
+# On any exit (Ctrl-C included): if the old copy was moved aside and no new one is
+# in place, put the old one back; then remove the temp folders.
+cleanup() {
+  if [ -e "$prev" ] && [ ! -e "$dest" ]; then mv "$prev" "$dest"; fi
+  rm -rf "$tmp" "$prev"
+}
+trap cleanup EXIT
+trap 'exit 130' INT TERM
 tar -xzf "$tarball" -C "$tmp"
 [ -f "$tmp/$top/bin/shrine-inspect.mjs" ] || fail "unexpected tarball layout: no $top/bin/shrine-inspect.mjs"
 # A copy already there is moved aside first and removed only after the new one is in place.
 if [ -e "$dest" ]; then
-  mv "$dest" "$tmp/previous"
+  mv "$dest" "$prev"
 fi
-if ! mv "$tmp/$top" "$dest"; then
-  [ -e "$tmp/previous" ] && mv "$tmp/previous" "$dest"
-  fail "could not move the new copy into $dest; the previous install is kept"
-fi
+mv "$tmp/$top" "$dest" || fail "could not move the new copy into $dest; the previous install is kept"
+rm -rf "$prev"
 ln -sf "$dest/bin/shrine-inspect.mjs" "$bindir/shrine-inspect"
 echo "Installed: $dest"
 echo "Linked: $bindir/shrine-inspect"

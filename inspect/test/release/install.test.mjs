@@ -102,3 +102,20 @@ test('install --skill copies only the skill, and never overwrites a different co
   assert.match(again.stdout, /Skill not copied: .* holds a different copy/);
   assert.equal(readFileSync(join(target, 'SKILL.md'), 'utf8'), 'mine\n');
 });
+
+test('a reinstall whose move fails keeps the previous install in place', { skip }, () => {
+  const r = release();
+  const home = freshHome();
+  assert.equal(sh(r.install, [], { home }).status, 0);
+  const dest = join(home, '.local', 'share', 'shrine-inspect', PKG.version);
+  writeFileSync(join(dest, 'mine.txt'), 'old install');
+  // An mv that fails only for the new copy's folder.
+  const bin = mkdtempSync(join(tmpdir(), 'si-inst-mv-'));
+  const realMv = spawnSync('sh', ['-c', 'command -v mv'], { encoding: 'utf8' }).stdout.trim();
+  writeFileSync(join(bin, 'mv'), `#!/bin/sh\ncase "$1" in\n  */shrine-inspect-${PKG.version}) exit 1 ;;\nesac\nexec ${realMv} "$@"\n`, { mode: 0o755 });
+  const out = sh(r.install, [], { home, path: `${bin}:${PATH}` });
+  assert.equal(out.status, 1, out.stdout + out.stderr);
+  assert.match(out.stderr, /the previous install is kept/);
+  assert.equal(readFileSync(join(dest, 'mine.txt'), 'utf8'), 'old install');
+  assert.deepEqual(readdirSync(join(home, '.local', 'share', 'shrine-inspect')), [PKG.version], 'temp folders removed');
+});
