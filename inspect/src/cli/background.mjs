@@ -38,6 +38,13 @@ function judgingPending(folder, state) {
   return state.gates?.B?.choice === 'T1' && !folder.isDone('judgments') && !state.gates.C && !state.abort && !['done', 'gate_c', 'scope_changed'].includes(state.phase);
 }
 
+// The gate a run waits at with no answer yet (A, B, or C), else null. A Gate C
+// pause has unfinished judging, so continuing it would call the judge again.
+function openGate(state) {
+  const gate = { gate_a: 'A', gate_b: 'B', gate_c: 'C' }[state.phase];
+  return gate && !state.gates?.[gate] ? gate : null;
+}
+
 // Starts a worker that runs `resume <run> --worker`. grant: a one-time token
 // that lets the worker continue judging; written to state.json first.
 export function launchWorker(folder, ctx, io, { grant = false } = {}) {
@@ -53,6 +60,13 @@ export function launchWorker(folder, ctx, io, { grant = false } = {}) {
   let pid;
   try {
     pid = spawnWorker(args, { env: io.env, cwd: ctx.home, logFd: fd });
+  } catch (e) {
+    // No worker, so no grant left lying in state.json.
+    if (grant) {
+      delete state.grant;
+      folder.writeJson('state.json', state);
+    }
+    throw e;
   } finally {
     folder.closeLog(fd);
   }
@@ -80,6 +94,11 @@ export async function resumeCommand({ runId, worker, grant }, io, { findRun, con
   const folder = findRun(ctx.dirs.state, runId);
   const state = readJson(folder.path('state.json'));
   if (folder.isDone('report')) throw new InspectError('E_RUN_DONE', `run ${runId} is finished`, { hint: `see it with: shrine-inspect status ${runId}`, exit: EXIT.USAGE });
+  // A run paused at a gate continues only through `approve`, typed by a person.
+  const gate = openGate(state);
+  if (gate) {
+    throw new InspectError('E_GATE_WAITING', `run ${runId} is waiting at Gate ${gate}; nothing was resumed`, { hint: `answer in your own terminal: ${GATE_HINT[gate](runId)}`, exit: EXIT.GATE_WAITING });
+  }
   if (judgingPending(folder, state)) {
     if (!grant || grant !== state.grant) {
       throw new InspectError('E_NEEDS_YES', `run ${runId} has judging left to do, which needs a fresh yes; nothing was judged now`, { hint: `answer in your own terminal: shrine-inspect approve ${runId} B --background`, exit: EXIT.GATE_WAITING });
@@ -94,7 +113,12 @@ export async function resumeCommand({ runId, worker, grant }, io, { findRun, con
     printStarted(r, io, 'Resumed');
     return { code: EXIT.OK, summary: r };
   }
-  return continueRun(folder, ctx, { ...io, stdin: { isTTY: false } });
+  try {
+    return await continueRun(folder, ctx, { ...io, stdin: { isTTY: false } });
+  } finally {
+    // A pid file left behind could name an unrelated process once the OS reuses the pid.
+    if (workerPid(folder) === process.pid) folder.remove(PID);
+  }
 }
 
 const GATE_HINT = {
@@ -121,8 +145,8 @@ export function runStatus(folder) {
   }
   const pid = workerPid(folder);
   if (pid) return { ...out, state: 'running', pid };
-  const gate = { gate_a: 'A', gate_b: 'B', gate_c: 'C' }[state.phase];
-  if (gate && !state.gates?.[gate]) return { ...out, state: 'gate', gate, next: GATE_HINT[gate](id) };
+  const gate = openGate(state);
+  if (gate) return { ...out, state: 'gate', gate, next: GATE_HINT[gate](id) };
   if (state.phase === 'scope_changed') return { ...out, state: 'stopped', next: 'shrine-inspect start --tier T1' };
   return { ...out, state: 'died', next: judgingPending(folder, state) ? `shrine-inspect approve ${id} B --background` : `shrine-inspect resume ${id}` };
 }

@@ -11,7 +11,7 @@ import { Readable } from 'node:stream';
 import { fileURLToPath } from 'node:url';
 import { main } from '../../src/cli/main.mjs';
 import { makeHome, FIXED_NOW } from '../synth/home.mjs';
-import { plantedHome } from '../e2e/t1-helpers.mjs';
+import { fakeJudge, plantedHome, runT1 } from '../e2e/t1-helpers.mjs';
 
 const FAKE_JUDGE = fileURLToPath(new URL('../fixtures/judge/fake-judge.mjs', import.meta.url));
 const POSIX = process.platform !== 'win32';
@@ -72,6 +72,34 @@ test('approve --background answers in the terminal, then a worker finishes the r
   const st = readState(state, id);
   assert.equal(st.gates.A.by, 'tty');
   assert.equal(st.grant, undefined, 'the one-time grant is spent');
+  // The worker removes its own pid file on exit, so a reused pid can never look like it.
+  const end = Date.now() + 10_000;
+  while (existsSync(join(done.run_dir, 'worker.pid')) && Date.now() < end) await new Promise((r) => setTimeout(r, 100));
+  assert.ok(!existsSync(join(done.run_dir, 'worker.pid')));
+  h.cleanup();
+});
+
+test('resume never continues a run paused at a gate: Gate C pause, zero judge launches', async () => {
+  const h = plantedHome([['late', 12, 'aaaa']]);
+  const r = await runT1(h, { judge: fakeJudge('invalid') });
+  assert.equal(r.second.code, 3, 'paused at Gate C');
+  const st = JSON.parse(readFileSync(join(r.dir, 'state.json'), 'utf8'));
+  assert.equal(st.phase, 'gate_c');
+  assert.ok(st.abort && !st.gates.C);
+  const before = readFileSync(join(r.dir, 'judgments.jsonl'), 'utf8');
+  const log = join(r.state, 'judge-launches.log');
+  for (const argv of [['resume', r.runId, '--json'], ['resume', r.runId, '--worker', '--json']]) {
+    const stdout = sink();
+    const stderr = sink();
+    const code = await main(argv, { env: env(h, r.state), home: h.home, stdin: { isTTY: false }, stdout, stderr, judge: fakeJudge('auto', log) });
+    assert.equal(code, 3, argv.join(' '));
+    const err = JSON.parse(stderr.text()).error;
+    assert.equal(err.code, 'E_GATE_WAITING');
+    assert.match(err.hint, new RegExp(`approve ${r.runId} C <keep\\|stop> --background`));
+  }
+  assert.equal(readFileSync(join(r.dir, 'judgments.jsonl'), 'utf8'), before, 'no judge call');
+  assert.ok(!existsSync(log), 'the judge never launched');
+  assert.ok(!existsSync(join(r.dir, 'worker.pid')), 'no worker started');
   h.cleanup();
 });
 
