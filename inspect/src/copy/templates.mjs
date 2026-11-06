@@ -298,6 +298,14 @@ const num = (n) => Number(n ?? 0).toLocaleString('en-US');
 const J = THRESHOLDS.judged;
 const MEASURED_ON = J.estimate.measured_on;
 
+// How code checked the instruction files for each traced correction.
+export function configCheckLine(c) {
+  const parts = [`${c.matched ?? 0} with matching lines shown to the judge`, `${c.none ?? 0} searched in full with no matching line`];
+  if (c.partial) parts.push(`${c.partial} with a matching line left out for size`);
+  if (c.unavailable) parts.push(`${c.unavailable} that could not be checked (the files may have changed since, or were too long to read in full)`);
+  return `Instruction files, checked by code for each traced correction: ${parts.join(', ')}.`;
+}
+
 // Appendix lines for a T1 run's judging block. s: judgedFindings().summary plus
 // the sample and the Gate B estimate (see mergeJudged).
 export function judgingLines(s) {
@@ -308,6 +316,7 @@ export function judgingLines(s) {
     `${s.judged} of ${s.planned} sampled ${pl(s.planned, 'episode')} judged in ${calls} model ${pl(calls, 'call')}, retries included${s.model_ids?.length ? ` (${s.model_ids.join(', ')})` : ''}.`,
     `Outcomes: ${o.resolved ?? 0} resolved, ${o.abandoned ?? 0} abandoned, ${o.reworked ?? 0} reworked, ${o.unknown ?? 0} could not tell.`,
     `Corrections traced: ${s.corrections_traced} on code-flagged ${pl(s.corrections_traced, 'turn')}; ${s.unknown_verdicts} could not be attributed and are counted only.`,
+    ...(s.config_check ? [configCheckLine(s.config_check)] : []),
     `Answers rejected: ${s.invalid} invalid, ${s.refusals ?? 0} ${pl(s.refusals ?? 0, 'refusal')}.`,
     `Tokens used: ${s.tokens_floor ? 'at least ' : ''}${num(s.tokens_used)} tokens on your own account${s.estimate ? `, against an estimate of ${num(s.estimate.tokens_low)} to ${num(s.estimate.tokens_high)} tokens` : ''}.`,
     `A judged finding needs ${s.bar} ${pl(s.bar, 'episode')} and a code-flagged correction in each.`,

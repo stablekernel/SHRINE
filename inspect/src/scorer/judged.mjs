@@ -16,6 +16,13 @@ export const JUDGED_KINDS = {
 };
 export const CANDIDATE_CAVEAT = 'A model read these episodes. Its accuracy is not yet measured. Treat this as a lead, not a verdict.';
 const OWNER = { user: 'Owner: You', harness: 'Owner: Setup', model: 'Owner: Model', unknown: 'Owner: Could not tell' };
+// What code found in the instruction files for one correction, shown with it.
+export const CONFIG_NOTE = {
+  matched: 'matching instruction lines were shown to the judge',
+  none: 'code searched every loaded instruction file and found no matching line',
+  partial: 'a matching instruction line was left out for size',
+  unavailable: 'the instruction files could not be checked',
+};
 const STACK_KEY = { user: 'prompt', harness: 'setup', model: 'model', unknown: 'unknown' };
 
 const hhmm = (iso) => (typeof iso === 'string' && iso.length >= 16 ? `${iso.slice(11, 16)} UTC` : '');
@@ -24,15 +31,29 @@ const hhmm = (iso) => (typeof iso === 'string' && iso.length >= 16 ? `${iso.slic
 const proves = (ref, source) => typeof source === 'string' && ref.start >= 0 && ref.end <= source.length && isProof(source.slice(ref.start, ref.end), source);
 const minutesBetween = (a, b) => Math.max(0, Math.round((Date.parse(b) - Date.parse(a)) / 60000));
 
-// Spec 5 attribution, first match wins: 1) unknown when the judge says unknown or
-// the live config may have changed (or was cut short); 2) user when the
+// How code checked the live config for one flagged turn: 'unavailable' when it
+// may have changed since the episode or code could not read all of it, 'matched'
+// when code searched all of it and every matching line reached the judge, 'none'
+// when code searched all of it and no line matched (that is evidence too), and
+// 'partial' when a matching line was left out for size. A bundle from before the
+// search (no config_searched) is 'unavailable' when its config was cut short.
+export function configCheck(bundle, turnId) {
+  if (bundle.config_may_have_changed || bundle.config.some((x) => x.may_have_changed) || bundle.config_truncated) return 'unavailable';
+  if (bundle.config_searched !== true) return bundle.config.length ? 'matched' : 'none';
+  const m = bundle.meta?.config_lines?.[turnId] ?? { matched: 0, sent: 0 };
+  if (m.sent < m.matched) return 'partial';
+  return m.matched ? 'matched' : 'none';
+}
+
+// Spec 5 attribution, first match wins: 1) unknown when the judge says unknown,
+// or the config check for that turn was unavailable or partial; 2) user when the
 // constraint was in neither the root prompt nor the live config; 4) model when it
 // was in an earlier prompt or, verified by an exact quote, in a loaded config
 // block. A config claim whose quote did not verify is "not found" (rule 2).
 export function codeAttribution(c, bundle) {
   if (c.attribution.label === 'unknown' || c.constraint_present_in === 'unknown' || c.constraint_present_in === 'skill') return 'unknown';
-  const unsure = bundle.config_truncated || bundle.config.some((x) => x.may_have_changed);
-  if (unsure) return 'unknown';
+  const check = configCheck(bundle, c.turn_id);
+  if (check === 'unavailable' || check === 'partial') return 'unknown';
   // "In the prompt" counts only with a quote from an earlier human turn of this episode.
   if (c.constraint_present_in === 'prompt') {
     const at = bundle.meta.human_index[c.turn_id];
@@ -89,6 +110,7 @@ export function judgedFindings({ lines, order, episodes, catalogue, pivots, copy
   const hits = { late_constraint: [], ignored_instruction: [] };
   let unknownVerdicts = 0;
   let traced = 0;
+  const config = { matched: 0, none: 0, partial: 0, unavailable: 0 };
   for (const l of valid) {
     const b = bundles.get(l.episode_id);
     outcomes[l.output.outcome]++;
@@ -97,6 +119,7 @@ export function judgedFindings({ lines, order, episodes, catalogue, pivots, copy
       // Only corrections on a code-flagged candidate turn count anywhere.
       if (!turn?.candidate) continue;
       traced++;
+      config[configCheck(b, c.turn_id)]++;
       const code = codeAttribution(c, b);
       if (code === 'unknown') unknownVerdicts++;
       stack[STACK_KEY[code]]++;
@@ -158,7 +181,7 @@ export function judgedFindings({ lines, order, episodes, catalogue, pivots, copy
       ...list.slice(0, 5).map((h) => ({
         kind: 'judge',
         locator: `${h.line.episode_id} ${h.c.turn_id}`,
-        metric: `judge read: supplies a constraint; ${OWNER[h.code].replace('Owner: ', 'owner ').toLowerCase()}${h.agree ? '' : ' (the judge said otherwise)'}`,
+        metric: `judge read: supplies a constraint; ${OWNER[h.code].replace('Owner: ', 'owner ').toLowerCase()}${h.agree ? '' : ' (the judge said otherwise)'}; ${CONFIG_NOTE[configCheck(h.bundle, h.c.turn_id)]}`,
         verdict: `supplies a constraint; ${OWNER[h.code].replace('Owner: ', 'owner ').toLowerCase()}${h.agree ? '' : ' (the judge said otherwise)'}`,
         judge_confidence: h.c.attribution.confidence,
         excerpt_scrubbed: h.c.quotes[0]?.text ?? null,
@@ -218,6 +241,7 @@ export function judgedFindings({ lines, order, episodes, catalogue, pivots, copy
       outcomes,
       corrections_traced: traced,
       unknown_verdicts: unknownVerdicts,
+      config_check: config,
       bar,
       partial,
       tokens_used: lines.reduce((n, l) => n + (l.tokens?.total ?? 0), 0),

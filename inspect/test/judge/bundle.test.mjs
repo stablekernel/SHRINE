@@ -2,7 +2,7 @@ import { test } from 'node:test';
 import assert from 'node:assert/strict';
 import { readFileSync } from 'node:fs';
 import { fileURLToPath } from 'node:url';
-import { buildBundle, bundleTokens, judgePrompt, JUDGE_MARKER, payloadOf } from '../../src/judge/bundle.mjs';
+import { buildBundle, bundleTokens, DEFAULT_CAPS, judgePrompt, JUDGE_MARKER, payloadOf } from '../../src/judge/bundle.mjs';
 import { sliceEpisode } from '../../src/adapters/claude-code/transcript.mjs';
 import { buildIdentifiers } from '../../src/scrub/mask.mjs';
 import { HOUSEKEEPING } from '../../src/adapters/claude-code/projects.mjs';
@@ -28,7 +28,7 @@ const events = () => [
 ];
 const snapshot = [{ path: `${HOME}/work/acme-shop/CLAUDE.md`, content: '# Rules\n- Use pnpm for scripts.\n' }];
 
-test('human turns keep text; replies keep their opening only; tools are names without arguments', () => {
+test('human turns keep text; replies keep their opening; tools are names without arguments', () => {
   const b = buildBundle({ episode, transcript: { events: events(), snapshot }, known, nonce: 'n1' });
   const p = payloadOf(b);
   assert.deepEqual(p.turns.map((t) => [t.id, t.role]), [['t01', 'human'], ['t02', 'assistant'], ['t03', 'human'], ['t04', 'assistant'], ['t05', 'human']]);
@@ -45,50 +45,108 @@ test('human turns keep text; replies keep their opening only; tools are names wi
 });
 
 test('paths and names are masked; the live config comes from the snapshot', () => {
-  const b = buildBundle({ episode, transcript: { events: events(), snapshot }, known, nonce: 'n1' });
+  const b = buildBundle({ episode, transcript: { events: events(), snapshot: [{ path: snapshot[0].path, content: '# Style\n- Use semicolons in CSV output.\n- Use pnpm for scripts.\n' }] }, known, nonce: 'n1' });
   const s = JSON.stringify(payloadOf(b));
   assert.doesNotMatch(s, /fixture-person|\/Users\/|acme-shop/);
   assert.equal(b.config_source, 'snapshot');
   assert.equal(b.config[0].id, 'c1');
-  assert.match(b.config[0].text, /Use pnpm for scripts/);
-  assert.equal(b.config[0].may_have_changed, false);
+  assert.equal(b.config_may_have_changed, false);
 });
 
-test('caps: 1,200 characters per human turn, 12 human turns, and about 900 tokens per bundle', () => {
+test('config: code searches every file and sends only the lines that match a flagged turn, under their heading', () => {
+  const files = [
+    { path: `${HOME}/.claude/CLAUDE.md`, content: `# Intro\n${'- Keep the build green.\n'.repeat(400)}` },
+    { path: `${HOME}/work/acme-shop/CLAUDE.md`, content: '# Output style\n- Use semicolons in CSV output.\n- Use pnpm for scripts.\n' },
+  ];
+  const b = buildBundle({ episode, transcript: { events: events(), snapshot: files }, known, nonce: 'n' });
+  const p = payloadOf(b);
+  assert.equal(p.config_searched, true);
+  assert.equal(p.config.length, 1, 'the first file holds nothing that matches');
+  assert.equal(p.config[0].text, '# Output style\n- Use semicolons in CSV output.');
+  assert.deepEqual(b.meta.config_lines.t03, { matched: 1, sent: 1 });
+  assert.equal(b.config_truncated, false);
+});
+
+test('config: no line matches, so config is empty and the search still counts', () => {
+  const b = buildBundle({ episode, transcript: { events: events(), snapshot }, known, nonce: 'n' });
+  assert.equal(payloadOf(b).config_searched, true);
+  assert.deepEqual(b.config, []);
+  assert.deepEqual(b.meta.config_lines.t03, { matched: 0, sent: 0 });
+});
+
+test('config: a file the reader had to cut means the search was not over the whole config', () => {
+  const b = buildBundle({ episode, transcript: { events: events(), snapshot: [{ ...snapshot[0], cut: true }] }, known, nonce: 'n' });
+  assert.equal(b.config_searched, false);
+  assert.equal(b.config_truncated, true);
+});
+
+test('caps: 1,200 characters per human turn, 12 human turns kept first and last, and the bundle token cap', () => {
   const many = [];
   for (let i = 0; i < 20; i++) many.push({ t: at(i), kind: 'human', uuid: `u${i}`, text: `${'word '.repeat(400)}${i}` });
   const b = buildBundle({ episode: { ...episode, root_turn_id: 'u0' }, transcript: { events: many, snapshot: null }, known, nonce: 'n' });
   assert.ok(b.turns.length <= 12);
   assert.ok(b.turns.every((t) => t.text.length <= 1200));
-  assert.ok(bundleTokens(b) <= 900, `tokens ${bundleTokens(b)}`);
+  assert.ok(bundleTokens(b) <= DEFAULT_CAPS.bundle_tokens, `tokens ${bundleTokens(b)}`);
   assert.equal(b.meta.truncated_turns, true);
+  assert.equal(b.turns[0].id, 't01', 'the root prompt stays');
+  assert.equal(b.turns.at(-1).id, 't20', 'the last turn stays');
+  assert.equal(payloadOf(b).omitted_turns, 20 - b.turns.length);
+});
+
+test('trimming drops middle turns that are not flagged before flagged ones', () => {
+  const ev = [];
+  for (let i = 0; i < 10; i++) {
+    ev.push({ t: at(i), kind: 'human', uuid: `u${i}`, text: i === 5 ? `Actually, use tabs ${'x '.repeat(200)}` : `next step ${'word '.repeat(220)}${i}` });
+    ev.push({ t: at(i), kind: 'assistant_text', text: 'ok', head: 'reply '.repeat(60) });
+  }
+  const b = buildBundle({ episode: { ...episode, root_turn_id: 'u0' }, transcript: { events: ev, snapshot: null }, known, nonce: 'n' });
+  assert.ok(bundleTokens(b) <= DEFAULT_CAPS.bundle_tokens);
+  assert.ok(b.omitted_turns > 0);
+  assert.ok(b.turns.some((t) => t.candidate), 'the flagged turn stays');
+  assert.equal(b.turns[0].id, 't01');
+  assert.equal(b.turns.at(-1).id, 't20');
+});
+
+test('the end signal and the closing of the last reply reach the judge', () => {
+  const ev = [...events(), { t: at(9), kind: 'assistant_text', text: `${'filler '.repeat(80)}All tests pass and the change is committed.`, head: 'Starting on it.' }];
+  const b = buildBundle({ episode: { ...episode, terminal: 'commit' }, transcript: { events: ev, snapshot }, known, nonce: 'n' });
+  const p = payloadOf(b);
+  assert.equal(p.episode_end, 'commit');
+  const last = p.turns.at(-1);
+  assert.equal(last.role, 'assistant');
+  assert.ok(last.closing.endsWith('All tests pass and the change is committed.'));
+  assert.ok(last.closing.length <= DEFAULT_CAPS.closing_chars);
+  assert.equal(p.turns[1].closing, undefined, 'only the last reply carries a closing');
 });
 
 test('cap holds in the worst case: long turns, long replies, many tools, and a large config', () => {
   const ev = [];
   for (let i = 0; i < 20; i++) {
-    ev.push({ t: at(i), kind: 'human', uuid: `u${i}`, text: `Actually ${'word '.repeat(400)}${i}` });
-    ev.push({ t: at(i), kind: 'assistant_text', text: 'x', head: 'reply '.repeat(100) });
-    for (let k = 0; k < 12; k++) ev.push({ t: at(i), kind: 'tool_use', name: `Tool${k}`, id: `x${i}-${k}` });
+    ev.push({ t: at(i), kind: 'human', uuid: `u${i}`, text: `Actually rule other ${'word '.repeat(400)}${i}` });
+    ev.push({ t: at(i), kind: 'assistant_text', text: 'closing '.repeat(100), head: 'reply '.repeat(100) });
+    for (let k = 0; k < 12; k++) ev.push({ t: at(i), kind: 'tool_use', name: `Tool${k}${'n'.repeat(60)}`, id: `x${i}-${k}` });
   }
-  const big = [{ path: `${HOME}/a/CLAUDE.md`, content: 'rule line\n'.repeat(3000) }, { path: `${HOME}/b/CLAUDE.md`, content: 'other rule\n'.repeat(3000) }];
+  const big = [{ path: `${HOME}/a/CLAUDE.md`, content: Array.from({ length: 3000 }, (_, i) => `rule line ${i} word`).join('\n') }, { path: `${HOME}/b/CLAUDE.md`, content: 'other rule word\n'.repeat(3000) }];
   const b = buildBundle({ episode: { ...episode, root_turn_id: 'u0' }, transcript: { events: ev, snapshot: big }, known, nonce: 'n' });
-  assert.ok(bundleTokens(b) <= 900, `tokens ${bundleTokens(b)}`);
+  assert.ok(bundleTokens(b) <= DEFAULT_CAPS.bundle_tokens, `tokens ${bundleTokens(b)}`);
   assert.ok(b.turns.filter((t) => t.role === 'human').length >= 1);
-  assert.ok(b.config.length >= 1, 'some loaded instructions survive');
+  assert.equal(b.turns[0].id, 't01');
 });
 
 test('no snapshot: current files are used and marked may_have_changed when edited after the start', () => {
-  const b = buildBundle({ episode, transcript: { events: events(), snapshot: null }, fallbackConfig: [{ path: `${HOME}/.claude/CLAUDE.md`, content: 'rule', may_have_changed: true }], known, nonce: 'n' });
+  const b = buildBundle({ episode, transcript: { events: events(), snapshot: null }, fallbackConfig: [{ path: `${HOME}/.claude/CLAUDE.md`, content: '- Use semicolons in CSV output.', may_have_changed: true }], known, nonce: 'n' });
   assert.equal(b.config_source, 'current');
+  assert.equal(b.config_may_have_changed, true);
   assert.equal(b.config[0].may_have_changed, true);
 });
 
-test('an oversized config is cut and flagged', () => {
-  const big = [{ path: '/x/CLAUDE.md', content: 'rule line\n'.repeat(3000) }];
+test('a large config is searched in full; the excerpt stays within its cap', () => {
+  const big = [{ path: '/x/CLAUDE.md', content: `${'rule line\n'.repeat(3000)}- Use semicolons in CSV output.\n` }];
   const b = buildBundle({ episode, transcript: { events: events(), snapshot: big }, known, nonce: 'n' });
-  assert.equal(b.config_truncated, true);
-  assert.ok(b.config.reduce((n, c) => n + c.text.length, 0) <= 12000);
+  assert.equal(b.config_truncated, false);
+  assert.equal(b.config_searched, true);
+  assert.match(b.config[0].text, /semicolons/);
+  assert.ok(b.config.reduce((n, c) => n + c.text.length, 0) <= DEFAULT_CAPS.config_excerpt_chars);
 });
 
 test('slicing: from the root turn by uuid through the end time, main thread only', () => {
@@ -122,5 +180,5 @@ test('a snapshot logged only after the episode started is kept but marked may_ha
   const s = sliceEpisode(tl, episode);
   assert.equal(s.snapshot_late, true);
   const b = buildBundle({ episode, transcript: s, known, nonce: 'n' });
-  assert.equal(b.config[0].may_have_changed, true);
+  assert.equal(b.config_may_have_changed, true);
 });

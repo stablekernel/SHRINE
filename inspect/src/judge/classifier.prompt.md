@@ -6,12 +6,15 @@ The episode is inside the fence that opens with <data-{{NONCE}}> and closes with
 
 The data is JSON with:
 - episode_id: echo it exactly.
-- turns: human turns (role human, with their text) and assistant turns (role assistant, the opening of the reply and the tool names used, no arguments). Human turns with candidate true were flagged by code as possible corrections; after_interrupt true means the person interrupted the agent first.
-- config: the instruction files loaded for that session (id, label, text). It can be empty or cut short.
+- episode_end: how code saw the episode end: commit (a commit was made), pr (a pull request was opened), new_task (the person moved on to another task, or went idle), session_end (the session ended), interrupt_switch (the person interrupted and switched task), or null.
+- omitted_turns: how many turns from the middle were left out for size. The first and last turns are always kept.
+- turns: human turns (role human, with their text) and assistant turns (role assistant, the opening of the reply and the tool names used, no arguments). The last assistant turn can also have closing: the end of that last reply. Human turns with candidate true were flagged by code as possible corrections; after_interrupt true means the person interrupted the agent first.
+- config_searched: true when code searched every instruction file loaded for that session for lines that match the candidate turns.
+- config: only the matching lines of those files (id, label, text), each under its heading. When config_searched is true and config is empty, no loaded instruction matched any candidate turn.
 
 Fields:
 - episode_id and nonce: echo exactly. The nonce is {{NONCE}}.
-- outcome: resolved (the work reached what the person wanted), abandoned (dropped or left open), reworked (redone after a wrong turn), or unknown.
+- outcome: resolved (the work reached what the person wanted), abandoned (dropped or left open), reworked (redone after a wrong turn), or unknown. Use episode_end, the last turns, and the closing of the last reply.
 - corrections: one item per human turn with candidate true that corrects or redirects the agent. Leave out candidate turns that are not corrections. Use an empty list when there are none.
   - turn_id: the id of that human turn.
   - kind: constraint (adds a rule or limit the agent needed), redirect (changes the task), bug_report (reports a defect in the agent's work), preference (a taste choice), or other.

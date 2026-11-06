@@ -170,11 +170,12 @@ function onLine(o, inSubagentFile, acc) {
     return;
   }
   // Detail reads only: the instruction files the harness loaded for this session
-  // (the live config snapshot, spec 10), scrubbed and cut like any other text.
+  // (the live config snapshot, spec 10), scrubbed and cut like any other text;
+  // cut marks a file longer than the cap, so the config search knows it saw part.
   if (acc.detail && o.type === 'attachment' && o.attachment?.type === 'instructions' && !sub) {
     const files = (Array.isArray(o.attachment.files) ? o.attachment.files : [])
       .filter((f) => typeof f?.path === 'string' && typeof f?.content === 'string')
-      .map((f) => ({ path: f.path, type: str(f.type), content: head(f.content, DETAIL_CONFIG) }));
+      .map((f) => ({ path: f.path, type: str(f.type), content: head(f.content, DETAIL_CONFIG), cut: f.content.length > DETAIL_CONFIG }));
     if (files.length) acc.timeline.push({ t, kind: 'instructions', files, sub });
     return;
   }
