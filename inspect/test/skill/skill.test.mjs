@@ -52,6 +52,7 @@ test('skill checks Node 20, starts in the background, polls status, and prints t
   assert.match(SKILL, /node --version/);
   assert.match(SKILL, /Node 20 or newer/);
   assert.match(SKILL, /shrine-inspect start --tier T0 --session-id/);
+  assert.match(SKILL, /empty or still shows as a placeholder, leave out `--session-id` and its value/);
   assert.match(SKILL, /shrine-inspect status <run_id>/);
   assert.match(SKILL, /`report` and `share_safe` paths/);
 });

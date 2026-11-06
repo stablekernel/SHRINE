@@ -36,7 +36,7 @@ This skill only starts the `shrine-inspect` CLI and watches it. The CLI does eve
 
    If the command is not found, or it stops with `E_VERSION`, stop. Tell the user to install the CLI and this skill from the same release (see TRIAL.md in the release).
 
-3. Start a run in the background. Use `--tier T1` only when the user asked for judging ("Pulse"); else use `--tier T0`. Session id: `${CLAUDE_SESSION_ID}`. If that id still shows as a placeholder, leave out `--session-id`.
+3. Start a run in the background. Use `--tier T1` only when the user asked for judging ("Pulse"); else use `--tier T0`. Session id: `${CLAUDE_SESSION_ID}`. If that id is empty or still shows as a placeholder, leave out `--session-id` and its value. Never leave `--session-id` with nothing after it.
 
    ```bash
    shrine-inspect start --tier T0 --session-id ${CLAUDE_SESSION_ID} --skill-version 0.1.0 --json

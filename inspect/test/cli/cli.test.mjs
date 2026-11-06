@@ -6,7 +6,7 @@ import { tmpdir } from 'node:os';
 import { join } from 'node:path';
 import { Readable } from 'node:stream';
 import { fileURLToPath } from 'node:url';
-import { main } from '../../src/cli/main.mjs';
+import { main, parseArgs } from '../../src/cli/main.mjs';
 import { setGitTestEnv, setGitVersion } from '../../src/io/git.mjs';
 import { diffRuns } from '../../src/diff/previous.mjs';
 import { makeHome, FIXED_NOW, REFUSE_ALL_REPOS } from '../synth/home.mjs';
@@ -273,4 +273,15 @@ test('a repo git refuses to read (another owner) shows as a run limit, not a par
     setGitVersion(undefined);
     h.cleanup();
   }
+});
+
+test('an empty or flag-like --session-id is a usage error, so the version check is never skipped', () => {
+  const usage = (argv) => assert.throws(() => parseArgs(argv), (e) => e.code === 'E_USAGE', argv.join(' '));
+  usage(['start', '--session-id', '--skill-version', '0.1.0']);
+  usage(['start', '--session-id', '-x']);
+  usage(['start', '--session-id=']);
+  usage(['start', '--session-id=--skill-version']);
+  usage(['start', '--session-id']);
+  assert.equal(parseArgs(['start', '--session-id', 'abc-123', '--skill-version', '0.1.0']).sessionId, 'abc-123');
+  assert.equal(parseArgs(['start', '--session-id', 'abc-123', '--skill-version', '0.1.0']).skillVersion, '0.1.0');
 });

@@ -37,8 +37,11 @@ export function parseArgs(argv) {
     else if (a.startsWith('--skill-version=')) out.skillVersion = a.slice(16);
     else if (a === '--no-history') out.noHistory = true;
     else if (a === '--session-id' || a.startsWith('--session-id=')) {
+      // A value never starts with "-": "--session-id --skill-version 0.1.0" (an
+      // empty session variable) must not swallow the next flag and skip the
+      // version check.
       out.sessionId = a.includes('=') ? a.slice(13) : argv[++i];
-      if (!out.sessionId || !/^[\w-]+$/.test(out.sessionId)) throw new InspectError('E_USAGE', 'bad --session-id', { hint: USAGE, exit: EXIT.USAGE });
+      if (!out.sessionId || !/^[A-Za-z0-9][\w-]*$/.test(out.sessionId)) throw new InspectError('E_USAGE', 'bad --session-id', { hint: USAGE, exit: EXIT.USAGE });
     }
     else if (a === '--tier') out.tier = argv[++i];
     else if (a.startsWith('--tier=')) out.tier = a.slice(7);
