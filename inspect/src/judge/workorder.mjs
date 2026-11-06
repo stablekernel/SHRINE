@@ -99,7 +99,7 @@ export async function runWorkOrder({ order, previous = [], invoke, parse, templa
         break;
       }
       // The time box ended this call: not the judge's error.
-      // A retry cut off keeps the first answer's rejection: that one was the judge's.
+      // A cut-off retry stays invalid: the first answer was already rejected.
       if (!env.output && r.timedOut && clock() >= deadline && attempt === 1) {
         line = { valid: false, cut_off: true, output: null, attempts: attempt, refusal: false, errors: ['$: cut off by the time limit'] };
         break;
