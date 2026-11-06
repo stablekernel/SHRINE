@@ -9,9 +9,10 @@ import { tmpdir } from 'node:os';
 import { join } from 'node:path';
 import { findNode20, hashTree, leaks, treeDiff } from '../../scripts/dry-run.mjs';
 
-test('leak check: each planted kind is found; CSS and script are not the user name', () => {
+test('leak check: each planted kind is found; a CSS selector and the shipped script are not the user name', () => {
   const needles = { secrets: ['abcdefghijklmnop'], paths: ['/x/fixture/home'], names: ['acme-billing'], prompts: ['Actually, use semicolons.'], user: 'root' };
-  const page = (body) => `<html><style>:root { --bg: #fff }</style><script>var root = 1;</script><body>${body}</body></html>`;
+  const app = readFileSync(new URL('../../src/render/assets/app.js', import.meta.url), 'utf8');
+  const page = (body) => `<html><style>:root { --bg: #fff }</style><script>${app}</script><body>${body}</body></html>`;
   assert.deepEqual(leaks(page('<p>clean</p>'), needles), []);
   assert.deepEqual(leaks(page('<p>key abcdefghijklmnop</p>'), needles), ['secret: abcd...']);
   assert.deepEqual(leaks(page('<p>in /x/fixture/home</p>'), needles), ['path: /x/fixture/home']);

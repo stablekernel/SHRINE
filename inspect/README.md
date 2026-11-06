@@ -148,6 +148,7 @@ No-network lint (`test/lint/lint.test.mjs`):
 - `node scripts/release.mjs [--out <dir>]`: offline, deterministic build of `shrine-inspect-<version>.tgz`, a pinned `install.sh`, and `SHA256SUMS` (default `dist/`)
   - Ships the package.json `files` list, a package.json without scripts or devDependencies, and the repo root `LICENSE` and `NOTICE`
 - `node scripts/dry-run.mjs [--dir <work>] [--require-node20]`: builds, installs into a clean HOME with a synthetic history, runs a background T1 with a stand-in judge (no model call), then the read-only hash check and share-safe leak check; prints and keeps a transcript
+  - Leak check (`scripts/lib/leak.mjs`): secrets, paths, and prompts match anywhere; project names and the OS user match as whole words outside text the package ships (catalogue, copy, inlined CSS and script), so `SHRINE` or `root` (`:root`) are not false leaks; a control proves it still finds names in the local report
   - Node 20 from this Node, nvm, fnm, or volta; otherwise it reports the gap
 - Releases: a pushed `inspect-v<version>` tag builds a draft GitHub release; the owner publishes it
 - License: Apache-2.0 (repo root `LICENSE` and `NOTICE`). Ideas (counting messages, dropping resends and forks, a repo-concentration warning) came from justin-carper/reflect (MIT); no code or prompt text was copied
