@@ -1,155 +1,109 @@
 ---
 title: "Inspect Your AI Environment"
-description: "SHRINE Inspect reviews your AI environment and how you use it, then reports changes worth making, each tied to the SHRINE practice behind it. It changes nothing itself."
+description: "SHRINE Inspect is a local, read-only command-line tool. It measures your AI coding setup and session history against SHRINE and reports what to change first. It changes nothing itself."
 ---
 
-import { Code, Steps } from '@astrojs/starlight/components';
-import prompt from '../../../prompts/shrine-inspect.md?raw';
+import { Aside, Steps } from '@astrojs/starlight/components';
 
-*SHRINE Inspect reviews your AI environment and how you use it, then reports changes worth making, each tied to the SHRINE practice behind it. It changes nothing itself.*
+*SHRINE Inspect is a local, read-only command-line tool. It measures your AI coding setup and session history against SHRINE and reports what to change first. It changes nothing itself.*
 
-- Your AI environment: the AI tools, assistants, and agents you work with, and how they are set up; SHRINE calls each such tool a harness
-- Any kind of work: code, writing, analysis, research, operations, or a mix
-- No code repo needed: it works in a project folder, a folder of documents, or an app's settings alone
+<Aside type="caution" title="Pre-release">
+The install steps below apply once the maintainers publish the first release, `inspect-v0.1.0`, on the [releases page](https://github.com/stablekernel/SHRINE/releases). Until then, trial testers get the release files from a maintainer and follow [TRIAL.md](https://github.com/stablekernel/SHRINE/blob/main/inspect/TRIAL.md).
+</Aside>
+
+- The first release reads one harness: Claude Code; other harnesses come later
+- It runs on your machine: macOS or Linux, with Node 20 or newer
+- Source and full reference: [`inspect/`](https://github.com/stablekernel/SHRINE/tree/main/inspect) in the SHRINE repo
 
 ## What It Does
 
-- You paste one prompt into the AI tool you use
-- The AI reviews your environment, checks it against SHRINE's [anti-patterns index](/SHRINE/reference/anti-patterns/), and, with your consent, measures signals from your local session history
-- It interviews you and reads the SHRINE pages that fit your answers
-- It designs its own way to bring each relevant teaching into your setup, and writes each one as a proposed change
-- It hands you one inspection report: findings, principle coverage, and the changes, ordered by value
-- You apply the changes you want later, in a normal session, under your AI tool's own permission prompts
-- It assumes nothing is wrong: with no complaints, you get changes for the baseline practices that fit, and an offer to start your [Individual Baseline](/SHRINE/stack/evaluation/#individual-baseline)
+- Reads your setup: settings, instruction files, hooks, skills, agents, commands, plugins, and memory files
+- With your consent, reads your local session history and the git log of the projects in it
+- Checks both against SHRINE's principles, patterns, stack pages, and [anti-patterns index](/SHRINE/reference/anti-patterns/)
+- Writes one report: what works for you, where there is room to amplify, and one change to start with
 
 ## What It Never Does
 
-- Write to your project or your user settings: no file, setting, commit, branch, stash, or install
-- Use your harness's memory or notes during the run; any automatic persistence is disclosed up front
-- Use any tool whose effects outlast the run, for example scheduling, reminders, feedback reports, todo lists, or background jobs, unless you ask for it
-- Apply a change, even when you ask; you apply it afterwards, in a normal session
+- Write to your project, your settings, or your history; its only writes go to its own folder
+- Send anything to SHRINE, Stable Kernel, or any other service; there is no telemetry
+- Call a model without your typed `yes` at Gate B
+- Answer a gate for you; an agent or the skill cannot approve a gate
 
-Its only writes go to a temporary folder outside your work: its plan, its checklists, and the inspection report. The checker proves it: it compares every inspected file, every git repo's status, and a project folder outside git with a baseline taken at the start, and the run cannot finish while anything differs.
+It checks that it changed nothing it read. If anything changed, the report shows a warning at the top.
 
-## Two Planes
-
-- **Control plane** (rigid): phases and gates, rendered by a checker, so the agent cannot skip or shorten a checklist
-- **Data plane** (generative): what to propose and how; the agent designs it for your harness, and every mechanism the prompt names is an example, never a complete list
-
-## Phases and Gates
-
-| Phase | What happens | Your reply |
-| --- | --- | --- |
-| 0 Start | Harness, time box, temporary folder, checker hash, persistence, and the read-only baseline | Time box, run type, and whether to run the checker |
-| 1 Discover | Instruction files and what loads, extension points, shared versus local, anti-pattern scan, session signals | Correct the inventory, then "approve gate 1" |
-| 2 Pin and Interview | SHRINE pinned to one commit, pages hash-checked, up to ten questions in the terms of your kind of work (always asked, never guessed), corrections classified | Confirm the classes and tags, then "approve gate 2" |
-| 3 Design and Review | Changes designed, checked to apply, and reviewed by independent reviewers | None; you decide when you read the inspection report |
-| 4 Report | The read-only check, the inspection report, and the Final Gate | Read the inspection report |
-
-- Review is capped at two rounds per change; past that, the agent asks you to keep, drop, or edit it
-- A harness that cannot pause for your reply runs in report-only mode: no interview, and every change is labeled unconfirmed
-
-## The Inspection Report
-
-One HTML file in the temporary folder. It opens in any browser, works offline, and loads nothing from the network. The agent shows its path and offers to open it.
-
-- It reads and prints with scripts turned off; with scripts on, you can filter changes by the summary counts, switch light or dark, and copy a change
-- It holds its own data, so a refresh reads it back: keep the file
-- A refresh reads only that data, never the visible page: edits to the page change nothing
-- Each render replaces it, so the temporary folder holds one current report
-- If you cannot open files where the agent runs, the agent shows a plain-text summary in chat and tells you where the file is
-
-- **Summary**: counts, top practices, and the Individual Baseline offer
-- **Principle coverage**: the North Star and each ratified principle, applied, advised, or not relevant, with a reason
-- **Findings**: the anti-pattern scan, session signals, and your interview answers and corrections
-- **Changes**, ordered by value, each with:
-  - what it does, in plain words
-  - how to apply it: ask your assistant to apply change B1
-  - its SHRINE page and anti-pattern row
-  - its trade-off
-  - its blast radius: committed or shared, who it reaches, and whether it runs code
-  - when it loads, and how to verify it after applying
-  - how to undo it; for a diff, reverse it
-  - the exact edit: a diff of an existing file, or the contents of a new file
-- **How to apply**: ask your assistant to apply a change, make the edit by hand, or, if you use git, `git apply` a diff
-- **Advice**: practices to try with nothing to apply, marked "Advice only"
-- **Since your last inspection report** (a refresh only): whether SHRINE moved, which pages changed, and which earlier changes you applied
-- **How to refresh**: run the refresh entry, or paste the prompt again and give it this file's path
-
-A change that runs code (a hook, a nudge, an extension, a script) carries a prominent warning: it runs with your account's full permissions. Read it before you apply it.
-
-## Use It
+## Install
 
 <Steps>
 
-1. Copy the prompt below, or fetch the raw file: [inspect-prompt.md](/SHRINE/inspect-prompt.md)
+1. Check the prerequisites: macOS or Linux, Claude Code, and Node 20 or newer (`node --version`)
 
-2. Bring two or three recent corrections you made to AI output (for example a bug you fixed in its code, or a claim you cut from its draft), and say whether each has happened before; with none, you still get the baseline practices that fit
+2. Download the three release files into one folder: `shrine-inspect-<version>.tgz`, `install.sh`, and `SHA256SUMS`
 
-3. Start a session in your AI tool, in the project or folder you want inspected (or anywhere, if you have none), and paste the prompt
+3. Verify them: `shasum -a 256 -c SHA256SUMS` (Linux: `sha256sum -c SHA256SUMS`); every line must say `OK`
 
-4. Correct the agent's inventory, then answer the interview
+4. Install: `sh install.sh --skill`
+   - It checks Node, then checks the tarball against the hash pinned in `install.sh`; a mismatch installs nothing
+   - The CLI goes to `~/.local/share/shrine-inspect/<version>/`, linked as `~/.local/bin/shrine-inspect`
+   - `--skill` also copies the Claude Code skill; leave it out to use the CLI only
 
-5. Open the inspection report in your browser; keep the file, because a refresh compares against it
-
-6. Later, in a normal session, apply the changes you want
+5. Check: `shrine-inspect version`
 
 </Steps>
 
-## The Prompt
+## Run
 
-Agent-readable copies of this page (llms.txt files) leave the prompt out on purpose. An agent should get it from you, not from a fetch.
+- In your terminal: `shrine-inspect run --tier T0`
+- Or ask your coding agent to run SHRINE Inspect; the skill starts a background run and tells you what to type
+- Long runs: `shrine-inspect start --tier T1`, then `shrine-inspect status`; `status` prints the exact `approve` line for each gate
+- Add `--background` to an `approve` command, and the run continues after you close the terminal
 
-<div class="shrine-inspect-prompt">
-  <Code code={prompt} lang="md" title="shrine-inspect.md" />
-</div>
+## Gates
 
-## Why Read-Only
+The run stops at each gate. Only you answer, in your own terminal.
 
-- Most defects in earlier write-capable versions came from the write side: backups, undo, records, snapshots, scope, and uninstall
-- A prompt cannot make a model obey a checker's exit status; a run that writes nothing has nothing to undo
-- Your AI tool already asks before each write; applying a change in a normal session keeps that prompt in front of you
+| Gate | When | Your answer |
+| --- | --- | --- |
+| A | Before any session history is read | `history` to read it, or `no-history` for setup only |
+| B | After the scan | Keep T0, or type `yes` for T1 after reading its token and time estimate |
+| C | Only when T1 judging passes a limit | Keep the partial results, or stop |
 
-## What It Reads
+- Gate A lists the projects, date range, size on disk, and a time estimate
+- Before Gate A, it reads only file names, sizes, dates, and the folder each session ran in
+- Never let an agent run `approve`: the CLI cannot tell you from a tool that fakes a terminal
 
-- [shrine-manifest.json](/SHRINE/shrine-manifest.json): the commit pin, each page's raw source link and hash, and the prompt's and checker's hashes
-- Each page it needs, from GitHub at the pinned commit; a hash mismatch stops the run
-- If it cannot fetch, it asks you to paste the pages or point it at a clone outside your repos
-- [shrine-check.mjs](/SHRINE/shrine-check.mjs): the checker, verified against the manifest's `checker.sha256` before it runs
+## Tiers and Cost
 
-## The Checker
+| Tier | What it adds | Tokens | Time |
+| --- | --- | --- | --- |
+| T0 (scan) | Setup and history signals, no model calls | None | Minutes, by history size |
+| T1 (Pulse) | 12 short episodes judged by your own coding agent login | About 54K measured on one run; Gate B shows the estimate first | Under a minute measured; Gate B shows the estimate |
 
-- A small Node script SHRINE ships; the agent asks once before running it, because it runs code
-- Its only write is a new render file in the temporary folder; it refuses a folder inside your home folder, your project, your scopes, or any repo, and never overwrites a file
-- Git is optional; where there is a repo, it runs only read-only git commands, with optional locks off and your repo's fsmonitor hook and clean filters turned off: `status`, `rev-parse`, `symbolic-ref`, `for-each-ref`, `config` reads, and `apply --check`
-- The read-only check, before and after: every inspected instruction and settings file, your AI tool's persistence path, and either each repo's status (ignored entries included), HEAD, branches, tags, stash, and git folder, or, outside git, a hash of every file in the project folder at any depth; any difference fails the run
-- Outside git, the walk skips well-known noise unless it holds an inspected file or a change target: the folders `.git`, `node_modules`, `__pycache__`, `.venv`, `venv`, `.cache`, `.pytest_cache`, `.mypy_cache`, `dist`, and `build`, and the files `.DS_Store` and `Thumbs.db`
-- It also skips your AI tool's automatic persistence path, which the run discloses at Gate 0 instead
-- It hashes at most 10,000 files per folder, and the plan can raise that cap; past it, the check fails and says how many files it did not walk
-- With inline delivery, the plan stores a digest and counts of the baseline, not every file hash; a difference fails the run without naming the file
-- Each diff is checked to apply cleanly to your current files, in memory and, where git is available, by `git apply --check`, without writing
-- It also checks: every change has a plain-language description, every ratified principle covered with a reason, enough reviewers for each change's risk within two rounds, each scan finding tied to an index row, the refresh and staleness changes, no secret-shaped value, and no shortened hash
-- It renders every gate, the Final Gate, and the inspection report from the agent's plan file; time used comes from a recorded start, never an estimate
-- Without Node, or if you decline, the agent runs the same checks by hand and marks them "checked manually"
+- T1 tokens bill to your own account, like normal use
+- Judging stops and asks (Gate C) past the approved token limit, past the time estimate plus 50%, at too many invalid answers, or at a usage limit
+- Deeper tiers are planned, not in this release
 
-## Refresh and Staleness
+## Scrubbing and Share-Safe File
 
-Every inspection report carries two upkeep changes. You choose whether to apply them.
+- Before any text reaches a judge or a file, secrets are removed and names, paths, and hosts are masked
+- `report.html` is for you
+- `report.share-safe.html` masks names, paths, and hosts and drops session excerpts; share only this one
+- Masking can over-mask: a word next to a path may become `<file>`
 
-- **SHRINE refresh** (S1): an entry you trigger by name, for example a command, a skill, an instruction line, or anything else your harness offers; it fetches the current prompt, checks its hash, and, with your yes, runs it as a refresh against your last inspection report
-- **Staleness check** (S2): compares the commit pinned in the change with the live manifest; when SHRINE moves, it tells you in one line; it changes nothing, and its cost is stated
-- A refresh shows whether SHRINE moved, which pages changed, and whether each earlier change is applied, not applied, or changed since
-- Without S1, paste the prompt again, choose refresh, and give it your last inspection report's path (its `.html` file)
-- Refresh is experimental: it has not yet had a full real-world test. Report problems as GitHub issues.
+## Read the Report
 
-## Cloud Agents
+- **Start with**: the one change to try first
+- **Where you stand**: only the SHRINE areas that tripped, grouped Principles, Patterns, Stack
+- **Findings**: each names its SHRINE page, a before and after example, and what you gain
+- T1 findings are candidates, not facts: the judge's accuracy is not measured yet
+- Every T1 finding shows N, the episodes, sessions, and repos behind it; a small N is a weak signal
+- Pattern counts are appendix numbers only, never findings
+- No score or grade, by design
+- Apply a change in a normal session, under your own permission prompts, then run again to see it clear
 
-A cloud agent, such as one that runs on pull requests or on a schedule, cannot pause for your reply, so it runs in report-only mode.
+## Remove
 
-- If it can write a temporary folder outside its checkout, it uses one, as on your machine
-- If it cannot, it passes its plan to the checker on standard input and writes nothing at all
-- Either way, the inspection report goes where you asked for it, for example the pull request description or a comment; with no file to write, that is its plain-text form
-- Its changes are unconfirmed: it had no interview answers
+1. Wait for any run to finish (`shrine-inspect status`), then run `shrine-inspect purge`
+2. Delete `~/.local/share/shrine-inspect`, `~/.local/bin/shrine-inspect`, and `~/.claude/skills/shrine-inspect`
 
 ## Related
 
