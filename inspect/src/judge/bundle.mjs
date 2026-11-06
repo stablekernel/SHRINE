@@ -75,7 +75,9 @@ const AGENT_TOOLS = new Set(['Task', 'Agent']);
 // End signals computed by code, never by a model: what was still open when the
 // episode ended, and what git and later episodes show about the same work. The
 // linker's flags cover every link; downstream keeps only the nearest few, so it
-// is the fallback for an episode stored without the flags.
+// is the fallback for an episode stored without the flags. continued_later is a
+// later episode on the same files within a day: the nearest links come first, so
+// downstream holds it when there is one.
 export function endSignals(episode, lastAssistant, lastReplyText) {
   const down = Array.isArray(episode.downstream) ? episode.downstream : [];
   const flag = (name, kind) => (typeof episode[name] === 'boolean' ? episode[name] : down.some((d) => d.kind === kind));
@@ -85,7 +87,7 @@ export function endSignals(episode, lastAssistant, lastReplyText) {
     started_agent: lastIsReply && lastAssistant.tools.some((n) => AGENT_TOOLS.has(n)),
     reverted: flag('rework', 'revert'),
     fixup_later: flag('possible_fix', 'fixup'),
-    continued_later: flag('possible_rework', 'episode'),
+    continued_later: down.some((d) => d.kind === 'episode' && d.delta_hours <= 24),
   };
 }
 
@@ -249,8 +251,8 @@ export function buildBundle({ episode, transcript, fallbackConfig = [], known, n
 
   // Size cap (bytes / bytes_per_token). Order: shorten middle replies, drop middle
   // turns that are not flagged (first and last always stay, the last reply at full
-  // length with its closing), shorten middle turns, trim config to a floor, drop
-  // flagged middle turns, then the rest of the config, then cut every turn.
+  // length with its closing), trim config to a floor, shorten then drop flagged
+  // middle turns, then the rest of the config, then cut the first and last turns.
   const over = () => bundleTokens(b, caps) > caps.bundle_tokens;
   const dropMiddle = (ok) => {
     const n = b.turns.length;
@@ -275,12 +277,12 @@ export function buildBundle({ episode, transcript, fallbackConfig = [], known, n
   while (b.turns.filter((t) => t.role === 'human').length > caps.turns && dropMiddle((t) => !t.candidate));
   while (over() && dropMiddle((t) => !t.candidate));
   if (over()) for (const t of b.turns) if (t.role === 'human' && !t.candidate && middle(t)) t.text = t.text.slice(0, 300);
-  if (over()) for (const t of b.turns) if (middle(t)) t.text = t.text.slice(0, 600);
-  if (over()) for (const t of b.turns) t.text = t.text.slice(0, 600);
   trimConfig(caps.config_excerpt_chars / 4);
+  if (over()) for (const t of b.turns) if (middle(t)) t.text = t.text.slice(0, 600);
   while (over() && dropMiddle(() => true));
   while (b.turns.filter((t) => t.role === 'human').length > caps.turns && dropMiddle(() => true));
   trimConfig(0);
+  if (over()) for (const t of b.turns) t.text = t.text.slice(0, 600);
   if (over()) for (const t of b.turns) {
     t.text = t.text.slice(0, 300);
     if (t.closing) t.closing = t.closing.slice(-160);

@@ -271,3 +271,28 @@ test('config: four flagged turns with six best lines each all reach the judge', 
   for (const [id, m] of Object.entries(b.meta.config_lines)) assert.deepEqual(m, { matched: 6, best: 6, sent: 6 }, id);
   assert.ok(bundleTokens(b) <= DEFAULT_CAPS.bundle_tokens);
 });
+
+test('continued_later: a later episode on the same files within a day; one days later does not count', () => {
+  const ep = (h) => ({ ...episode, possible_rework: true, downstream: [{ kind: 'episode', ref: 'e-2', delta_hours: h, link: 'soft' }] });
+  assert.equal(payloadOf(buildBundle({ episode: ep(3), transcript: { events: events(), snapshot }, known, nonce: 'n' })).end_signals.continued_later, true);
+  assert.equal(payloadOf(buildBundle({ episode: ep(50), transcript: { events: events(), snapshot }, known, nonce: 'n' })).end_signals.continued_later, false);
+});
+
+test('over the cap, instruction lines go before the first message or a flagged message is cut', () => {
+  const first = `Build the export ${'word '.repeat(220)}end`;
+  const ev = [{ t: at(0), kind: 'human', uuid: 'u1', text: first }];
+  const topics = ['migration', 'deploy', 'fixture'];
+  topics.forEach((w, i) => {
+    ev.push({ t: at(i + 1), kind: 'assistant_text', text: 'ok', head: 'reply '.repeat(60) }, { t: at(i + 1), kind: 'interrupt' });
+    ev.push({ t: at(i + 1), kind: 'human', uuid: `v${i}`, text: `Actually the ${w} step ${'detail '.repeat(150)}` });
+  });
+  ev.push({ t: at(9), kind: 'assistant_text', text: 'Done.', head: 'Done.' });
+  const filler = Array.from({ length: 40 }, (_, k) => `- Filler ${k} about lint and style.`);
+  const cfg = [...filler, ...topics.flatMap((w) => Array.from({ length: 6 }, (_, k) => `- The ${w} item ${k} needs a dry run, written with enough plain words to make a long line.`))].join('\n');
+  const caps = { ...DEFAULT_CAPS, bundle_tokens: 2400 };
+  const b = buildBundle({ episode, transcript: { events: ev, snapshot: [{ path: '/r/CLAUDE.md', content: `# Rules\n${cfg}\n` }] }, known, nonce: 'n', caps });
+  assert.ok(bundleTokens(b, caps) <= caps.bundle_tokens, `tokens ${bundleTokens(b, caps)}`);
+  assert.ok(Object.values(b.meta.config_lines).some((m) => m.sent < m.best), 'instruction lines were trimmed');
+  assert.equal(b.turns[0].text, first.slice(0, DEFAULT_CAPS.human_turn_chars), 'the first message stays whole');
+  assert.ok(b.turns.filter((t) => t.candidate).every((t) => t.text.length > 600), 'flagged messages stay whole');
+});

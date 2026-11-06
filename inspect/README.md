@@ -81,10 +81,10 @@ Status: pre-release trial (background runs, a thin skill, a checksummed release)
   - Fewer than 12 eligible: all are judged, labelled thin evidence; under 10 sessions: T1 is not offered
 - Evidence pack per episode: your messages (up to 1,200 characters, 12 messages), the opening 400 characters of each reply, the closing 400 characters of the last reply, tool names without arguments, how the episode ended (commit, pull request, next task or idle, session end), end signals computed by code, and the instruction lines that match the flagged messages
   - Instruction lines: code searches every instruction file loaded for that session for words from each flagged message and sends only matching lines, under their heading (at most 2,400 characters)
-  - End signals: the last reply asks you something (a question, lettered choices, a questions list), the last reply started a subagent, a later revert or fixup commit, a later episode on the same files
+  - End signals: the last reply asks you something (a question, lettered choices, a questions list), the last reply started a subagent, a later revert or fixup commit, a later episode on the same files within a day
   - The judge uses these and the last reply to pick resolved, abandoned (left open), or reworked; "could not tell" is for an episode none of these fits
   - Every string is scrubbed for secrets, then masked (names, paths, hosts) before a judge or a file sees it; about 4,000 tokens per pack at most (the cap, at 2.5 bytes per token)
-  - Over the cap: middle replies cut first, then middle messages that were not flagged (the first and last always stay, the last reply whole with its closing), then long middle messages, then instruction lines, then flagged middle messages
+  - Over the cap: middle replies cut first, then middle messages that were not flagged (the first and last always stay, the last reply whole with its closing), then instruction lines, then flagged middle messages, then the first and last messages
 - Gate B estimate: pack size (bytes / 2.5) plus the prompt, a per-call overhead and output measured on Claude Code 2.1.318, then 10% retry reserve and 30% margin on the top
   - Minutes: 10 seconds per call, judging only (not the scan or time at gates); real time varies by machine, login, and network
   - The judging time limit (the estimate plus 50%) is the only fixed time figure
