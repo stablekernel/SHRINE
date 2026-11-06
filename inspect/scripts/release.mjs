@@ -132,5 +132,5 @@ export function buildRelease({ pkgRoot = PKG_ROOT, repoRoot = REPO_ROOT, out = j
 if (process.argv[1] && basename(process.argv[1]) === 'release.mjs') {
   const i = process.argv.indexOf('--out');
   const r = buildRelease(i > 0 ? { out: resolve(process.argv[i + 1]) } : {});
-  process.stdout.write(`${relative(process.cwd(), r.tarball) || r.tarball}\n${r.sha256}  ${basename(r.tarball)}\n${r.files.length} files; SHA256SUMS and install.sh in ${r.out}\n`);
+  process.stdout.write(`${r.tarball}\n${r.sha256}  ${basename(r.tarball)}\n${r.files.length} files; SHA256SUMS and install.sh in ${r.out}\n`);
 }
