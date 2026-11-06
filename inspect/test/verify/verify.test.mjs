@@ -345,3 +345,11 @@ test('a real bundle-URI pack written during an unguarded git run fails the run',
     rmSync(dir, { recursive: true, force: true });
   }
 });
+
+test('a judge launch of the harness command is allowed; any other spawn fails the run', () => {
+  const { base } = setup();
+  const judge = { op: 'spawn', cmd: '/opt/bin/claude', args: ['--print'], mode: 'x', judge: true };
+  assert.equal(verifyRun(base, [judge]).ok, true, 'the armed judge command (not this Node) is no stray spawn');
+  assert.equal(verifyRun(base, [{ ...judge, judge: undefined }]).ok, false);
+  assert.equal(verifyRun(base, [{ op: 'spawn', cmd: '/bin/sh', args: ['-c', 'x'], mode: 'x' }]).ok, false);
+});

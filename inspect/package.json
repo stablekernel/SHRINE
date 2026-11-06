@@ -2,6 +2,17 @@
   "name": "shrine-inspect",
   "version": "0.1.0",
   "description": "Health check of an AI coding setup against the SHRINE docs. Local, read-only, no network.",
+  "license": "Apache-2.0",
+  "author": "Stable Kernel",
+  "homepage": "https://stablekernel.github.io/SHRINE/",
+  "repository": {
+    "type": "git",
+    "url": "git+https://github.com/stablekernel/SHRINE.git",
+    "directory": "inspect"
+  },
+  "bugs": {
+    "url": "https://github.com/stablekernel/SHRINE/issues"
+  },
   "type": "module",
   "private": true,
   "engines": {
@@ -10,6 +21,13 @@
   "bin": {
     "shrine-inspect": "bin/shrine-inspect.mjs"
   },
+  "files": [
+    "bin/",
+    "src/",
+    "skill/",
+    "README.md",
+    "TRIAL.md"
+  ],
   "scripts": {
     "test": "node scripts/test.mjs",
     "lint": "node scripts/lint-readonly.mjs && node scripts/lint-copy.mjs && node scripts/lint-network.mjs",

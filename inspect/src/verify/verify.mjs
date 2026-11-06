@@ -114,7 +114,10 @@ export function verifyRun(baseline, spy) {
     }
   }
   const byInspect = changed.filter((c) => c.by === 'inspect');
-  const badSpawns = spy.filter((e) => e.op === 'spawn' && e.cmd !== 'git' && e.cmd !== process.execPath);
+  // Allowed: git, this Node (self-spawns), and judge launches. runJudge records a
+  // judge launch only after armJudge found a Gate B yes in facts.json, so its
+  // command (the harness CLI, never this Node) is not a stray spawn.
+  const badSpawns = spy.filter((e) => e.op === 'spawn' && e.cmd !== 'git' && e.cmd !== process.execPath && e.judge !== true);
   return {
     ok: byInspect.length === 0 && badSpawns.length === 0,
     changed_paths: byInspect.map((c) => c.path),

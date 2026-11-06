@@ -7,3 +7,4 @@ node-compile-cache/
 inspect/node_modules/
 inspect/test-results/
 inspect/playwright-report/
+inspect/dist/

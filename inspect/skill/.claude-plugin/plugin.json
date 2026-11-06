@@ -1,0 +1,9 @@
+{
+  "name": "shrine-inspect",
+  "version": "0.1.0",
+  "description": "Thin skill that starts and watches the shrine-inspect CLI. Holds no logic; install the CLI from the same release.",
+  "license": "Apache-2.0",
+  "author": { "name": "Stable Kernel" },
+  "homepage": "https://stablekernel.github.io/SHRINE/",
+  "repository": "https://github.com/stablekernel/SHRINE"
+}

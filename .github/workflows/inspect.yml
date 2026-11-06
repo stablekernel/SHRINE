@@ -6,6 +6,9 @@ on:
       - 'inspect/**'
       - 'docs/src/content/docs/**'
       - '.github/workflows/inspect.yml'
+      - '.github/workflows/inspect-release.yml'
+      - 'LICENSE'
+      - 'NOTICE'
   push:
     branches: [main]
 
@@ -44,6 +47,41 @@ jobs:
 
       - name: Test
         run: npm test
+
+  # Release dry run: build the tarball, install it into a clean HOME, run a
+  # background T1 with a stand-in judge (no model call), then the read-only hash
+  # check and the share-safe leak check. Node 20 is required here.
+  dry-run:
+    timeout-minutes: 15
+    strategy:
+      fail-fast: false
+      matrix:
+        os: [ubuntu-latest, macos-latest]
+    runs-on: ${{ matrix.os }}
+    defaults:
+      run:
+        working-directory: inspect
+    steps:
+      - name: Checkout
+        uses: actions/checkout@v4
+
+      - name: Setup Node
+        uses: actions/setup-node@v4
+        with:
+          node-version: 20
+
+      - name: Release dry run
+        run: node scripts/dry-run.mjs --dir "$RUNNER_TEMP/dry-run" --require-node20
+
+      - name: Keep the transcript and reports
+        if: always()
+        uses: actions/upload-artifact@v4
+        with:
+          name: dry-run-${{ matrix.os }}
+          path: |
+            ${{ runner.temp }}/dry-run/transcript.txt
+            ${{ runner.temp }}/dry-run/**/report.share-safe.html
+          if-no-files-found: ignore
 
   visual:
     timeout-minutes: 15

@@ -2,7 +2,14 @@
 
 Health check of a Claude Code environment against the SHRINE docs. T0: setup audit plus usage counts from local session logs; local, read-only, no network, zero model calls. T1 ("Pulse", trial): T0 plus 12 sampled episodes judged by your own harness, only after you approve it at Gate B.
 
-Status: pre-release (SP2 plus the T1 trial slice). Install and docs cutover arrive in SP3; until then the prompt-based inspect in `docs/` stays live.
+Status: pre-release trial (SP3: background runs, a thin skill, a checksummed release). Nothing is published; the docs cutover is separate, and until then the prompt-based inspect in `docs/` stays live. Testers: see [TRIAL.md](TRIAL.md).
+
+## Install (trial)
+
+- From the release files: `sh install.sh --skill` checks Node 20 or newer and the SHA-256 pinned in `install.sh`, then extracts to `~/.local/share/shrine-inspect/<version>/` and links `~/.local/bin/shrine-inspect`
+- A changed tarball exits 4 and installs nothing; `--skill` copies only the skill to `~/.claude/skills/shrine-inspect/`
+- The skill (`skill/`) is a thin driver: it checks Node, runs `start` and `status`, and sends you to your own terminal for every gate; it holds no logic
+- `shrine-inspect version --skill-version <v>`: any command refuses a skill from another release before it reads anything (exit 2, `E_VERSION`)
 
 ## Run
 
@@ -34,6 +41,19 @@ Status: pre-release (SP2 plus the T1 trial slice). Install and docs cutover arri
 - `facts.json` holds counts, generic timeline labels, and scrubbed paths; no prompt or reply text
 - `node bin/shrine-inspect.mjs purge` deletes the state and cache dirs, only if this tool created them
 - Exit codes: 0 ok, 1 internal, 2 usage, 3 gate waiting, 4 unsupported format (history approved but no session log parsed; setup-only report written), 5 integrity failure
+
+## Background runs
+
+- `shrine-inspect start --tier T0|T1 [--session-id <id>]`: creates the run and continues it in a detached worker, so closing the terminal does not stop it; prints the run id, pid, and log
+- The worker has no terminal, so it pauses at every gate; it never answers one
+- `shrine-inspect status [<run>] [--json]`: `running` (with judging progress), `gate` (with the exact `approve` line to type), `done` (report paths), `died` (no worker, no report), or `stopped`
+- `approve <run> <gate> [choice] --background`: you answer in your terminal, then a worker does the rest
+- `resume <run>`: restarts a stopped run in a worker at its first missing `.done` marker
+  - Unfinished judging needs a fresh typed yes: only `approve <run> B --background` grants it, once, for 5 minutes; `resume` alone refuses (`E_NEEDS_YES`)
+  - `resume` also refuses a run waiting at a gate (`E_GATE_WAITING`) or stopped by a history change (`E_RUN_STOPPED`)
+- Run folder extras: `worker.pid` (the one process running the run, foreground or background; removed on exit) and `run.log`
+  - While that process lives, `status` says running, and `approve`, `resume`, or another worker is refused (`E_RUN_BUSY`)
+- `--background` goes only with `approve` (`start` is always in the background)
 
 ## T1 "Pulse" (trial)
 
@@ -83,6 +103,20 @@ Counting (`test/adapters/claude-code/dedupe.test.mjs`):
 - A message with an image is never dropped as a resend, even when the picture is the same
 - Lines with no uuid (older session formats) are never matched as copies
 
+Background runs (`test/cli/background.test.mjs`):
+
+- A run is "running" while the pid in `worker.pid` is alive; a process stopped by Ctrl-C or killed (or a worker that exits before its parent records it) leaves the file, and if the OS reuses that pid, `status` says running and `approve` or `resume` says busy until that process ends; deleting `worker.pid` in the run folder clears it
+- `worker.pid` is checked, then written, not claimed in one step: two `run`, `approve`, or `resume` calls on one run at the same instant can both continue it (judging stays single, below)
+- `purge` does not wait for a running run: it deletes the folder under the worker, which then stops; a judge call already sent still completes
+- `spy.jsonl` is saved before the runner removes `worker.pid`, so that one removal (inside the run folder) is not in it
+- Two `approve --background` calls on one run at the same instant can both start a worker (the busy check and the pid write are not one step)
+  - Judging still has one runner: `judging.pid` is claimed by exclusive create, and a live runner's marker is never removed; only two runners finding the same dead marker at the same instant could both claim it
+- The installed link runs whatever `node` is first on PATH later; the installer checks Node 20 only at install time
+- The installer hashes the tarball, then extracts from the same path; a local process that swaps the file in between is not caught
+- `install --skill` replaces the whole `~/.claude/skills/shrine-inspect/` folder when it holds this skill from another release
+- The one-time judging grant sits in `state.json` and the worker's arguments from `approve --background` until the worker reads it; a worker that dies first leaves it there until it expires (5 minutes)
+- `run.log` holds the worker's own messages only; gate prompts appear in the terminal that answers them
+
 T1 trial (recorded, not fixed):
 
 - Judge isolation was checked once, on one setup with 2.1.318 (only the structured-output tool, no MCP servers, no user plugins, no hooks fired, user model setting ignored); no probe checks it on your setup
@@ -104,3 +138,9 @@ T1 trial (recorded, not fixed):
 - Only `src/io/runfolder.mjs` writes; only `src/io/proc.mjs` spawns (git, this package's own bin, and the adapter's judge command after a Gate B yes)
 - Tests never call a model: `test/fixtures/judge/fake-judge.mjs` stands in for the harness CLI (valid, invalid, refusal, injection-follow, usage limit)
 - `UPDATE_GOLDEN=1 node scripts/test.mjs scorer/judged`: refresh `test/golden/t1-pulse/` after a reviewed change
+- `node scripts/release.mjs [--out <dir>]`: offline, deterministic build of `shrine-inspect-<version>.tgz`, a pinned `install.sh`, and `SHA256SUMS` (default `dist/`)
+  - Ships the package.json `files` list, a package.json without scripts or devDependencies, and the repo root `LICENSE` and `NOTICE`
+- `node scripts/dry-run.mjs [--dir <work>] [--require-node20]`: builds, installs into a clean HOME with a synthetic history, runs a background T1 with a stand-in judge (no model call), then the read-only hash check and share-safe leak check; prints and keeps a transcript
+  - Node 20 from this Node, nvm, fnm, or volta; otherwise it reports the gap
+- Releases: a pushed `inspect-v<version>` tag builds a draft GitHub release; the owner publishes it
+- License: Apache-2.0 (repo root `LICENSE` and `NOTICE`). Ideas (counting messages, dropping resends and forks, a repo-concentration warning) came from justin-carper/reflect (MIT); no code or prompt text was copied

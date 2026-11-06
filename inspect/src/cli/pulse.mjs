@@ -8,7 +8,7 @@ import { basename } from 'node:path';
 import { fileURLToPath } from 'node:url';
 import { exists, readJson, readText, stat } from '../io/fsread.mjs';
 import { InspectError, EXIT } from './errors.mjs';
-import { armJudge, disarmJudge, runJudge } from '../io/proc.mjs';
+import { armJudge, disarmJudge, pidAlive, runJudge } from '../io/proc.mjs';
 import { drawSample } from '../sample/sample.mjs';
 import { buildBundle, bundleTokens, JUDGE_MARKER, newNonce } from '../judge/bundle.mjs';
 import { CLASSIFIER_SCHEMA, JUDGED_ENTRY_IDS } from '../judge/validate.mjs';
@@ -20,14 +20,7 @@ export const PROMPT_TEMPLATE = readText(fileURLToPath(new URL('../judge/classifi
 
 // Running-judge marker: the pid of the process judging this run.
 const RUNNING = 'judging.pid';
-const alive = (pid) => {
-  try {
-    process.kill(pid, 0);
-    return true;
-  } catch (e) {
-    return e.code === 'EPERM';
-  }
-};
+const alive = pidAlive;
 // The live pid judging this run, or null (no marker, or a stale one).
 export function judgingPid(folder) {
   const p = folder.path(RUNNING);
@@ -105,13 +98,18 @@ export async function prepareT1({ seed, history, setup, known, excludedIds, t, a
 // Runs the judge over the work order. Returns {lines, abort, tokens, ms}.
 export async function judgePhase({ folder, order, adapter, t, io }) {
   const J = t.judged;
-  const previous = readJudgments(folder);
   const inv = adapter.invocation;
-  // One judging runner per run: a live marker refuses; a stale one is dropped.
-  const busy = judgingPid(folder);
-  if (busy) throw judgeBusy(folder, busy);
-  folder.remove(RUNNING);
-  if (!folder.claim(RUNNING, `${process.pid}\n`)) throw judgeBusy(folder, judgingPid(folder) ?? 'unknown');
+  // One judging runner per run: the marker is claimed by exclusive create. Only
+  // when that fails is the marker read: a live pid refuses; a dead one is removed
+  // and claimed once more. A live runner's marker is never removed.
+  if (!folder.claim(RUNNING, `${process.pid}\n`)) {
+    const busy = judgingPid(folder);
+    if (busy) throw judgeBusy(folder, busy);
+    folder.remove(RUNNING);
+    if (!folder.claim(RUNNING, `${process.pid}\n`)) throw judgeBusy(folder, judgingPid(folder) ?? 'unknown');
+  }
+  // Read after the claim, so a runner that follows another sees all its answers.
+  const previous = readJudgments(folder);
   try {
     // Throws E_SPAWN_DENIED unless facts.json holds a Gate B yes for T1.
     armJudge(folder.path('facts.json'), inv);
