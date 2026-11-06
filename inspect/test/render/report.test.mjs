@@ -1,0 +1,214 @@
+import { test } from 'node:test';
+import assert from 'node:assert/strict';
+import { readFileSync } from 'node:fs';
+import { fileURLToPath } from 'node:url';
+import { renderReport, shareSafeFindings, PREVIEW_LABEL, SAFE_MASK_NOTE } from '../../src/render/report.mjs';
+import { buildIdentifiers } from '../../src/scrub/mask.mjs';
+import { score } from '../../src/scorer/score.mjs';
+import { copy } from '../../src/copy/templates.mjs';
+import * as min from '../schema/minimal.mjs';
+
+const load = (rel) => JSON.parse(readFileSync(fileURLToPath(new URL(rel, import.meta.url)), 'utf8'));
+const mock = load('../fixtures/findings/mock-density.json');
+const pivots = load('../../src/catalogue/generic-pivots.json');
+const catalogue = load('../../src/catalogue/catalogue.json');
+const KINDS = load('../../src/catalogue/t0-kinds.json');
+
+const outsideScripts = (html) => html.replace(/<script[\s\S]*?<\/script>/g, '');
+
+function t0(hits = ['stale_instructions', 'blanket_permissions']) {
+  const probes = Object.keys(KINDS.kinds).map((kind) => ({
+    kind,
+    entry_id: KINDS.kinds[kind].entry_ids[0],
+    see_also: KINDS.kinds[kind].entry_ids.slice(1),
+    hit: hits.includes(kind),
+    items: [{ path: '/home/jdoe/.claude/CLAUDE.md', age_days: 200, rule: 'Bash', reason: 'blanket shell allow' }],
+    metric: { count: 1, total: 2, max_age_days: 200, threshold_days: 180, kb: 1, threshold_kb: 40, days: 30, source: 'default', hooks: 1, skills: 1, memory: 1, missing: [] },
+  }));
+  const structure = Object.keys(KINDS.structure).map((check) => ({ check, entry_id: KINDS.structure[check].entry_ids[0], applicable: true, pass: true, items: [] }));
+  return score({ run: min.run(), shrine: min.shrine(), probes, structure, catalogue, pivots, copy, home: '/home/jdoe' });
+}
+
+test('no external requests: no remote src, no stylesheet link, no remote url()', () => {
+  for (const html of [renderReport(mock), renderReport(t0())]) {
+    assert.ok(!/<link\b/i.test(html), 'no <link>');
+    assert.ok(!/\bsrc\s*=\s*["']?https?:/i.test(html), 'no remote src');
+    assert.ok(!/url\(\s*["']?https?:/i.test(html), 'no remote url()');
+    assert.ok(!/@import/i.test(html), 'no @import');
+    // Every remaining http(s) string is a SHRINE navigation link, never a load.
+    const rest = outsideScripts(html)
+      .replace(/<meta http-equiv="Content-Security-Policy"[^>]*>/, '')
+      .replace(/href="https:\/\/(stablekernel\.github\.io\/SHRINE|github\.com\/stablekernel\/SHRINE)\/[^"]*"/g, '');
+    assert.ok(!/http/i.test(rest), rest.match(/.{40}http.{40}/i)?.[0]);
+  }
+});
+
+test('embeds findings.json in a JSON data block', () => {
+  const html = renderReport(mock);
+  const m = html.match(/<script type="application\/json" id="findings-data">([\s\S]*?)<\/script>/);
+  assert.deepEqual(JSON.parse(m[1]), mock);
+});
+
+test('every finding id appears outside scripts, so the report reads with scripts off', () => {
+  const html = outsideScripts(renderReport(mock));
+  for (const f of [...mock.findings, ...mock.worth_a_look]) assert.ok(html.includes(`id="${f.id}"`), f.id);
+  for (const f of mock.findings) assert.ok(html.includes(f.title.replace(/&/g, '&amp;')), f.title);
+  assert.ok(!/<div role="tabpanel"[^>]*hidden/.test(html), 'panels are not hidden in static HTML');
+});
+
+test('T0 depth band reads "Scan only, no model calls" and history not read', () => {
+  const html = renderReport(t0());
+  assert.match(html, /Scan only, no model calls/);
+  assert.match(html, /history not read/);
+  assert.match(html, /Needs Tier 1 or deeper/);
+});
+
+test('previous-run diff slot shows on a later run and is absent on a first run', () => {
+  assert.match(renderReport(mock), /data-slot="diff">Since last run: 1 new, 1 cleared, 5 unchanged/);
+  assert.ok(!renderReport(t0()).includes('data-slot="diff"'));
+});
+
+test('layout sections follow the mock', () => {
+  const html = renderReport(mock);
+  const order = ['class="head"', 'class="depth"', 'id="tldr-h"', 'Start with one change', 'class="cov"', 'class="attr"', 'role="tablist"', 'class="detail"', 'id="clear-h"', 'id="app-h"', 'class="foot"'];
+  let pos = -1;
+  for (const marker of order) {
+    const i = html.indexOf(marker, pos + 1);
+    assert.ok(i > pos, `${marker} out of order`);
+    pos = i;
+  }
+  assert.match(html, /aria-controls="panel-amplify"/);
+  assert.match(html, /ArrowRight/);
+});
+
+test('toggle label and share-safe file', () => {
+  assert.ok(renderReport(mock).includes(PREVIEW_LABEL));
+  assert.equal(PREVIEW_LABEL, 'Preview only. To share, use the share-safe file.');
+  const known = buildIdentifiers({ osUser: 'jdoe', home: '/home/jdoe', projects: ['shop-api'], authors: [{ name: 'Jane Doe', email: 'jane@acme.example' }] });
+  const raw = structuredClone(mock);
+  raw.findings[0].evidence[1].excerpt_scrubbed = 'jdoe said: Done, the retry is in place.';
+  raw.findings[2].evidence[0].locator = '/home/jdoe/.claude/settings.json';
+  raw.run.scope.projects = ['shop-api'];
+  raw.findings[3].why[1] = 'Jane Doe wrote shop-api rules.';
+  const safe = shareSafeFindings(raw, known, pivots);
+  const html = renderReport(safe, { shareSafe: true });
+  assert.ok(!html.includes('the retry is in place'), 'excerpt removed');
+  assert.ok(!html.includes('Prompt: add retry to sync job'), 'timeline label replaced');
+  assert.ok(!html.includes('Add retry to the sync job.'), 'user prompt before/after replaced');
+  for (const id of ['jdoe', 'Jane Doe', 'jane@acme.example', 'shop-api', '/home/jdoe']) assert.ok(!html.includes(id), id);
+  assert.ok(!html.includes(PREVIEW_LABEL));
+  assert.match(html, /Share-safe copy/);
+  const evidence = safe.findings.flatMap((f) => f.evidence);
+  assert.ok(evidence.some((e) => e.kind !== 'mechanical'), 'the mock carries evidence that had excerpts');
+  for (const e of evidence) assert.equal(e.excerpt_scrubbed ?? null, null);
+});
+
+test('share-safe copy masks skipped-file paths', () => {
+  const known = buildIdentifiers({ osUser: 'jdoe', home: '/home/jdoe' });
+  const raw = structuredClone(mock);
+  // Relative and bare names: free-text masking alone would leave these as they are.
+  raw.skipped_files = [{ path_scrubbed: '~/Client Work/Initech Corp/merger notes.md', reason: 'corrupt line 1' }, { path_scrubbed: 'initech/plans', reason: 'corrupt line 2' }, { path_scrubbed: 'Globex Corp', reason: 'corrupt line 3' }];
+  const safe = shareSafeFindings(raw, known, pivots);
+  assert.deepEqual(safe.skipped_files.map((s) => s.path_scrubbed), ['~/<path>/<file>.md', '<path>/<file>', '<file>']);
+  const html = renderReport(safe, { shareSafe: true });
+  assert.ok(html.includes('~/&lt;path&gt;/&lt;file&gt;.md'), 'the masked path is shown');
+  for (const id of ['Initech', 'initech', 'Globex', 'Client Work', 'merger']) assert.ok(!html.includes(id), id);
+});
+
+test('print CSS expands tabs and details', () => {
+  const html = renderReport(mock);
+  const print = html.slice(html.indexOf('@media print'));
+  assert.match(print, /\[hidden\] \{ display: block !important; \}/);
+  assert.match(print, /\.tabs, \.list/);
+  assert.match(print, /break-before: page/);
+});
+
+test('style tokens are derived from the docs theme', () => {
+  const shrine = readFileSync(fileURLToPath(new URL('../../../docs/src/styles/shrine.css', import.meta.url)), 'utf8');
+  const css = readFileSync(fileURLToPath(new URL('../../src/render/assets/styles.css', import.meta.url)), 'utf8');
+  const dark = shrine.match(/--sl-color-bg: (#[0-9a-f]{6});/)[1];
+  const light = [...shrine.matchAll(/--sl-color-bg: (#[0-9a-f]{6});/g)][1][1];
+  for (const v of [dark, light, '#00ced1', '#0d9488', '#0d3b4c', '#ccfbf1', '#2d3f4f', '#e2e8f0']) assert.ok(css.includes(v), v);
+});
+
+test('integrity failure renders a red banner naming paths', () => {
+  const bad = structuredClone(mock);
+  bad.integrity = { ok: false, changed_paths: ['~/.claude/settings.json'] };
+  assert.match(renderReport(bad), /role="alert"><b>Integrity check failed\.<\/b>[^<]*<code class="mono">~\/\.claude\/settings\.json/);
+});
+
+test('only the share-safe footer says masking may hide extra words', () => {
+  const foot = (html) => html.match(/<footer class="foot">[\s\S]*?<\/footer>/)[0];
+  assert.equal(SAFE_MASK_NOTE, 'The share-safe copy may mask extra words, to keep names out.');
+  const known = buildIdentifiers({ osUser: 'jdoe', home: '/home/jdoe' });
+  assert.ok(foot(renderReport(shareSafeFindings(structuredClone(mock), known, pivots), { shareSafe: true })).includes(SAFE_MASK_NOTE), 'share-safe footer');
+  assert.ok(!renderReport(mock).includes(SAFE_MASK_NOTE), 'not in the full report');
+});
+
+test('the footer claims nothing was changed only when the integrity check passed', () => {
+  const foot = (d) => renderReport(d).match(/<footer class="foot">[\s\S]*?<\/footer>/)[0];
+  assert.match(foot(mock), /Nothing in your setup was changed\./);
+  const bad = structuredClone(mock);
+  bad.integrity = { ok: false, changed_paths: ['~/.claude/settings.json'] };
+  assert.ok(!foot(bad).includes('Nothing in your setup was changed'), 'no false read-only claim');
+  assert.match(foot(bad), /Integrity check failed: see the alert at the top\./);
+});
+
+test('T2-size fixture renders under 300 KB', () => {
+  assert.ok(Buffer.byteLength(renderReport(mock)) < 300 * 1024);
+});
+
+test('coverage shows only tripped areas, grouped by SHRINE area, plus one quiet line', () => {
+  const d = t0(['stale_instructions', 'blanket_permissions', 'stack_gap']);
+  const html = renderReport(d);
+  const cov = html.slice(html.indexOf('id="map-h"'), html.indexOf('class="attr"'));
+  const rows = [...cov.matchAll(/<th scope="row"[^>]*>[\s\S]*?<\/svg> ([^<]+)<\/th>/g)].map((m) => m[1]);
+  assert.deepEqual(rows, ['Human in the Loop', 'Deliberate Currency', 'Harness Selection']);
+  assert.deepEqual([...cov.matchAll(/scope="rowgroup" colspan="3"[^>]*>(\w+)</g)].map((m) => m[1]), ['Principles', 'Stack']);
+  const checked = d.coverage.filter((c) => c.checked).length;
+  assert.ok(checked >= 3 && checked < d.coverage.length, `only areas with a Tier 0 check count as checked (${checked})`);
+  assert.match(cov, new RegExp(`>${checked - 3} other checked areas? showed no findings\\. ${d.coverage.length - checked} areas have no Tier 0 check yet\\.<`));
+  assert.ok(!cov.includes('Authority Cascade'), 'clean areas are hidden');
+  for (const role of ['table', 'rowgroup', 'row', 'columnheader', 'rowheader', 'cell']) assert.ok(cov.includes(`role="${role}"`), `role ${role} kept for the phone grid layout`);
+});
+
+test('coverage with no finding shows only the quiet line', () => {
+  const d = t0([]);
+  const html = renderReport(d);
+  const cov = html.slice(html.indexOf('id="map-h"'), html.indexOf('class="attr"'));
+  assert.ok(!cov.includes('<table'));
+  const checked = d.coverage.filter((c) => c.checked).length;
+  assert.match(cov, new RegExp(`>No SHRINE area showed a finding \\(${checked} areas checked\\)\\. ${d.coverage.length - checked} areas have no Tier 0 check yet\\.<`));
+});
+
+test('a coverage area counts as checked only when a probe or structure check at the run tier maps to it', () => {
+  const d = t0([]);
+  const keys = new Set(d.coverage.filter((c) => c.checked).map((c) => c.key));
+  assert.ok(keys.has('human-in-the-loop') && keys.has('deliberate-currency'), [...keys].join(', '));
+  assert.ok(keys.size < d.coverage.length / 2, `most areas have no Tier 0 check (${keys.size} of ${d.coverage.length})`);
+  const none = score({ run: min.run(), shrine: min.shrine(), probes: [], structure: [], catalogue, pivots, copy });
+  assert.ok(none.coverage.length > 0, 'coverage lists areas');
+  assert.ok(none.coverage.every((c) => c.checked === false), 'no checks, no checked areas');
+});
+
+// The empty state printed its next step two or three times (TL;DR line, its own line,
+// and the start box). Once, in the start box, headed "Next step".
+test('empty state prints its next step once, in a "Next step" box', () => {
+  for (const [label, d] of [['one checked_clear', t0([])], ['none checked_clear', { ...t0([]), checked_clear: [] }]]) {
+    const tldr = renderReport(d).replace(/<script[\s\S]*?<\/script>/g, '').match(/id="tldr-h"[\s\S]*?<\/section>/)[0];
+    assert.equal(tldr.split('session history for usage counts').length - 1, 1, `${label}: ${tldr}`);
+    assert.match(tldr, /<div class="start"><h3>Next step<\/h3>/, label);
+    assert.doesNotMatch(tldr, /Start with one change/, label);
+  }
+});
+
+test('with zero findings, the next step drops the session-history ask once history was read', () => {
+  const base = JSON.parse(JSON.stringify(mock));
+  Object.assign(base, { findings: [], worth_a_look: [], headline: { ...base.headline, tldr: [], start_with: null, counts: { ...base.headline.counts, amplify: 0, working: 0, not_passed: 0 } } });
+  const next = (html) => html.match(/<h3>Next step<\/h3><p>([^<]*)<\/p>/)?.[1];
+  const unread = next(renderReport({ ...base, history: { consented: false, read: false, sessions: null } }));
+  const read = next(renderReport({ ...base, history: { consented: true, read: true, sessions: 12 } }));
+  assert.ok(unread && read, 'both renders show a next step');
+  assert.match(unread, /session history/);
+  assert.doesNotMatch(read, /run again with session history/i);
+});

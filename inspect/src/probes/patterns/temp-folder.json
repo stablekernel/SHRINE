@@ -1,0 +1,14 @@
+{
+  "version": 1,
+  "description": "Session cwds matching any pattern are temp or scratch folders, excluded from the default selection and listed at Gate A.",
+  "patterns": [
+    "^/tmp(/|$)",
+    "^/private/tmp(/|$)",
+    "^/var/folders/",
+    "^/private/var/folders/",
+    "^/dev/shm(/|$)",
+    "/scratch(pad)?(/|$)",
+    "/\\.cache(/|$)",
+    "/AppData/Local/Temp(/|$)"
+  ]
+}

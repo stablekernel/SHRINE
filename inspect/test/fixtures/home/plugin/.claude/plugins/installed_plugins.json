@@ -1,0 +1,6 @@
+{
+  "version": 2,
+  "plugins": {
+    "guard@market": [{ "scope": "user", "installPath": "${CLAUDE_HOME}/plugins/cache/market/guard/1.0.0", "version": "1.0.0" }]
+  }
+}

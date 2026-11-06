@@ -1,0 +1,14 @@
+{
+  "permissions": {
+    "allow": ["Bash(npm test:*)", "Bash(git status:*)", "Read"],
+    "deny": ["Bash(rm -rf:*)"],
+    "defaultMode": "default"
+  },
+  "hooks": {
+    "PostToolUse": [
+      { "matcher": "Edit|Write", "hooks": [{ "type": "command", "command": "npm test --silent" }] }
+    ]
+  },
+  "outputStyle": "Terse",
+  "cleanupPeriodDays": 90
+}

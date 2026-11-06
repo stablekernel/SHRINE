@@ -1,0 +1,3231 @@
+{
+  "schema_version": 1,
+  "shrine": {
+    "commit": "71e82a0e6f729e88c7e40040310fd33068c067f3",
+    "site": "https://stablekernel.github.io/SHRINE/",
+    "files": {
+      "principles/authority-cascade.md": "82725e260f0c027f8eeb87265873c1f92fb957c5ceaa5c748a0a4cf5af87fd0f",
+      "principles/consistency-as-leverage.md": "438126924af5837f655a691683b41fe8515aa9a7aa282b204867cde036e83a96",
+      "principles/deliberate-currency.md": "21df9b3fa48006efcc7226a3204f93289846565752702d27894ffeebe3b696e4",
+      "principles/fail-fast-recover-smart.md": "981ab4f85c916134584612cc630e1ee41a4f9f4f576483d540bf388b05faf2b1",
+      "principles/human-in-the-loop.md": "964d976758165074c4b2a772bfd0beea680f82d74a09cd235cf775dca65a3a90",
+      "principles/problem-before-prescription.md": "93c9f39ca6a064972b4e786b079da0b6552b30dbfd48aeda4bd7ce44f061cfe0",
+      "principles/reproducibility.md": "1766af5fce51794282ef270672663f04dec0b5fc550a28e9a6300be9b1565969",
+      "principles/tokens-to-value.md": "342cdaa38a1964c25bf7c61217b5b502e2142a5835d412dd5c7f750e81b64700",
+      "patterns/adversarial-review.md": "f89d6d9945e426385dc1100eb5e2c2109ef1d9b207a1e1927f43fc9b1ebcc376",
+      "patterns/chain-of-thought.md": "3ce97aa2d05414e310f150dbbb732fd3b4ad8acc311ef2ad705ab42745a7e070",
+      "patterns/checkpoint-gates.md": "1ec009bfd9dfaea887e9a3b39cce7bdc36456a56b91cd8a0a775254dd1842593",
+      "patterns/context-handoff.md": "d0d6edac068c00ea06d67b80cb221baff1f892a6770e8830c0f3c57d3c54ea2b",
+      "patterns/correction-diagnosis.md": "111cad72954b46484d904f9daa88e75458c4bc87433f0e81cf908a59945da8f8",
+      "patterns/delegation-fit.md": "e00ba57445519a8aeb1143a5c7e15654220b42b6c14313e5eea4506dd510918d",
+      "patterns/discovery-propagation.md": "cb22922831c84e13f460033e19731334aa075e042cb1bfbb236d2c40af20ab22",
+      "patterns/dogfooding.md": "357cf40c7d8255cb79662ddd70115cb8ffce3b6ae6b50e94219644c8478b796a",
+      "patterns/few-shot-examples.md": "339c1416b467457662f143fe10d504d5fda80b9e6dea2d92873c086980ab70e6",
+      "patterns/iterative-refinement.md": "5880b5c4649a4b1f91d8fb5b094c24277ffe4735c3003dd2717b2f6b6378971e",
+      "patterns/mechanical-scaffolding.md": "ba410af4f231d2aff7d4451ca62b05f6e7beb345335f8556c8cf6645216c65b1",
+      "patterns/multi-model-consensus.md": "d646e9fafad5e88b2fe5c4d8fa6e67a0bbbc3ea7f18c64fdc5c61961e9679989",
+      "patterns/pipeline-orchestration.md": "e8861495bc0c79bb8bc598d8a5459741c2b95c10fbe64aef84d44365a2171eb1",
+      "patterns/progress-breadcrumbs.md": "f785afccfc4698774113aa63b3aed84df7ce624c6de84808bebca643cb941dc0",
+      "patterns/prompt-regression.md": "ea3c3cf9a50bf10b60b823a06ca258fb6e1564429ce8ba8c5b293bd6d04204d2",
+      "patterns/rag.md": "cd2464f4e404f076361074a2fa66e0c40e82cf2c83930dc002f1a119c9e4f423",
+      "patterns/reviewable-output.md": "02e50afdc6b6cf292adcfe69745101ae67c58d37bad441e2eb0c8e59e8457996",
+      "patterns/self-critique.md": "8033be5aeee6281317957bf809e95337859613504403bc89308451bd1f4845fb",
+      "patterns/spec-then-build.md": "c46df3826f31c5f2ea5de9777e0106cfc96a8170993af753c47687fac162f8ab",
+      "patterns/step-level-routing.md": "88e02285b1817f9207ef85dc6e5695edeadde71ea0ea3034d474363e2ec6794b",
+      "patterns/structured-output.md": "3234c8436c1f4d16c06ca4355e29a07080aa43fb392abfc3ce8bb33e39117b55",
+      "patterns/subagent-fanout.md": "fdb36118ef0d6e2c0823152dfddc41b63b06d67fa904a944d67a4089b42a919e",
+      "patterns/task-routing.md": "e8ec2f5d51d2f8e09231c36731213f4658f6b085eaacf325787e639d503c90d3",
+      "patterns/unattended-runs.md": "8ac33eac358271436367c611c17af72f9b47b1e3d42c9c9574fc4c703031c9c2",
+      "patterns/verification-loops.md": "9a2dcd1b3e9cc44c6bb3f203af7c60618c6f7a82d7fea53bcdc146700e3ac8c4",
+      "stack/agent-architecture.md": "76ca223675f8a43085b09bbe4c87e76c6edbe85183be4cd741382e75ec9e78d4",
+      "stack/cost-management.md": "bd79ae3c3ce17c9b3c282290e29b91a284b281f4bdbf70fa3e64e2882f19b334",
+      "stack/evaluation.md": "4dd1b8bab9be7b26092afa2e453aecadfa70be8ae60514bc639bafcfda545e5d",
+      "stack/harness.md": "d61de664d8dc9cf992d252b49cd66e7cf04b640674ff83e7dc69cb53020e2508",
+      "stack/memory.md": "77c68070bdd0847deb372a65b456090b30a0809acda72b8fa98802dbc559c0b2",
+      "stack/models.md": "725c5b8ce156425889fed37af9b172a1d0eb34996dde87a3956e817feff77125",
+      "stack/observability.md": "df6e5fe78e1174ea3b6611ff478c2a306c989eb41c27da58edc7cb8790ac06d8",
+      "stack/repository-context.md": "08ba73a8688d1a67f4e64ac8d563a5e6c2716f9bf4415e61b28d1f2fd9cb5875",
+      "stack/skills.md": "65ee656bde23b7f0bf38e7a741220b2f165ecca57cf0043855a7263f9ab06a2c",
+      "stack/tool-integration.md": "caa22aad0790df36bdc72e162b9d7b59473ded6d3920ff4216e2657bf6456778",
+      "reference/anti-patterns.md": "6efbb47828f58f0bb46ce7da1a021b20a9e7bc68c7ae89cd0a7ff81cb3cd4213",
+      "patterns/overview.md": "fd70c81694e40f43b21cad2363b7163a872694c6ea8e143aae8d21d2da2327a8",
+      "reference/glossary.md": "349f80eaf4ad14bf22b1c8d5c7edb530aa8149ca95b62eba9f4301381ae61322"
+    }
+  },
+  "principles": [
+    {
+      "id": "principles/authority-cascade",
+      "title": "Authority Cascade",
+      "status": "ratified",
+      "url": "https://stablekernel.github.io/SHRINE/principles/authority-cascade/",
+      "signals_of_violation": [
+        {
+          "entry_id": "authority-cascade.sov.reopened",
+          "text": "Settled questions reopened: the same convention is argued again in each review or engagement",
+          "anchor": "signal-of-violation",
+          "line": 43
+        },
+        {
+          "entry_id": "principles/authority-cascade#9a240e29b3",
+          "text": "An org rule that fails the altitude test: client teams carry standing exceptions to it",
+          "anchor": "signal-of-violation",
+          "line": 44
+        },
+        {
+          "entry_id": "principles/authority-cascade#12acc9409d",
+          "text": "Conventions held in one person's head: agents rediscover them every session, and work stalls when that person rotates off",
+          "anchor": "signal-of-violation",
+          "line": 45
+        },
+        {
+          "entry_id": "principles/authority-cascade#f0047b535b",
+          "text": "Written rule and daily practice disagree: the team convention says one thing, merged code does another",
+          "anchor": "signal-of-violation",
+          "line": 46
+        }
+      ]
+    },
+    {
+      "id": "principles/consistency-as-leverage",
+      "title": "Consistency as Leverage",
+      "status": "ratified",
+      "url": "https://stablekernel.github.io/SHRINE/principles/consistency-as-leverage/",
+      "signals_of_violation": [
+        {
+          "entry_id": "principles/consistency-as-leverage#4bfd12ad06",
+          "text": "Tuning the prompt to fix a codebase problem: the prompt grows while the same convention misses recur",
+          "anchor": "signal-of-violation",
+          "line": 39
+        },
+        {
+          "entry_id": "consistency-as-leverage.sov.idioms",
+          "text": "Several idioms for one concern: agent output copies whichever file it read last",
+          "anchor": "signal-of-violation",
+          "line": 40
+        },
+        {
+          "entry_id": "principles/consistency-as-leverage#9392dd58ec",
+          "text": "A checkable convention left as prose: review flags the same lint-able miss again and again",
+          "anchor": "signal-of-violation",
+          "line": 41
+        },
+        {
+          "entry_id": "principles/consistency-as-leverage#f781cb3070",
+          "text": "No known pattern to diff against: every review reads each line from scratch",
+          "anchor": "signal-of-violation",
+          "line": 42
+        }
+      ]
+    },
+    {
+      "id": "principles/deliberate-currency",
+      "title": "Deliberate Currency",
+      "status": "ratified",
+      "url": "https://stablekernel.github.io/SHRINE/principles/deliberate-currency/",
+      "signals_of_violation": [
+        {
+          "entry_id": "deliberate-currency.sov.stale",
+          "text": "Drift: skills tuned against a retired model still load, and nobody can say who owns them",
+          "anchor": "signal-of-violation",
+          "line": 47,
+          "also_ids": [
+            "deliberate-currency.sov.owner"
+          ]
+        },
+        {
+          "entry_id": "principles/deliberate-currency#8375a97a21",
+          "text": "Churn: tooling choices reopen on every release though no tripwire fired",
+          "anchor": "signal-of-violation",
+          "line": 48
+        },
+        {
+          "entry_id": "principles/deliberate-currency#88beb7f01d",
+          "text": "Tripwires with no baseline: nobody can state retry rate or spend per shipped change, so nothing ever fires",
+          "anchor": "signal-of-violation",
+          "line": 49
+        },
+        {
+          "entry_id": "principles/deliberate-currency#dba13fa803",
+          "text": "An inventory that only grows: no sweep has deleted a skill",
+          "anchor": "signal-of-violation",
+          "line": 50
+        }
+      ]
+    },
+    {
+      "id": "principles/fail-fast-recover-smart",
+      "title": "Fail Fast, Recover Smart",
+      "status": "ratified",
+      "url": "https://stablekernel.github.io/SHRINE/principles/fail-fast-recover-smart/",
+      "signals_of_violation": [
+        {
+          "entry_id": "principles/fail-fast-recover-smart#463f127610",
+          "text": "Failure handling added after launch: the first outage is when someone writes the fallback",
+          "anchor": "signal-of-violation",
+          "line": 88
+        },
+        {
+          "entry_id": "principles/fail-fast-recover-smart#6f735d6781",
+          "text": "No mid-run checks: a bad intermediate output surfaces steps later as an unrelated error",
+          "anchor": "signal-of-violation",
+          "line": 89
+        },
+        {
+          "entry_id": "principles/fail-fast-recover-smart#f827aa6b3d",
+          "text": "Uncapped retries: one request burns tokens for minutes and returns nothing",
+          "anchor": "signal-of-violation",
+          "line": 90
+        },
+        {
+          "entry_id": "principles/fail-fast-recover-smart#5b12764cc5",
+          "text": "Errors with no next step: a human has to rerun the job to learn what failed",
+          "anchor": "signal-of-violation",
+          "line": 91
+        },
+        {
+          "entry_id": "principles/fail-fast-recover-smart#1dfda62eae",
+          "text": "Re-rolling a systematic miss: the same miss comes back on the second attempt",
+          "anchor": "signal-of-violation",
+          "line": 92
+        },
+        {
+          "entry_id": "principles/fail-fast-recover-smart#2745f1eb90",
+          "text": "Rewriting the brief after a single miss: one expected variance miss treated as proof of a bad brief",
+          "anchor": "signal-of-violation",
+          "line": 93
+        }
+      ]
+    },
+    {
+      "id": "principles/human-in-the-loop",
+      "title": "Human in the Loop",
+      "status": "ratified",
+      "url": "https://stablekernel.github.io/SHRINE/principles/human-in-the-loop/",
+      "signals_of_violation": [
+        {
+          "entry_id": "human-in-the-loop.sov.undefined-boundary",
+          "text": "Undefined boundary: whether a human signs off depends on who ran the agent that day",
+          "anchor": "signal-of-violation",
+          "line": 38
+        },
+        {
+          "entry_id": "principles/human-in-the-loop#21b6f1acae",
+          "text": "Rubber-stamping: approval rate near 100%, with seconds spent per decision",
+          "anchor": "signal-of-violation",
+          "line": 39
+        },
+        {
+          "entry_id": "principles/human-in-the-loop#98b411ad6f",
+          "text": "Human as bottleneck: work waits in the approval queue longer than the agent took to do it",
+          "anchor": "signal-of-violation",
+          "line": 40
+        },
+        {
+          "entry_id": "principles/human-in-the-loop#153ed71aa2",
+          "text": "Oversight after the fact: an external message or destructive change is found with no recorded approval",
+          "anchor": "signal-of-violation",
+          "line": 41
+        }
+      ]
+    },
+    {
+      "id": "principles/problem-before-prescription",
+      "title": "Problem Before Prescription",
+      "status": "ratified",
+      "url": "https://stablekernel.github.io/SHRINE/principles/problem-before-prescription/",
+      "signals_of_violation": [
+        {
+          "entry_id": "principles/problem-before-prescription#b1ed0a54fa",
+          "text": "Twenty turns of \"no, not like that\": steering by correction instead of stating constraints up front",
+          "anchor": "signal-of-violation",
+          "line": 69
+        },
+        {
+          "entry_id": "principles/problem-before-prescription#486262557d",
+          "text": "The model builds the requested solution well, and it solves the wrong problem",
+          "anchor": "signal-of-violation",
+          "line": 70
+        },
+        {
+          "entry_id": "principles/problem-before-prescription#342d913ed3",
+          "text": "Constraints surface only after code exists",
+          "anchor": "signal-of-violation",
+          "line": 71
+        }
+      ]
+    },
+    {
+      "id": "principles/reproducibility",
+      "title": "Reproducibility",
+      "status": "ratified",
+      "url": "https://stablekernel.github.io/SHRINE/principles/reproducibility/",
+      "signals_of_violation": [
+        {
+          "entry_id": "principles/reproducibility#a3a0aa7175",
+          "text": "No level chosen: tests are retried until green, or their assertions get deleted",
+          "anchor": "signal-of-violation",
+          "line": 38
+        },
+        {
+          "entry_id": "principles/reproducibility#a746d7ecd0",
+          "text": "Exact matching where behavioral fits: tests fail on rephrasing alone",
+          "anchor": "signal-of-violation",
+          "line": 39
+        },
+        {
+          "entry_id": "principles/reproducibility#57c2064187",
+          "text": "Debugging by regenerating: a bug is called fixed because a rerun happened to pass",
+          "anchor": "signal-of-violation",
+          "line": 40
+        },
+        {
+          "entry_id": "reproducibility.sov.not-logged",
+          "text": "Model version and parameters not logged: behavior shifts and nobody can tell what changed",
+          "anchor": "signal-of-violation",
+          "line": 41
+        }
+      ]
+    },
+    {
+      "id": "principles/tokens-to-value",
+      "title": "North Star: TTV (Tokens to Value)",
+      "status": "ratified",
+      "url": "https://stablekernel.github.io/SHRINE/principles/tokens-to-value/",
+      "signals_of_violation": [
+        {
+          "entry_id": "principles/tokens-to-value#63713496a2",
+          "text": "Optimizing raw token spend: the bill falls while rework or human steering rises",
+          "anchor": "signal-of-violation",
+          "line": 67
+        },
+        {
+          "entry_id": "principles/tokens-to-value#0519a8f647",
+          "text": "Attention left out of the cost: cheap runs that an engineer babysits count as savings",
+          "anchor": "signal-of-violation",
+          "line": 68
+        },
+        {
+          "entry_id": "principles/tokens-to-value#dc8d698b33",
+          "text": "Tokens with no outcome ID: nobody can state what a win costs",
+          "anchor": "signal-of-violation",
+          "line": 69
+        },
+        {
+          "entry_id": "principles/tokens-to-value#789a15fdbb",
+          "text": "No win defined for the workload: cost arguments settle by opinion",
+          "anchor": "signal-of-violation",
+          "line": 70
+        }
+      ]
+    }
+  ],
+  "patterns": [
+    {
+      "id": "patterns/adversarial-review",
+      "title": "Adversarial Review",
+      "status": "ratified",
+      "url": "https://stablekernel.github.io/SHRINE/patterns/adversarial-review/",
+      "anti_patterns": [
+        {
+          "entry_id": "patterns/adversarial-review#0980afb5fc",
+          "text": "The same agent and context generating and reviewing",
+          "anchor": "anti-patterns",
+          "line": 84
+        },
+        {
+          "entry_id": "patterns/adversarial-review#43a7bad605",
+          "text": "A soft brief: \"check if this looks good\"",
+          "anchor": "anti-patterns",
+          "line": 85
+        },
+        {
+          "entry_id": "patterns/adversarial-review#c3720dc424",
+          "text": "The reviewer invents findings to look useful; require a verify step per finding",
+          "anchor": "anti-patterns",
+          "line": 86
+        },
+        {
+          "entry_id": "patterns/adversarial-review#a2f5b6a63f",
+          "text": "Findings never triaged, or ignored because they are inconvenient",
+          "anchor": "anti-patterns",
+          "line": 87
+        }
+      ]
+    },
+    {
+      "id": "patterns/chain-of-thought",
+      "title": "Chain of Thought",
+      "status": "ratified",
+      "url": "https://stablekernel.github.io/SHRINE/patterns/chain-of-thought/",
+      "anti_patterns": [
+        {
+          "entry_id": "patterns/chain-of-thought#dd10d19fb2",
+          "text": "Using CoT for simple factual lookups (overhead without benefit)",
+          "anchor": "anti-patterns",
+          "line": 58
+        },
+        {
+          "entry_id": "patterns/chain-of-thought#ef54e23eec",
+          "text": "Prompting a reasoning model to \"think step by step\" instead of raising effort",
+          "anchor": "anti-patterns",
+          "line": 59
+        },
+        {
+          "entry_id": "patterns/chain-of-thought#e83c38ea9d",
+          "text": "Not reading the reasoning (defeats the purpose)",
+          "anchor": "anti-patterns",
+          "line": 60
+        },
+        {
+          "entry_id": "patterns/chain-of-thought#a82bb8fcc6",
+          "text": "Accepting conclusions that don't follow from the stated reasoning",
+          "anchor": "anti-patterns",
+          "line": 61
+        }
+      ]
+    },
+    {
+      "id": "patterns/checkpoint-gates",
+      "title": "Checkpoint Gates",
+      "status": "ratified",
+      "url": "https://stablekernel.github.io/SHRINE/patterns/checkpoint-gates/",
+      "anti_patterns": [
+        {
+          "entry_id": "patterns/checkpoint-gates#9a34806c94",
+          "text": "Approval requested by prompt text only",
+          "anchor": "anti-patterns",
+          "line": 80
+        },
+        {
+          "entry_id": "patterns/checkpoint-gates#d5acb42b03",
+          "text": "\"Yes to all\" fatigue",
+          "anchor": "anti-patterns",
+          "line": 81
+        },
+        {
+          "entry_id": "patterns/checkpoint-gates#4641347b2b",
+          "text": "A card with no recommendation",
+          "anchor": "anti-patterns",
+          "line": 82
+        },
+        {
+          "entry_id": "patterns/checkpoint-gates#8295a71a52",
+          "text": "Blocking the whole run on one decision",
+          "anchor": "anti-patterns",
+          "line": 83
+        }
+      ]
+    },
+    {
+      "id": "patterns/context-handoff",
+      "title": "Context Handoff",
+      "status": "ratified",
+      "url": "https://stablekernel.github.io/SHRINE/patterns/context-handoff/",
+      "anti_patterns": [
+        {
+          "entry_id": "patterns/context-handoff#fde9320207",
+          "text": "Automatic summary as the only memory",
+          "anchor": "anti-patterns",
+          "line": 102
+        },
+        {
+          "entry_id": "patterns/context-handoff#05c6ae793b",
+          "text": "Half-implemented feature with no note",
+          "anchor": "anti-patterns",
+          "line": 103
+        },
+        {
+          "entry_id": "patterns/context-handoff#2c167a0525",
+          "text": "A handoff without evidence links",
+          "anchor": "anti-patterns",
+          "line": 104
+        },
+        {
+          "entry_id": "patterns/context-handoff#0cee1c1739",
+          "text": "Pasting the transcript as the handoff",
+          "anchor": "anti-patterns",
+          "line": 105
+        },
+        {
+          "entry_id": "patterns/context-handoff#91fa934199",
+          "text": "Letting the agent rewrite acceptance tests in the progress file",
+          "anchor": "anti-patterns",
+          "line": 106
+        }
+      ]
+    },
+    {
+      "id": "patterns/correction-diagnosis",
+      "title": "Correction Diagnosis",
+      "status": "ratified",
+      "url": "https://stablekernel.github.io/SHRINE/patterns/correction-diagnosis/",
+      "anti_patterns": [
+        {
+          "entry_id": "patterns/correction-diagnosis#31fbf7dad5",
+          "text": "Steering by chat correction instead of fixing the brief",
+          "anchor": "anti-patterns",
+          "line": 99
+        },
+        {
+          "entry_id": "patterns/correction-diagnosis#ca1f8bfdb8",
+          "text": "Blaming the model before checking the inputs",
+          "anchor": "anti-patterns",
+          "line": 100
+        },
+        {
+          "entry_id": "patterns/correction-diagnosis#fee74c7e08",
+          "text": "Adding more context to fix a context problem",
+          "anchor": "anti-patterns",
+          "line": 101
+        },
+        {
+          "entry_id": "patterns/correction-diagnosis#3938fdb773",
+          "text": "Never resetting a drifting session",
+          "anchor": "anti-patterns",
+          "line": 102
+        },
+        {
+          "entry_id": "patterns/correction-diagnosis#3631d3a207",
+          "text": "Verifying first and framing never: a check catches the miss, but the wrong problem still gets solved",
+          "anchor": "anti-patterns",
+          "line": 103
+        }
+      ]
+    },
+    {
+      "id": "patterns/delegation-fit",
+      "title": "Delegation Fit",
+      "status": "ratified",
+      "url": "https://stablekernel.github.io/SHRINE/patterns/delegation-fit/",
+      "anti_patterns": [
+        {
+          "entry_id": "patterns/delegation-fit#f021632d55",
+          "text": "Delegating the architecture decision, then correcting the architecture in review",
+          "anchor": "anti-patterns",
+          "line": 114
+        },
+        {
+          "entry_id": "patterns/delegation-fit#d4d6869302",
+          "text": "Delegating work you could type faster than you could brief",
+          "anchor": "anti-patterns",
+          "line": 115
+        },
+        {
+          "entry_id": "patterns/delegation-fit#8c098675e7",
+          "text": "A brief with no non-goals, so the diff grows past the task",
+          "anchor": "anti-patterns",
+          "line": 116
+        },
+        {
+          "entry_id": "patterns/delegation-fit#4ce74714e6",
+          "text": "Fit decided once and never revisited as models change",
+          "anchor": "anti-patterns",
+          "line": 117
+        }
+      ]
+    },
+    {
+      "id": "patterns/discovery-propagation",
+      "title": "Discovery Propagation",
+      "status": "ratified",
+      "url": "https://stablekernel.github.io/SHRINE/patterns/discovery-propagation/",
+      "anti_patterns": [
+        {
+          "entry_id": "patterns/discovery-propagation#4e1451013d",
+          "text": "Insights that die with the session",
+          "anchor": "anti-patterns",
+          "line": 90
+        },
+        {
+          "entry_id": "patterns/discovery-propagation#c253d1c14f",
+          "text": "Silent mutations without review",
+          "anchor": "anti-patterns",
+          "line": 91
+        },
+        {
+          "entry_id": "patterns/discovery-propagation#a3eb51d3d0",
+          "text": "Over-propagation: noise drowns signal",
+          "anchor": "anti-patterns",
+          "line": 92
+        },
+        {
+          "entry_id": "patterns/discovery-propagation#8a6ee6469e",
+          "text": "No mechanism to receive proposals",
+          "anchor": "anti-patterns",
+          "line": 93
+        },
+        {
+          "entry_id": "patterns/discovery-propagation#d9b8d1f2fc",
+          "text": "Proposals with no evidence attached",
+          "anchor": "anti-patterns",
+          "line": 94
+        }
+      ]
+    },
+    {
+      "id": "patterns/dogfooding",
+      "title": "Dogfooding",
+      "status": "ratified",
+      "url": "https://stablekernel.github.io/SHRINE/patterns/dogfooding/",
+      "anti_patterns": [
+        {
+          "entry_id": "patterns/dogfooding#ded36e7ddb",
+          "text": "Testing on synthetic examples only",
+          "anchor": "anti-patterns",
+          "line": 60
+        },
+        {
+          "entry_id": "patterns/dogfooding#54fa932d31",
+          "text": "Shipping before personal validation",
+          "anchor": "anti-patterns",
+          "line": 61
+        },
+        {
+          "entry_id": "patterns/dogfooding#95e08e731d",
+          "text": "Dogfooding once, then never again (things drift)",
+          "anchor": "anti-patterns",
+          "line": 62
+        },
+        {
+          "entry_id": "patterns/dogfooding#b53d4fe2db",
+          "text": "Exempting yourself from your own standards",
+          "anchor": "anti-patterns",
+          "line": 63
+        }
+      ]
+    },
+    {
+      "id": "patterns/few-shot-examples",
+      "title": "Few-Shot Examples",
+      "status": "ratified",
+      "url": "https://stablekernel.github.io/SHRINE/patterns/few-shot-examples/",
+      "anti_patterns": [
+        {
+          "entry_id": "patterns/few-shot-examples#451d371aae",
+          "text": "Too many examples (diminishing returns, context waste)",
+          "anchor": "anti-patterns",
+          "line": 71
+        },
+        {
+          "entry_id": "patterns/few-shot-examples#eb0633a483",
+          "text": "Examples that contradict each other",
+          "anchor": "anti-patterns",
+          "line": 72
+        },
+        {
+          "entry_id": "patterns/few-shot-examples#8add82bf7c",
+          "text": "Examples that are too similar (model over-fits to specifics)",
+          "anchor": "anti-patterns",
+          "line": 73
+        }
+      ]
+    },
+    {
+      "id": "patterns/iterative-refinement",
+      "title": "Iterative Refinement",
+      "status": "ratified",
+      "url": "https://stablekernel.github.io/SHRINE/patterns/iterative-refinement/",
+      "anti_patterns": [
+        {
+          "entry_id": "patterns/iterative-refinement#23db1eff70",
+          "text": "Infinite loops (no stopping criteria)",
+          "anchor": "anti-patterns",
+          "line": 57
+        },
+        {
+          "entry_id": "patterns/iterative-refinement#7088677171",
+          "text": "Passes that undo each other's work",
+          "anchor": "anti-patterns",
+          "line": 58
+        },
+        {
+          "entry_id": "patterns/iterative-refinement#dfcc3e4973",
+          "text": "Refining when the first draft was already good enough",
+          "anchor": "anti-patterns",
+          "line": 59
+        },
+        {
+          "entry_id": "patterns/iterative-refinement#fd89d5dd3d",
+          "text": "Over-polishing low-stakes output",
+          "anchor": "anti-patterns",
+          "line": 60
+        }
+      ]
+    },
+    {
+      "id": "patterns/mechanical-scaffolding",
+      "title": "Mechanical Scaffolding",
+      "status": "ratified",
+      "url": "https://stablekernel.github.io/SHRINE/patterns/mechanical-scaffolding/",
+      "anti_patterns": [
+        {
+          "entry_id": "patterns/mechanical-scaffolding#4551d40477",
+          "text": "Scaffold drifts from the target schema: the destination adds or renames a field and the scaffold keeps emitting the old shape; test the scaffold against the real schema",
+          "anchor": "anti-patterns",
+          "line": 123
+        },
+        {
+          "entry_id": "patterns/mechanical-scaffolding#b8d4826c4b",
+          "text": "Validation duplicated in prompt and code: the two copies disagree over time; keep rules in code and send only failures back to the model",
+          "anchor": "anti-patterns",
+          "line": 124
+        },
+        {
+          "entry_id": "patterns/mechanical-scaffolding#c2762fe833",
+          "text": "Over-scaffolding exploratory work: locking a format before it is understood forces bad structure; scaffold after the shape repeats",
+          "anchor": "anti-patterns",
+          "line": 125
+        }
+      ]
+    },
+    {
+      "id": "patterns/multi-model-consensus",
+      "title": "Multi-Model Consensus",
+      "status": "ratified",
+      "url": "https://stablekernel.github.io/SHRINE/patterns/multi-model-consensus/",
+      "anti_patterns": [
+        {
+          "entry_id": "patterns/multi-model-consensus#72f61f21ce",
+          "text": "Using consensus to avoid thinking (\"they all agreed, must be right\")",
+          "anchor": "anti-patterns",
+          "line": 55
+        },
+        {
+          "entry_id": "patterns/multi-model-consensus#03ff32928f",
+          "text": "Ignoring the dissenting model when two agree and one doesn't",
+          "anchor": "anti-patterns",
+          "line": 56
+        },
+        {
+          "entry_id": "patterns/multi-model-consensus#9ae624349e",
+          "text": "Running consensus on tasks where models share the same blind spots",
+          "anchor": "anti-patterns",
+          "line": 57
+        }
+      ]
+    },
+    {
+      "id": "patterns/pipeline-orchestration",
+      "title": "Pipeline Orchestration",
+      "status": "ratified",
+      "url": "https://stablekernel.github.io/SHRINE/patterns/pipeline-orchestration/",
+      "anti_patterns": [
+        {
+          "entry_id": "patterns/pipeline-orchestration#6e11c2dcd2",
+          "text": "No gates: a bad spec flows into a bad implementation that passes its own weak checks; errors compound downstream",
+          "anchor": "anti-patterns",
+          "line": 85
+        },
+        {
+          "entry_id": "patterns/pipeline-orchestration#32824dd996",
+          "text": "No resumability: a stage-4 failure restarts from stage 1 and repays every token",
+          "anchor": "anti-patterns",
+          "line": 86
+        },
+        {
+          "entry_id": "patterns/pipeline-orchestration#af06f96bb8",
+          "text": "Coupled stages: one stage cannot run without the internals of another",
+          "anchor": "anti-patterns",
+          "line": 87
+        },
+        {
+          "entry_id": "patterns/pipeline-orchestration#1e98da07d8",
+          "text": "Monolithic stages: a \"do everything\" stage hides which part failed",
+          "anchor": "anti-patterns",
+          "line": 88
+        },
+        {
+          "entry_id": "patterns/pipeline-orchestration#8dae699f93",
+          "text": "Gates that always pass: a check nobody has seen fail proves nothing",
+          "anchor": "anti-patterns",
+          "line": 89
+        }
+      ]
+    },
+    {
+      "id": "patterns/progress-breadcrumbs",
+      "title": "Progress Breadcrumbs",
+      "status": "ratified",
+      "url": "https://stablekernel.github.io/SHRINE/patterns/progress-breadcrumbs/",
+      "anti_patterns": [
+        {
+          "entry_id": "patterns/progress-breadcrumbs#c8e1f83249",
+          "text": "Status that lives only in chat scrollback",
+          "anchor": "anti-patterns",
+          "line": 86
+        },
+        {
+          "entry_id": "patterns/progress-breadcrumbs#241ef7abc1",
+          "text": "One giant comment at the end instead of one per step",
+          "anchor": "anti-patterns",
+          "line": 87
+        },
+        {
+          "entry_id": "patterns/progress-breadcrumbs#c548bd9fd5",
+          "text": "Breadcrumbs without evidence: \"done\" with no command, run, or commit",
+          "anchor": "anti-patterns",
+          "line": 88
+        },
+        {
+          "entry_id": "patterns/progress-breadcrumbs#21e29ddff6",
+          "text": "Log spam: every tool call posted as a comment",
+          "anchor": "anti-patterns",
+          "line": 89
+        },
+        {
+          "entry_id": "patterns/progress-breadcrumbs#1709eb9863",
+          "text": "Secrets, credentials, or personal data in comments",
+          "anchor": "anti-patterns",
+          "line": 90
+        },
+        {
+          "entry_id": "patterns/progress-breadcrumbs#5640c9c01e",
+          "text": "A trail that says Done while the branch is red",
+          "anchor": "anti-patterns",
+          "line": 91
+        },
+        {
+          "entry_id": "patterns/progress-breadcrumbs#220f4055fb",
+          "text": "The agent editing cards it does not own",
+          "anchor": "anti-patterns",
+          "line": 92
+        }
+      ]
+    },
+    {
+      "id": "patterns/prompt-regression",
+      "title": "Prompt Regression Testing",
+      "status": "ratified",
+      "url": "https://stablekernel.github.io/SHRINE/patterns/prompt-regression/",
+      "anti_patterns": [
+        {
+          "entry_id": "patterns/prompt-regression#44f1c0635d",
+          "text": "Testing only the happy path",
+          "anchor": "anti-patterns",
+          "line": 110
+        },
+        {
+          "entry_id": "patterns/prompt-regression#958b79a1dc",
+          "text": "Exact string matching on free prose",
+          "anchor": "anti-patterns",
+          "line": 111
+        },
+        {
+          "entry_id": "patterns/prompt-regression#14addf04b4",
+          "text": "Single runs on nondeterministic output",
+          "anchor": "anti-patterns",
+          "line": 112
+        },
+        {
+          "entry_id": "patterns/prompt-regression#724eeb6268",
+          "text": "No baseline (cannot tell if a change helped or hurt)",
+          "anchor": "anti-patterns",
+          "line": 113
+        },
+        {
+          "entry_id": "patterns/prompt-regression#ba25cd4107",
+          "text": "Running tests only manually",
+          "anchor": "anti-patterns",
+          "line": 114
+        }
+      ]
+    },
+    {
+      "id": "patterns/rag",
+      "title": "RAG (Retrieval-Augmented Generation)",
+      "status": "ratified",
+      "url": "https://stablekernel.github.io/SHRINE/patterns/rag/",
+      "anti_patterns": [
+        {
+          "entry_id": "patterns/rag#6921b56427",
+          "text": "Retrieving too much (floods context, buries signal)",
+          "anchor": "anti-patterns",
+          "line": 52
+        },
+        {
+          "entry_id": "patterns/rag#8a12c0fe16",
+          "text": "Retrieving irrelevant content (model tries to use it anyway)",
+          "anchor": "anti-patterns",
+          "line": 53
+        },
+        {
+          "entry_id": "patterns/rag#e414341937",
+          "text": "Not testing retrieval (generation fails silently on bad retrieval)",
+          "anchor": "anti-patterns",
+          "line": 54
+        },
+        {
+          "entry_id": "patterns/rag#d331895c51",
+          "text": "Assuming RAG fixes hallucination (it reduces, doesn't eliminate)",
+          "anchor": "anti-patterns",
+          "line": 55
+        }
+      ]
+    },
+    {
+      "id": "patterns/reviewable-output",
+      "title": "Reviewable Output",
+      "status": "ratified",
+      "url": "https://stablekernel.github.io/SHRINE/patterns/reviewable-output/",
+      "anti_patterns": [
+        {
+          "entry_id": "patterns/reviewable-output#6e31f78336",
+          "text": "One diff that mixes a refactor with a behavior change",
+          "anchor": "anti-patterns",
+          "line": 72
+        },
+        {
+          "entry_id": "patterns/reviewable-output#3acd6e83da",
+          "text": "\"Tests pass\" with no command or output",
+          "anchor": "anti-patterns",
+          "line": 73
+        },
+        {
+          "entry_id": "patterns/reviewable-output#5c7bf8cfd2",
+          "text": "Human review spent on formatting that a linter owns",
+          "anchor": "anti-patterns",
+          "line": 74
+        },
+        {
+          "entry_id": "patterns/reviewable-output#8694f7c154",
+          "text": "Reviewing the implementation before anyone approved the plan",
+          "anchor": "anti-patterns",
+          "line": 75
+        }
+      ]
+    },
+    {
+      "id": "patterns/self-critique",
+      "title": "Self-Critique",
+      "status": "ratified",
+      "url": "https://stablekernel.github.io/SHRINE/patterns/self-critique/",
+      "anti_patterns": [
+        {
+          "entry_id": "patterns/self-critique#c6aeb80d80",
+          "text": "\"Is this good?\" as the critique prompt: the critique praises the output or lists generic tweaks",
+          "anchor": "anti-patterns",
+          "line": 83
+        },
+        {
+          "entry_id": "patterns/self-critique#56dc29008f",
+          "text": "Self-critique of reasoning with no external signal: the revision flips a correct answer",
+          "anchor": "anti-patterns",
+          "line": 84
+        },
+        {
+          "entry_id": "patterns/self-critique#866f403042",
+          "text": "Revisions not tied to a failed item: the rewrite changes things no finding named",
+          "anchor": "anti-patterns",
+          "line": 85
+        },
+        {
+          "entry_id": "patterns/self-critique#6c096f9b85",
+          "text": "Self-critique as the only gate on high-stakes output: the model's blind spots about its own errors ship unchecked",
+          "anchor": "anti-patterns",
+          "line": 86
+        }
+      ]
+    },
+    {
+      "id": "patterns/spec-then-build",
+      "title": "Spec, Then Build",
+      "status": "ratified",
+      "url": "https://stablekernel.github.io/SHRINE/patterns/spec-then-build/",
+      "anti_patterns": [
+        {
+          "entry_id": "patterns/spec-then-build#860578c483",
+          "text": "\"Make it work\" as the only criterion",
+          "anchor": "anti-patterns",
+          "line": 106
+        },
+        {
+          "entry_id": "patterns/spec-then-build#a931d25735",
+          "text": "Spec prescribes the implementation instead of the problem",
+          "anchor": "anti-patterns",
+          "line": 107
+        },
+        {
+          "entry_id": "patterns/spec-then-build#7d81ca0b8f",
+          "text": "Skipping plan review, then steering by correction in chat",
+          "anchor": "anti-patterns",
+          "line": 108
+        },
+        {
+          "entry_id": "patterns/spec-then-build#088358de39",
+          "text": "Plan written once, or kept only in chat",
+          "anchor": "anti-patterns",
+          "line": 109
+        }
+      ]
+    },
+    {
+      "id": "patterns/step-level-routing",
+      "title": "Step-Level Routing",
+      "status": "ratified",
+      "url": "https://stablekernel.github.io/SHRINE/patterns/step-level-routing/",
+      "anti_patterns": [
+        {
+          "entry_id": "patterns/step-level-routing#cadc7f35b5",
+          "text": "Optimizing per-call price while total cost per outcome rises",
+          "anchor": "anti-patterns",
+          "line": 82
+        },
+        {
+          "entry_id": "patterns/step-level-routing#b2871f7dd5",
+          "text": "Switching models every step and paying for cold caches",
+          "anchor": "anti-patterns",
+          "line": 83
+        },
+        {
+          "entry_id": "patterns/step-level-routing#c3861a0b9b",
+          "text": "Flipping top-level effort every step; Anthropic advises holding it constant within a cached conversation (Anthropic effort docs)",
+          "anchor": "anti-patterns",
+          "line": 84
+        },
+        {
+          "entry_id": "patterns/step-level-routing#1ce1d33c52",
+          "text": "Where the model supports it, change effort per message instead; that keeps the prompt cache",
+          "anchor": "anti-patterns",
+          "line": 85
+        },
+        {
+          "entry_id": "patterns/step-level-routing#cdd9b65ad9",
+          "text": "Routing on input length instead of step type",
+          "anchor": "anti-patterns",
+          "line": 86
+        },
+        {
+          "entry_id": "patterns/step-level-routing#8856136218",
+          "text": "Context loss on handoff: the summary passed to the next model drops the constraint that mattered; see Context Handoff",
+          "anchor": "anti-patterns",
+          "line": 87
+        }
+      ]
+    },
+    {
+      "id": "patterns/structured-output",
+      "title": "Structured Output",
+      "status": "ratified",
+      "url": "https://stablekernel.github.io/SHRINE/patterns/structured-output/",
+      "anti_patterns": [
+        {
+          "entry_id": "patterns/structured-output#bd578b8b05",
+          "text": "Over-complicated schemas that are hard to fill correctly and hard to debug",
+          "anchor": "anti-patterns",
+          "line": 96
+        },
+        {
+          "entry_id": "patterns/structured-output#324e012dad",
+          "text": "No validation on parse (trusting without checking)",
+          "anchor": "anti-patterns",
+          "line": 97
+        },
+        {
+          "entry_id": "patterns/structured-output#8260a289ae",
+          "text": "Treating a schema-valid response as a correct response",
+          "anchor": "anti-patterns",
+          "line": 98
+        },
+        {
+          "entry_id": "patterns/structured-output#301bc28def",
+          "text": "Forcing structure where prose would be clearer",
+          "anchor": "anti-patterns",
+          "line": 99
+        }
+      ]
+    },
+    {
+      "id": "patterns/subagent-fanout",
+      "title": "Subagent Fanout",
+      "status": "ratified",
+      "url": "https://stablekernel.github.io/SHRINE/patterns/subagent-fanout/",
+      "anti_patterns": [
+        {
+          "entry_id": "patterns/subagent-fanout#d58c1dbfe8",
+          "text": "Trusting summaries over artifacts: a subagent says \"tests pass\"; check the exit code or the file",
+          "anchor": "anti-patterns",
+          "line": 72
+        },
+        {
+          "entry_id": "patterns/subagent-fanout#c2c091eb45",
+          "text": "Agents sharing a branch: parallel edits collide; give each writer its own worktree or keep writers to one",
+          "anchor": "anti-patterns",
+          "line": 73
+        },
+        {
+          "entry_id": "patterns/subagent-fanout#182dfba067",
+          "text": "Coordinator re-reads everything: this cancels the context win; spot-check cited evidence instead",
+          "anchor": "anti-patterns",
+          "line": 74
+        },
+        {
+          "entry_id": "patterns/subagent-fanout#944d223f2c",
+          "text": "No partial-failure plan: one failed slice should re-run alone, not restart the fanout",
+          "anchor": "anti-patterns",
+          "line": 75
+        },
+        {
+          "entry_id": "patterns/subagent-fanout#4112fa5859",
+          "text": "Fanout by habit: spawning agents for work one thread would finish sooner",
+          "anchor": "anti-patterns",
+          "line": 76
+        }
+      ]
+    },
+    {
+      "id": "patterns/task-routing",
+      "title": "Task Routing",
+      "status": "ratified",
+      "url": "https://stablekernel.github.io/SHRINE/patterns/task-routing/",
+      "anti_patterns": [
+        {
+          "entry_id": "patterns/task-routing#c8d619925b",
+          "text": "Biggest model for everything (cost explosion)",
+          "anchor": "anti-patterns",
+          "line": 106
+        },
+        {
+          "entry_id": "patterns/task-routing#7e9edf2b05",
+          "text": "Cheapest model for everything (quality collapse)",
+          "anchor": "anti-patterns",
+          "line": 107
+        },
+        {
+          "entry_id": "patterns/task-routing#f43edfe3a4",
+          "text": "Routing on input length instead of task complexity",
+          "anchor": "anti-patterns",
+          "line": 108
+        },
+        {
+          "entry_id": "patterns/task-routing#dc667d5b15",
+          "text": "Product IDs scattered through code, so model changes need a code search",
+          "anchor": "anti-patterns",
+          "line": 109
+        },
+        {
+          "entry_id": "patterns/task-routing#08973e5b7f",
+          "text": "No fallback when the preferred model is unavailable",
+          "anchor": "anti-patterns",
+          "line": 110
+        }
+      ]
+    },
+    {
+      "id": "patterns/unattended-runs",
+      "title": "Unattended Runs",
+      "status": "ratified",
+      "url": "https://stablekernel.github.io/SHRINE/patterns/unattended-runs/",
+      "anti_patterns": [
+        {
+          "entry_id": "patterns/unattended-runs#8ac0b7da43",
+          "text": "No stop condition",
+          "anchor": "anti-patterns",
+          "line": 90
+        },
+        {
+          "entry_id": "patterns/unattended-runs#268f3f9ae6",
+          "text": "Uncapped retries",
+          "anchor": "anti-patterns",
+          "line": 91
+        },
+        {
+          "entry_id": "patterns/unattended-runs#f21e0c1514",
+          "text": "Checking in every ten minutes",
+          "anchor": "anti-patterns",
+          "line": 92
+        },
+        {
+          "entry_id": "patterns/unattended-runs#18943ab303",
+          "text": "Treating the timebox as a delivery deadline: the run stops at the cap, finished or not",
+          "anchor": "anti-patterns",
+          "line": 93
+        }
+      ]
+    },
+    {
+      "id": "patterns/verification-loops",
+      "title": "Verification Loops",
+      "status": "ratified",
+      "url": "https://stablekernel.github.io/SHRINE/patterns/verification-loops/",
+      "anti_patterns": [
+        {
+          "entry_id": "patterns/verification-loops#87ad7bf1f4",
+          "text": "The loop edits the test until it passes",
+          "anchor": "anti-patterns",
+          "line": 101
+        },
+        {
+          "entry_id": "patterns/verification-loops#45173c6cc2",
+          "text": "Error output truncated, so the model repairs the wrong thing",
+          "anchor": "anti-patterns",
+          "line": 102
+        },
+        {
+          "entry_id": "patterns/verification-loops#958f8867e5",
+          "text": "The prompt grows every iteration; send the latest failure, not the history",
+          "anchor": "anti-patterns",
+          "line": 103
+        }
+      ]
+    }
+  ],
+  "stack": [
+    {
+      "id": "stack/agent-architecture",
+      "title": "Agent Architecture & Orchestration",
+      "status": "draft",
+      "url": "https://stablekernel.github.io/SHRINE/stack/agent-architecture/",
+      "anti_patterns": [
+        {
+          "entry_id": "stack/agent-architecture#4675774cc3",
+          "text": "One mega-agent with an ever-growing prompt instead of decomposition",
+          "anchor": "anti-patterns",
+          "line": 46
+        },
+        {
+          "entry_id": "stack/agent-architecture#542338d197",
+          "text": "Trusting subagent reports without inspecting outputs",
+          "anchor": "anti-patterns",
+          "line": 47
+        },
+        {
+          "entry_id": "stack/agent-architecture#83e10e4d38",
+          "text": "Parallel agents sharing a branch or file and merging by hope",
+          "anchor": "anti-patterns",
+          "line": 48
+        },
+        {
+          "entry_id": "stack/agent-architecture#6c92e98574",
+          "text": "Orchestrator doing the work itself, burning the coordination context",
+          "anchor": "anti-patterns",
+          "line": 49
+        }
+      ]
+    },
+    {
+      "id": "stack/cost-management",
+      "title": "Cost Management",
+      "status": "draft",
+      "url": "https://stablekernel.github.io/SHRINE/stack/cost-management/",
+      "anti_patterns": [
+        {
+          "entry_id": "stack/cost-management#d05d630af7",
+          "text": "Optimizing cost without measuring value (TTV)",
+          "anchor": "anti-patterns",
+          "line": 68
+        },
+        {
+          "entry_id": "stack/cost-management#5a83865d61",
+          "text": "No visibility into spend breakdown",
+          "anchor": "anti-patterns",
+          "line": 69
+        },
+        {
+          "entry_id": "stack/cost-management#482a0e9a73",
+          "text": "Hard limits that break critical paths",
+          "anchor": "anti-patterns",
+          "line": 70
+        },
+        {
+          "entry_id": "stack/cost-management#b4dea52a8b",
+          "text": "Ignoring cost until the bill arrives",
+          "anchor": "anti-patterns",
+          "line": 71
+        },
+        {
+          "entry_id": "stack/cost-management#86a2634dcd",
+          "text": "Cutting tokens while human attention per win rises",
+          "anchor": "anti-patterns",
+          "line": 72
+        }
+      ]
+    },
+    {
+      "id": "stack/evaluation",
+      "title": "Evaluation & Benchmarking",
+      "status": "draft",
+      "url": "https://stablekernel.github.io/SHRINE/stack/evaluation/",
+      "anti_patterns": [
+        {
+          "entry_id": "stack/evaluation#0970848303",
+          "text": "Vanity metrics (measuring what's easy, not what matters)",
+          "anchor": "anti-patterns",
+          "line": 138
+        },
+        {
+          "entry_id": "stack/evaluation#f77061617f",
+          "text": "No baseline (can't tell if you're improving)",
+          "anchor": "anti-patterns",
+          "line": 139
+        },
+        {
+          "entry_id": "stack/evaluation#eb7bb900a5",
+          "text": "Evaluating once (things drift)",
+          "anchor": "anti-patterns",
+          "line": 140
+        },
+        {
+          "entry_id": "stack/evaluation#fd25a0199a",
+          "text": "Over-fitting to evals (gaming the metric)",
+          "anchor": "anti-patterns",
+          "line": 141
+        },
+        {
+          "entry_id": "stack/evaluation#1bb4aaf8ab",
+          "text": "Trusting a score without reading transcripts",
+          "anchor": "anti-patterns",
+          "line": 142
+        }
+      ]
+    },
+    {
+      "id": "stack/harness",
+      "title": "Harness Selection",
+      "status": "draft",
+      "url": "https://stablekernel.github.io/SHRINE/stack/harness/",
+      "anti_patterns": [
+        {
+          "entry_id": "stack/harness#66f5591777",
+          "text": "Choosing based on hype rather than fit",
+          "anchor": "anti-patterns",
+          "line": 48
+        },
+        {
+          "entry_id": "stack/harness#b6bb074278",
+          "text": "Switching harnesses without migrating skills/patterns",
+          "anchor": "anti-patterns",
+          "line": 49
+        },
+        {
+          "entry_id": "stack/harness#07fd133e3f",
+          "text": "Over-customizing to the point of lock-in",
+          "anchor": "anti-patterns",
+          "line": 50
+        },
+        {
+          "entry_id": "harness.ap.under-investing",
+          "text": "Under-investing in harness proficiency",
+          "anchor": "anti-patterns",
+          "line": 51
+        }
+      ]
+    },
+    {
+      "id": "stack/memory",
+      "title": "Memory & Context Management",
+      "status": "draft",
+      "url": "https://stablekernel.github.io/SHRINE/stack/memory/",
+      "anti_patterns": [
+        {
+          "entry_id": "stack/memory#d810375e07",
+          "text": "Dumping whole files or logs into context \"just in case\"",
+          "anchor": "anti-patterns",
+          "line": 60
+        },
+        {
+          "entry_id": "stack/memory#257cfa6454",
+          "text": "Persisting facts that drift (line numbers, versions) instead of durable methods",
+          "anchor": "anti-patterns",
+          "line": 61
+        },
+        {
+          "entry_id": "stack/memory#5858a30377",
+          "text": "One giant memory file nobody reads instead of small, titled, searchable entries",
+          "anchor": "anti-patterns",
+          "line": 62
+        },
+        {
+          "entry_id": "stack/memory#56f509b5af",
+          "text": "Treating compaction/truncation as free; it silently discards what you needed",
+          "anchor": "anti-patterns",
+          "line": 63
+        },
+        {
+          "entry_id": "stack/memory#08c9e26cc6",
+          "text": "Fixing a miss by adding context without removing the line that caused it",
+          "anchor": "anti-patterns",
+          "line": 64
+        },
+        {
+          "entry_id": "memory.ap.instruction-file-grows",
+          "text": "A standing instruction file that only grows",
+          "anchor": "anti-patterns",
+          "line": 65
+        }
+      ]
+    },
+    {
+      "id": "stack/models",
+      "title": "Model Selection & Routing",
+      "status": "draft",
+      "url": "https://stablekernel.github.io/SHRINE/stack/models/",
+      "anti_patterns": [
+        {
+          "entry_id": "stack/models#81dc251712",
+          "text": "Defaulting to the biggest model by habit",
+          "anchor": "anti-patterns",
+          "line": 72
+        },
+        {
+          "entry_id": "stack/models#8d237c5c51",
+          "text": "One model for every step of a long trajectory",
+          "anchor": "anti-patterns",
+          "line": 73
+        },
+        {
+          "entry_id": "stack/models#c401d6475d",
+          "text": "Choosing on per-call price or public leaderboards alone",
+          "anchor": "anti-patterns",
+          "line": 74
+        },
+        {
+          "entry_id": "stack/models#08973e5b7f",
+          "text": "No fallback when the preferred model is unavailable",
+          "anchor": "anti-patterns",
+          "line": 75
+        },
+        {
+          "entry_id": "stack/models#d3ef3672f4",
+          "text": "Calling a floating model alias the provider can update, then chasing a regression nobody logged",
+          "anchor": "anti-patterns",
+          "line": 76
+        }
+      ]
+    },
+    {
+      "id": "stack/observability",
+      "title": "Observability & Logging",
+      "status": "draft",
+      "url": "https://stablekernel.github.io/SHRINE/stack/observability/",
+      "anti_patterns": [
+        {
+          "entry_id": "stack/observability#6ff468906c",
+          "text": "Logging everything (cost, privacy, noise)",
+          "anchor": "anti-patterns",
+          "line": 76
+        },
+        {
+          "entry_id": "stack/observability#13b3faecf6",
+          "text": "Logging nothing (flying blind)",
+          "anchor": "anti-patterns",
+          "line": 77
+        },
+        {
+          "entry_id": "stack/observability#6ff1924e00",
+          "text": "No correlation IDs (can't trace across services)",
+          "anchor": "anti-patterns",
+          "line": 78
+        },
+        {
+          "entry_id": "stack/observability#bdb74223af",
+          "text": "Ignoring the logs you have",
+          "anchor": "anti-patterns",
+          "line": 79
+        },
+        {
+          "entry_id": "stack/observability#c0e7e4785f",
+          "text": "Logging tokens with no outcome ID (cost you cannot tie to a win)",
+          "anchor": "anti-patterns",
+          "line": 80
+        },
+        {
+          "entry_id": "stack/observability#407253e35f",
+          "text": "Traces nobody reads",
+          "anchor": "anti-patterns",
+          "line": 81
+        }
+      ]
+    },
+    {
+      "id": "stack/repository-context",
+      "title": "Repository Context",
+      "status": "draft",
+      "url": "https://stablekernel.github.io/SHRINE/stack/repository-context/",
+      "anti_patterns": [
+        {
+          "entry_id": "stack/repository-context#faf0d7dbdf",
+          "text": "Storing session decisions in the code index, or code structure in memory",
+          "anchor": "anti-patterns",
+          "line": 42
+        },
+        {
+          "entry_id": "stack/repository-context#5721ef77fb",
+          "text": "Dumping the full repo map into every prompt regardless of task",
+          "anchor": "anti-patterns",
+          "line": 43
+        },
+        {
+          "entry_id": "stack/repository-context#2b4cfcf19a",
+          "text": "Trusting an index that has not been refreshed since the last large change",
+          "anchor": "anti-patterns",
+          "line": 44
+        }
+      ]
+    },
+    {
+      "id": "stack/skills",
+      "title": "Skills & Prompts",
+      "status": "draft",
+      "url": "https://stablekernel.github.io/SHRINE/stack/skills/",
+      "anti_patterns": [
+        {
+          "entry_id": "stack/skills#4a060b75b6",
+          "text": "Skills that duplicate what the model already does well on its own",
+          "anchor": "anti-patterns",
+          "line": 42
+        },
+        {
+          "entry_id": "stack/skills#0169c5e29e",
+          "text": "Prompt archaeology: nobody knows why a clause is there, so nobody removes it",
+          "anchor": "anti-patterns",
+          "line": 43
+        },
+        {
+          "entry_id": "stack/skills#ec79fb8bfa",
+          "text": "Untested skills trusted because they worked once",
+          "anchor": "anti-patterns",
+          "line": 44
+        },
+        {
+          "entry_id": "stack/skills#a89f545e47",
+          "text": "A skill library that grows but never shrinks",
+          "anchor": "anti-patterns",
+          "line": 45
+        }
+      ]
+    },
+    {
+      "id": "stack/tool-integration",
+      "title": "Tool Integration",
+      "status": "draft",
+      "url": "https://stablekernel.github.io/SHRINE/stack/tool-integration/",
+      "anti_patterns": [
+        {
+          "entry_id": "stack/tool-integration#a75854ecf7",
+          "text": "Too many tools loaded at once (model gets confused, context fills)",
+          "anchor": "anti-patterns",
+          "line": 72
+        },
+        {
+          "entry_id": "stack/tool-integration#1c3c019818",
+          "text": "Vague tool descriptions",
+          "anchor": "anti-patterns",
+          "line": 73
+        },
+        {
+          "entry_id": "stack/tool-integration#cd76d769ab",
+          "text": "No error handling, or errors the model cannot act on",
+          "anchor": "anti-patterns",
+          "line": 74
+        },
+        {
+          "entry_id": "stack/tool-integration#f11b99439d",
+          "text": "Trusting tool output without validation",
+          "anchor": "anti-patterns",
+          "line": 75
+        },
+        {
+          "entry_id": "stack/tool-integration#64c1fa3d96",
+          "text": "One broad credential shared by read and write tools",
+          "anchor": "anti-patterns",
+          "line": 76
+        },
+        {
+          "entry_id": "tool-integration.ap.no-approval-step",
+          "text": "Outward-facing actions with no approval step",
+          "anchor": "anti-patterns",
+          "line": 77
+        }
+      ]
+    }
+  ],
+  "anti_patterns": [
+    {
+      "entry_id": "reference/anti-patterns#b7ca8290a6",
+      "group": "Correction Loops",
+      "symptom": "Same correction, again and again",
+      "anti_pattern": "Steering by chat correction",
+      "fix_links": [
+        {
+          "page_id": "patterns/correction-diagnosis",
+          "anchor": "anti-patterns"
+        }
+      ],
+      "anchor": "correction-loops",
+      "line": 16
+    },
+    {
+      "entry_id": "reference/anti-patterns#cdb5e4cff0",
+      "group": "Correction Loops",
+      "symptom": "Twenty turns of \"no, not like that\"",
+      "anti_pattern": "Prescribing before stating constraints",
+      "fix_links": [
+        {
+          "page_id": "principles/problem-before-prescription",
+          "anchor": "signal-of-violation"
+        }
+      ],
+      "anchor": "correction-loops",
+      "line": 17
+    },
+    {
+      "entry_id": "reference/anti-patterns#fc327fa254",
+      "group": "Correction Loops",
+      "symptom": "Solved the wrong problem",
+      "anti_pattern": "No problem statement or constraints; verifying first, framing never",
+      "fix_links": [
+        {
+          "page_id": "principles/problem-before-prescription",
+          "anchor": ""
+        },
+        {
+          "page_id": "patterns/correction-diagnosis",
+          "anchor": "anti-patterns"
+        },
+        {
+          "page_id": "patterns/correction-diagnosis",
+          "anchor": "cause-chain"
+        }
+      ],
+      "anchor": "correction-loops",
+      "line": 18
+    },
+    {
+      "entry_id": "reference/anti-patterns#8a9e70dddb",
+      "group": "Correction Loops",
+      "symptom": "Wandered mid-task",
+      "anti_pattern": "No plan review or milestone",
+      "fix_links": [
+        {
+          "page_id": "patterns/spec-then-build",
+          "anchor": "anti-patterns"
+        },
+        {
+          "page_id": "patterns/correction-diagnosis",
+          "anchor": "cause-chain"
+        }
+      ],
+      "anchor": "correction-loops",
+      "line": 19
+    },
+    {
+      "entry_id": "reference/anti-patterns#193a966776",
+      "group": "Correction Loops",
+      "symptom": "No check can say the work is done",
+      "anti_pattern": "\"Make it work\" as the only criterion",
+      "fix_links": [
+        {
+          "page_id": "patterns/spec-then-build",
+          "anchor": "anti-patterns"
+        }
+      ],
+      "anchor": "correction-loops",
+      "line": 20
+    },
+    {
+      "entry_id": "reference/anti-patterns#146c5bbf2e",
+      "group": "Correction Loops",
+      "symptom": "Prompt grows while misses recur",
+      "anti_pattern": "Tuning the prompt over an inconsistent codebase; adding context to fix a context problem",
+      "fix_links": [
+        {
+          "page_id": "principles/consistency-as-leverage",
+          "anchor": "signal-of-violation"
+        },
+        {
+          "page_id": "patterns/correction-diagnosis",
+          "anchor": "anti-patterns"
+        },
+        {
+          "page_id": "stack/memory",
+          "anchor": "anti-patterns"
+        }
+      ],
+      "anchor": "correction-loops",
+      "line": 21
+    },
+    {
+      "entry_id": "reference/anti-patterns#06b3a386fe",
+      "group": "Correction Loops",
+      "symptom": "The same miss on the second attempt",
+      "anti_pattern": "Re-rolling a systematic miss",
+      "fix_links": [
+        {
+          "page_id": "principles/fail-fast-recover-smart",
+          "anchor": "signal-of-violation"
+        }
+      ],
+      "anchor": "correction-loops",
+      "line": 22
+    },
+    {
+      "entry_id": "reference/anti-patterns#7f447a5abd",
+      "group": "Correction Loops",
+      "symptom": "Refinement never ends",
+      "anti_pattern": "No stopping criteria",
+      "fix_links": [
+        {
+          "page_id": "patterns/iterative-refinement",
+          "anchor": "anti-patterns"
+        }
+      ],
+      "anchor": "correction-loops",
+      "line": 23
+    },
+    {
+      "entry_id": "reference/anti-patterns#242c93d00d",
+      "group": "Correction Loops",
+      "symptom": "Each pass reverses the last one",
+      "anti_pattern": "Passes that undo each other's work",
+      "fix_links": [
+        {
+          "page_id": "patterns/iterative-refinement",
+          "anchor": "anti-patterns"
+        }
+      ],
+      "anchor": "correction-loops",
+      "line": 24
+    },
+    {
+      "entry_id": "reference/anti-patterns#5ea21a478f",
+      "group": "Correction Loops",
+      "symptom": "Wrong format or style",
+      "anti_pattern": "No exemplar to mirror",
+      "fix_links": [
+        {
+          "page_id": "patterns/few-shot-examples",
+          "anchor": ""
+        },
+        {
+          "page_id": "patterns/structured-output",
+          "anchor": ""
+        },
+        {
+          "page_id": "patterns/correction-diagnosis",
+          "anchor": "cause-chain"
+        }
+      ],
+      "anchor": "correction-loops",
+      "line": 25
+    },
+    {
+      "entry_id": "reference/anti-patterns#647f4cabe1",
+      "group": "Correction Loops",
+      "symptom": "Shallow answers on hard steps",
+      "anti_pattern": "Tier too small for the step",
+      "fix_links": [
+        {
+          "page_id": "patterns/chain-of-thought",
+          "anchor": ""
+        },
+        {
+          "page_id": "patterns/step-level-routing",
+          "anchor": ""
+        },
+        {
+          "page_id": "patterns/correction-diagnosis",
+          "anchor": "cause-chain"
+        }
+      ],
+      "anchor": "correction-loops",
+      "line": 26
+    },
+    {
+      "entry_id": "reference/anti-patterns#b6f4df5327",
+      "group": "Correction Loops",
+      "symptom": "Model over-fits to specifics",
+      "anti_pattern": "Examples that are too similar",
+      "fix_links": [
+        {
+          "page_id": "patterns/few-shot-examples",
+          "anchor": "anti-patterns"
+        }
+      ],
+      "anchor": "correction-loops",
+      "line": 27
+    },
+    {
+      "entry_id": "reference/anti-patterns#12cdbb8de3",
+      "group": "Correction Loops",
+      "symptom": "Diminishing returns; context waste",
+      "anti_pattern": "Too many examples",
+      "fix_links": [
+        {
+          "page_id": "patterns/few-shot-examples",
+          "anchor": "anti-patterns"
+        }
+      ],
+      "anchor": "correction-loops",
+      "line": 28
+    },
+    {
+      "entry_id": "reference/anti-patterns#504909246a",
+      "group": "Context and Memory",
+      "symptom": "Context fills; signal gets buried",
+      "anti_pattern": "Dumping whole files or logs \"just in case\"",
+      "fix_links": [
+        {
+          "page_id": "stack/memory",
+          "anchor": "anti-patterns"
+        }
+      ],
+      "anchor": "context-and-memory",
+      "line": 34
+    },
+    {
+      "entry_id": "reference/anti-patterns#b8d014a151",
+      "group": "Context and Memory",
+      "symptom": "Ignored a repo convention",
+      "anti_pattern": "Convention not written down, or inconsistent",
+      "fix_links": [
+        {
+          "page_id": "principles/consistency-as-leverage",
+          "anchor": ""
+        },
+        {
+          "page_id": "patterns/correction-diagnosis",
+          "anchor": "cause-chain"
+        }
+      ],
+      "anchor": "context-and-memory",
+      "line": 35
+    },
+    {
+      "entry_id": "reference/anti-patterns#2719c061fb",
+      "group": "Context and Memory",
+      "symptom": "Output got worse after material was added",
+      "anti_pattern": "Irrelevant or conflicting context",
+      "fix_links": [
+        {
+          "page_id": "stack/memory",
+          "anchor": "in-session-context"
+        },
+        {
+          "page_id": "patterns/correction-diagnosis",
+          "anchor": "cause-chain"
+        }
+      ],
+      "anchor": "context-and-memory",
+      "line": 36
+    },
+    {
+      "entry_id": "reference/anti-patterns#cb75b05bf4",
+      "group": "Context and Memory",
+      "symptom": "Long run drifts or loses the thread",
+      "anti_pattern": "Automatic summary as the only memory",
+      "fix_links": [
+        {
+          "page_id": "patterns/context-handoff",
+          "anchor": "anti-patterns"
+        },
+        {
+          "page_id": "patterns/progress-breadcrumbs",
+          "anchor": ""
+        }
+      ],
+      "anchor": "context-and-memory",
+      "line": 37
+    },
+    {
+      "entry_id": "reference/anti-patterns#1d93a21fd1",
+      "group": "Context and Memory",
+      "symptom": "Confident answers about your own data that are wrong",
+      "anti_pattern": "Relying on what the model memorized",
+      "fix_links": [
+        {
+          "page_id": "patterns/rag",
+          "anchor": ""
+        }
+      ],
+      "anchor": "context-and-memory",
+      "line": 38
+    },
+    {
+      "entry_id": "reference/anti-patterns#294769d719",
+      "group": "Context and Memory",
+      "symptom": "A constraint is lost across compaction or handoff, and the next model or session breaks it",
+      "anti_pattern": "Treating compaction as free; a handoff summary that drops a constraint",
+      "fix_links": [
+        {
+          "page_id": "stack/memory",
+          "anchor": "anti-patterns"
+        },
+        {
+          "page_id": "patterns/context-handoff",
+          "anchor": "anti-patterns"
+        },
+        {
+          "page_id": "patterns/step-level-routing",
+          "anchor": "anti-patterns"
+        }
+      ],
+      "anchor": "context-and-memory",
+      "line": 39
+    },
+    {
+      "entry_id": "reference/anti-patterns#9ab2750100",
+      "group": "Context and Memory",
+      "symptom": "Output quality falls as the session ages",
+      "anti_pattern": "Never resetting a drifting session",
+      "fix_links": [
+        {
+          "page_id": "patterns/correction-diagnosis",
+          "anchor": "anti-patterns"
+        }
+      ],
+      "anchor": "context-and-memory",
+      "line": 40
+    },
+    {
+      "entry_id": "reference/anti-patterns#f82e522bf8",
+      "group": "Context and Memory",
+      "symptom": "Same fix made in two sessions",
+      "anti_pattern": "Correction never captured",
+      "fix_links": [
+        {
+          "page_id": "patterns/discovery-propagation",
+          "anchor": "anti-patterns"
+        },
+        {
+          "page_id": "patterns/correction-diagnosis",
+          "anchor": "cause-chain"
+        }
+      ],
+      "anchor": "context-and-memory",
+      "line": 41
+    },
+    {
+      "entry_id": "reference/anti-patterns#25437d0202",
+      "group": "Context and Memory",
+      "symptom": "Model uses content that does not apply",
+      "anti_pattern": "Retrieving too much or irrelevant content",
+      "fix_links": [
+        {
+          "page_id": "patterns/rag",
+          "anchor": "anti-patterns"
+        }
+      ],
+      "anchor": "context-and-memory",
+      "line": 42
+    },
+    {
+      "entry_id": "reference/anti-patterns#51e25c72a9",
+      "group": "Context and Memory",
+      "symptom": "Agent cites code that has moved",
+      "anti_pattern": "Stale code index",
+      "fix_links": [
+        {
+          "page_id": "stack/repository-context",
+          "anchor": "anti-patterns"
+        }
+      ],
+      "anchor": "context-and-memory",
+      "line": 43
+    },
+    {
+      "entry_id": "reference/anti-patterns#ff3985f25a",
+      "group": "Context and Memory",
+      "symptom": "Wrong tool picked; context fills",
+      "anti_pattern": "Too many tools loaded at once",
+      "fix_links": [
+        {
+          "page_id": "stack/tool-integration",
+          "anchor": "anti-patterns"
+        }
+      ],
+      "anchor": "context-and-memory",
+      "line": 44
+    },
+    {
+      "entry_id": "reference/anti-patterns#820044d062",
+      "group": "Review and Verification",
+      "symptom": "Review finds nothing the author missed",
+      "anti_pattern": "Same agent and context generates and reviews",
+      "fix_links": [
+        {
+          "page_id": "patterns/adversarial-review",
+          "anchor": "anti-patterns"
+        }
+      ],
+      "anchor": "review-and-verification",
+      "line": 50
+    },
+    {
+      "entry_id": "reference/anti-patterns#6ddd86fd41",
+      "group": "Review and Verification",
+      "symptom": "Critique praises or lists generic tweaks",
+      "anti_pattern": "\"Is this good?\" as the critique prompt",
+      "fix_links": [
+        {
+          "page_id": "patterns/self-critique",
+          "anchor": "anti-patterns"
+        }
+      ],
+      "anchor": "review-and-verification",
+      "line": 51
+    },
+    {
+      "entry_id": "reference/anti-patterns#bda0ced971",
+      "group": "Review and Verification",
+      "symptom": "A \"tests pass\" claim that cannot be checked, or that hides a failing exit code",
+      "anti_pattern": "\"Tests pass\" with no command or output; trusting subagent summaries over artifacts",
+      "fix_links": [
+        {
+          "page_id": "patterns/reviewable-output",
+          "anchor": "anti-patterns"
+        },
+        {
+          "page_id": "patterns/subagent-fanout",
+          "anchor": "anti-patterns"
+        },
+        {
+          "page_id": "stack/agent-architecture",
+          "anchor": "anti-patterns"
+        }
+      ],
+      "anchor": "review-and-verification",
+      "line": 52
+    },
+    {
+      "entry_id": "reference/anti-patterns#1fad6e6b69",
+      "group": "Review and Verification",
+      "symptom": "Diffs too large to review",
+      "anti_pattern": "Refactor mixed with behavior change; task too large for one brief",
+      "fix_links": [
+        {
+          "page_id": "patterns/reviewable-output",
+          "anchor": "anti-patterns"
+        },
+        {
+          "page_id": "patterns/correction-diagnosis",
+          "anchor": "cause-chain"
+        }
+      ],
+      "anchor": "review-and-verification",
+      "line": 53
+    },
+    {
+      "entry_id": "reference/anti-patterns#82807f88b4",
+      "group": "Review and Verification",
+      "symptom": "Green checks, broken behavior",
+      "anti_pattern": "The loop edits the test until it passes",
+      "fix_links": [
+        {
+          "page_id": "patterns/verification-loops",
+          "anchor": "anti-patterns"
+        }
+      ],
+      "anchor": "review-and-verification",
+      "line": 54
+    },
+    {
+      "entry_id": "reference/anti-patterns#58751b75cc",
+      "group": "Review and Verification",
+      "symptom": "Plausible code that does not run",
+      "anti_pattern": "No runnable check",
+      "fix_links": [
+        {
+          "page_id": "patterns/verification-loops",
+          "anchor": ""
+        },
+        {
+          "page_id": "patterns/correction-diagnosis",
+          "anchor": "cause-chain"
+        }
+      ],
+      "anchor": "review-and-verification",
+      "line": 55
+    },
+    {
+      "entry_id": "reference/anti-patterns#27c27979d7",
+      "group": "Review and Verification",
+      "symptom": "Valid JSON with wrong values",
+      "anti_pattern": "Treating schema-valid as correct",
+      "fix_links": [
+        {
+          "page_id": "patterns/structured-output",
+          "anchor": "anti-patterns"
+        }
+      ],
+      "anchor": "review-and-verification",
+      "line": 56
+    },
+    {
+      "entry_id": "reference/anti-patterns#60ce966eb6",
+      "group": "Review and Verification",
+      "symptom": "The scaffold keeps emitting the old shape",
+      "anti_pattern": "Scaffold drifts from the target schema",
+      "fix_links": [
+        {
+          "page_id": "patterns/mechanical-scaffolding",
+          "anchor": "anti-patterns"
+        }
+      ],
+      "anchor": "review-and-verification",
+      "line": 57
+    },
+    {
+      "entry_id": "reference/anti-patterns#722b512b06",
+      "group": "Review and Verification",
+      "symptom": "The two copies disagree over time",
+      "anti_pattern": "Validation duplicated in prompt and code",
+      "fix_links": [
+        {
+          "page_id": "patterns/mechanical-scaffolding",
+          "anchor": "anti-patterns"
+        }
+      ],
+      "anchor": "review-and-verification",
+      "line": 58
+    },
+    {
+      "entry_id": "reference/anti-patterns#99cc3e3e18",
+      "group": "Review and Verification",
+      "symptom": "A check nobody has seen fail",
+      "anti_pattern": "Gates that always pass",
+      "fix_links": [
+        {
+          "page_id": "patterns/pipeline-orchestration",
+          "anchor": "anti-patterns"
+        }
+      ],
+      "anchor": "review-and-verification",
+      "line": 59
+    },
+    {
+      "entry_id": "reference/anti-patterns#08921bb2e4",
+      "group": "Review and Verification",
+      "symptom": "Agreement accepted without reasons",
+      "anti_pattern": "Using consensus to avoid thinking",
+      "fix_links": [
+        {
+          "page_id": "patterns/multi-model-consensus",
+          "anchor": "anti-patterns"
+        }
+      ],
+      "anchor": "review-and-verification",
+      "line": 60
+    },
+    {
+      "entry_id": "reference/anti-patterns#541de70c74",
+      "group": "Review and Verification",
+      "symptom": "Conclusions that do not follow ship",
+      "anti_pattern": "Not reading the reasoning",
+      "fix_links": [
+        {
+          "page_id": "patterns/chain-of-thought",
+          "anchor": "anti-patterns"
+        }
+      ],
+      "anchor": "review-and-verification",
+      "line": 61
+    },
+    {
+      "entry_id": "reference/anti-patterns#d192ea9a8e",
+      "group": "Review and Verification",
+      "symptom": "Bad data flows downstream",
+      "anti_pattern": "Trusting tool output without validation",
+      "fix_links": [
+        {
+          "page_id": "stack/tool-integration",
+          "anchor": "anti-patterns"
+        }
+      ],
+      "anchor": "review-and-verification",
+      "line": 62
+    },
+    {
+      "entry_id": "reference/anti-patterns#a9497757a3",
+      "group": "Delegation and Orchestration",
+      "symptom": "Architecture corrected in review",
+      "anti_pattern": "Delegating the architecture decision",
+      "fix_links": [
+        {
+          "page_id": "patterns/delegation-fit",
+          "anchor": "anti-patterns"
+        }
+      ],
+      "anchor": "delegation-and-orchestration",
+      "line": 68
+    },
+    {
+      "entry_id": "reference/anti-patterns#3d6cb95f64",
+      "group": "Delegation and Orchestration",
+      "symptom": "Fixing output takes longer than writing it",
+      "anti_pattern": "Wrong work delegated",
+      "fix_links": [
+        {
+          "page_id": "patterns/delegation-fit",
+          "anchor": "anti-patterns"
+        },
+        {
+          "page_id": "patterns/correction-diagnosis",
+          "anchor": "cause-chain"
+        }
+      ],
+      "anchor": "delegation-and-orchestration",
+      "line": 69
+    },
+    {
+      "entry_id": "reference/anti-patterns#37c5930bf7",
+      "group": "Delegation and Orchestration",
+      "symptom": "The diff grows past the task",
+      "anti_pattern": "A brief with no non-goals",
+      "fix_links": [
+        {
+          "page_id": "patterns/delegation-fit",
+          "anchor": "anti-patterns"
+        }
+      ],
+      "anchor": "delegation-and-orchestration",
+      "line": 70
+    },
+    {
+      "entry_id": "reference/anti-patterns#03d94af433",
+      "group": "Delegation and Orchestration",
+      "symptom": "Edits collide",
+      "anti_pattern": "Parallel agents sharing a branch",
+      "fix_links": [
+        {
+          "page_id": "patterns/subagent-fanout",
+          "anchor": "anti-patterns"
+        },
+        {
+          "page_id": "stack/agent-architecture",
+          "anchor": "anti-patterns"
+        }
+      ],
+      "anchor": "delegation-and-orchestration",
+      "line": 71
+    },
+    {
+      "entry_id": "reference/anti-patterns#623ae22514",
+      "group": "Delegation and Orchestration",
+      "symptom": "Coordination context runs out",
+      "anti_pattern": "Orchestrator doing the work itself",
+      "fix_links": [
+        {
+          "page_id": "stack/agent-architecture",
+          "anchor": "anti-patterns"
+        }
+      ],
+      "anchor": "delegation-and-orchestration",
+      "line": 72
+    },
+    {
+      "entry_id": "reference/anti-patterns#c20ea5290f",
+      "group": "Delegation and Orchestration",
+      "symptom": "The prompt grows with every new task",
+      "anti_pattern": "One mega-agent instead of decomposition",
+      "fix_links": [
+        {
+          "page_id": "stack/agent-architecture",
+          "anchor": "anti-patterns"
+        }
+      ],
+      "anchor": "delegation-and-orchestration",
+      "line": 73
+    },
+    {
+      "entry_id": "reference/anti-patterns#5a6c19d446",
+      "group": "Delegation and Orchestration",
+      "symptom": "A late failure restarts the whole pipeline",
+      "anti_pattern": "No resumability",
+      "fix_links": [
+        {
+          "page_id": "patterns/pipeline-orchestration",
+          "anchor": "anti-patterns"
+        }
+      ],
+      "anchor": "delegation-and-orchestration",
+      "line": 74
+    },
+    {
+      "entry_id": "reference/anti-patterns#c3fbeee161",
+      "group": "Delegation and Orchestration",
+      "symptom": "Agents spawned for work one thread finishes sooner",
+      "anti_pattern": "Fanout by habit",
+      "fix_links": [
+        {
+          "page_id": "patterns/subagent-fanout",
+          "anchor": "anti-patterns"
+        }
+      ],
+      "anchor": "delegation-and-orchestration",
+      "line": 75
+    },
+    {
+      "entry_id": "reference/anti-patterns#da2b8a9844",
+      "group": "Long Runs",
+      "symptom": "The run never knows it is done",
+      "anti_pattern": "No stop condition",
+      "fix_links": [
+        {
+          "page_id": "patterns/unattended-runs",
+          "anchor": "anti-patterns"
+        }
+      ],
+      "anchor": "long-runs",
+      "line": 81
+    },
+    {
+      "entry_id": "reference/anti-patterns#2ca5a6e2a6",
+      "group": "Long Runs",
+      "symptom": "One request burns tokens and returns nothing",
+      "anti_pattern": "Uncapped retries",
+      "fix_links": [
+        {
+          "page_id": "patterns/unattended-runs",
+          "anchor": "anti-patterns"
+        },
+        {
+          "page_id": "principles/fail-fast-recover-smart",
+          "anchor": "signal-of-violation"
+        }
+      ],
+      "anchor": "long-runs",
+      "line": 82
+    },
+    {
+      "entry_id": "reference/anti-patterns#43076dcf01",
+      "group": "Long Runs",
+      "symptom": "The human babysits an unattended run",
+      "anti_pattern": "Checking in every ten minutes",
+      "fix_links": [
+        {
+          "page_id": "patterns/unattended-runs",
+          "anchor": "anti-patterns"
+        }
+      ],
+      "anchor": "long-runs",
+      "line": 83
+    },
+    {
+      "entry_id": "reference/anti-patterns#8467dd64a9",
+      "group": "Long Runs",
+      "symptom": "Nobody can tell where the run stands",
+      "anti_pattern": "Status only in chat scrollback",
+      "fix_links": [
+        {
+          "page_id": "patterns/progress-breadcrumbs",
+          "anchor": "anti-patterns"
+        }
+      ],
+      "anchor": "long-runs",
+      "line": 84
+    },
+    {
+      "entry_id": "reference/anti-patterns#2887ad43db",
+      "group": "Long Runs",
+      "symptom": "The next session redoes or breaks it",
+      "anti_pattern": "Half-implemented feature with no note",
+      "fix_links": [
+        {
+          "page_id": "patterns/context-handoff",
+          "anchor": "anti-patterns"
+        }
+      ],
+      "anchor": "long-runs",
+      "line": 85
+    },
+    {
+      "entry_id": "reference/anti-patterns#8a8510ec30",
+      "group": "Long Runs",
+      "symptom": "Progress file says done; behavior is not",
+      "anti_pattern": "Agent rewrites acceptance tests",
+      "fix_links": [
+        {
+          "page_id": "patterns/context-handoff",
+          "anchor": "anti-patterns"
+        }
+      ],
+      "anchor": "long-runs",
+      "line": 86
+    },
+    {
+      "entry_id": "reference/anti-patterns#239c6b8efa",
+      "group": "Long Runs",
+      "symptom": "The first outage is when a fallback gets written",
+      "anti_pattern": "Failure handling added after launch",
+      "fix_links": [
+        {
+          "page_id": "principles/fail-fast-recover-smart",
+          "anchor": "signal-of-violation"
+        }
+      ],
+      "anchor": "long-runs",
+      "line": 87
+    },
+    {
+      "entry_id": "reference/anti-patterns#15eaaf278b",
+      "group": "Human Checkpoints",
+      "symptom": "Sign-off depends on who ran the agent",
+      "anti_pattern": "Undefined human boundary",
+      "fix_links": [
+        {
+          "page_id": "principles/human-in-the-loop",
+          "anchor": "signal-of-violation"
+        }
+      ],
+      "anchor": "human-checkpoints",
+      "line": 93
+    },
+    {
+      "entry_id": "reference/anti-patterns#7082eb3a32",
+      "group": "Human Checkpoints",
+      "symptom": "Near-100% approval in seconds",
+      "anti_pattern": "Rubber-stamping",
+      "fix_links": [
+        {
+          "page_id": "principles/human-in-the-loop",
+          "anchor": "signal-of-violation"
+        },
+        {
+          "page_id": "patterns/checkpoint-gates",
+          "anchor": "anti-patterns"
+        }
+      ],
+      "anchor": "human-checkpoints",
+      "line": 94
+    },
+    {
+      "entry_id": "reference/anti-patterns#4b8f8c3a57",
+      "group": "Human Checkpoints",
+      "symptom": "Agent took an irreversible action unasked",
+      "anti_pattern": "Approval requested by prompt text only",
+      "fix_links": [
+        {
+          "page_id": "patterns/checkpoint-gates",
+          "anchor": "anti-patterns"
+        }
+      ],
+      "anchor": "human-checkpoints",
+      "line": 95
+    },
+    {
+      "entry_id": "reference/anti-patterns#f75dea73e6",
+      "group": "Human Checkpoints",
+      "symptom": "Reviewer rebuilds context to decide",
+      "anti_pattern": "A card with no recommendation",
+      "fix_links": [
+        {
+          "page_id": "patterns/checkpoint-gates",
+          "anchor": "anti-patterns"
+        }
+      ],
+      "anchor": "human-checkpoints",
+      "line": 96
+    },
+    {
+      "entry_id": "reference/anti-patterns#de526b1a98",
+      "group": "Human Checkpoints",
+      "symptom": "Work idles in the approval queue",
+      "anti_pattern": "Blocking the whole run on one decision",
+      "fix_links": [
+        {
+          "page_id": "patterns/checkpoint-gates",
+          "anchor": "anti-patterns"
+        },
+        {
+          "page_id": "principles/human-in-the-loop",
+          "anchor": "signal-of-violation"
+        }
+      ],
+      "anchor": "human-checkpoints",
+      "line": 97
+    },
+    {
+      "entry_id": "reference/anti-patterns#d84e16d428",
+      "group": "Human Checkpoints",
+      "symptom": "External effects with no recorded approval",
+      "anti_pattern": "Outward-facing actions with no approval step",
+      "fix_links": [
+        {
+          "page_id": "stack/tool-integration",
+          "anchor": "anti-patterns"
+        }
+      ],
+      "anchor": "human-checkpoints",
+      "line": 98
+    },
+    {
+      "entry_id": "reference/anti-patterns#bf05f51226",
+      "group": "Models and Routing",
+      "symptom": "Cost explodes on simple tasks",
+      "anti_pattern": "Biggest model for everything",
+      "fix_links": [
+        {
+          "page_id": "patterns/task-routing",
+          "anchor": "anti-patterns"
+        },
+        {
+          "page_id": "stack/models",
+          "anchor": "anti-patterns"
+        }
+      ],
+      "anchor": "models-and-routing",
+      "line": 104
+    },
+    {
+      "entry_id": "reference/anti-patterns#9800dd278b",
+      "group": "Models and Routing",
+      "symptom": "Quality collapses on hard tasks",
+      "anti_pattern": "Cheapest model for everything",
+      "fix_links": [
+        {
+          "page_id": "patterns/task-routing",
+          "anchor": "anti-patterns"
+        }
+      ],
+      "anchor": "models-and-routing",
+      "line": 105
+    },
+    {
+      "entry_id": "reference/anti-patterns#086d6b39e7",
+      "group": "Models and Routing",
+      "symptom": "Short, hard steps get a weak model",
+      "anti_pattern": "Routing on input length",
+      "fix_links": [
+        {
+          "page_id": "patterns/task-routing",
+          "anchor": "anti-patterns"
+        },
+        {
+          "page_id": "patterns/step-level-routing",
+          "anchor": "anti-patterns"
+        }
+      ],
+      "anchor": "models-and-routing",
+      "line": 106
+    },
+    {
+      "entry_id": "reference/anti-patterns#11fed2baa6",
+      "group": "Models and Routing",
+      "symptom": "Cold caches on every call",
+      "anti_pattern": "Switching models every step",
+      "fix_links": [
+        {
+          "page_id": "patterns/step-level-routing",
+          "anchor": "anti-patterns"
+        }
+      ],
+      "anchor": "models-and-routing",
+      "line": 107
+    },
+    {
+      "entry_id": "reference/anti-patterns#514f54ea3d",
+      "group": "Models and Routing",
+      "symptom": "An outage stops the work",
+      "anti_pattern": "No fallback model",
+      "fix_links": [
+        {
+          "page_id": "patterns/task-routing",
+          "anchor": "anti-patterns"
+        },
+        {
+          "page_id": "stack/models",
+          "anchor": "anti-patterns"
+        }
+      ],
+      "anchor": "models-and-routing",
+      "line": 108
+    },
+    {
+      "entry_id": "reference/anti-patterns#514fb53f82",
+      "group": "Models and Routing",
+      "symptom": "A regression nobody logged",
+      "anti_pattern": "Floating model alias",
+      "fix_links": [
+        {
+          "page_id": "stack/models",
+          "anchor": "anti-patterns"
+        },
+        {
+          "page_id": "principles/reproducibility",
+          "anchor": "signal-of-violation"
+        }
+      ],
+      "anchor": "models-and-routing",
+      "line": 109
+    },
+    {
+      "entry_id": "reference/anti-patterns#d693535186",
+      "group": "Testing and Evaluation",
+      "symptom": "A prompt change broke something that worked",
+      "anti_pattern": "No baseline",
+      "fix_links": [
+        {
+          "page_id": "patterns/prompt-regression",
+          "anchor": "anti-patterns"
+        },
+        {
+          "page_id": "stack/evaluation",
+          "anchor": "anti-patterns"
+        }
+      ],
+      "anchor": "testing-and-evaluation",
+      "line": 115
+    },
+    {
+      "entry_id": "reference/anti-patterns#1bc66897f3",
+      "group": "Testing and Evaluation",
+      "symptom": "Tests fail on rephrasing alone",
+      "anti_pattern": "Exact string matching on free prose",
+      "fix_links": [
+        {
+          "page_id": "patterns/prompt-regression",
+          "anchor": "anti-patterns"
+        },
+        {
+          "page_id": "principles/reproducibility",
+          "anchor": "signal-of-violation"
+        }
+      ],
+      "anchor": "testing-and-evaluation",
+      "line": 116
+    },
+    {
+      "entry_id": "reference/anti-patterns#7a998d862c",
+      "group": "Testing and Evaluation",
+      "symptom": "Flaky tests get retried or deleted",
+      "anti_pattern": "Single runs on nondeterministic output",
+      "fix_links": [
+        {
+          "page_id": "patterns/prompt-regression",
+          "anchor": "anti-patterns"
+        },
+        {
+          "page_id": "principles/reproducibility",
+          "anchor": "signal-of-violation"
+        }
+      ],
+      "anchor": "testing-and-evaluation",
+      "line": 117
+    },
+    {
+      "entry_id": "reference/anti-patterns#1683e64d1c",
+      "group": "Testing and Evaluation",
+      "symptom": "A bug \"fixed\" because a rerun passed",
+      "anti_pattern": "Debugging by regenerating",
+      "fix_links": [
+        {
+          "page_id": "principles/reproducibility",
+          "anchor": "signal-of-violation"
+        }
+      ],
+      "anchor": "testing-and-evaluation",
+      "line": 118
+    },
+    {
+      "entry_id": "reference/anti-patterns#14c2a81b43",
+      "group": "Testing and Evaluation",
+      "symptom": "The metric rises; the work does not improve",
+      "anti_pattern": "Trusting a score without reading transcripts",
+      "fix_links": [
+        {
+          "page_id": "stack/evaluation",
+          "anchor": "anti-patterns"
+        }
+      ],
+      "anchor": "testing-and-evaluation",
+      "line": 119
+    },
+    {
+      "entry_id": "reference/anti-patterns#4962544ce4",
+      "group": "Testing and Evaluation",
+      "symptom": "Real use breaks what tests passed",
+      "anti_pattern": "Testing on synthetic examples only",
+      "fix_links": [
+        {
+          "page_id": "patterns/dogfooding",
+          "anchor": "anti-patterns"
+        }
+      ],
+      "anchor": "testing-and-evaluation",
+      "line": 120
+    },
+    {
+      "entry_id": "reference/anti-patterns#afacd4ed4b",
+      "group": "Testing and Evaluation",
+      "symptom": "Generation fails silently",
+      "anti_pattern": "Not testing retrieval",
+      "fix_links": [
+        {
+          "page_id": "patterns/rag",
+          "anchor": "anti-patterns"
+        }
+      ],
+      "anchor": "testing-and-evaluation",
+      "line": 121
+    },
+    {
+      "entry_id": "reference/anti-patterns#b5bf20b733",
+      "group": "Governance and Currency",
+      "symptom": "The same convention argued each review",
+      "anti_pattern": "Settled questions reopened",
+      "fix_links": [
+        {
+          "page_id": "principles/authority-cascade",
+          "anchor": "signal-of-violation"
+        }
+      ],
+      "anchor": "governance-and-currency",
+      "line": 127
+    },
+    {
+      "entry_id": "reference/anti-patterns#2646a101f4",
+      "group": "Governance and Currency",
+      "symptom": "Work stalls when they rotate off",
+      "anti_pattern": "Conventions held in one person's head",
+      "fix_links": [
+        {
+          "page_id": "principles/authority-cascade",
+          "anchor": "signal-of-violation"
+        }
+      ],
+      "anchor": "governance-and-currency",
+      "line": 128
+    },
+    {
+      "entry_id": "reference/anti-patterns#e20b1610a3",
+      "group": "Governance and Currency",
+      "symptom": "Skills tuned for a retired model still load",
+      "anti_pattern": "Drift",
+      "fix_links": [
+        {
+          "page_id": "principles/deliberate-currency",
+          "anchor": "signal-of-violation"
+        }
+      ],
+      "anchor": "governance-and-currency",
+      "line": 129
+    },
+    {
+      "entry_id": "reference/anti-patterns#6b5b42befb",
+      "group": "Governance and Currency",
+      "symptom": "Tooling reopened on every release",
+      "anti_pattern": "Churn",
+      "fix_links": [
+        {
+          "page_id": "principles/deliberate-currency",
+          "anchor": "signal-of-violation"
+        }
+      ],
+      "anchor": "governance-and-currency",
+      "line": 130
+    },
+    {
+      "entry_id": "reference/anti-patterns#642eabd169",
+      "group": "Governance and Currency",
+      "symptom": "Nobody knows why a clause is there",
+      "anti_pattern": "Prompt archaeology",
+      "fix_links": [
+        {
+          "page_id": "stack/skills",
+          "anchor": "anti-patterns"
+        },
+        {
+          "page_id": "stack/memory",
+          "anchor": "anti-patterns"
+        }
+      ],
+      "anchor": "governance-and-currency",
+      "line": 131
+    },
+    {
+      "entry_id": "reference/anti-patterns#0fc5bdb9a9",
+      "group": "Governance and Currency",
+      "symptom": "No sweep has deleted a skill",
+      "anti_pattern": "A skill library that only grows",
+      "fix_links": [
+        {
+          "page_id": "stack/skills",
+          "anchor": "anti-patterns"
+        }
+      ],
+      "anchor": "governance-and-currency",
+      "line": 132
+    },
+    {
+      "entry_id": "reference/anti-patterns#ceaf2169d7",
+      "group": "Governance and Currency",
+      "symptom": "Shared instructions change unnoticed",
+      "anti_pattern": "Silent mutations without review",
+      "fix_links": [
+        {
+          "page_id": "patterns/discovery-propagation",
+          "anchor": "anti-patterns"
+        }
+      ],
+      "anchor": "governance-and-currency",
+      "line": 133
+    },
+    {
+      "entry_id": "reference/anti-patterns#fa9bdead93",
+      "group": "Governance and Currency",
+      "symptom": "Skills and patterns lost in the move",
+      "anti_pattern": "Switching harnesses without migrating skills",
+      "fix_links": [
+        {
+          "page_id": "stack/harness",
+          "anchor": "anti-patterns"
+        }
+      ],
+      "anchor": "governance-and-currency",
+      "line": 134
+    },
+    {
+      "entry_id": "reference/anti-patterns#d5f0797592",
+      "group": "Cost and Attention",
+      "symptom": "Bill falls; rework and steering rise",
+      "anti_pattern": "Optimizing raw token spend",
+      "fix_links": [
+        {
+          "page_id": "principles/tokens-to-value",
+          "anchor": "signal-of-violation"
+        },
+        {
+          "page_id": "stack/cost-management",
+          "anchor": "anti-patterns"
+        }
+      ],
+      "anchor": "cost-and-attention",
+      "line": 140
+    },
+    {
+      "entry_id": "reference/anti-patterns#1bb81ed7eb",
+      "group": "Cost and Attention",
+      "symptom": "Total cost per outcome rises",
+      "anti_pattern": "Optimizing per-call price",
+      "fix_links": [
+        {
+          "page_id": "patterns/step-level-routing",
+          "anchor": "anti-patterns"
+        }
+      ],
+      "anchor": "cost-and-attention",
+      "line": 141
+    },
+    {
+      "entry_id": "reference/anti-patterns#adc221ab9e",
+      "group": "Cost and Attention",
+      "symptom": "Nobody can state the cost of a win",
+      "anti_pattern": "Tokens logged with no outcome ID",
+      "fix_links": [
+        {
+          "page_id": "stack/observability",
+          "anchor": "anti-patterns"
+        },
+        {
+          "page_id": "principles/tokens-to-value",
+          "anchor": "signal-of-violation"
+        }
+      ],
+      "anchor": "cost-and-attention",
+      "line": 142
+    },
+    {
+      "entry_id": "reference/anti-patterns#1a56f2431e",
+      "group": "Cost and Attention",
+      "symptom": "Spend surprises with no breakdown",
+      "anti_pattern": "Ignoring cost until the bill arrives",
+      "fix_links": [
+        {
+          "page_id": "stack/cost-management",
+          "anchor": "anti-patterns"
+        }
+      ],
+      "anchor": "cost-and-attention",
+      "line": 143
+    },
+    {
+      "entry_id": "reference/anti-patterns#0e55fbb3c0",
+      "group": "Cost and Attention",
+      "symptom": "Limits stop work that mattered",
+      "anti_pattern": "Hard limits on critical paths",
+      "fix_links": [
+        {
+          "page_id": "stack/cost-management",
+          "anchor": "anti-patterns"
+        }
+      ],
+      "anchor": "cost-and-attention",
+      "line": 144
+    },
+    {
+      "entry_id": "reference/anti-patterns#4ba588013c",
+      "group": "Cost and Attention",
+      "symptom": "Failures visible in logs, unnoticed",
+      "anti_pattern": "Traces nobody reads",
+      "fix_links": [
+        {
+          "page_id": "stack/observability",
+          "anchor": "anti-patterns"
+        }
+      ],
+      "anchor": "cost-and-attention",
+      "line": 145
+    }
+  ],
+  "symptoms": [
+    {
+      "entry_id": "patterns/overview#a713e6cd76",
+      "symptom": "Fixing output takes longer than writing it",
+      "links": [
+        {
+          "page_id": "patterns/delegation-fit",
+          "anchor": ""
+        }
+      ],
+      "anchor": "if-you-see-x-read-y",
+      "line": 22
+    },
+    {
+      "entry_id": "patterns/overview#12edea8b19",
+      "symptom": "Same correction, again and again",
+      "links": [
+        {
+          "page_id": "patterns/correction-diagnosis",
+          "anchor": ""
+        }
+      ],
+      "anchor": "if-you-see-x-read-y",
+      "line": 23
+    },
+    {
+      "entry_id": "patterns/overview#158ebad148",
+      "symptom": "Wrong format or style",
+      "links": [
+        {
+          "page_id": "patterns/few-shot-examples",
+          "anchor": ""
+        },
+        {
+          "page_id": "patterns/structured-output",
+          "anchor": ""
+        }
+      ],
+      "anchor": "if-you-see-x-read-y",
+      "line": 24
+    },
+    {
+      "entry_id": "patterns/overview#33a7a4100a",
+      "symptom": "Plausible code that does not run",
+      "links": [
+        {
+          "page_id": "patterns/verification-loops",
+          "anchor": ""
+        }
+      ],
+      "anchor": "if-you-see-x-read-y",
+      "line": 25
+    },
+    {
+      "entry_id": "patterns/overview#25cd66e63f",
+      "symptom": "Diffs too large to review",
+      "links": [
+        {
+          "page_id": "patterns/reviewable-output",
+          "anchor": ""
+        }
+      ],
+      "anchor": "if-you-see-x-read-y",
+      "line": 26
+    },
+    {
+      "entry_id": "patterns/overview#b560ee5779",
+      "symptom": "Solved the wrong problem",
+      "links": [
+        {
+          "page_id": "principles/problem-before-prescription",
+          "anchor": ""
+        },
+        {
+          "page_id": "patterns/delegation-fit",
+          "anchor": "brief-shape"
+        },
+        {
+          "page_id": "patterns/spec-then-build",
+          "anchor": ""
+        }
+      ],
+      "anchor": "if-you-see-x-read-y",
+      "line": 27
+    },
+    {
+      "entry_id": "patterns/overview#837883d16b",
+      "symptom": "Long run drifts or loses the thread",
+      "links": [
+        {
+          "page_id": "patterns/context-handoff",
+          "anchor": ""
+        },
+        {
+          "page_id": "patterns/progress-breadcrumbs",
+          "anchor": ""
+        }
+      ],
+      "anchor": "if-you-see-x-read-y",
+      "line": 28
+    },
+    {
+      "entry_id": "patterns/overview#97b1bbb01d",
+      "symptom": "Agent took an irreversible action unasked",
+      "links": [
+        {
+          "page_id": "patterns/checkpoint-gates",
+          "anchor": ""
+        }
+      ],
+      "anchor": "if-you-see-x-read-y",
+      "line": 29
+    },
+    {
+      "entry_id": "patterns/overview#e70e110206",
+      "symptom": "Shallow answers on hard steps",
+      "links": [
+        {
+          "page_id": "patterns/chain-of-thought",
+          "anchor": ""
+        },
+        {
+          "page_id": "patterns/step-level-routing",
+          "anchor": ""
+        }
+      ],
+      "anchor": "if-you-see-x-read-y",
+      "line": 30
+    },
+    {
+      "entry_id": "patterns/overview#c6647d10d6",
+      "symptom": "Confident answers about your own data that are wrong",
+      "links": [
+        {
+          "page_id": "patterns/rag",
+          "anchor": ""
+        }
+      ],
+      "anchor": "if-you-see-x-read-y",
+      "line": 31
+    },
+    {
+      "entry_id": "patterns/overview#26e48509bb",
+      "symptom": "A prompt change broke something that worked",
+      "links": [
+        {
+          "page_id": "patterns/prompt-regression",
+          "anchor": ""
+        }
+      ],
+      "anchor": "if-you-see-x-read-y",
+      "line": 32
+    }
+  ],
+  "glossary": [
+    {
+      "term": "Anti-pattern",
+      "definition": "A common misuse of a pattern or capability, named with the symptom that reveals it. Principles call theirs a Signal of Violation. See Anti-patterns."
+    },
+    {
+      "term": "Brief",
+      "definition": "A one-message task description for delegated work: goal, constraints, non-goals, a mirror to follow, a done command, and an ask for assumptions. See Delegation Fit."
+    },
+    {
+      "term": "Checkpoint Gate",
+      "definition": "A mechanical block before an irreversible or outward-facing action that parks a one-step decision for a human. See Checkpoint Gates."
+    },
+    {
+      "term": "Compaction",
+      "definition": "Summarizing an agent's context in place to free space. Keeps continuity but can drop constraints. See Context Handoff."
+    },
+    {
+      "term": "Context Handoff",
+      "definition": "A written record of goal, state, evidence, decisions and next step that lets a fresh session resume a run. See Context Handoff."
+    },
+    {
+      "term": "Context Window",
+      "definition": "The amount of text a model can process in a single call. Exceeding it causes truncation or failure."
+    },
+    {
+      "term": "Correction Diagnosis",
+      "definition": "Tracing a repeated correction to the input that caused it, then fixing that input. See Correction Diagnosis."
+    },
+    {
+      "term": "Delegation Fit",
+      "definition": "The per-task choice to delegate, pair, or write by hand, made before prompting. See Delegation Fit."
+    },
+    {
+      "term": "Harness",
+      "definition": "The interface to the models: the CLI, IDE extension, or application that orchestrates prompts, tools, and context. See Harness Selection."
+    },
+    {
+      "term": "Keepers",
+      "definition": "Repository Maintainers or higher. They endorse proposals, resolve objections, and ratify additions to SHRINE. See Governance."
+    },
+    {
+      "term": "Orchestration",
+      "definition": "Coordinating multiple models, agents, or pipeline stages so each handles the part of a task it is best suited for."
+    },
+    {
+      "term": "Progress Breadcrumbs",
+      "definition": "Short, evidence-linked progress notes an agent writes to a shared work board. See Progress Breadcrumbs."
+    },
+    {
+      "term": "Ratification",
+      "definition": "Content becomes part of SHRINE by one of three routes: - Lifecycle: two keeper endorsements, the objection window, then the draft PR merges (Proposal Lifecycle) - Expedited: the lifecycle without the objection window, which the CTO or VP of Engineering waives (Expedited Ratification) - Keeper decision: a majority of keepers ratify or amend directly, and can waive the Discussion; the page links the record (Keeper Decision)"
+    },
+    {
+      "term": "Repository Context",
+      "definition": "Indexed knowledge of a codebase (symbols, references, code graph) exposed to agents. Distinct from memory. See Repository Context."
+    },
+    {
+      "term": "Reviewable Output",
+      "definition": "Agent output shaped to be cheap to review: small diffs, attached evidence, and a review note. See Reviewable Output."
+    },
+    {
+      "term": "Routing",
+      "definition": "Selecting which model handles which task based on complexity, cost, and capability requirements."
+    },
+    {
+      "term": "Scaffolding",
+      "definition": "Workarounds, wrappers, and patterns built to compensate for model limitations. May become obsolete as models improve. Distinct from Mechanical Scaffolding, which is repeatable structure for token efficiency."
+    },
+    {
+      "term": "SHRINE",
+      "definition": "Stable-Kernel Hosted Reasoning & Inference Network Environment. The org's open forum and governance site for how we build with AI."
+    },
+    {
+      "term": "Skills",
+      "definition": "Packaged, reusable instructions for accomplishing specific tasks efficiently."
+    },
+    {
+      "term": "Spec",
+      "definition": "A written agreement before execution: problem, constraints, acceptance criteria with checks, out of scope, checkpoints, abort criteria and stop condition. See Spec, Then Build."
+    },
+    {
+      "term": "Stack",
+      "definition": "An abstract capability slot: what the capability must do, how to select for it, and its anti-patterns. Not a product list. See FAQ."
+    },
+    {
+      "term": "Standing Instructions",
+      "definition": "A short per-repo instruction file the harness loads every session: commands, idioms, and conventions the agent cannot cheaply derive from the code. See Memory & Context."
+    },
+    {
+      "term": "Step-Level Routing",
+      "definition": "Choosing model tier and reasoning effort for each step inside an agent trajectory. See Step-Level Routing."
+    },
+    {
+      "term": "Subagent",
+      "definition": "An agent spawned by a primary agent to handle a scoped task, often in parallel with others. Keeps the main context lean and the work isolated."
+    },
+    {
+      "term": "TTV (Tokens to Value)",
+      "definition": "Value per win, where a win costs tokens plus human attention (engineer minutes steering, reviewing, babysitting). The north star metric: drive cost per win down, not raw token usage. See TTV."
+    },
+    {
+      "term": "Unattended Run",
+      "definition": "An agent run that works for hours without a human watching each step, bounded by a time limit, abort criteria and a stop condition. See Unattended Runs."
+    }
+  ],
+  "entries": {
+    "deliberate-currency.sov.stale": {
+      "entry_id": "deliberate-currency.sov.stale",
+      "page_id": "principles/deliberate-currency",
+      "anchor": "signal-of-violation",
+      "title": "Deliberate Currency",
+      "section": "principle",
+      "status": "ratified",
+      "url": "https://stablekernel.github.io/SHRINE/principles/deliberate-currency/#signal-of-violation",
+      "url_pinned": "https://github.com/stablekernel/SHRINE/blob/71e82a0e6f729e88c7e40040310fd33068c067f3/docs/src/content/docs/principles/deliberate-currency.md#L47",
+      "quote": "Drift: skills tuned against a retired model still load, and nobody can say who owns them"
+    },
+    "deliberate-currency.sov.owner": {
+      "entry_id": "deliberate-currency.sov.owner",
+      "page_id": "principles/deliberate-currency",
+      "anchor": "signal-of-violation",
+      "title": "Deliberate Currency",
+      "section": "principle",
+      "status": "ratified",
+      "url": "https://stablekernel.github.io/SHRINE/principles/deliberate-currency/#signal-of-violation",
+      "url_pinned": "https://github.com/stablekernel/SHRINE/blob/71e82a0e6f729e88c7e40040310fd33068c067f3/docs/src/content/docs/principles/deliberate-currency.md#L47",
+      "quote": "Drift: skills tuned against a retired model still load, and nobody can say who owns them"
+    },
+    "human-in-the-loop.sov.undefined-boundary": {
+      "entry_id": "human-in-the-loop.sov.undefined-boundary",
+      "page_id": "principles/human-in-the-loop",
+      "anchor": "signal-of-violation",
+      "title": "Human in the Loop",
+      "section": "principle",
+      "status": "ratified",
+      "url": "https://stablekernel.github.io/SHRINE/principles/human-in-the-loop/#signal-of-violation",
+      "url_pinned": "https://github.com/stablekernel/SHRINE/blob/71e82a0e6f729e88c7e40040310fd33068c067f3/docs/src/content/docs/principles/human-in-the-loop.md#L38",
+      "quote": "Undefined boundary: whether a human signs off depends on who ran the agent that day"
+    },
+    "tool-integration.ap.no-approval-step": {
+      "entry_id": "tool-integration.ap.no-approval-step",
+      "page_id": "stack/tool-integration",
+      "anchor": "anti-patterns",
+      "title": "Tool Integration",
+      "section": "stack",
+      "status": "draft",
+      "url": "https://stablekernel.github.io/SHRINE/stack/tool-integration/#anti-patterns",
+      "url_pinned": "https://github.com/stablekernel/SHRINE/blob/71e82a0e6f729e88c7e40040310fd33068c067f3/docs/src/content/docs/stack/tool-integration.md#L77",
+      "quote": "Outward-facing actions with no approval step"
+    },
+    "reproducibility.sov.not-logged": {
+      "entry_id": "reproducibility.sov.not-logged",
+      "page_id": "principles/reproducibility",
+      "anchor": "signal-of-violation",
+      "title": "Reproducibility",
+      "section": "principle",
+      "status": "ratified",
+      "url": "https://stablekernel.github.io/SHRINE/principles/reproducibility/#signal-of-violation",
+      "url_pinned": "https://github.com/stablekernel/SHRINE/blob/71e82a0e6f729e88c7e40040310fd33068c067f3/docs/src/content/docs/principles/reproducibility.md#L41",
+      "quote": "Model version and parameters not logged: behavior shifts and nobody can tell what changed"
+    },
+    "authority-cascade.sov.reopened": {
+      "entry_id": "authority-cascade.sov.reopened",
+      "page_id": "principles/authority-cascade",
+      "anchor": "signal-of-violation",
+      "title": "Authority Cascade",
+      "section": "principle",
+      "status": "ratified",
+      "url": "https://stablekernel.github.io/SHRINE/principles/authority-cascade/#signal-of-violation",
+      "url_pinned": "https://github.com/stablekernel/SHRINE/blob/71e82a0e6f729e88c7e40040310fd33068c067f3/docs/src/content/docs/principles/authority-cascade.md#L43",
+      "quote": "Settled questions reopened: the same convention is argued again in each review or engagement"
+    },
+    "consistency-as-leverage.sov.idioms": {
+      "entry_id": "consistency-as-leverage.sov.idioms",
+      "page_id": "principles/consistency-as-leverage",
+      "anchor": "signal-of-violation",
+      "title": "Consistency as Leverage",
+      "section": "principle",
+      "status": "ratified",
+      "url": "https://stablekernel.github.io/SHRINE/principles/consistency-as-leverage/#signal-of-violation",
+      "url_pinned": "https://github.com/stablekernel/SHRINE/blob/71e82a0e6f729e88c7e40040310fd33068c067f3/docs/src/content/docs/principles/consistency-as-leverage.md#L40",
+      "quote": "Several idioms for one concern: agent output copies whichever file it read last"
+    },
+    "memory.ap.instruction-file-grows": {
+      "entry_id": "memory.ap.instruction-file-grows",
+      "page_id": "stack/memory",
+      "anchor": "anti-patterns",
+      "title": "Memory & Context Management",
+      "section": "stack",
+      "status": "draft",
+      "url": "https://stablekernel.github.io/SHRINE/stack/memory/#anti-patterns",
+      "url_pinned": "https://github.com/stablekernel/SHRINE/blob/71e82a0e6f729e88c7e40040310fd33068c067f3/docs/src/content/docs/stack/memory.md#L65",
+      "quote": "A standing instruction file that only grows"
+    },
+    "harness.ap.under-investing": {
+      "entry_id": "harness.ap.under-investing",
+      "page_id": "stack/harness",
+      "anchor": "anti-patterns",
+      "title": "Harness Selection",
+      "section": "stack",
+      "status": "draft",
+      "url": "https://stablekernel.github.io/SHRINE/stack/harness/#anti-patterns",
+      "url_pinned": "https://github.com/stablekernel/SHRINE/blob/71e82a0e6f729e88c7e40040310fd33068c067f3/docs/src/content/docs/stack/harness.md#L51",
+      "quote": "Under-investing in harness proficiency"
+    }
+  }
+}

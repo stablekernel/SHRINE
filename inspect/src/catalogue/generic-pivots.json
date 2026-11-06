@@ -1,0 +1,44 @@
+{
+  "deliberate-currency.sov.stale": {
+    "kind": "instruction",
+    "action": "Open the oldest instruction file, delete what no longer holds, and note today as its review date.",
+    "before": "# Project rules\nUse the legacy build script for releases.\nPin the old model alias for code review.",
+    "after": "# Project rules\nOwner: platform team. Reviewed: (today's date)\nUse `make release` for releases.",
+    "setup_note": "Set a recurring reminder at your review cadence so the next pass starts from a tripwire, not from drift."
+  },
+  "deliberate-currency.sov.owner": {
+    "kind": "instruction",
+    "action": "Add an owner line and a review date line to the top of each instruction file.",
+    "before": "# Project rules\nRun the linter before you commit.",
+    "after": "# Project rules\nOwner: (your name or team)\nReviewed: (today's date)\nRun the linter before you commit.",
+    "setup_note": "The owner and review line format is this tool's convention; any consistent format works if it is easy to find."
+  },
+  "memory.ap.instruction-file-grows": {
+    "kind": "instruction",
+    "action": "Move rarely used sections out of always-loaded files into skills or files loaded on demand.",
+    "before": "CLAUDE.md holds the whole runbook, every past incident, and the style guide, loaded every session.",
+    "after": "CLAUDE.md keeps the rules that apply to every task and links to a runbook skill and a style guide file read on demand.",
+    "setup_note": "Measure the always-loaded size again after the move; each removed line is context every session no longer pays for."
+  },
+  "tool-integration.ap.no-approval-step": {
+    "kind": "config",
+    "action": "Replace blanket allow rules with scoped ones and set the default permission mode back to ask.",
+    "before": "\"permissions\": { \"allow\": [\"Bash\", \"Write\"], \"defaultMode\": \"bypassPermissions\" }",
+    "after": "\"permissions\": { \"allow\": [\"Bash(npm test:*)\", \"Bash(git status:*)\"], \"defaultMode\": \"default\" }",
+    "setup_note": "Keep a scoped allow list for the commands you run every day; anything outward-facing or destructive still asks."
+  },
+  "harness.ap.under-investing": {
+    "kind": "hook",
+    "action": "Add one extension for the gap named here: a hook for a check you repeat, a skill for a task you repeat, or a memory file.",
+    "before": "Every session starts from the same chat prompt; the test run is typed by hand after each change.",
+    "after": "A post-edit hook runs the tests; a skill holds the release steps; a memory file keeps project facts across sessions.",
+    "setup_note": "Start with the check you type most often; a hook turns it from a habit into a gate."
+  },
+  "reproducibility.sov.not-logged": {
+    "kind": "config",
+    "action": "Raise the history retention setting so past sessions stay on disk long enough to compare.",
+    "before": "Session history is cleared after the default window, so last quarter's behavior cannot be compared with today's.",
+    "after": "User settings set cleanupPeriodDays to keep 90 days of sessions for comparison.",
+    "setup_note": "Retention only affects your own machine; pick a window that covers at least one full release cycle."
+  }
+}

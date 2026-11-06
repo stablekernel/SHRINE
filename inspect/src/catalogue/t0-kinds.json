@@ -1,0 +1,17 @@
+{
+  "version": 1,
+  "kinds": {
+    "stale_instructions": { "lens": "config", "entry_ids": ["deliberate-currency.sov.stale"] },
+    "oversized_instructions": { "lens": "config", "entry_ids": ["memory.ap.instruction-file-grows"] },
+    "no_owner_or_review": { "lens": "config", "entry_ids": ["deliberate-currency.sov.owner"] },
+    "blanket_permissions": { "lens": "config", "entry_ids": ["tool-integration.ap.no-approval-step", "human-in-the-loop.sov.undefined-boundary"] },
+    "stack_gap": { "lens": "config", "entry_ids": ["harness.ap.under-investing"] },
+    "short_retention": { "lens": "config", "entry_ids": ["reproducibility.sov.not-logged"] }
+  },
+  "structure": {
+    "instruction_layers": { "entry_ids": ["authority-cascade.sov.reopened"] },
+    "repo_layout": { "entry_ids": ["consistency-as-leverage.sov.idioms"] },
+    "permissions_scoped": { "entry_ids": ["tool-integration.ap.no-approval-step", "human-in-the-loop.sov.undefined-boundary"] },
+    "instructions_reviewed": { "entry_ids": ["deliberate-currency.sov.stale"] }
+  }
+}
