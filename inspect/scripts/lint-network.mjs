@@ -16,7 +16,11 @@ const SPECIFIERS = [
 ];
 // import(x) or require(x) with a computed name hides which module it loads.
 const COMPUTED_LOAD = /\b(?:import|require)\s*\((?!\s*(?:['"][^'"\n]+['"]|`[^`$\n]+`)\s*\))/g;
-const CALLS = /\b(fetch|WebSocket|EventSource|XMLHttpRequest)\s*(?:\(|\.\s*(?:call|apply|bind)\b)/;
+// Matched on the whole file: "fetch\n(u)" is still a call.
+const CALLS = /\b(fetch|WebSocket|EventSource|XMLHttpRequest)\s*(?:\(|\.\s*(?:call|apply|bind)\b)/g;
+// A network global taken by destructuring ("const { fetch: f } = globalThis"), or a
+// require made from createRequire, whose calls the module rules cannot see.
+const INDIRECT = /\{[^{}]*\b(fetch|WebSocket|EventSource|XMLHttpRequest)\b[^{}]*\}\s*=\s*(?:globalThis|global|self|window)\b|\b(createRequire)\b/g;
 // Code built from strings, or a global read through Reflect, hides what it calls.
 const DYNAMIC_CODE = /\b(?:eval|Function)\s*\(|\bReflect\s*\.\s*get\s*\(\s*(?:globalThis|global|self|window)\b/;
 // globalThis['fe' + 'tch'] reaches a network global by a computed name.
@@ -43,14 +47,14 @@ for (const file of files) {
     }
   }
   for (const m of text.matchAll(COMPUTED_LOAD)) problems.push({ file: rel(root, file), line: lineAt(m.index), message: 'module loaded by a computed name' });
+  for (const m of text.matchAll(CALLS)) problems.push({ file: rel(root, file), line: lineAt(m.index), message: `network call ${m[1]}` });
+  for (const m of text.matchAll(INDIRECT)) problems.push({ file: rel(root, file), line: lineAt(m.index), message: m[1] ? `network global ${m[1]} taken indirectly` : 'require built by createRequire' });
   lines.forEach((line, i) => {
     const at = { file: rel(root, file), line: i + 1 };
     if (COMPUTED_GLOBAL.test(line)) problems.push({ ...at, message: 'global read by a computed name' });
     if (DYNAMIC_CODE.test(line)) problems.push({ ...at, message: 'dynamic code or reflected global' });
     const g = line.match(GLOBAL_NET);
     if (g) problems.push({ ...at, message: `network global ${g[1]}` });
-    const c = line.match(CALLS);
-    if (c) problems.push({ ...at, message: `network call ${c[1]}` });
     if (isJudgeCode(at.file) && ENV_READ.test(line)) problems.push({ ...at, message: 'environment read in judge code' });
     const k = isJudgeCode(at.file) && line.match(KEY_NAME);
     if (k) problems.push({ ...at, message: `key variable ${k[0]} in judge code` });

@@ -35,6 +35,7 @@ test('lint-network fails on an import split over several lines', () => {
   const r = lint('lint-network.mjs', join(here, 'network-multiline'));
   assert.equal(r.status, 1, r.stdout + r.stderr);
   assert.match(r.stdout, /network module node:https/);
+  assert.match(r.stdout, /network call fetch/);
 });
 
 test('lint-network fails on a global or module reached by a computed name', () => {
@@ -44,6 +45,8 @@ test('lint-network fails on a global or module reached by a computed name', () =
   assert.match(r.stdout, /module loaded by a computed name/);
   assert.match(r.stdout, /network call fetch/);
   assert.match(r.stdout, /dynamic code or reflected global/);
+  assert.match(r.stdout, /network global fetch taken indirectly/);
+  assert.match(r.stdout, /require built by createRequire/);
 });
 
 test('lint-network passes literal imports split over lines or spaced', () => {
