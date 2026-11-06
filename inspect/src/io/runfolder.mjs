@@ -36,9 +36,13 @@ export function runFolder(dir) {
     }
     return p;
   };
+  // Write to a temp name, then rename: a reader (`status` polling a running
+  // worker) sees the old file or the new one, never a half-written one.
   const write = (rel, content) => {
     const p = inside(rel);
-    fs.writeFileSync(p, content);
+    const tmp = `${p}.${process.pid}.tmp`;
+    fs.writeFileSync(tmp, content);
+    fs.renameSync(tmp, p);
     record({ op: 'write', path: p, mode: 'w' });
     return p;
   };

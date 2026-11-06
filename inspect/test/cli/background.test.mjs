@@ -4,13 +4,15 @@
 // resumes without a fresh typed yes. Workers are this package's real bin.
 import { test } from 'node:test';
 import assert from 'node:assert/strict';
-import { chmodSync, existsSync, mkdirSync, mkdtempSync, readFileSync, rmSync, writeFileSync } from 'node:fs';
+import { chmodSync, existsSync, mkdirSync, mkdtempSync, readFileSync, readdirSync, rmSync, writeFileSync } from 'node:fs';
 import { tmpdir } from 'node:os';
 import { join } from 'node:path';
 import { Readable } from 'node:stream';
 import { fileURLToPath } from 'node:url';
 import { spawn } from 'node:child_process';
 import { main } from '../../src/cli/main.mjs';
+import { runStatus } from '../../src/cli/background.mjs';
+import { runFolder as openRunFolder } from '../../src/io/runfolder.mjs';
 import { makeHome, FIXED_NOW } from '../synth/home.mjs';
 import { fakeJudge, plantedHome, runT1 } from '../e2e/t1-helpers.mjs';
 
@@ -244,5 +246,53 @@ test('resume refuses a run stopped by a history change, and a second worker on a
   } finally {
     other.kill();
   }
+  h.cleanup();
+});
+
+test('a grant expires: an old one never lets a worker judge', async () => {
+  const h = makeHome('good');
+  const state = mkdtempSync(join(tmpdir(), 'si-bg-'));
+  await inproc(['run', '--tier', 'T0'], h, state);
+  const id = JSON.parse((await inproc(['status', '--json'], h, state)).stdout).run_id;
+  const st = readState(state, id);
+  const token = 'c'.repeat(32);
+  writeFileSync(join(runFolder(state, id), 'state.json'), JSON.stringify({ ...st, tier: 'T1', phase: 'judging', gates: { A: { choice: 'history', by: 'tty', at: FIXED_NOW }, B: { choice: 'T1', by: 'tty', at: FIXED_NOW } }, grant: { token, at: Date.now() - 6 * 60_000 } }));
+  const r = await inproc(['resume', id, '--worker', '--grant', token, '--json'], h, state);
+  assert.equal(r.code, 3);
+  assert.equal(JSON.parse(r.stderr).error.code, 'E_NEEDS_YES');
+  h.cleanup();
+});
+
+test('a foreground run holds worker.pid while it runs: status says running, resume is refused', async () => {
+  const h = plantedHome([['late', 12, 'aaaa']]);
+  const state = mkdtempSync(join(tmpdir(), 'si-bg-'));
+  const seen = [];
+  const stdout = sink();
+  const stderr = sink();
+  const onScanProgress = async () => {
+    if (seen.length) return;
+    const id = readdirSync(join(state, 'state', 'runs'))[0];
+    seen.push(readFileSync(join(runFolder(state, id), 'worker.pid'), 'utf8').trim());
+    seen.push(runStatus(openRunFolder(runFolder(state, id))).state);
+    const r = await inproc(['resume', id, '--json'], h, state);
+    seen.push(r.code === 3 && JSON.parse(r.stderr).error.code);
+  };
+  const code = await main(['run', '--tier', 'T0', '--json'], { env: env(h, state), home: h.home, stdin: tty('history'), stdout, stderr, onScanProgress });
+  assert.equal(code, 0, stderr.text());
+  assert.deepEqual(seen, [String(process.pid), 'running', 'E_RUN_BUSY'], 'recorded itself; status running; resume refused');
+  const s = JSON.parse(stdout.text());
+  assert.ok(!existsSync(join(s.run_dir, 'worker.pid')), 'removed on exit');
+  h.cleanup();
+});
+
+test('--background goes only with approve', async () => {
+  const h = makeHome('good');
+  const state = mkdtempSync(join(tmpdir(), 'si-bg-'));
+  for (const cmd of ['start', 'run', 'status', 'resume']) {
+    const r = await inproc([cmd, '--tier', 'T0', '--background', '--json'], h, state);
+    assert.equal(r.code, 2, cmd);
+    assert.match(JSON.parse(r.stderr).error.message, /--background goes with approve/);
+  }
+  assert.ok(!existsSync(join(state, 'state')), 'nothing read or written');
   h.cleanup();
 });

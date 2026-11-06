@@ -31,6 +31,23 @@ export function assertIdle(folder, runId) {
   if (pid) throw busy(runId, pid);
 }
 
+// Runs fn as this run's one runner: refuses when another live process holds
+// worker.pid, records this process when none does (a foreground run or
+// approve), and removes the file on exit when it names this process.
+export async function asRunner(folder, runId, fn) {
+  const other = workerPid(folder);
+  if (other && other !== process.pid) throw busy(runId, other);
+  if (!other) folder.write(PID, `${process.pid}\n`);
+  try {
+    return await fn();
+  } finally {
+    if (workerPid(folder) === process.pid) folder.remove(PID);
+  }
+}
+
+// A grant is good for this long after `approve --background` writes it.
+export const GRANT_TTL_MS = 5 * 60_000;
+
 // Judging that has not finished needs a fresh typed yes before any judge call
 // (the same rule as `approve`). A worker gets that yes only as a one-time grant
 // written by `approve --background`.
@@ -52,9 +69,9 @@ export function launchWorker(folder, ctx, io, { grant = false } = {}) {
   assertIdle(folder, state.run_id);
   const args = ['resume', state.run_id, '--worker'];
   if (grant) {
-    state.grant = randomBytes(16).toString('hex');
+    state.grant = { token: randomBytes(16).toString('hex'), at: Date.now() };
     folder.writeJson('state.json', state);
-    args.push('--grant', state.grant);
+    args.push('--grant', state.grant.token);
   }
   const fd = folder.openLog(LOG);
   let pid;
@@ -98,7 +115,7 @@ export async function resumeCommand({ runId, worker, grant }, io, { findRun, con
   if (state.phase === 'scope_changed') {
     throw new InspectError('E_RUN_STOPPED', `run ${runId} stopped because the history changed since Gate B; nothing was resumed`, { hint: 'start a new run: shrine-inspect start --tier T1', exit: EXIT.USAGE });
   }
-  // One worker per run: another live worker (not this process, which its parent may
+  // One runner per run: another live process (not this one, which its parent may
   // already have recorded) means busy.
   const other = workerPid(folder);
   if (other && other !== process.pid) throw busy(runId, other);
@@ -108,7 +125,8 @@ export async function resumeCommand({ runId, worker, grant }, io, { findRun, con
     throw new InspectError('E_GATE_WAITING', `run ${runId} is waiting at Gate ${gate}; nothing was resumed`, { hint: `answer in your own terminal: ${GATE_HINT[gate](runId)}`, exit: EXIT.GATE_WAITING });
   }
   if (judgingPending(folder, state)) {
-    if (!grant || grant !== state.grant) {
+    const g = state.grant;
+    if (!grant || !g || grant !== g.token || !(Date.now() - g.at < GRANT_TTL_MS)) {
       throw new InspectError('E_NEEDS_YES', `run ${runId} has judging left to do, which needs a fresh yes; nothing was judged now`, { hint: `answer in your own terminal: shrine-inspect approve ${runId} B --background`, exit: EXIT.GATE_WAITING });
     }
   }
@@ -121,12 +139,9 @@ export async function resumeCommand({ runId, worker, grant }, io, { findRun, con
     printStarted(r, io, 'Resumed');
     return { code: EXIT.OK, summary: r };
   }
-  try {
-    return await continueRun(folder, ctx, { ...io, stdin: { isTTY: false } });
-  } finally {
-    // A pid file left behind could name an unrelated process once the OS reuses the pid.
-    if (workerPid(folder) === process.pid) folder.remove(PID);
-  }
+  // continueRun runs as this run's runner and removes worker.pid on exit, so a
+  // reused pid can never look like this worker.
+  return continueRun(folder, ctx, { ...io, stdin: { isTTY: false } });
 }
 
 const GATE_HINT = {

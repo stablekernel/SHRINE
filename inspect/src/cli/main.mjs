@@ -57,6 +57,9 @@ export async function main(argv, io) {
     if (args.skillVersion !== null && args.skillVersion !== TOOL_VERSION) {
       throw new InspectError('E_VERSION', `this skill is for shrine-inspect ${args.skillVersion}, but the installed CLI is ${TOOL_VERSION}`, { hint: 'install the skill and the CLI from the same release (see TRIAL.md)', exit: EXIT.USAGE });
     }
+    if (args.background && args.cmd !== 'approve') {
+      throw new InspectError('E_USAGE', '--background goes with approve; start already runs in the background', { hint: USAGE, exit: EXIT.USAGE });
+    }
     const cio = { ...io, json, background: args.background };
     const deps = { findRun, continueRun, context };
     if (args.cmd === 'version') {
