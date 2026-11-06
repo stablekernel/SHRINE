@@ -42,6 +42,13 @@ test('lint-network fails on a global or module reached by a computed name', () =
   assert.equal(r.status, 1, r.stdout + r.stderr);
   assert.match(r.stdout, /global read by a computed name/);
   assert.match(r.stdout, /module loaded by a computed name/);
+  assert.match(r.stdout, /network call fetch/);
+  assert.match(r.stdout, /dynamic code or reflected global/);
+});
+
+test('lint-network passes literal imports split over lines or spaced', () => {
+  const r = lint('lint-network.mjs', join(here, 'network-clean'));
+  assert.equal(r.status, 0, r.stdout + r.stderr);
 });
 
 for (const script of ['lint-readonly.mjs', 'lint-copy.mjs', 'lint-network.mjs']) {

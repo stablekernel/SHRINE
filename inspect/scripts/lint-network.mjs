@@ -15,8 +15,10 @@ const SPECIFIERS = [
   /\b(?:import|require)\s*\(\s*(['"`])([^'"`\n]+)\1\s*\)/g,
 ];
 // import(x) or require(x) with a computed name hides which module it loads.
-const COMPUTED_LOAD = /\b(?:import|require)\s*\(\s*(?!['"][^'"\n]+['"]\s*\)|`[^`$\n]+`\s*\))/g;
-const CALLS = /\b(fetch|WebSocket|EventSource|XMLHttpRequest)\s*\(/;
+const COMPUTED_LOAD = /\b(?:import|require)\s*\((?!\s*(?:['"][^'"\n]+['"]|`[^`$\n]+`)\s*\))/g;
+const CALLS = /\b(fetch|WebSocket|EventSource|XMLHttpRequest)\s*(?:\(|\.\s*(?:call|apply|bind)\b)/;
+// Code built from strings, or a global read through Reflect, hides what it calls.
+const DYNAMIC_CODE = /\b(?:eval|Function)\s*\(|\bReflect\s*\.\s*get\s*\(\s*(?:globalThis|global|self|window)\b/;
 // globalThis['fe' + 'tch'] reaches a network global by a computed name.
 const GLOBAL = String.raw`\b(?:globalThis|global|self|window)\s*`;
 const COMPUTED_GLOBAL = new RegExp(String.raw`${GLOBAL}(?:\?\.)?\s*\[`);
@@ -44,6 +46,7 @@ for (const file of files) {
   lines.forEach((line, i) => {
     const at = { file: rel(root, file), line: i + 1 };
     if (COMPUTED_GLOBAL.test(line)) problems.push({ ...at, message: 'global read by a computed name' });
+    if (DYNAMIC_CODE.test(line)) problems.push({ ...at, message: 'dynamic code or reflected global' });
     const g = line.match(GLOBAL_NET);
     if (g) problems.push({ ...at, message: `network global ${g[1]}` });
     const c = line.match(CALLS);
