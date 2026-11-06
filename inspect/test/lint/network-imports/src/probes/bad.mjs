@@ -12,3 +12,4 @@ import 'node:_http_client';
 import 'node:repl';
 import './evil.cjs';
 import './.hidden/x.mjs';
+import 'node:fsx/promises';

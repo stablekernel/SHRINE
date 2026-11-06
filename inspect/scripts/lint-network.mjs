@@ -21,8 +21,10 @@ import { lintRoot, rel, report, walk } from './lib/walk.mjs';
 // ("node:inspector/promises").
 const MODULE = /^(node:)?(http|https|http2|net|tls|dgram|dns|undici|worker_threads|vm|module|inspector|cluster|process)(\/.*)?$/;
 // The only built-ins src may load: any other (node:repl, node:test, the internal
-// node:_http_client) may run code or open a socket this lint cannot see.
-const BUILTINS = new Set(['child_process', 'crypto', 'fs', 'os', 'path', 'readline', 'readline/promises', 'url'].map((m) => `node:${m}`));
+// node:_http_client) may run code or open a socket this lint cannot see. A subpath
+// of an allowed built-in ("node:fs/promises", "node:path/posix") is allowed too.
+const BUILTINS = new Set(['child_process', 'crypto', 'fs', 'os', 'path', 'readline', 'url'].map((m) => `node:${m}`));
+const isBuiltin = (s) => BUILTINS.has(s.split('/')[0]);
 const NET_GLOBALS = new Set(['fetch', 'WebSocket', 'EventSource', 'XMLHttpRequest']);
 // The global object reaches every global by name, so code never names it.
 const GLOBAL_OBJECTS = new Set(['globalThis', 'global', 'self', 'window', 'navigator']);
@@ -110,7 +112,7 @@ function lint(root, file, name) {
       if (!allowed.some(inside)) add(node, `import from outside src and bin: ${s}`);
       // The lint reads only .mjs files, and skips names that start with a dot.
       else if (!s.endsWith('.mjs') || allowed.every((d) => !inside(d) || relative(d, target).split(sep).some((seg) => seg.startsWith('.')))) add(node, `import of code this lint does not read: ${s}`);
-    } else if (!BUILTINS.has(s)) add(node, `import of code this lint does not read: ${s}`);
+    } else if (!isBuiltin(s)) add(node, `import of code this lint does not read: ${s}`);
   };
   visit(ast, (node, parent, key) => {
     switch (node.type) {
