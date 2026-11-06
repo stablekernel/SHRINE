@@ -21,7 +21,7 @@ const hhmm = (iso) => (typeof iso === 'string' && iso.length >= 16 ? `${iso.slic
 // A verified span counts only when the text it covers is specific enough to prove
 // anything (checked again here, so judgments stored by an older run are held to it).
 const proves = (ref, source) => typeof source === 'string' && ref.start >= 0 && ref.end <= source.length && isProof(source.slice(ref.start, ref.end), source);
-const minutesBetween =(a, b) => Math.max(0, Math.round((Date.parse(b) - Date.parse(a)) / 60000));
+const minutesBetween = (a, b) => Math.max(0, Math.round((Date.parse(b) - Date.parse(a)) / 60000));
 
 // Spec 5 attribution, first match wins: 1) unknown when the judge says unknown or
 // the live config may have changed (or was cut short); 2) user when the
