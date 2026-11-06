@@ -331,11 +331,11 @@ export function gateBLines(g) {
     return lines;
   }
   const where = g.projects?.length ? ` from ${joinAnd(g.projects)}` : '';
-  lines.push(`Tier T1, Pulse: judge ${g.episodes} ${pl(g.episodes, 'episode')}${where}, dated ${(g.from ?? '').slice(0, 10)} to ${(g.to ?? '').slice(0, 10)}, about ${num(g.tokens_low)} to ${num(g.tokens_high)} tokens on your own account, about ${g.minutes} ${pl(g.minutes, 'minute')}.`);
+  lines.push(`Tier T1, Pulse: judge ${g.episodes} ${pl(g.episodes, 'episode')}${where}, dated ${(g.from ?? '').slice(0, 10)} to ${(g.to ?? '').slice(0, 10)}, about ${num(g.tokens_low)} to ${num(g.tokens_high)} tokens on your own account, about ${g.minutes} ${pl(g.minutes, 'minute')} of judging after the scan.`);
   if (g.version) lines.push(`Judge: Claude Code ${g.version}, the version in your newest session log.`);
   if (g.thin) lines.push(`Thin evidence: only ${g.eligible} ${pl(g.eligible, 'episode')} had a correction candidate.`);
   lines.push(`The token and time figures use a per-call overhead measured on Claude Code ${MEASURED_ON}, not on your setup.`);
-  lines.push(`Judging stops early past ${num(g.tokens_high)} tokens, past ${Math.ceil(g.minutes * J.abort.time_box_factor)} minutes, or when over ${Math.round(J.abort.error_rate * 100)}% of answers are invalid; you then keep partial results or stop.`);
+  lines.push(`Judging stops early past ${num(g.tokens_high)} tokens, past ${Math.ceil(g.minutes * J.abort.time_box_factor)} minutes of judging (a call still running is cut off), or when over ${Math.round(J.abort.error_rate * 100)}% of answers are invalid; you then keep partial results or stop.`);
   for (const d of g.disclosure ?? []) lines.push(d);
   lines.push('Judged findings are candidates: a model read the episodes and its accuracy is not yet measured.');
   return lines;

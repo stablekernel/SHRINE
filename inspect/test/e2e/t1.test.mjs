@@ -38,7 +38,8 @@ test('T1 pauses at Gate B until a typed yes: zero judge spawns, no work order, t
   assert.ok(g.offer.tokens_low > 0 && g.offer.tokens_high > g.offer.tokens_low);
   assert.ok(g.offer.minutes >= 1);
   assert.ok(g.lines.some((l) => /^Tier T0 \(pre-selected\)/.test(l)));
-  assert.ok(g.lines.some((l) => /judge 12 episodes from .*, about [\d,]+ to [\d,]+ tokens on your own account, about \d+ minutes?\./.test(l)));
+  assert.ok(g.lines.some((l) => /judge 12 episodes from .*, about [\d,]+ to [\d,]+ tokens on your own account, about \d+ minutes? of judging after the scan\./.test(l)));
+  assert.ok(g.lines.some((l) => /past \d+ minutes of judging \(a call still running is cut off\)/.test(l)));
   assert.equal(json(dir, 'state.json').gates.B, null);
   assert.ok(!existsSync(join(dir, 'workorder.json')), 'no work order before a yes');
   assert.ok(!existsSync(join(dir, 'judgments.jsonl')));

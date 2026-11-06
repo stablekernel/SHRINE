@@ -69,13 +69,14 @@ Status: pre-release trial (SP3: background runs, a thin skill, a checksummed rel
   - Every string is scrubbed for secrets, then masked (names, paths, hosts) before a judge or a file sees it; about 900 tokens per pack at most
   - Over the cap: replies cut first, then instruction files (to about 2,000 characters), then later messages
 - Gate B estimate: pack size (bytes / 4) plus a per-call overhead and output measured on Claude Code 2.1.318, then 10% retry reserve and 30% margin on the top
+  - Minutes: 10 seconds per call, judging only (not the scan or time at gates); measured runs of 12 calls took 41 seconds and 4.0 minutes end to end, the second with 38 seconds of judging
   - Session text is data for the judge, never instructions: it sits inside a fence named by a random nonce, and the judge prompt says so
 - Judge: one headless `claude --print` call per episode, one at a time, on your own install and login
   - No session saved, no tools, no MCP servers, your user, project, and local settings files ignored (so no user hooks or plugins), no CLAUDE.md, no auto-memory, non-essential traffic off; output forced to a strict JSON schema
   - Managed (org) settings still apply; Claude Code may update its own state and cache files (`~/.claude.json`, files under `~/.claude/`) on each launch
   - Every judge prompt starts with `SHRINE inspect judge v1:`; any saved judge session counts as housekeeping in later runs and is never judged
   - Invalid output gets one retry with the validator's error; quotes must be exact copies from the episode; no judge free text reaches the report
-- Stops early (Gate C, keep partial or stop) past the approved token upper bound, past the time box plus 50%, at over 10% invalid answers, or on a usage limit
+- Stops early (Gate C, keep partial or stop) past the approved token upper bound, past the time box plus 50% (a hard deadline: a call still running is cut off), at over 10% invalid answers, or on a usage limit
   - Judging stopped part way resumes only on a fresh typed yes (`approve <run> B`); a resume already past the token bound makes no call
   - One runner per run: a second `approve` while judging runs is refused (`E_JUDGE_BUSY`); a marker left by a dead process is ignored
   - Gate C answered but no report (a crash): `approve <run> B` or `C` writes the report, with no prompt and no judge call
