@@ -71,7 +71,7 @@ Status: pre-release trial (SP3: background runs, a thin skill, a checksummed rel
   - Session text is data for the judge, never instructions: it sits inside a fence named by a random nonce, and the judge prompt says so
 - Judge: one headless `claude --print` call per episode, one at a time, on your own install and login
   - No session saved, no tools, no MCP servers, your user, project, and local settings files ignored (so no user hooks or plugins), no CLAUDE.md, no auto-memory, non-essential traffic off; output forced to a strict JSON schema
-  - Managed (org) settings still apply; Claude Code may update its own `~/.claude.json` on each launch
+  - Managed (org) settings still apply; Claude Code may update its own state and cache files (`~/.claude.json`, files under `~/.claude/`) on each launch
   - Every judge prompt starts with `SHRINE inspect judge v1:`; any saved judge session counts as housekeeping in later runs and is never judged
   - Invalid output gets one retry with the validator's error; quotes must be exact copies from the episode; no judge free text reaches the report
 - Stops early (Gate C, keep partial or stop) past the approved token upper bound, past the time box plus 50%, at over 10% invalid answers, or on a usage limit
