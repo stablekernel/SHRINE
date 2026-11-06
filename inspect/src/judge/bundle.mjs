@@ -1,6 +1,8 @@
 // Evidence pack for the Episode Classifier (plan T1 task 2). One episode per
 // bundle: human turns (text), assistant replies (opening only, plus the closing
-// of the last reply), tool names (no arguments), how the episode ended, and the
+// of the last reply), tool names (no arguments), how the episode ended plus
+// code-computed end signals (an open question for the person, a later revert,
+// fixup, or episode on the same files), and the
 // lines of the live config that match the flagged turns. Code searches the whole
 // config; only matching lines are sent. Every string goes through scrubSecrets,
 // then mask with the known identifiers, always: secrets, names, and paths never
@@ -9,18 +11,19 @@ import { randomBytes } from 'node:crypto';
 import { scrubSecrets } from '../scrub/secrets.mjs';
 import { mask, maskPath } from '../scrub/mask.mjs';
 import { isCorrectionCue } from '../probes/usage.mjs';
+import { endsWithQuestion } from '../episodes/extract.mjs';
 
 export const JUDGE_MARKER = 'SHRINE inspect judge v1:';
 export const DEFAULT_CAPS = Object.freeze({
   human_turn_chars: 1200,
   assistant_chars: 400,
-  closing_chars: 300,
+  closing_chars: 400,
   turns: 12,
-  bundle_tokens: 1500,
-  config_excerpt_chars: 1600,
+  bundle_tokens: 4000,
+  config_excerpt_chars: 2400,
   config_line_chars: 240,
   config_lines_per_turn: 6,
-  bytes_per_token: 4,
+  bytes_per_token: 2.5,
   tools_per_turn: 10,
 });
 
@@ -37,6 +40,7 @@ export function payloadOf(b) {
   return {
     episode_id: b.episode_id,
     episode_end: b.episode_end ?? null,
+    end_signals: b.end_signals ?? null,
     omitted_turns: b.omitted_turns ?? 0,
     turns: b.turns.map(turn),
     config_searched: b.config_searched === true,
@@ -55,6 +59,39 @@ const STOP = new Set(
 const stem = (w) => w.replace(/(?:ing|ed|es|s)$/u, (m) => (w.length - m.length >= 4 ? '' : m));
 export const keywords = (s) => new Set((String(s).toLowerCase().match(/[\p{L}\p{N}][\p{L}\p{N}_-]{3,}/gu) ?? []).filter((w) => !STOP.has(w)).map(stem));
 const HEADING = /^\s{0,3}#{1,6}\s+\S/;
+
+// The end of a reply asks the person something: it ends with a question, offers
+// lettered choices (A) and B)), or opens a questions list. Only the last 600
+// characters are read, so the check stays linear and cheap.
+const CHOICE_A = /(?:^|\s)A\)\s/u;
+const CHOICE_B = /(?:^|\s)B\)\s/u;
+const QUESTIONS = /^[\s#*_-]{0,6}(?:open\s)?questions?[\s:*_]{0,4}$/imu;
+export function asksPerson(text) {
+  const tail = String(text ?? '').slice(-600);
+  return endsWithQuestion(tail) || (CHOICE_A.test(tail) && CHOICE_B.test(tail)) || QUESTIONS.test(tail);
+}
+
+// End signals computed by code, never by a model: what was still open when the
+// episode ended, and what git and later episodes show about the same work.
+// reverted and fixup_later: the linker's flags when present, else the scan's
+// stratum outcome (rework outranks possible_fix there), else downstream, which
+// keeps only the nearest few links. continued_later: a later episode on the same
+// files within a day, the next one in the same session included, since that is
+// where an open question gets its answer; the nearest links come first, so
+// downstream holds it when there is one.
+export function endSignals(episode, lastAssistant, lastReplyText) {
+  const down = Array.isArray(episode.downstream) ? episode.downstream : [];
+  const outcome = episode.stratum?.outcome;
+  const has = (kind) => down.some((d) => d.kind === kind);
+  const reverted = typeof episode.rework === 'boolean' ? episode.rework : outcome === 'rework' || has('revert');
+  const fixup = typeof episode.possible_fix === 'boolean' ? episode.possible_fix : outcome === 'possible_fix' || has('fixup');
+  return {
+    asks_person: Boolean(lastAssistant) && asksPerson(lastReplyText),
+    reverted,
+    fixup_later: fixup,
+    continued_later: down.some((d) => d.kind === 'episode' && d.delta_hours <= 24),
+  };
+}
 
 // Lines of the whole config that match a flagged turn. files: [{path, text}];
 // turns: [{id, words}]. A word found on more than a quarter of the lines (in a
@@ -144,8 +181,11 @@ export function buildBundle({ episode, transcript, fallbackConfig = [], known, n
       }
       if (e.kind === 'assistant_text') {
         if (!assistant.text) assistant.text = clean(e.head ?? e.text, known).slice(0, caps.assistant_chars);
-        lastReply = { turn: assistant, text: e.text };
+        lastReply = { turn: assistant, text: e.text, tool_after: false };
       }
+      // A tool call after the text means the agent went on: the question, if any,
+      // was not left for the person (the episode cutter reads it the same way).
+      if (e.kind === 'tool_use' && lastReply?.turn === assistant) lastReply.tool_after = true;
       if (e.kind === 'tool_use' && assistant.tools.length < caps.tools_per_turn && !assistant.tools.includes(e.name)) assistant.tools.push(clean(e.name, known).slice(0, 64));
     }
     lastKind = e.kind;
@@ -192,10 +232,12 @@ export function buildBundle({ episode, transcript, fallbackConfig = [], known, n
     chosen.push(r);
     used += n;
   }
+  const lastTurn = turns.at(-1);
   const b = {
     episode_id: episode.id,
     nonce,
     episode_end: episode.terminal ?? null,
+    end_signals: endSignals(episode, lastTurn?.role === 'assistant' ? lastTurn : null, lastReply && lastTurn === lastReply.turn && !lastReply.tool_after ? lastReply.text : ''),
     omitted_turns: 0,
     turns,
     config: [],
@@ -212,14 +254,15 @@ export function buildBundle({ episode, transcript, fallbackConfig = [], known, n
   };
   setConfig();
 
-  // Size cap (bytes / 4). Order: shorten replies, drop middle turns that are not
-  // flagged (first and last always stay), shorten turns, trim config to a floor,
-  // drop flagged middle turns, then the rest of the config, then cut every turn.
+  // Size cap (bytes / bytes_per_token). Order: shorten middle replies, drop middle
+  // turns that are not flagged (first and last always stay, the last reply at full
+  // length with its closing), trim config to a floor, shorten then drop flagged
+  // middle turns, then the rest of the config, then cut the first and last turns.
   const over = () => bundleTokens(b, caps) > caps.bundle_tokens;
   const dropMiddle = (ok) => {
     const n = b.turns.length;
     const idx = b.turns
-      .map((t, i) => i)
+      .map((_, i) => i)
       .filter((i) => i > 0 && i < n - 1 && ok(b.turns[i]))
       .sort((x, y) => Math.abs(x - (n - 1) / 2) - Math.abs(y - (n - 1) / 2));
     if (!idx.length) return false;
@@ -234,15 +277,17 @@ export function buildBundle({ episode, transcript, fallbackConfig = [], known, n
       setConfig();
     }
   };
-  if (over()) for (const t of b.turns) if (t.role === 'assistant') t.text = t.text.slice(0, 160);
+  const middle = (t) => t !== b.turns[0] && t !== b.turns.at(-1);
+  if (over()) for (const t of b.turns) if (t.role === 'assistant' && middle(t)) t.text = t.text.slice(0, 160);
   while (b.turns.filter((t) => t.role === 'human').length > caps.turns && dropMiddle((t) => !t.candidate));
   while (over() && dropMiddle((t) => !t.candidate));
-  if (over()) for (const t of b.turns) if (t.role === 'human' && !t.candidate && t !== b.turns[0]) t.text = t.text.slice(0, 300);
-  if (over()) for (const t of b.turns) t.text = t.text.slice(0, 600);
+  if (over()) for (const t of b.turns) if (t.role === 'human' && !t.candidate && middle(t)) t.text = t.text.slice(0, 300);
   trimConfig(caps.config_excerpt_chars / 4);
+  if (over()) for (const t of b.turns) if (middle(t)) t.text = t.text.slice(0, 600);
   while (over() && dropMiddle(() => true));
   while (b.turns.filter((t) => t.role === 'human').length > caps.turns && dropMiddle(() => true));
   trimConfig(0);
+  if (over()) for (const t of b.turns) t.text = t.text.slice(0, 600);
   if (over()) for (const t of b.turns) {
     t.text = t.text.slice(0, 300);
     if (t.closing) t.closing = t.closing.slice(-160);

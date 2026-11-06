@@ -2,7 +2,7 @@ import { test } from 'node:test';
 import assert from 'node:assert/strict';
 import { readFileSync } from 'node:fs';
 import { fileURLToPath } from 'node:url';
-import { buildBundle, bundleTokens, DEFAULT_CAPS, judgePrompt, JUDGE_MARKER, payloadOf } from '../../src/judge/bundle.mjs';
+import { asksPerson, buildBundle, bundleTokens, DEFAULT_CAPS, judgePrompt, JUDGE_MARKER, payloadOf } from '../../src/judge/bundle.mjs';
 import { sliceEpisode } from '../../src/adapters/claude-code/transcript.mjs';
 import { buildIdentifiers } from '../../src/scrub/mask.mjs';
 import { HOUSEKEEPING } from '../../src/adapters/claude-code/projects.mjs';
@@ -200,4 +200,107 @@ test('a snapshot logged only after the episode started is kept but marked may_ha
   assert.equal(s.snapshot_late, true);
   const b = buildBundle({ episode, transcript: s, known, nonce: 'n' });
   assert.equal(b.config_may_have_changed, true);
+});
+
+test('a snapshot logged right after the root turn, before any reply, is the config loaded for that prompt', () => {
+  const [root, ...rest] = events();
+  // Logged a second after the prompt, so it is after the episode start.
+  const soon = new Date(Date.parse(at(0)) + 1000).toISOString();
+  const tl = [root, { t: soon, kind: 'instructions', files: snapshot }, ...rest];
+  const s = sliceEpisode(tl, episode);
+  assert.equal(s.snapshot_late, false);
+  assert.deepEqual(s.snapshot, snapshot);
+  const b = buildBundle({ episode, transcript: s, known, nonce: 'n' });
+  assert.equal(b.config_may_have_changed, false);
+  // After the agent has replied, a first snapshot stays "may have changed".
+  const late = sliceEpisode([root, rest[0], rest[1], { t: at(1), kind: 'instructions', files: snapshot }, ...rest.slice(2)], episode);
+  assert.equal(late.snapshot_late, true);
+});
+
+test('asksPerson: a question, lettered choices, or a questions list at the end; a plain report is not', () => {
+  assert.ok(asksPerson('All done. Should I open the PR?'));
+  assert.ok(asksPerson('Two options:\n1. Layout: A) grid B) list\n2. Color: A) teal B) gray'));
+  assert.ok(asksPerson('Done with the draft.\n\nQuestions:\n1. Keep the old name'));
+  assert.ok(!asksPerson('All tests pass and the change is committed.'));
+  assert.ok(!asksPerson(''));
+  assert.ok(!asksPerson(`Questions:\n${'filler line\n'.repeat(100)}Done.`), 'only the end of the reply counts');
+  assert.ok(!asksPerson('Questions answered above. All done.'), 'a line that only starts with the word is not a questions list');
+  assert.ok(asksPerson('Draft is up.\n\n**Open questions:**\n- Naming'));
+});
+
+test('end signals: computed by code from the last reply and later git and episode links', () => {
+  const ev = [...events(), { t: at(9), kind: 'tool_use', name: 'Agent', id: 'a1' }, { t: at(9), kind: 'assistant_text', text: 'Pick one: A) keep B) drop', head: 'Two ways.' }];
+  const b = buildBundle({ episode: { ...episode, downstream: [{ kind: 'revert', ref: 'x', delta_hours: 2, link: 'hard' }, { kind: 'episode', ref: 'e-2', delta_hours: 1, link: 'soft' }] }, transcript: { events: ev, snapshot }, known, nonce: 'n' });
+  assert.deepEqual(payloadOf(b).end_signals, { asks_person: true, reverted: true, fixup_later: false, continued_later: true });
+  // Ending on a human turn: nothing in a reply is open.
+  const h = buildBundle({ episode, transcript: { events: events(), snapshot }, known, nonce: 'n' });
+  assert.deepEqual(payloadOf(h).end_signals, { asks_person: false, reverted: false, fixup_later: false, continued_later: false });
+  assert.match(TEMPLATE, /end_signals/);
+  // A tool call after the question: the agent went on, so nothing was left open.
+  const went = buildBundle({ episode, transcript: { events: [...events(), { t: at(9), kind: 'assistant_text', text: 'Should I run the tests?' }, { t: at(9), kind: 'tool_use', name: 'Bash', id: 'b1' }], snapshot }, known, nonce: 'n' });
+  assert.equal(payloadOf(went).end_signals.asks_person, false);
+  // The linker's flags cover every link; downstream keeps only the nearest few.
+  const near = Array.from({ length: 5 }, (_, i) => ({ kind: 'episode', ref: `e-${i}`, delta_hours: i, link: 'soft' }));
+  const f = buildBundle({ episode: { ...episode, downstream: near, rework: true, possible_fix: true, possible_rework: true }, transcript: { events: events(), snapshot }, known, nonce: 'n' });
+  assert.equal(payloadOf(f).end_signals.reverted, true);
+  assert.equal(payloadOf(f).end_signals.fixup_later, true);
+  // Episodes from facts carry no linker flags, only the stratum outcome.
+  const s = buildBundle({ episode: { ...episode, downstream: near, stratum: { outcome: 'rework' } }, transcript: { events: events(), snapshot }, known, nonce: 'n' });
+  assert.equal(payloadOf(s).end_signals.reverted, true);
+  const p = buildBundle({ episode: { ...episode, downstream: near, stratum: { outcome: 'possible_fix' } }, transcript: { events: events(), snapshot }, known, nonce: 'n' });
+  assert.deepEqual([payloadOf(p).end_signals.reverted, payloadOf(p).end_signals.fixup_later], [false, true]);
+});
+
+test('trimming shortens middle replies first; the last reply keeps its full opening and closing', () => {
+  const ev = [];
+  for (let i = 0; i < 12; i++) {
+    ev.push({ t: at(i), kind: 'human', uuid: `u${i}`, text: `next step ${'word '.repeat(150)}${i}` });
+    ev.push({ t: at(i), kind: 'assistant_text', text: `${'tail '.repeat(100)}Final status line.`, head: `${'reply '.repeat(80)}` });
+  }
+  const b = buildBundle({ episode: { ...episode, root_turn_id: 'u0' }, transcript: { events: ev, snapshot: null }, known, nonce: 'n' });
+  assert.ok(bundleTokens(b) <= DEFAULT_CAPS.bundle_tokens);
+  const last = b.turns.at(-1);
+  assert.equal(last.role, 'assistant');
+  assert.equal(last.text.length, DEFAULT_CAPS.assistant_chars);
+  assert.ok(last.closing.endsWith('Final status line.'));
+  assert.equal(b.turns[0].text.length, `next step ${'word '.repeat(150)}0`.length, 'the root prompt stays whole');
+  assert.ok(b.turns.slice(1, -1).filter((t) => t.role === 'assistant').every((t) => t.text.length <= 160));
+});
+
+test('config: four flagged turns with six best lines each all reach the judge', () => {
+  const words = ['migration', 'semicolon', 'deploy', 'fixture'];
+  const ev = [{ t: at(0), kind: 'human', uuid: 'u1', text: 'Start the work.' }];
+  words.forEach((w, i) => {
+    ev.push({ t: at(2 * i + 1), kind: 'assistant_text', text: 'ok' }, { t: at(2 * i + 1), kind: 'interrupt' });
+    ev.push({ t: at(2 * i + 2), kind: 'human', uuid: `v${i}`, text: `Stop, the ${w} rule matters here.` });
+  });
+  const lines = words.flatMap((w) => Array.from({ length: 6 }, (_, k) => `- Rule ${k} about the ${w} step, written out with enough plain words to be a long line.`));
+  const b = buildBundle({ episode, transcript: { events: ev, snapshot: [{ path: '/r/CLAUDE.md', content: `# Rules\n${lines.join('\n')}\n` }] }, known, nonce: 'n' });
+  for (const [id, m] of Object.entries(b.meta.config_lines)) assert.deepEqual(m, { matched: 6, best: 6, sent: 6 }, id);
+  assert.ok(bundleTokens(b) <= DEFAULT_CAPS.bundle_tokens);
+});
+
+test('continued_later: a later episode on the same files within a day; one days later does not count', () => {
+  const ep = (h) => ({ ...episode, possible_rework: true, downstream: [{ kind: 'episode', ref: 'e-2', delta_hours: h, link: 'soft' }] });
+  assert.equal(payloadOf(buildBundle({ episode: ep(3), transcript: { events: events(), snapshot }, known, nonce: 'n' })).end_signals.continued_later, true);
+  assert.equal(payloadOf(buildBundle({ episode: ep(50), transcript: { events: events(), snapshot }, known, nonce: 'n' })).end_signals.continued_later, false);
+});
+
+test('over the cap, instruction lines go before the first message or a flagged message is cut', () => {
+  const first = `Build the export ${'word '.repeat(220)}end`;
+  const ev = [{ t: at(0), kind: 'human', uuid: 'u1', text: first }];
+  const topics = ['migration', 'deploy', 'fixture'];
+  topics.forEach((w, i) => {
+    ev.push({ t: at(i + 1), kind: 'assistant_text', text: 'ok', head: 'reply '.repeat(60) }, { t: at(i + 1), kind: 'interrupt' });
+    ev.push({ t: at(i + 1), kind: 'human', uuid: `v${i}`, text: `Actually the ${w} step ${'detail '.repeat(150)}` });
+  });
+  ev.push({ t: at(9), kind: 'assistant_text', text: 'Done.', head: 'Done.' });
+  const filler = Array.from({ length: 40 }, (_, k) => `- Filler ${k} about lint and style.`);
+  const cfg = [...filler, ...topics.flatMap((w) => Array.from({ length: 6 }, (_, k) => `- The ${w} item ${k} needs a dry run, written with enough plain words to make a long line.`))].join('\n');
+  const caps = { ...DEFAULT_CAPS, bundle_tokens: 2400 };
+  const b = buildBundle({ episode, transcript: { events: ev, snapshot: [{ path: '/r/CLAUDE.md', content: `# Rules\n${cfg}\n` }] }, known, nonce: 'n', caps });
+  assert.ok(bundleTokens(b, caps) <= caps.bundle_tokens, `tokens ${bundleTokens(b, caps)}`);
+  assert.ok(Object.values(b.meta.config_lines).some((m) => m.sent < m.best), 'instruction lines were trimmed');
+  assert.equal(b.turns[0].text, first.slice(0, DEFAULT_CAPS.human_turn_chars), 'the first message stays whole');
+  assert.ok(b.turns.filter((t) => t.candidate).every((t) => t.text.length > 600), 'flagged messages stay whole');
 });

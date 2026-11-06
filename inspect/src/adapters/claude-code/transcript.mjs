@@ -6,8 +6,9 @@ import { readSession } from './events.mjs';
 
 // Events of one episode: from its root human turn (matched by uuid, else by start
 // time) through its end time. Subagent events are left out. The live config is
-// the newest instruction snapshot at or before the episode start, else the first
-// one in the session (loaded at start, before the first prompt was logged).
+// the snapshot logged right after the root turn (loaded for that prompt), else
+// the newest one at or before the episode start, else the first one in the
+// session, marked late.
 export function sliceEpisode(timeline, ep) {
   const main = timeline.filter((e) => !e.sub);
   let from = main.findIndex((e) => e.kind === 'human' && e.uuid && e.uuid === ep.root_turn_id);
@@ -21,6 +22,12 @@ export function sliceEpisode(timeline, ep) {
     events.push(e);
   }
   const snaps = main.filter((e) => e.kind === 'instructions');
+  // The harness logs the files it loads for a prompt just after that prompt. A
+  // snapshot logged after the root turn, with nothing else between them, is the
+  // config loaded for the root prompt, so it counts as loaded at the start.
+  let loaded = null;
+  for (let i = from + 1; i < main.length && main[i].kind === 'instructions'; i++) loaded = main[i];
+  if (loaded) return { events, snapshot: loaded.files, snapshot_late: false };
   const before = snaps.filter((e) => e.t && e.t <= ep.start).at(-1);
   if (before) return { events, snapshot: before.files, snapshot_late: false };
   // A snapshot logged after the episode started may hold files loaded later on, so

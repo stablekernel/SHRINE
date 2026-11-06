@@ -79,11 +79,13 @@ Status: pre-release trial (background runs, a thin skill, a checksummed release)
   - The consent, with the approved estimate, is recorded in `facts.json`; the judge command is refused until it is there; every run asks again
 - Sample: 12 episodes with a correction candidate, seeded (seed in the report footer), recency thirds, at most 4 per project unless one project holds them all, 3x weight for sessions with 2 or more corrections
   - Fewer than 12 eligible: all are judged, labelled thin evidence; under 10 sessions: T1 is not offered
-- Evidence pack per episode: your messages (up to 1,200 characters, 12 messages), the opening 400 characters of each reply, the closing 300 characters of the last reply, tool names without arguments, how the episode ended (commit, pull request, next task or idle, session end), and the instruction lines that match the flagged messages
-  - Instruction lines: code searches every instruction file loaded for that session for words from each flagged message and sends only matching lines, under their heading (at most 1,600 characters)
-  - Every string is scrubbed for secrets, then masked (names, paths, hosts) before a judge or a file sees it; about 1,500 tokens per pack at most
-  - Over the cap: replies cut first, then middle messages that were not flagged (the first and last always stay), then long messages, then instruction lines, then flagged middle messages
-- Gate B estimate: pack size (bytes / 4) plus a per-call overhead and output measured on Claude Code 2.1.318, then 10% retry reserve and 30% margin on the top
+- Evidence pack per episode: your messages (up to 1,200 characters, 12 messages), the opening 400 characters of each reply, the closing 400 characters of the last reply, tool names without arguments, how the episode ended (commit, pull request, next task or idle, session end), end signals computed by code, and the instruction lines that match the flagged messages
+  - Instruction lines: code searches every instruction file loaded for that session for words from each flagged message and sends only matching lines, under their heading (at most 2,400 characters)
+  - End signals: the last reply asks you something (a question, lettered choices, a questions list) and no tool call follows, a later revert or fixup commit, a later episode on the same files within a day
+  - The judge uses these and the last reply to pick resolved, abandoned (left open), or reworked; "could not tell" is for an episode none of these fits
+  - Every string is scrubbed for secrets, then masked (names, paths, hosts) before a judge or a file sees it; about 4,000 tokens per pack at most (the cap, at 2.5 bytes per token)
+  - Over the cap: middle replies cut first, then middle messages that were not flagged (the first and last always stay, the last reply whole with its closing), then instruction lines, then flagged middle messages, then the first and last messages
+- Gate B estimate: pack size (bytes / 2.5) plus the prompt, a per-call overhead and output measured on Claude Code 2.1.318, then 10% retry reserve and 30% margin on the top
   - Minutes: 10 seconds per call, judging only (not the scan or time at gates); real time varies by machine, login, and network
   - The judging time limit (the estimate plus 50%) is the only fixed time figure
   - Session text is data for the judge, never instructions: it sits inside a fence named by a random nonce, and the judge prompt says so
@@ -146,8 +148,9 @@ T1 trial (recorded, not fixed):
 - At 12 episodes the top of the Gate B range is tens of thousands of tokens at any pack size: the fixed cost per call (prompt, overhead, output) times 12, plus reserve and margin (`test/judge/workorder.test.mjs`)
 - A correction you later reversed still gives a before and after from your own words
 - The harness version shown at Gate B comes from your newest session log, not from the installed command
-- A session whose loaded-instructions snapshot is logged only after an episode starts is read as "may have changed", so its corrections stay "could not tell"
-- Instruction lines are matched by shared words (common words left out), not meaning: a rule worded with other words is not found, and its correction reads as yours
+- The loaded-instructions snapshot logged right after an episode's first message counts as loaded for it; a first snapshot logged only after a reply is read as "may have changed", so its corrections stay "could not tell"
+- End signals are word and pattern checks: a reply that asks something without a question mark, lettered choices, or a questions heading is not seen as asking
+- Instruction lines are matched by shared words (common words and simple plural or tense endings left out), not meaning: a rule worded with other words is not found, and its correction reads as yours. Sending whole files would fix this but sends far more of your config, so it is not done
 
 Leak check, `check-share` and the dry run (`test/release/leak-known-limits.test.mjs`):
 

@@ -45,7 +45,7 @@ test('estimate: bundle tokens plus per-call overhead and output, then a retry re
   assert.ok(r.minutes >= 1);
 });
 
-// The Gate B estimate is computed from the packs as built: bytes / 4 per pack plus
+// The Gate B estimate is computed from the packs as built: bytes / 2.5 per pack plus
 // the prompt, a fixed per-call overhead and output allowance, then the retry
 // reserve and margin on the top. Judging is bounded by its time box, not by size.
 test('estimate: computed from the pack sizes; 12 packs at the cap fit the time box', () => {
@@ -59,6 +59,31 @@ test('estimate: computed from the pack sizes; 12 packs at the cap fit the time b
   // Smaller packs give a smaller estimate: nothing is padded to the cap.
   assert.ok(estimateOrder(Array(J.episodes).fill(prompt + 100), J.estimate).tokens_low < r.tokens_low);
   assert.ok(r.minutes <= 5, `minutes ${r.minutes}`);
+});
+
+// Measured on 12 real judge calls (Claude Code 2.1.318, a judge prompt of 3,505
+// bytes): pack payload bytes, and the input tokens each call reported. These
+// packs ran near 2.5 bytes per token; the fixed input near 3,100 tokens.
+const MEASURED_PROMPT_BYTES = 3505;
+const MEASURED = [
+  [5870, 5347], [4786, 5039], [5743, 5486], [5502, 5240], [5863, 5368], [5081, 5226],
+  [5902, 5488], [5844, 5351], [3584, 4539], [3904, 4669], [5957, 5556], [5788, 5580],
+];
+test('estimate: the per-call input estimate brackets measured calls, and stays honest at the larger cap', () => {
+  const J = THRESHOLDS.judged;
+  const est = (bytes, promptBytes) => Math.ceil(bytes / J.caps.bytes_per_token) + Math.ceil(promptBytes / J.caps.bytes_per_token) + J.estimate.overhead_tokens_per_call;
+  for (const [bytes, real] of MEASURED) {
+    const e = est(bytes, MEASURED_PROMPT_BYTES);
+    assert.ok(e >= real * 0.9 && e <= real * 1.1, `${bytes} bytes: estimate ${e} vs measured ${real}`);
+  }
+  // A full pack at the cap with today's prompt, against the measured slope and
+  // intercept plus the prompt growth: the low end within 10%, the top above it.
+  const capBytes = J.caps.bundle_tokens * J.caps.bytes_per_token;
+  const promptBytes = Buffer.byteLength(TEMPLATE, 'utf8');
+  const expected = 3136 + 0.396 * (capBytes + promptBytes - MEASURED_PROMPT_BYTES);
+  const e = est(capBytes, promptBytes);
+  assert.ok(e >= expected * 0.9 && e <= expected * 1.1, `cap estimate ${e} vs ${Math.round(expected)}`);
+  assert.ok((e + J.estimate.output_tokens_per_call) * (1 + J.estimate.retry_reserve) * (1 + J.estimate.margin) > expected * 1.2);
 });
 
 test('one call per item; every line records tokens, model, and the validated output only', async () => {
