@@ -15,6 +15,7 @@ test('write-scope claims name the T1 judge launch exception', () => {
   for (const [name, doc] of [['TRIAL.md', TRIAL], ['inspect.mdx', GUIDE]]) {
     assert.match(doc, /judge call launches Claude Code, which may update its own state and cache files \(`~\/\.claude\.json`, files under `~\/\.claude\/`\)/, name);
   }
+  assert.match(GUIDE, /with `--skill`, the skill to `~\/\.claude\/skills\/shrine-inspect\/`/);
   assert.ok(DISCLOSURE.some((l) => l.includes('~/.claude.json, files under ~/.claude/')));
 });
 
