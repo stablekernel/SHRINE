@@ -1,6 +1,6 @@
 import { test } from 'node:test';
 import assert from 'node:assert/strict';
-import { PATTERNS, isDoneClaim, isTestCommand, isCorrectionCue, countRetries, episodeFlags, runUsageProbes, rateDifference } from '../../src/probes/usage.mjs';
+import { PATTERNS, isDoneClaim, isTestCommand, isCorrectionCue, countRetries, episodeFlags, runUsageProbes, rateDifference, topProject } from '../../src/probes/usage.mjs';
 import { THRESHOLDS } from '../../src/probes/config.mjs';
 
 for (const [name, fn, list] of [
@@ -52,6 +52,30 @@ test('correction candidates: later human turns with a cue, or right after an int
   const first = ep('b', { humans: [] });
   first.humans[0].text = "Don't touch the db";
   assert.equal(episodeFlags(first).corrections, 0, 'the first human turn is the request, never a correction');
+});
+
+test('correction candidates count messages, not pattern hits: several cues in one message count once', () => {
+  const many = 'No, wrong, revert that. Actually stop, instead use the old name.';
+  assert.ok(PATTERNS.correction.patterns.filter((p) => new RegExp(p, 'i').test(many)).length >= 2, 'the fixture holds several cues');
+  assert.equal(episodeFlags(ep('a', { humans: [{ index: 1, text: many, after_interrupt: true }] })).corrections, 1);
+  assert.equal(episodeFlags(ep('b', { humans: [{ index: 1, text: many, after_interrupt: false }, { index: 2, text: many, after_interrupt: false }] })).corrections, 2, 'two messages count twice');
+});
+
+test('top project: share of episodes in the project holding the most', () => {
+  const eps = [...'aaaab'].map((r, i) => ({ id: `e${i}`, repo: `/w/${r}` }));
+  assert.deepEqual(topProject(eps), { projects: 2, episodes: 4, share: 0.8 });
+  assert.deepEqual(topProject([]), { projects: 0, episodes: 0, share: null });
+});
+
+test('dedupe counts and the top project share land in the usage counts', () => {
+  const sessions = [{ turns: 1, interrupts: 0, compactions: 0, tokens: { in: 1, out: 1, cache_read: 0 }, subagent_share: 0 }];
+  const episodes = [ep('a'), ep('b'), ep('c')].map((e, i) => ({ ...e, repo: i < 2 ? '/w/a' : '/w/b' }));
+  const r = runUsageProbes({ sessions, episodes, dedupe: { resent_messages: 2, forked_sessions: 1, copied_messages: 5, forked_sessions_dropped: 0 } });
+  assert.equal(r.counts.resent_messages, 2);
+  assert.equal(r.counts.copied_messages, 5);
+  assert.equal(r.counts.projects, 2);
+  assert.equal(r.counts.top_project_episodes, 2);
+  assert.equal(r.counts.top_project_share, 0.667);
 });
 
 test('counts and kinds: done_without_test and retry_loops ship as appendix counts', () => {

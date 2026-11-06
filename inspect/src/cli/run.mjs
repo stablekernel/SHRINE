@@ -144,6 +144,18 @@ export async function continueRun(folder, ctx, io) {
   const history = historyConsented ? await scanHistory({ listing, excludedIds, display, onProgress: io.onScanProgress }) : null;
   const usage = history && !history.unsupported && history.sessions.length > 0 ? history.usage : null;
 
+  // Gate B: the "do you need it yet" line, from the scan, shown before the report.
+  // In this version the depth is T0, set by --tier, so the line informs, not asks.
+  const need = history ? { ...history.need, ...(usage ? {} : { rule: 'setup_only' }) } : { consented: historyConsented };
+  // A resumed run keeps the line it already showed.
+  const shown = folder.isDone('gate_b') ? readJson(folder.path('gate-b.json')) : null;
+  const gateB = shown ?? { gate: 'B', tier: state.gates.B?.choice ?? 'T0', by: state.gates.B?.by ?? 'flag', need, line: copy.needLine(need), note: GATE_B_NOTE };
+  if (!shown) {
+    folder.writeJson('gate-b.json', gateB);
+    folder.markDone('gate_b');
+  }
+  if (!io.json) io.stdout.write(`Gate B: ${gateB.line}\n`);
+
   const run = {
     id: state.run_id,
     started_at: state.started_at,
@@ -170,6 +182,7 @@ export async function continueRun(folder, ctx, io) {
       structure: probes.structure.map((s) => ({ check: s.check, applicable: s.applicable, pass: s.pass })),
       history: { consented: historyConsented, ...itemized, rule: usage?.rule ?? (historyConsented ? 'setup_only' : null), usage_kinds: usage ? usage.kinds.map((k) => ({ kind: k.kind, ship: k.ship, applicable: k.applicable, hit: k.hit, metric: k.metric })) : [] },
       tier_proposal: tierProposal(),
+      need: { ...gateB.need, line: gateB.line },
     });
     folder.markDone('scan');
   }
@@ -311,7 +324,7 @@ export async function continueRun(folder, ctx, io) {
   folder.writeJson('state.json', state);
   folder.write('spy.jsonl', `${spyLog().map((e) => JSON.stringify(e)).join('\n')}\n`);
 
-  const summary = { run_id: state.run_id, run_dir: folder.dir, report: reportPath, share_safe: safePath, diff: findings.diff, findings: findings.findings.length, checked_clear: findings.checked_clear.length };
+  const summary = { run_id: state.run_id, run_dir: folder.dir, report: reportPath, share_safe: safePath, diff: findings.diff, findings: findings.findings.length, checked_clear: findings.checked_clear.length, gate_b: { tier: gateB.tier, line: gateB.line } };
   if (io.json) io.stdout.write(`${JSON.stringify(summary)}\n`);
   else {
     if (findings.diff) io.stdout.write(`${diffLine(findings.diff)}\n`);

@@ -218,3 +218,95 @@ test('a lazy fetch during a setup git run is reported, not baked into the baseli
     h.cleanup();
   }
 });
+
+test('resent messages and forked sessions are dropped before counting, shown in the appendix, and Gate B prints its line', async () => {
+  const h = makeHome('good', { sessionMtime: new Date(NOW - 25 * DAY) });
+  const files = addHistory(h, 'clean', { nowMs: NOW, count: 10 });
+  const plain = await (async () => {
+    const state = mkdtempSync(join(tmpdir(), 'si-st-'));
+    await inproc(['run', '--tier', 'T0', '--json'], h, state, tty('history'));
+    return json(runDir(state), 'findings.json').usage.counts;
+  })();
+  // A fork: the first session's lines, copied with their uuids, plus one new message.
+  const src = readFileSync(files[0], 'utf8');
+  const dir = join(h.claudeHome, 'projects', encodeProjectPath(h.repo));
+  const extra = { type: 'user', timestamp: new Date(NOW - 2 * DAY).toISOString(), sessionId: 'fork', cwd: h.repo, version: '2.1.318', uuid: 'fork-new-0001', promptSource: 'typed', turnOrigin: 'human', message: { role: 'user', content: 'Now add a test for it.' } };
+  writeFileSync(join(dir, 'ffff0000-0000-4000-8000-000000000001.jsonl'), `${src}${JSON.stringify(extra)}\n`);
+  // A pure copy: nothing of its own.
+  writeFileSync(join(dir, 'ffff0000-0000-4000-8000-000000000002.jsonl'), src);
+  for (const [i, f] of ['1', '2'].entries()) utimesSync(join(dir, `ffff0000-0000-4000-8000-00000000000${f}.jsonl`), new Date(NOW - (2 - i * 0.5) * DAY), new Date(NOW - (2 - i * 0.5) * DAY));
+  // A resend after an interrupt.
+  addSession(h, { id: 'eeee0000-0000-4000-8000-000000000001', startMs: NOW - 3 * DAY, script: [['human', 'Rename the module.'], ['interrupt'], ['human', 'Rename the module.'], ['text', 'Renamed.']] });
+
+  const state = mkdtempSync(join(tmpdir(), 'si-st-'));
+  const r = await inproc(['run', '--tier', 'T0'], h, state, tty('history'));
+  assert.equal(r.code, 0, r.stderr);
+  const run = runDir(state);
+  const f = json(run, 'findings.json');
+  const c = f.usage.counts;
+  assert.equal(c.resent_messages, 1);
+  assert.equal(c.forked_sessions, 2);
+  assert.equal(c.forked_sessions_dropped, 1);
+  assert.equal(c.copied_messages, 2);
+  assert.equal(c.sessions, plain.sessions + 2, 'the fork and the resend session count; the pure copy does not');
+  assert.equal(c.human_turns, plain.human_turns + 2, 'one new message in the fork, one in the resend session');
+  assert.ok(f.usage.lines.some((l) => /^Dropped before counting: 1 resent message .*2 copied messages in 2 session files that repeat lines already read .*1 of 2 files had nothing new and was left out\)\.$/.test(l)), f.usage.lines.join('\n'));
+  assert.ok(f.usage.lines.includes(`One project: all ${c.episodes} episodes come from 1 project, so every rate here describes that project only.`));
+  assert.match(readFileSync(join(run, 'report.html'), 'utf8'), /Dropped before counting/);
+  // Gate B: one line before the report paths, also in gate-b.json and scan.json.
+  assert.ok(json(run, 'facts.json').sessions.some((x) => x.id === 'aaaa0000-0000-4000-8000-000000000000'), 'the original keeps its lines');
+  const line = `Do you need more than a scan yet? Not yet: ${c.sessions} sessions and ${c.human_turns} of your messages over `;
+  assert.ok(r.stdout.startsWith(`Gate B: ${line}`), r.stdout);
+  assert.ok(r.stdout.indexOf('Gate B:') < r.stdout.indexOf('Report:'));
+  assert.ok(json(run, 'gate-b.json').line.startsWith(line));
+  assert.match(r.stdout, /is a short history, under 20 messages or 7 days, so a scan is all it supports\.\n/);
+  assert.equal(json(run, 'scan.json').need.sessions, c.sessions);
+  h.cleanup();
+});
+
+test('Gate B line: limited history under 10 sessions, and unknown without history', async () => {
+  const h = makeHome('good', { sessionMtime: new Date(NOW - 25 * DAY) });
+  addHistory(h, 'clean', { nowMs: NOW, count: 4 });
+  const state = mkdtempSync(join(tmpdir(), 'si-st-'));
+  const r = await inproc(['run', '--tier', 'T0', '--json'], h, state, tty('history'));
+  assert.equal(r.code, 0, r.stderr);
+  assert.match(JSON.parse(r.stdout).gate_b.line, /^Do you need more than a scan yet\? Not yet: 4 sessions and 4 of your messages over \d+ days is limited history, under 10 sessions/);
+  const state2 = mkdtempSync(join(tmpdir(), 'si-st-'));
+  const n = await inproc(['run', '--tier', 'T0'], h, state2, tty('no-history'));
+  assert.match(n.stdout, /^Gate B: Do you need more than a scan yet\? Unknown: session history was not read\.\n/);
+  h.cleanup();
+});
+
+test('read order: earliest first line, then earliest created, then oldest modified, then id', async () => {
+  const { readOrder } = await import('../../src/cli/scan.mjs');
+  const at = '2026-10-01T10:00:00.000Z';
+  const ids = (xs) => readOrder(xs).map((x) => x.id);
+  // The original was written to after the fork: created first still wins the tie.
+  assert.deepEqual(ids([{ id: 'fork', start: at, birth: 200, mtime: 300 }, { id: 'orig', start: at, birth: 100, mtime: 900 }]), ['orig', 'fork']);
+  // No creation time on this filesystem: oldest modified first.
+  assert.deepEqual(ids([{ id: 'b', start: at, birth: 0, mtime: 900 }, { id: 'a', start: at, birth: 0, mtime: 300 }]), ['a', 'b']);
+  assert.deepEqual(ids([{ id: 'late', start: '2026-10-02T00:00:00Z', birth: 1 }, { id: 'early', start: at, birth: 5 }, { id: 'none', start: null, birth: 0 }]), ['early', 'late', 'none']);
+});
+
+test('a resumed run keeps the Gate B line it showed, in gate-b.json, the terminal, and --json', async () => {
+  const { context, continueRun, findRun } = await import('../../src/cli/run.mjs');
+  const h = homeWithHistory();
+  const state = mkdtempSync(join(tmpdir(), 'si-st-'));
+  const first = await inproc(['run', '--tier', 'T0', '--json'], h, state, tty('history'));
+  assert.equal(first.code, 0, first.stderr);
+  const dir = runDir(state);
+  const saved = { ...json(dir, 'gate-b.json'), line: 'Do you need more than a scan yet? Saved line.' };
+  writeFileSync(join(dir, 'gate-b.json'), JSON.stringify(saved));
+  // A new session arrives before the resume; the line shown first still stands.
+  addSession(h, { id: 'cccc0000-0000-4000-8000-000000000001', startMs: NOW - DAY, script: PRESETS.clean(99) });
+  const env = { ...process.env, HOME: h.home, SHRINE_INSPECT_STATE_DIR: join(state, 'state'), SHRINE_INSPECT_CACHE_DIR: join(state, 'cache'), SHRINE_INSPECT_NOW: FIXED_NOW, SHRINE_INSPECT_TEMP_PATTERNS: '["^/nowhere/"]' };
+  for (const asJson of [true, false]) {
+    const out = sink();
+    const io = { env, home: h.home, stdin: { isTTY: false }, stdout: out, stderr: sink(), json: asJson };
+    const r = await continueRun(findRun(join(state, 'state'), json(dir, 'state.json').run_id), context(io), io);
+    assert.equal(r.summary.gate_b.line, saved.line);
+    if (!asJson) assert.match(out.text(), /^Gate B: Do you need more than a scan yet\? Saved line\.\n/);
+  }
+  assert.deepEqual(json(dir, 'gate-b.json'), saved);
+  h.cleanup();
+});

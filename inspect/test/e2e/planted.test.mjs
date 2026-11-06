@@ -74,6 +74,12 @@ test('planted: recall of the 3 planted kinds is 80% or more; usage stays in the 
   assert.ok(u.lines.some((l) => /^Identical tool-call retries: \d+ of \d+ tool calls/.test(l)));
   assert.ok(u.lines.some((l) => /^Done claims with no test or check run before them/.test(l)));
   assert.match(r.read('report.html'), /Usage from session history/);
+  // Nothing to drop in this history; one repo holds every episode, so the rates say so.
+  assert.equal(u.counts.resent_messages, 0);
+  assert.equal(u.counts.forked_sessions, 0);
+  assert.ok(!u.lines.some((l) => /^Dropped before counting/.test(l)));
+  assert.ok(u.lines.some((l) => /^One project: all \d+ episodes come from 1 project/.test(l)), u.lines.join('\n'));
+  assert.ok(u.lines.some((l) => /^Identical tool-call retries: .*Mostly 1 project: 100% of episodes\.$/.test(l)));
   // With no linked commits the rework line says so and the later-session fix line is left out.
   const linked = u.counts.linked_commits > 0;
   const rework = linked ? [/^Rework \(named reverts\) within 72 hours: \d+ of \d+ episodes? with linked commits/, /^Possible rework \(later-session fix\)/] : [/^Rework \(named reverts\) within 72 hours: no episode has a linked commit/];

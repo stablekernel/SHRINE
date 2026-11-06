@@ -125,6 +125,54 @@ test('history-not-read episodes get their own line and no unlinked or nothing-to
   assert.doesNotMatch(usageLines(SAMPLE_USAGE).join('\n'), /History not read/);
 });
 
+test('one project over 60% of episodes: a usage line and a note on every rate line; at 60% or under, neither', () => {
+  const at = (share, projects = 3) => usageLines({ ...SAMPLE_USAGE, counts: { ...SAMPLE_USAGE.counts, episodes: 100, projects, top_project_episodes: Math.round(share * 100), top_project_share: share } });
+  const over = at(0.61);
+  assert.ok(over.includes('One project dominates: 61 of 100 episodes (61%) come from 1 of 3 projects, so every rate here mostly describes that project.'), over.join('\n'));
+  for (const re of [/^Subagent share/, /^Identical tool-call retries/, /^Done claims with no test/, /^Rework \(named reverts\)/, /^Possible rework \(file overlap\)/]) {
+    assert.match(over.find((l) => re.test(l)), /Mostly 1 project: 61% of episodes\.$/, String(re));
+  }
+  assert.doesNotMatch(over.find((l) => /^Correction candidates/.test(l)), /Mostly/, 'a count is not a rate');
+  for (const lines of [at(0.6), at(0.4)]) assert.doesNotMatch(lines.join('\n'), /One project|Mostly 1 project/);
+  assert.match(at(1, 1).join('\n'), /One project: all 100 episodes come from 1 project, so every rate here describes that project only\./);
+  assert.equal(copy.dominanceLine({ episodes: 0, projects: 0, top_project_episodes: 0, top_project_share: null }), null);
+});
+
+test('dropped-before-counting line names resent messages and forked sessions, and is absent when nothing was dropped', () => {
+  const text = usageLines(SAMPLE_USAGE).join('\n');
+  assert.match(text, /Dropped before counting: 9 resent messages \(the same text sent again after an interrupt or an unanswered send\), and 41 copied messages in 3 session files that repeat lines already read \(a fork, a resume, or one session saved in 2 folders; 1 of 3 files had nothing new and was left out\)\./);
+  const none = usageLines({ ...SAMPLE_USAGE, counts: { ...SAMPLE_USAGE.counts, resent_messages: 0, forked_sessions: 0, copied_messages: 0, forked_sessions_dropped: 0 } }).join('\n');
+  assert.doesNotMatch(none, /Dropped before counting/);
+  assert.doesNotMatch(usageLines({ ...SAMPLE_USAGE, counts: { sessions: 1, episodes: 1, human_turns: 1, interrupts: 0, compactions: 0, correction_candidates: 0 } }).join('\n'), /Dropped before counting|undefined/);
+});
+
+test('counts are human messages: the line says a message with several cues counts once', () => {
+  const text = usageLines(SAMPLE_USAGE).join('\n');
+  assert.match(text, /1171 human messages, 22 interrupts/);
+  assert.match(text, /Correction candidates: 40 human messages, each counted once however many cues it holds\./);
+});
+
+test('Gate B need line: one plain sentence per history-size rule', () => {
+  const lines = {
+    none: copy.needLine({ consented: false }),
+    empty: copy.needLine({ consented: true, rule: 'setup_only', sessions: 0, human_messages: 0, span_days: 0 }),
+    thin: copy.needLine({ consented: true, rule: 'limited', sessions: 6, human_messages: 40, span_days: 5 }),
+    enough: copy.needLine({ consented: true, rule: 'probe', sessions: 66, human_messages: 1171, span_days: 30 }),
+    few: copy.needLine({ consented: true, rule: 'probe', sessions: 12, human_messages: 19, span_days: 30 }),
+    brief: copy.needLine({ consented: true, rule: 'probe', sessions: 12, human_messages: 300, span_days: 6 }),
+  };
+  for (const k of ['few', 'brief']) assert.match(lines[k], /^Do you need more than a scan yet\? Not yet: .* is a short history, under 20 messages or 7 days, so a scan is all it supports\.$/, k);
+  assert.match(copy.needLine({ consented: true, rule: 'probe', sessions: 10, human_messages: 20, span_days: 7 }), /Maybe:/, 'at the bars, enough');
+  assert.equal(lines.none, 'Do you need more than a scan yet? Unknown: session history was not read.');
+  assert.equal(lines.thin, 'Do you need more than a scan yet? Not yet: 6 sessions and 40 of your messages over 5 days is limited history, under 10 sessions, so a scan is all it supports.');
+  assert.equal(lines.enough, 'Do you need more than a scan yet? Maybe: 66 sessions and 1171 of your messages over 30 days is enough history for a deeper look; this version offers the scan only.');
+  assert.match(lines.empty, /^Do you need more than a scan yet\? Unknown/);
+  for (const l of Object.values(lines)) {
+    assert.ok(!l.includes('\n'), 'one line');
+    assert.deepEqual(copyProblems(l), [], l);
+  }
+});
+
 test('control sentence labels a small flagged group and drops an empty one', () => {
   const dwt = (flagged) => ({ ...SAMPLE_PROBES.done_without_test, control: { flagged, rest: { hits: 2, n: 40, rate: 0.05 }, diff_points: 0 } });
   const one = copy.finding('done_without_test', dwt({ hits: 1, n: 1, rate: 1 })).why.join(' ');
