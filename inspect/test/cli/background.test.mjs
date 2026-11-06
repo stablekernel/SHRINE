@@ -9,7 +9,7 @@ import { tmpdir } from 'node:os';
 import { join } from 'node:path';
 import { Readable } from 'node:stream';
 import { fileURLToPath } from 'node:url';
-import { spawn } from 'node:child_process';
+import { spawn, spawnSync } from 'node:child_process';
 import { main } from '../../src/cli/main.mjs';
 import { GRANT_ENV, runStatus } from '../../src/cli/background.mjs';
 import { resetSpy, spyLog } from '../../src/io/fsread.mjs';
@@ -175,8 +175,13 @@ test('a T1 run in the background: Gate B yes typed in the terminal, judging in t
   const bin = join(state, 'fakebin');
   mkdirSync(bin);
   const log = join(state, 'judge-launches.log');
-  writeFileSync(join(bin, 'claude'), `#!/bin/sh\nexec "${process.execPath}" "${FAKE_JUDGE}" auto\n`);
+  // Each judge and git child logs whether it was handed the grant.
+  const seen = join(state, 'grant-seen.log');
+  const realGit = spawnSync('sh', ['-c', 'command -v git'], { encoding: 'utf8' }).stdout.trim();
+  writeFileSync(join(bin, 'claude'), `#!/bin/sh\necho "judge:\${${GRANT_ENV}-}" >> "${seen}"\nexec "${process.execPath}" "${FAKE_JUDGE}" auto\n`);
+  writeFileSync(join(bin, 'git'), `#!/bin/sh\necho "git:\${${GRANT_ENV}-}" >> "${seen}"\nexec "${realGit}" "$@"\n`);
   chmodSync(join(bin, 'claude'), 0o755);
+  chmodSync(join(bin, 'git'), 0o755);
   const extra = { PATH: `${bin}:${process.env.PATH}`, FAKE_JUDGE_LOG: log };
   const id = JSON.parse((await inproc(['start', '--tier', 'T1', '--json'], h, state, { extra })).stdout).run_id;
   await until(h, state, id, (x) => x.state === 'gate' && x.gate === 'A', { extra });
@@ -195,6 +200,9 @@ test('a T1 run in the background: Gate B yes typed in the terminal, judging in t
   assert.equal(readFileSync(log, 'utf8').trim().split('\n').length, 12);
   const findings = JSON.parse(readFileSync(join(done.run_dir, 'findings.json'), 'utf8'));
   assert.equal(findings.judging.judged, 12);
+  const children = readFileSync(seen, 'utf8').trim().split('\n');
+  assert.ok(children.some((l) => l.startsWith('judge:')) && children.some((l) => l.startsWith('git:')), children.join(' '));
+  assert.deepEqual(children.filter((l) => !/^(judge|git):$/.test(l)), [], 'no judge or git child got the grant');
   h.cleanup();
 });
 

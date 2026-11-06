@@ -65,6 +65,8 @@ export async function main(argv, io) {
     // A worker's one-time grant comes in its environment, never in argv, and is
     // dropped from the environment passed on (to a judge, or a later worker).
     const { [GRANT_ENV]: grant, ...env } = io.env ?? {};
+    // Git children read process.env: the grant leaves it too.
+    delete process.env[GRANT_ENV];
     const cio = { ...io, env, json, background: args.background };
     const deps = { findRun, continueRun, context };
     if (args.cmd === 'version') {
