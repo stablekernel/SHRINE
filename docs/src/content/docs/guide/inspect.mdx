@@ -27,7 +27,7 @@ The install steps below apply once the maintainers publish the first release, `i
 - Write to your project, your settings, or your history; its only writes go to its own folder
 - Send anything to SHRINE, Stable Kernel, or any other service; there is no telemetry
 - Call a model without your typed `yes` at Gate B
-- Answer a gate for you; an agent or the skill cannot approve a gate
+- Answer a gate for you; the skill never answers one
 
 It checks that it changed nothing it read. If anything changed, the report shows a warning at the top.
 
@@ -68,7 +68,7 @@ The run stops at each gate. Only you answer, in your own terminal.
 | C | Only when T1 judging passes a limit | Keep the partial results, or stop |
 
 - Gate A lists the projects, date range, size on disk, and a time estimate
-- Before Gate A, it reads only file names, sizes, dates, and the folder each session ran in
+- Before Gate A, it reads file names, sizes, and dates, plus the first lines of the newest session per folder, and keeps only the folder each session ran in
 - Never let an agent run `approve`: the CLI cannot tell you from a tool that fakes a terminal
 
 ## Tiers and Cost
@@ -93,7 +93,7 @@ The run stops at each gate. Only you answer, in your own terminal.
 
 - **Start with**: the one change to try first
 - **Where you stand**: only the SHRINE areas that tripped, grouped Principles, Patterns, Stack
-- **Findings**: each names its SHRINE page, a before and after example, and what you gain
+- **Findings**: each names its SHRINE page and what you gain, with a before and after example where one fits
 - T1 findings are candidates, not facts: the judge's accuracy is not measured yet
 - Every T1 finding shows N, the episodes, sessions, and repos behind it; a small N is a weak signal
 - Pattern counts are appendix numbers only, never findings
