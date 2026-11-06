@@ -20,14 +20,17 @@ The install steps below apply once the maintainers publish the first release, `i
 - Reads your setup: settings, instruction files, hooks, skills, agents, commands, plugins, and memory files
 - With your consent, reads your local session history and the git log of the projects in it
 - Checks both against SHRINE's principles, patterns, stack pages, and [anti-patterns index](/SHRINE/reference/anti-patterns/)
-- Writes one report: what works for you, where there is room to amplify, and one change to start with
+- Writes a report, plus a share-safe copy: what works for you, where there is room to amplify, and one change to start with
 
 ## What It Never Does
 
 - Write to your project, your settings, or your history; its only writes go to its own folder
-- Send anything to SHRINE, Stable Kernel, or any other service; there is no telemetry
+- Send anything off your machine at T0: no network, no model calls
+- Send anything to SHRINE, Stable Kernel, or any telemetry service
 - Call a model without your typed `yes` at Gate B
 - Answer a gate for you; the skill never answers one
+
+At T1 only, 12 scrubbed episode excerpts go to your model provider through your own coding agent login, one call each.
 
 It checks that it changed nothing it read. If anything changed, the report shows a warning at the top.
 
