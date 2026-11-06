@@ -9,6 +9,7 @@ import { join } from 'node:path';
 import { exists, list, readJson, readText } from '../io/fsread.mjs';
 import { pidAlive, spawnWorker } from '../io/proc.mjs';
 import { InspectError, EXIT } from './errors.mjs';
+import { cutOffCount, judgedIds } from '../judge/workorder.mjs';
 
 const PID = 'worker.pid';
 const LOG = 'run.log';
@@ -165,8 +166,8 @@ export function runStatus(folder) {
   if (exists(folder.path('workorder.json')) && !folder.isDone('judgments')) {
     const order = readJson(folder.path('workorder.json'));
     const p = folder.path('judgments.jsonl');
-    const judged = exists(p) ? new Set(readText(p).split('\n').filter(Boolean).map((l) => JSON.parse(l)).filter((l) => l.valid).map((l) => l.episode_id)).size : 0;
-    out.judging = { judged, planned: order.items.length };
+    const lines = exists(p) ? readText(p).split('\n').filter(Boolean).map((l) => JSON.parse(l)) : [];
+    out.judging = { judged: judgedIds(lines).size, planned: order.items.length, cut_off: cutOffCount(lines) };
   }
   if (folder.isDone('report')) {
     return { ...out, state: 'done', report: folder.path('report.html'), share_safe: folder.path('report.share-safe.html') };
@@ -186,12 +187,15 @@ function newestRun(stateDir) {
   return ids.at(-1);
 }
 
+// Episodes the time box cut off are named apart, never as failed answers.
+const cutNote = (s) => (s.judging?.cut_off ? `, ${s.judging.cut_off} cut off by the time limit` : '');
+
 const STATE_LINE = {
-  running: (s) => `running (${s.judging ? `judging ${s.judging.judged} of ${s.judging.planned} episodes` : `last phase done: ${s.phase}`})`,
-  gate: (s) => `waiting at Gate ${s.gate} for your answer`,
+  running: (s) => `running (${s.judging ? `judging ${s.judging.judged} of ${s.judging.planned} episodes${cutNote(s)}` : `last phase done: ${s.phase}`})`,
+  gate: (s) => `waiting at Gate ${s.gate} for your answer${cutNote(s)}`,
   done: () => 'done',
   stopped: () => 'stopped: the history changed since Gate B, so nothing was judged',
-  died: (s) => `stopped before its report (last phase done: ${s.phase})`,
+  died: (s) => `stopped before its report (last phase done: ${s.phase})${cutNote(s)}`,
 };
 
 export function statusCommand({ runId }, io, { findRun, context }) {

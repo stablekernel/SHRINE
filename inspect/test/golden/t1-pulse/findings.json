@@ -1645,6 +1645,8 @@
     "calls": 12,
     "tokens_floor": false,
     "invalid": 0,
+    "cut_off": 0,
+    "late": null,
     "refusals": 0,
     "outcomes": {
       "resolved": 4,

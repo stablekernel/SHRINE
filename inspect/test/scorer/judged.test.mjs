@@ -114,6 +114,19 @@ test('judging lines show thin, small-history, relaxed-cap, retries, floors, and 
   for (const re of [/Thin evidence/, /Fewer than 20 episodes/, /cap of 4 episodes per project was relaxed/, /in 14 model calls/, /at least 90,000 tokens/, /passed the approved upper bound/]) assert.match(l, re);
 });
 
+test('an episode cut off by the time box shows as cut off, not as a rejected answer', () => {
+  const cut = { judge: 'episode_classifier', judge_version: 1, model_id: null, episode_id: 'e-cut', valid: false, cut_off: true, output: null, attempts: 1, refusal: false, errors: ['$: cut off by the time limit'], latency_ms: 1, tokens: { in: 10, out: 0, cache_read: 0, cache_write: 0, total: 10, floor: true } };
+  const f = t1Findings({ extra: [cut], late: 'time' });
+  assert.equal(f.judging.invalid, 0);
+  assert.equal(f.judging.cut_off, 1);
+  assert.equal(f.judging.late, 'time');
+  assert.deepEqual(validateFindings(f).errors ?? [], []);
+  const html = renderReport(f);
+  assert.match(html, /Answers rejected: 0 invalid/);
+  assert.match(html, /Cut off by the time limit: 1 episode, left unjudged\./);
+  assert.match(html, /on the last episode, so there was nothing left to stop/);
+});
+
 test('a judged candidate in the TLDR is labelled Candidate lead', async () => {
   const f = t1Findings();
   const cand = f.findings.find((x) => x.candidate);

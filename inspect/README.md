@@ -77,6 +77,8 @@ Status: pre-release trial (SP3: background runs, a thin skill, a checksummed rel
   - Every judge prompt starts with `SHRINE inspect judge v1:`; any saved judge session counts as housekeeping in later runs and is never judged
   - Invalid output gets one retry with the validator's error; quotes must be exact copies from the episode; no judge free text reaches the report
 - Stops early (Gate C, keep partial or stop) past the approved token upper bound, past the time box plus 50% (a hard deadline: a call still running is cut off), at over 10% invalid answers, or on a usage limit
+- An episode cut off by the time box is left unjudged and named apart in the report and `status`, not counted as an invalid answer
+- A limit passed on the last episode has nothing left to stop; the report says so
   - Judging stopped part way resumes only on a fresh typed yes (`approve <run> B`); a resume already past the token bound makes no call
   - One runner per run: a second `approve` while judging runs is refused (`E_JUDGE_BUSY`); a marker left by a dead process is ignored
   - Gate C answered but no report (a crash): `approve <run> B` or `C` writes the report, with no prompt and no judge call

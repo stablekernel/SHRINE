@@ -7,6 +7,7 @@
 // Re-runnable from stored files; no IO.
 import { findingId } from './score.mjs';
 import { isProof } from '../judge/validate.mjs';
+import { cutOffCount } from '../judge/workorder.mjs';
 import { usageSeverity } from './stats.mjs';
 
 export const JUDGED_KINDS = {
@@ -76,8 +77,9 @@ function ref(catalogue, entryId) {
 }
 
 // lines: judgments.jsonl; order: the work order (bundles); episodes: Map(id ->
-// facts episode); partial: true when Gate C kept partial results.
-export function judgedFindings({ lines, order, episodes, catalogue, pivots, copy, t, partial = false }) {
+// facts episode); partial: true when Gate C kept partial results; late: the
+// limit passed on the last episode ('tokens', 'time', 'errors'), or null.
+export function judgedFindings({ lines, order, episodes, catalogue, pivots, copy, t, partial = false, late = null }) {
   const J = t.judged;
   const bundles = new Map(order.items.map((i) => [i.episode_id, i.bundle]));
   const valid = lines.filter((l) => l.valid && bundles.has(l.episode_id));
@@ -199,7 +201,7 @@ export function judgedFindings({ lines, order, episodes, catalogue, pivots, copy
       items: eps.slice(0, 10).map((e) => ({ episode: e })),
     });
   }
-  const invalid = lines.filter((l) => !l.valid && !l.limited).length;
+  const invalid = lines.filter((l) => !l.valid && !l.limited && !l.cut_off).length;
   return {
     findings,
     dropped,
@@ -210,6 +212,8 @@ export function judgedFindings({ lines, order, episodes, catalogue, pivots, copy
       calls: lines.reduce((n, l) => n + (l.attempts ?? 1), 0),
       tokens_floor: lines.some((l) => l.tokens?.floor),
       invalid,
+      cut_off: cutOffCount(lines),
+      late,
       refusals: lines.filter((l) => l.refusal).length,
       outcomes,
       corrections_traced: traced,

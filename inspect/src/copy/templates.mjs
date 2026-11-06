@@ -313,6 +313,8 @@ export function judgingLines(s) {
     `A judged finding needs ${s.bar} ${pl(s.bar, 'episode')} and a code-flagged correction in each.`,
     'Judged findings stay candidates until the judge is measured against labelled episodes.',
   ];
+  if (s.cut_off) lines.push(`Cut off by the time limit: ${s.cut_off} ${pl(s.cut_off, 'episode')}, left unjudged. These are not judge errors.`);
+  if (s.late === 'time') lines.push('Judging ran past its time box plus 50% on the last episode, so there was nothing left to stop.');
   if (s.partial) lines.push(`Partial: ${s.judged} of ${s.planned} ${pl(s.planned, 'episode')} judged. Judging stopped early and you kept the partial results.`);
   if (s.estimate && s.tokens_used > s.estimate.tokens_high) lines.push(`Tokens passed the approved upper bound of ${num(s.estimate.tokens_high)} tokens on the last call.`);
   if (s.tokens_floor) lines.push('Some calls ended without a usage report (a timeout or a cut-off answer), so their input size was counted instead.');
@@ -460,7 +462,7 @@ export function sampleCopy() {
     ].map(needLine),
     notes: HISTORY_NOTES,
     gaps: [1, 12].flatMap((n) => ['late_constraint', 'ignored_instruction'].map((k) => gapLabel(k, n))),
-    judging: [judgingLines(SAMPLE_JUDGING), judgingLines({ ...SAMPLE_JUDGING, partial: true, invalid: 1, refusals: 1, calls: 13, tokens_used: 60000, tokens_floor: true, sample: { thin: true, small_history: true, cap_relaxed: true } })],
+    judging: [judgingLines(SAMPLE_JUDGING), judgingLines({ ...SAMPLE_JUDGING, partial: true, invalid: 1, cut_off: 1, late: 'time', refusals: 1, calls: 13, tokens_used: 60000, tokens_floor: true, sample: { thin: true, small_history: true, cap_relaxed: true } })],
     gate_b: [gateBLines(SAMPLE_GATE_B), gateBLines({ ...SAMPLE_GATE_B, available: { ok: false, reason: 'no claude command on PATH' } })],
     caveat: 'A model read these episodes. Its accuracy is not yet measured. Treat this as a lead, not a verdict.',
   };

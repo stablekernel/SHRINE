@@ -165,6 +165,12 @@ test('resume never judges without a fresh yes: unfinished judging needs the one-
   const s = await status(h, state, id);
   assert.equal(s.state, 'died');
   assert.equal(s.next, `shrine-inspect approve ${id} B --background`);
+  // Episodes the time box cut off are named apart, not as rejected answers.
+  const dir = runFolder(state, id);
+  writeFileSync(join(dir, 'workorder.json'), JSON.stringify({ items: [{ episode_id: 'e-1' }, { episode_id: 'e-2' }, { episode_id: 'e-3' }] }));
+  writeFileSync(join(dir, 'judgments.jsonl'), [{ episode_id: 'e-1', valid: true }, { episode_id: 'e-2', valid: false, cut_off: true }, { episode_id: 'e-3', valid: false }].map((l) => JSON.stringify(l)).join('\n'));
+  assert.deepEqual((await status(h, state, id)).judging, { judged: 1, planned: 3, cut_off: 1 });
+  assert.match((await inproc(['status', id], h, state)).stdout, /stopped before its report \(last phase done: [\w-]+\), 1 cut off by the time limit\n/);
   h.cleanup();
 });
 

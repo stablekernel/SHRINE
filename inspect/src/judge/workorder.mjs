@@ -37,6 +37,12 @@ export function estimateOrder(bundleTokenCounts, e) {
 // Episode ids that already hold a valid judgment (a resumed run skips them).
 export const judgedIds = (lines) => new Set(lines.filter((l) => l.valid).map((l) => l.episode_id));
 
+// Episodes the time box cut off that no later answer judged.
+export function cutOffCount(lines) {
+  const done = judgedIds(lines);
+  return new Set(lines.filter((l) => l.cut_off && !done.has(l.episode_id)).map((l) => l.episode_id)).size;
+}
+
 // Runs every item not yet judged, one process at a time. Each result is one line
 // appended to judgments.jsonl. Invalid output gets one retry with the validator's
 // error; a second failure or a refusal is a line with valid false. Stops early
@@ -44,17 +50,21 @@ export const judgedIds = (lines) => new Set(lines.filter((l) => l.valid).map((l)
 // when invalid lines pass 10% of the planned calls; a usage or rate limit stops
 // it apart, never counted as a judge error.
 // The time box is also a hard deadline inside a call: each call gets at most the
-// time left (its own cap still applies), and no retry starts past it.
+// time left (its own cap still applies), and no retry starts past it. A call cut
+// off by that deadline is a line with cut_off true: the episode stays unjudged,
+// and it is not counted as a judge error. A limit passed on the last item has
+// nothing left to stop; it is returned as late, not as abort.
 // invoke(input, {timeoutMs}) -> {status, stdout, timedOut, truncated, ms}; parse(stdout) -> adapter envelope.
 export async function runWorkOrder({ order, previous = [], invoke, parse, template, append, limits, clock = Date.now, onProgress = () => {} }) {
   const done = judgedIds(previous);
   const todo = order.items.filter((i) => !done.has(i.episode_id));
   let tokens = previous.reduce((n, l) => n + (l.tokens?.total ?? 0), 0);
-  let invalid = previous.filter((l) => !l.valid && !l.limited).length;
+  let invalid = previous.filter((l) => !l.valid && !l.limited && !l.cut_off).length;
   const started = clock();
   const deadline = started + limits.timeBoxMs * limits.timeBoxFactor;
   const lines = [];
   let abort = null;
+  let late = null;
   let calls = 0;
   // A resumed run already at the bound spawns nothing.
   if (todo.length && tokens >= limits.tokensUpper) {
@@ -87,6 +97,11 @@ export async function runWorkOrder({ order, previous = [], invoke, parse, templa
         line = { valid: false, limited: true, output: null, attempts: attempt, refusal: false, errors: ['$: usage limit'] };
         break;
       }
+      // The time box ended this call: not the judge's error.
+      if (!env.output && r.timedOut && clock() >= deadline) {
+        line = { valid: false, cut_off: true, output: null, attempts: attempt, refusal: false, errors: ['$: cut off by the time limit'] };
+        break;
+      }
       const v = env.output ? validateJudgment(env.output, item.bundle, { catalogueIds: limits.catalogueIds }) : { ok: false, errors: [r.timedOut ? '$: timed out' : r.truncated ? '$: output too long' : `$: ${env.error ?? 'no output'}`], output: null };
       if (v.ok) {
         line = { valid: true, output: v.output, attempts: attempt, refusal: false, errors: [] };
@@ -103,7 +118,7 @@ export async function runWorkOrder({ order, previous = [], invoke, parse, templa
       const full = { judge: JUDGE, judge_version: JUDGE_VERSION, model_id: model, episode_id: item.episode_id, ...line, latency_ms: latency, tokens: used, at: new Date(clock()).toISOString() };
       append(full);
       lines.push(full);
-      if (!line.valid && !line.limited) invalid++;
+      if (!line.valid && !line.limited && !line.cut_off) invalid++;
     }
     onProgress(k + 1, todo.length, tokens);
     if (abort) break;
@@ -111,8 +126,11 @@ export async function runWorkOrder({ order, previous = [], invoke, parse, templa
     else if (clock() >= deadline) abort = { reason: 'time', at: item.episode_id };
     else if (invalid > order.items.length * limits.errorRate) abort = { reason: 'errors', at: item.episode_id };
     if (abort && k + 1 < todo.length) break;
-    // Past a limit on the last item: nothing is left to stop; the summary compares totals.
-    if (abort) abort = null;
+    // Past a limit on the last item: nothing is left to stop, so it is reported as late.
+    if (abort) {
+      late = abort;
+      abort = null;
+    }
   }
-  return { lines, tokens, invalid, abort, calls, ms: clock() - started };
+  return { lines, tokens, invalid, abort, late, calls, ms: clock() - started };
 }
