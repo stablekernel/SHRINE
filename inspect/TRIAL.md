@@ -18,6 +18,7 @@ A local health check of your Claude Code setup and session history, measured aga
 - In your terminal: `shrine-inspect run --tier T0` (scan only), or `--tier T1` (Pulse: adds 12 judged episodes).
 - Or in Claude Code: ask it to run SHRINE Inspect. The skill starts a background run and tells you what to type.
 - Inspect stops at gates. Only you answer them, in your own terminal. The skill never answers for you.
+  - The CLI takes an answer only from an interactive terminal. It cannot tell you from a tool that fakes one, so never let an agent run `approve`.
   - Gate A: read your session history too, or not.
   - Gate B (T1 only): judging, with its token and time estimate. T0 is pre-selected; T1 needs a typed `yes`.
 - Long runs: `shrine-inspect start --tier T1`, then `shrine-inspect status`. Add `--background` to an `approve` command and the run keeps going after you close the terminal.

@@ -105,6 +105,7 @@ Background runs (`test/cli/background.test.mjs`):
 - A run is "running" while the pid in `worker.pid` is alive; the worker removes the file on exit, but a worker killed outright leaves it, and if the OS reuses that pid, `status` says running until that process ends
 - Two `approve --background` calls on one run at the same instant can both start a worker (the busy check and the pid write are not one step); `judging.pid` still allows only one judge runner
 - The installed link runs whatever `node` is first on PATH later; the installer checks Node 20 only at install time
+- The one-time judging grant sits in `state.json` and the worker's arguments for the moment between `approve --background` and the worker starting
 - `run.log` holds the worker's own messages only; gate prompts appear in the terminal that answers them
 
 T1 trial (recorded, not fixed):
