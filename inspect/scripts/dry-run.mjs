@@ -15,7 +15,7 @@ import { chmodSync, copyFileSync, existsSync, lstatSync, mkdirSync, mkdtempSync,
 import { homedir, tmpdir } from 'node:os';
 import { basename, delimiter, dirname, join, relative, resolve, sep } from 'node:path';
 import { fileURLToPath } from 'node:url';
-import { leaks } from './lib/leak.mjs';
+import { leaks } from '../src/verify/leak.mjs';
 
 const PKG_ROOT = fileURLToPath(new URL('..', import.meta.url));
 const VERSION = JSON.parse(readFileSync(join(PKG_ROOT, 'package.json'), 'utf8')).version;
@@ -83,7 +83,7 @@ export function treeDiff(a, b) {
   return out;
 }
 
-// The leak check lives in lib/leak.mjs (shared with the T1 leak test).
+// The leak check lives in src/verify/leak.mjs (shared with check-share and the T1 leak test).
 export { leaks };
 
 const q = (s) => `'${String(s).replaceAll("'", `'\\''`)}'`;
@@ -243,6 +243,15 @@ function main() {
   const control = leaks(local, { names: nd.names });
   say(`Leak check control (local report): found ${control.length}${control.length ? `: ${control.join(', ')}` : ''}`);
   check(control.length > 0, 'control: the same check finds planted names in the local report, so it can fail');
+
+  // 9. The tester's own check, from the installed tarball: passes the real copy,
+  // fails one with a planted project name.
+  const cs = show(`shrine-inspect check-share ${id}`, cli(['check-share', id]));
+  check(cs.status === 0 && /Control: the same check finds/.test(cs.stdout), 'installed check-share passes the share-safe report, with a working control');
+  const planted = join(work, 'planted.share-safe.html');
+  writeFileSync(planted, safe.replace('</main>', `<p>${nd.names[0]}</p></main>`));
+  const bad = show(`shrine-inspect check-share ${planted}`, cli(['check-share', planted]));
+  check(bad.status === 5 && /NOT SAFE/.test(bad.stdout), 'installed check-share fails a copy with a planted name (exit 5)');
   return finish();
 }
 

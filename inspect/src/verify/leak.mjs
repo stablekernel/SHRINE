@@ -1,14 +1,28 @@
-// Leak check for a rendered report (release dry run, real-run driver, T1 leak
+// Leak check for a rendered report (`check-share`, release dry run, T1 leak
 // test). Secrets, paths, and prompts match anywhere in the page, raw or
 // decoded (HTML entities, JSON strings); absolute paths in the raw page.
 // Project names and the OS user are often ordinary words ("scope",
 // "skills", "root"), so they match as whole tokens, and only outside text this
 // package ships itself: the inlined assets, catalogue strings, and the fixed
 // parts of string literals in src/. Dependency free: the dry-run CI job has no
-// node_modules.
-import { readFileSync } from 'node:fs';
+// node_modules. Read-only: reads go through src/io/fsread.mjs.
 import { join } from 'node:path';
-import { PKG_ROOT, walk } from './walk.mjs';
+import { fileURLToPath } from 'node:url';
+import { list, readText } from '../io/fsread.mjs';
+
+const SRC_ROOT = fileURLToPath(new URL('../', import.meta.url));
+
+// Every file under dir, sorted, dot entries skipped.
+function walk(dir) {
+  const out = [];
+  for (const e of list(dir)) {
+    if (e.name.startsWith('.')) continue;
+    const full = join(dir, e.name);
+    if (e.dir) out.push(...walk(full));
+    else out.push(full);
+  }
+  return out;
+}
 
 const esc = (s) => s.replace(/[.*+?^${}()|[\]\\]/g, '\\$&');
 export const wordRe = (w, flags = '') => new RegExp(`(?<![\\w-])${esc(w)}(?![\\w-])`, flags);
@@ -106,7 +120,7 @@ export function literals(src) {
 // a bare word ("SHRINE", "scope") never hides a name. keys: property names in
 // src code, the findings schema's own JSON keys.
 let cached = null;
-export function shippedText(root = join(PKG_ROOT, 'src')) {
+export function shippedText(root = SRC_ROOT) {
   if (cached?.root === root) return cached;
   const chunks = new Set();
   const keys = new Set();
@@ -120,8 +134,8 @@ export function shippedText(root = join(PKG_ROOT, 'src')) {
     if (typeof v === 'string') add(v);
     else if (v && typeof v === 'object') for (const x of Object.values(v)) strings(x);
   };
-  for (const f of walk(root, () => true)) {
-    const text = readFileSync(f, 'utf8');
+  for (const f of walk(root)) {
+    const text = readText(f);
     if (f.endsWith('.mjs') || f.endsWith('.js')) {
       for (const s of literals(text)) add(s);
       for (const m of text.matchAll(/(?<![\w$.])([A-Za-z_$][\w$]*)\s*:/g)) keys.add(m[1]);
@@ -130,7 +144,7 @@ export function shippedText(root = join(PKG_ROOT, 'src')) {
     // Inlined verbatim into every report.
     if (/[\\/]render[\\/]assets[\\/]/.test(f)) chunks.add(text);
   }
-  cached = { root, chunks: [...chunks].sort((a, b) => b.length - a.length), keys, words, app: readFileSync(join(root, 'render', 'assets', 'app.js'), 'utf8') };
+  cached = { root, chunks: [...chunks].sort((a, b) => b.length - a.length), keys, words, app: readText(join(root, 'render', 'assets', 'app.js')) };
   return cached;
 }
 

@@ -10,7 +10,7 @@ import { join } from 'node:path';
 import { addSession } from '../synth/history.mjs';
 import { plantedCorpus } from '../synth/secrets.mjs';
 import { DAY, NOW, plantedHome, runT1 } from '../e2e/t1-helpers.mjs';
-import { userMentions } from '../../scripts/lib/leak.mjs';
+import { userMentions } from '../../src/verify/leak.mjs';
 
 const body = plantedCorpus(11).split('\n').filter((l) => l && !l.startsWith('#') && !l.startsWith('private-key'));
 const STOP = new Set(['Authorization', 'authorization', 'DefaultEndpointsProtocol', 'EndpointSuffix']);

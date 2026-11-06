@@ -1,4 +1,4 @@
-// Leak check (scripts/lib/leak.mjs) on a share-safe page rendered from the
+// Leak check (src/verify/leak.mjs) on a share-safe page rendered from the
 // bad-setup golden findings (real pipeline output): project
 // names that are ordinary words in the page's own text ("SHRINE", "scope",
 // "nothing") are not leaks, yet the same words planted where data goes are
@@ -9,7 +9,7 @@ import assert from 'node:assert/strict';
 import { readFileSync } from 'node:fs';
 import { fileURLToPath } from 'node:url';
 import { renderReport } from '../../src/render/report.mjs';
-import { leaks, literals, shippedText, userMentions, wordRe } from '../../scripts/lib/leak.mjs';
+import { leaks, literals, shippedText, userMentions, wordRe } from '../../src/verify/leak.mjs';
 
 const golden = JSON.parse(readFileSync(fileURLToPath(new URL('../golden/bad-setup/findings.json', import.meta.url)), 'utf8'));
 const page = renderReport(golden, { shareSafe: true });

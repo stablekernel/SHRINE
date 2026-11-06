@@ -2,7 +2,7 @@
 // recorded, not fixed: a change here must be deliberate and update the README too.
 import { test } from 'node:test';
 import assert from 'node:assert/strict';
-import { leaks } from '../../scripts/lib/leak.mjs';
+import { leaks } from '../../src/verify/leak.mjs';
 
 const page = (s) => `<p>${s}</p>`;
 
