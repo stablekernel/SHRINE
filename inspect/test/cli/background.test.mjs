@@ -9,6 +9,7 @@ import { tmpdir } from 'node:os';
 import { join } from 'node:path';
 import { Readable } from 'node:stream';
 import { fileURLToPath } from 'node:url';
+import { spawn } from 'node:child_process';
 import { main } from '../../src/cli/main.mjs';
 import { makeHome, FIXED_NOW } from '../synth/home.mjs';
 import { fakeJudge, plantedHome, runT1 } from '../e2e/t1-helpers.mjs';
@@ -215,5 +216,33 @@ test('--skill-version: a mismatch stops before any read; a match runs', async ()
   const ok = await inproc(['version', '--skill-version', pkg.version], h, state);
   assert.equal(ok.code, 0);
   assert.equal(ok.stdout, `shrine-inspect ${pkg.version}\n`);
+  h.cleanup();
+});
+
+test('resume refuses a run stopped by a history change, and a second worker on a busy run', async () => {
+  const h = makeHome('good');
+  const state = mkdtempSync(join(tmpdir(), 'si-bg-'));
+  await inproc(['run', '--tier', 'T0'], h, state);
+  const id = JSON.parse((await inproc(['status', '--json'], h, state)).stdout).run_id;
+  const dir = runFolder(state, id);
+  const st = readState(state, id);
+  writeFileSync(join(dir, 'state.json'), JSON.stringify({ ...st, tier: 'T1', phase: 'scope_changed', gates: { A: { choice: 'history', by: 'tty', at: FIXED_NOW }, B: { choice: 'T1', by: 'tty', at: FIXED_NOW, episodes: 12 } } }));
+  for (const argv of [['resume', id, '--json'], ['resume', id, '--worker', '--json']]) {
+    const r = await inproc(argv, h, state);
+    assert.equal(r.code, 2, argv.join(' '));
+    assert.equal(JSON.parse(r.stderr).error.code, 'E_RUN_STOPPED');
+  }
+  assert.equal(readState(state, id).phase, 'scope_changed', 'nothing continued');
+  // A live worker that is not this process: --worker is refused too.
+  writeFileSync(join(dir, 'state.json'), JSON.stringify({ ...st, phase: 'facts' }));
+  const other = spawn(process.execPath, ['-e', 'setTimeout(() => {}, 30000)'], { stdio: 'ignore' });
+  try {
+    writeFileSync(join(dir, 'worker.pid'), `${other.pid}\n`);
+    const r = await inproc(['resume', id, '--worker', '--json'], h, state);
+    assert.equal(r.code, 3);
+    assert.equal(JSON.parse(r.stderr).error.code, 'E_RUN_BUSY');
+  } finally {
+    other.kill();
+  }
   h.cleanup();
 });

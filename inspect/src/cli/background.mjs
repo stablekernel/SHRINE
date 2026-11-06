@@ -94,6 +94,14 @@ export async function resumeCommand({ runId, worker, grant }, io, { findRun, con
   const folder = findRun(ctx.dirs.state, runId);
   const state = readJson(folder.path('state.json'));
   if (folder.isDone('report')) throw new InspectError('E_RUN_DONE', `run ${runId} is finished`, { hint: `see it with: shrine-inspect status ${runId}`, exit: EXIT.USAGE });
+  // The history changed after the Gate B yes: that yes no longer holds, so the run never continues.
+  if (state.phase === 'scope_changed') {
+    throw new InspectError('E_RUN_STOPPED', `run ${runId} stopped because the history changed since Gate B; nothing was resumed`, { hint: 'start a new run: shrine-inspect start --tier T1', exit: EXIT.USAGE });
+  }
+  // One worker per run: another live worker (not this process, which its parent may
+  // already have recorded) means busy.
+  const other = workerPid(folder);
+  if (other && other !== process.pid) throw busy(runId, other);
   // A run paused at a gate continues only through `approve`, typed by a person.
   const gate = openGate(state);
   if (gate) {
