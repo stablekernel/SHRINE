@@ -59,16 +59,16 @@ It checks that it changed nothing it read. If anything changed, the report shows
 
 ## Gates
 
-The run stops at each gate. Only you answer, in your own terminal.
+The run stops at a gate when it needs your answer. Only you answer, in your own terminal.
 
 | Gate | When | Your answer |
 | --- | --- | --- |
 | A | Before any session history is read | `history` to read it, or `no-history` for setup only |
-| B | After the scan | Keep T0, or type `yes` for T1 after reading its token and time estimate |
+| B | T1 runs only, after the scan | Keep T0, or type `yes` for T1 after reading its token and time estimate |
 | C | Only when T1 judging passes a limit | Keep the partial results, or stop |
 
 - Gate A lists the projects, date range, size on disk, and a time estimate
-- Before Gate A, it reads file names, sizes, and dates, plus the first lines of the newest session per folder, and keeps only the folder each session ran in
+- Before Gate A, it reads file names, sizes, and dates, plus the first lines of the newest session per folder, and keeps only the folder, entry point, and version; no prompt text
 - Never let an agent run `approve`: the CLI cannot tell you from a tool that fakes a terminal
 
 ## Tiers and Cost
