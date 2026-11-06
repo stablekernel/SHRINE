@@ -1,0 +1,61 @@
+name: Inspect release
+
+# Runs only on a pushed inspect-v* tag, which the owner pushes. It tests, builds
+# the tarball, install.sh, and SHA256SUMS offline, and attaches them to a DRAFT
+# release; the owner reviews and publishes it by hand.
+on:
+  push:
+    tags: ['inspect-v*']
+
+permissions:
+  contents: read
+
+jobs:
+  test:
+    timeout-minutes: 15
+    strategy:
+      fail-fast: true
+      matrix:
+        os: [ubuntu-latest, macos-latest]
+        node: [20, 22]
+    runs-on: ${{ matrix.os }}
+    defaults:
+      run:
+        working-directory: inspect
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-node@v4
+        with:
+          node-version: ${{ matrix.node }}
+          cache: npm
+          cache-dependency-path: inspect/package-lock.json
+      - run: npm ci
+      - run: npm run lint
+      - run: npm test
+      - name: Release dry run
+        run: node scripts/dry-run.mjs
+
+  release:
+    needs: test
+    timeout-minutes: 10
+    runs-on: ubuntu-latest
+    permissions:
+      contents: write
+    defaults:
+      run:
+        working-directory: inspect
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-node@v4
+        with:
+          node-version: 20
+      - name: Tag matches package version
+        run: test "inspect-v$(node -p 'require("./package.json").version')" = "$GITHUB_REF_NAME"
+      - name: Build
+        run: node scripts/release.mjs --out dist
+      - name: Verify checksums
+        run: cd dist && sha256sum -c SHA256SUMS
+      - name: Draft release
+        env:
+          GH_TOKEN: ${{ github.token }}
+        run: gh release create "$GITHUB_REF_NAME" --draft --verify-tag --title "$GITHUB_REF_NAME" --notes "SHRINE Inspect $GITHUB_REF_NAME. Verify with sha256sum -c SHA256SUMS, then run sh install.sh. See inspect/TRIAL.md." dist/*.tgz dist/install.sh dist/SHA256SUMS
