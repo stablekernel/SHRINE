@@ -1,0 +1,7 @@
+{
+  "version": 1,
+  "note": "Slash commands that start a new task; read from <command-name> lines.",
+  "commands": ["/clear", "/new", "/reset"],
+  "positive": ["/clear", "/new"],
+  "negative": ["/review", "/compact"]
+}

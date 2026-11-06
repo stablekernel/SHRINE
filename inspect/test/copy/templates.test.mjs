@@ -1,6 +1,6 @@
 import { test } from 'node:test';
 import assert from 'node:assert/strict';
-import { copy, sampleCopy, SAMPLE_PROBES, emptyStates } from '../../src/copy/templates.mjs';
+import { copy, sampleCopy, SAMPLE_PROBES, SAMPLE_USAGE, emptyStates, usageLines } from '../../src/copy/templates.mjs';
 import { copyProblems, copyProblemsDeep } from '../../src/copy/rules.mjs';
 
 const KINDS = ['stale_instructions', 'oversized_instructions', 'no_owner_or_review', 'blanket_permissions', 'stack_gap', 'short_retention'];
@@ -92,4 +92,46 @@ test('the empty-state next step only asks for session history when it was not re
     assert.doesNotMatch(read.tldr_next, /run again with session history/i);
     assert.notEqual(read.tldr_next, unread.tldr_next);
   }
+});
+
+test('rework lines use episodes with linked commits as N and show unlinked commit episodes apart', () => {
+  const lines = usageLines({ ...SAMPLE_USAGE, counts: { ...SAMPLE_USAGE.counts, episodes: 31, committed: 15, linked_commits: 3, committed_unlinked: 12, rework: 1, possible_fix: 0 } });
+  const text = lines.join('\n');
+  assert.match(text, /Rework \(named reverts\) within 72 hours: 1 of 3 episodes with linked commits \(33%/);
+  assert.match(text, /Possible rework \(later-session fix\): 0 of 3 episodes with linked commits/);
+  assert.match(text, /Unlinked commits: 12 episodes ran a commit command with no commit found in git, left out of rework counts\./);
+  assert.doesNotMatch(text, /of 15 /);
+  const control = lines.find((l) => /flagged episode/.test(l));
+  assert.match(control, /episodes with linked commits/);
+});
+
+test('rework and subagent lines name N and give no percentage of zero', () => {
+  const none = usageLines({ ...SAMPLE_USAGE, counts: { ...SAMPLE_USAGE.counts, linked_commits: 0, rework: 0, possible_fix: 0, subagent_share: 0, attributable_tokens: 0 } }).join('\n');
+  assert.doesNotMatch(none, /0 of 0|\(0%/);
+  assert.match(none, /Rework \(named reverts\) within 72 hours: no episode has a linked commit, so there is nothing to count\./);
+  assert.match(none, /Subagent share of attributable tokens: n\/a, no attributable tokens\./);
+  const some = usageLines({ ...SAMPLE_USAGE, counts: { ...SAMPLE_USAGE.counts, linked_commits: 3, rework: 1, subagent_share: 0.25, attributable_tokens: 12000 } }).join('\n');
+  assert.match(some, /1 of 3 episodes with linked commits \(33%, a small sample under 15 episodes\)\./);
+  assert.match(some, /Subagent share of attributable tokens: 25% of 12,000 tokens\./);
+});
+
+test('history-not-read episodes get their own line and no unlinked or nothing-to-count wording', () => {
+  const lines = usageLines({ ...SAMPLE_USAGE, counts: { ...SAMPLE_USAGE.counts, linked_commits: 0, committed_unlinked: 12, history_unread: 3, rework: 0, possible_fix: 0 } }).join('\n');
+  assert.match(lines, /Rework \(named reverts\) within 72 hours: n\/a, no episode in a repo with git history read has a linked commit\./);
+  assert.match(lines, /Unlinked commits: 12 episodes/);
+  assert.match(lines, /History not read: 3 episodes ran a commit command in a repo whose git history was not read, left out of rework and commit-link counts\./);
+  const one = usageLines({ ...SAMPLE_USAGE, counts: { ...SAMPLE_USAGE.counts, history_unread: 1 } }).join('\n');
+  assert.match(one, /History not read: 1 episode ran/);
+  assert.doesNotMatch(usageLines(SAMPLE_USAGE).join('\n'), /History not read/);
+});
+
+test('control sentence labels a small flagged group and drops an empty one', () => {
+  const dwt = (flagged) => ({ ...SAMPLE_PROBES.done_without_test, control: { flagged, rest: { hits: 2, n: 40, rate: 0.05 }, diff_points: 0 } });
+  const one = copy.finding('done_without_test', dwt({ hits: 1, n: 1, rate: 1 })).why.join(' ');
+  assert.match(one, /1 of 1 flagged episode with linked commits \(100%, a small sample under 15 episodes\)/);
+  const none = copy.finding('done_without_test', dwt({ hits: 0, n: 0, rate: 0 })).why.join(' ');
+  assert.doesNotMatch(none, /0 of 0/);
+  assert.match(none, /No control comparison: no flagged episode has a linked commit\./);
+  const big = copy.finding('done_without_test', dwt({ hits: 3, n: 20, rate: 0.15 })).why.join(' ');
+  assert.match(big, /3 of 20 flagged episodes with linked commits \(15%\)/);
 });

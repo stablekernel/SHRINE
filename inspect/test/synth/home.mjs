@@ -40,7 +40,9 @@ function git(cwd, args, date = new Date()) {
 
 // repoFiles plants extra files in the project before the commit.
 // repoUnderHome puts the project inside the home (e.g. 'Client Work/acme') instead of a sibling work folder.
-export function makeHome(name, { projectName = `${name}-project`, sessionMtime = new Date(), repoUnderHome = null, repoFiles = {} } = {}) {
+// The stub is dated one day before FIXED_NOW, which every run pins, so it is
+// neither in the future nor "still growing".
+export function makeHome(name, { projectName = `${name}-project`, sessionMtime = new Date(Date.parse(FIXED_NOW) - 86400000), repoUnderHome = null, repoFiles = {} } = {}) {
   const tmp = realpathSync(mkdtempSync(join(tmpdir(), `si-${name}-`)));
   const home = join(tmp, 'home');
   const claudeHome = join(home, '.claude');

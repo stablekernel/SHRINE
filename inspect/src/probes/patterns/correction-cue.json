@@ -1,0 +1,29 @@
+{
+  "version": 1,
+  "note": "Scope: human turns after the first in an episode, case-insensitive; a human turn right after an interrupt also counts. Feeds the correction-candidates chip only, never a finding.",
+  "patterns": [
+    "^\\s*(no|nope|wait|stop|hold on)\\b",
+    "\\binstead\\b",
+    "\\bactually\\b",
+    "\\b(don'?t|do not)\\b",
+    "\\buse \\S+,? not \\S+",
+    "\\bnot (that|what i)\\b",
+    "\\b(i said|as i said|i meant|i asked)\\b",
+    "\\bthat'?s wrong\\b",
+    "\\b(remember|make sure) (to|that)\\b"
+  ],
+  "positive": [
+    "No, put it in the utils folder.",
+    "Use pnpm, not npm.",
+    "Actually keep the old name.",
+    "Don't touch the migration files.",
+    "That's not what I asked for.",
+    "Wait, the API is v2."
+  ],
+  "negative": [
+    "Looks good, ship it.",
+    "Now add tests for the parser.",
+    "Great, what is next?",
+    "Thanks."
+  ]
+}

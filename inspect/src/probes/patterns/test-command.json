@@ -1,0 +1,40 @@
+{
+  "version": 2,
+  "note": "Matched at shell command position only (src/probes/command-position.mjs), case-sensitive. Version 1 matched anywhere and scored 35% clean-room precision (E5). Builds that install a binary are not checks.",
+  "patterns": [
+    "(npm|pnpm|yarn|bun)( run)? (test|lint|check|typecheck|verify)\\b",
+    "(npx|pnpm exec|bunx) (tsc|eslint|vitest|jest|playwright test|prettier --check|biome (check|ci|lint))\\b",
+    "node --test\\b",
+    "go (test|vet)\\b",
+    "golangci-lint run\\b",
+    "(pytest|tox|nox|mypy|pyright)\\b",
+    "ruff (check|format --check)\\b",
+    "(eslint|tsc|vitest|jest|rspec)\\b",
+    "playwright test\\b",
+    "prettier --check\\b",
+    "biome (check|ci|lint)\\b",
+    "cargo (test|check|clippy)\\b",
+    "make (test|check|lint)\\b",
+    "(mvn|\\./mvnw) (test|verify)\\b",
+    "(gradle|\\./gradlew) (test|check)\\b",
+    "bundle exec rspec\\b"
+  ],
+  "positive": [
+    "npm test",
+    "cd inspect && npm run lint 2>&1 | tail -5",
+    "uv run pytest -q tests/",
+    "python -m pytest",
+    "go test ./...",
+    "FOO=1 cargo clippy --all",
+    "npx tsc --noEmit"
+  ],
+  "negative": [
+    "grep -r \"npm test\" docs",
+    "git commit -m \"run npm test before merge\"",
+    "cat <<'EOF' > README.md\nnpm test\nEOF",
+    "pgrep -f pytest",
+    "ps aux | awk '/jest/'",
+    "go build -o bin/tool ./cmd/tool",
+    "echo Pytest is configured"
+  ]
+}

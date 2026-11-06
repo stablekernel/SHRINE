@@ -9,6 +9,11 @@ export const GATE_A = {
   question: 'Read session history too? T0 never sends anything to a model.',
   choices: ['no-history', 'history'],
 };
+export const GATE_B_NOTE = 'Tier: T0, scan only, no model calls. Deeper tiers are not available in this version.';
+
+const day = (iso) => (iso ? iso.slice(0, 10) : 'none');
+const size = (bytes) => (bytes >= 1 << 30 ? `${(bytes / (1 << 30)).toFixed(1)} GB` : bytes >= 1 << 20 ? `${Math.round(bytes / (1 << 20))} MB` : `${Math.round(bytes / 1024)} KB`);
+const eta = (s) => (s < 60 ? 'under 1 minute' : `about ${Math.ceil(s / 60)} minutes`);
 
 const describe = (gate) => {
   const lines = [`Gate ${gate.gate}: ${gate.question}`];
@@ -17,7 +22,16 @@ const describe = (gate) => {
     for (const p of gate.projects) lines.push(`  ${p.name}: ${p.sessions} session files, ${Math.round(p.bytes / 1024)} KB`);
     if (gate.more) lines.push(`  and ${gate.more} more`);
   }
-  if (gate.excluded) lines.push(`Excluded (temp, scratch, automation): ${gate.excluded} folders`);
+  if (gate.excluded) lines.push(`Excluded (temp, scratch, sdk-cli automation): ${gate.excluded} folders`);
+  lines.push('Read so far: file names, sizes, and dates. Also, the first 10 lines of the newest session file per folder are read to find its folder; these lines can hold a prompt. Only the folder, entry point, and version are kept; no prompt text is kept or shown.');
+  const h = gate.history;
+  if (h) {
+    lines.push(`History if yes: ${h.sessions} session files in ${h.projects} ${h.projects === 1 ? 'project' : 'projects'}, ${day(h.from)} to ${day(h.to)} (last ${h.window_days} days), ${size(h.bytes)} on disk.`);
+    lines.push(`Estimated time with history: ${eta(h.estimate_seconds)} to parse, from file size at a rate measured during development (a lower bound). Read locally; nothing leaves it.`);
+  }
+  if (h?.recheck_sessions) lines.push(`If yes, ${h.recheck_sessions} session files in excluded automation, temp, and scratch folders are re-checked from their first lines; only interactive sessions outside temp folders are read in full.`);
+  if (gate.own_session) lines.push(`Left out: session ${gate.own_session.id.slice(0, 8)} (${gate.own_session.reason === 'flag' ? 'named by --session-id' : 'still being written, likely the one running this'}).`);
+  if (gate.tier?.note) lines.push(gate.tier.note);
   lines.push(`Choices: ${gate.choices.join(', ')}`);
   return lines.join('\n');
 };

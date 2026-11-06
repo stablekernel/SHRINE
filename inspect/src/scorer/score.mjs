@@ -5,10 +5,11 @@ import { createHash } from 'node:crypto';
 import { scrubSecrets } from '../scrub/secrets.mjs';
 import { underHome } from '../scrub/mask.mjs';
 import { THRESHOLDS } from '../probes/config.mjs';
+import { controlTest, usageConfidence, usageSeverity } from './stats.mjs';
 
 export const TOOL_VERSION = '0.1.0';
 const SEV_RANK = { high: 3, medium: 2, low: 1 };
-const KIND_ORDER = ['blanket_permissions', 'stale_instructions', 'oversized_instructions', 'no_owner_or_review', 'stack_gap', 'short_retention'];
+const KIND_ORDER = ['blanket_permissions', 'stale_instructions', 'oversized_instructions', 'done_without_test', 'no_owner_or_review', 'stack_gap', 'short_retention'];
 
 // Coverage areas: 7 ratified principles (North Star excluded; it frames cost) in
 // the docs' deliberate order, then every pattern page, then every stack page. The
@@ -78,11 +79,111 @@ function evidenceOf(p, home) {
   });
 }
 
-export function score({ run, shrine, probes, structure, catalogue, pivots, copy, inventoryCounts = {}, home = null, history = { consented: false, read: false, sessions: null }, thresholds = THRESHOLDS, tier = 'T0' }) {
+// Usage lens (T0): a kind becomes a finding only when thresholds ship it as
+// "candidates", it hit, and history is past the thin-window rule. Otherwise it
+// stays an appendix count. Attribution is "Could not tell" at T0.
+function usageFindings({ usage, catalogue, pivots, copy, t, kindsMap }) {
+  const out = [];
+  const dropped = [];
+  for (const k of usage.kinds) {
+    if (k.ship !== 'candidates' || !k.hit || usage.rule !== 'probe') continue;
+    const ids = kindsMap[k.kind]?.entry_ids ?? [];
+    const refs = ids.map((e) => ref(catalogue, e)).filter(Boolean);
+    const pivot = pivots[ids[0]];
+    const id = findingId(k.kind, ids[0], 'usage');
+    if (!refs.length || !pivot) {
+      dropped.push({ id, reason: `no catalogue entry or pivot for ${k.kind}` });
+      continue;
+    }
+    const ctl = controlTest(k.control, { minN: t.usage.control_min_episodes, points: t.usage[k.kind].control_points });
+    const bar = Math.floor(k.metric.threshold * k.metric.claims);
+    const conf = usageConfidence({ hitsAboveBar: k.metric.flagged - bar, beatsControl: ctl.beats, candidates: true }, t);
+    const sev = usageSeverity({ tokens: k.tokens, episodes: k.metric.flagged, flaggedN: k.metric.flagged }, t);
+    const c = copy.finding(k.kind, k);
+    const evidence = [
+      { kind: 'mechanical', locator: 'session history', metric: `${k.metric.flagged} of ${k.metric.claims} done claims had no prior test or check` },
+      { kind: 'mechanical', locator: 'control', metric: k.control && ctl.status === 'ok' ? `rework within ${t.history.link_hours} hours: ${Math.round(k.control.flagged.rate * 100)}% of ${k.control.flagged.n} flagged episodes, ${Math.round(k.control.rest.rate * 100)}% of ${k.control.rest.n} other episodes` : 'no control baseline' },
+    ];
+    out.push({
+      id,
+      kind: k.kind,
+      entry_id: ids[0],
+      lens: 'usage',
+      tab: 'amplify',
+      title: c.title,
+      short: c.short,
+      lead: c.lead,
+      icon: c.icon,
+      provenance: 'mechanical',
+      attribution: 'unknown',
+      confidence: { ...conf, basis: `pattern candidates; control ${ctl.status === 'ok' ? `difference ${ctl.diff_points} points` : 'not available'}` },
+      severity: { tokens_attributable: k.tokens, human_turns_attributable: null, delay_minutes: null, label: sev.label },
+      recurrence: { hits: k.metric.flagged, sample: k.metric.claims, stratum: null, control_rate: k.control?.rest.rate ?? null },
+      evidence,
+      anchor: evidence[0].locator,
+      counter_reading: null,
+      adversarial: null,
+      episode_ref: k.episode_ref ?? null,
+      why: c.why,
+      problem: c.problem,
+      pivot: { kind: pivot.kind, action: pivot.action, before_scrubbed: pivot.before, after_scrubbed: pivot.after, after_marks: [], setup_note: pivot.setup_note, source: 'shrine_generic', minutes_to_apply: t.minutes_to_apply[pivot.kind] },
+      praise_class: null,
+      benefit: c.benefit,
+      shrine_refs: refs,
+      owner_label: 'Owner: Could not tell',
+      timeline_gap: null,
+      coverage_key: coverageKey(refs),
+      items: k.episode_ids.slice(0, 10).map((e) => ({ episode: e })),
+      config_strip: null,
+    });
+  }
+  return { out, dropped };
+}
+
+const usageThresholds = (t) => ({
+  done_claims_without_test_pct: Math.round(t.usage.done_without_test.rate * 100),
+  retries_per_100_tool_calls: t.usage.retry_loops.per_100,
+  control_min_episodes: t.usage.control_min_episodes,
+  limited_history_sessions: t.history.limited_sessions,
+  idle_cut_minutes: t.history.idle_minutes,
+  rework_link_hours: t.history.link_hours,
+});
+
+// Sessions started on or after the config's last change, where that config was
+// live: a project's auto-memory folder counts that project's sessions; a
+// user-global file counts all; any other file counts the project that holds it
+// plus the projects whose always-loaded chain imports it. null when history was
+// not read, the change date is unknown, or no project is known to load the file.
+// sessions: [{start, root}]; scopes: [{root, memory_dirs: [one per session cwd], loaded: [paths]}];
+// userLoaded: paths every session loads (the user chain and its imports).
+function sessionsSince(item, sessions, scopes, home, userLoaded) {
+  if (!sessions || !item.date) return null;
+  const under = (p, dir) => p === dir || p.startsWith(`${dir}/`);
+  const memory = scopes.find((s) => (s.memory_dirs ?? []).some((d) => under(item.path, d)));
+  let roots = null;
+  if (memory) roots = new Set([memory.root]);
+  else if (userLoaded.includes(item.path) || (home && (under(item.path, `${home}/.claude`) || item.path === `${home}/.claude.json`))) roots = null;
+  else {
+    const holder = scopes.map((s) => s.root).filter((r) => under(item.path, r)).sort((a, b) => b.length - a.length)[0];
+    roots = new Set([holder, ...scopes.filter((s) => (s.loaded ?? []).includes(item.path)).map((s) => s.root)].filter(Boolean));
+    if (!roots.size) return null;
+  }
+  // Compare instants: git %cI carries a local offset, session starts are UTC.
+  const since = Date.parse(item.date);
+  if (Number.isNaN(since)) return null;
+  return sessions.filter((s) => Date.parse(s.start) >= since && (!roots || roots.has(s.root))).length;
+}
+
+export function score({ run, shrine, probes, structure, catalogue, pivots, copy, inventoryCounts = {}, home = null, history = { consented: false, read: false, sessions: null }, usage = null, usageKinds = {}, sessionStarts = null, projectScopes = [], userLoaded = [], thresholds = THRESHOLDS, tier = 'T0' }) {
   const t = thresholds;
   const findings = [];
   const dropped = [];
   const checked_clear = [];
+  if (usage) {
+    const u = usageFindings({ usage, catalogue, pivots, copy, t, kindsMap: usageKinds });
+    findings.push(...u.out);
+    dropped.push(...u.dropped);
+  }
 
   // A probe without applicable: false ran; older callers omit the field.
   const ran = probes.filter((p) => p.applicable !== false);
@@ -142,7 +243,7 @@ export function score({ run, shrine, probes, structure, catalogue, pivots, copy,
       timeline_gap: null,
       coverage_key: coverageKey(refs),
       items: p.items.map((i) => (i.path ? { ...i, path: displayPath(i.path, home) } : i)),
-      config_strip: first ? { mtime: first.date ?? null, last_git_change: first.date_source === 'git' ? first.date : null, sessions_since: history.sessions } : null,
+      config_strip: first ? { mtime: first.date ?? null, last_git_change: first.date_source === 'git' ? first.date : null, sessions_since: sessionsSince(first, sessionStarts, projectScopes, home, userLoaded) } : null,
     });
   }
 
@@ -211,7 +312,16 @@ export function score({ run, shrine, probes, structure, catalogue, pivots, copy,
     minutes_elapsed: 0,
     tokens_used: 0,
     headline: {
-      counts: { amplify: amplify.length, working: working.length, worth_a_look: 0, checked_clear: checked_clear.length, configured: configured.length, checks: ran.length + counted.length, not_passed: notPassed },
+      counts: {
+        amplify: amplify.length,
+        working: working.length,
+        worth_a_look: 0,
+        checked_clear: checked_clear.length,
+        configured: configured.length,
+        checks: ran.length + counted.length,
+        not_passed: notPassed,
+        ...(usage ? { sessions: usage.counts.sessions, correction_candidates: usage.counts.correction_candidates } : {}),
+      },
       tldr,
       start_with,
     },
@@ -226,8 +336,9 @@ export function score({ run, shrine, probes, structure, catalogue, pivots, copy,
     unknowable: copy.unknowable(),
     skipped_files: [],
     integrity: { ok: true, changed_paths: [] },
-    notes: history.consented ? [] : ['history not read'],
-    thresholds: { version: t.version, ...t.config },
+    notes: !history.consented ? ['history not read'] : usage?.rule === 'limited' ? [copy.notes.limited] : !usage ? [copy.notes.none] : [],
+    thresholds: { version: t.version, ...t.config, ...(usage ? usageThresholds(t) : {}) },
     history,
+    ...(usage ? { usage: { counts: usage.counts, kinds: usage.kinds.map(({ kind, ship, applicable, hit, metric, control }) => ({ kind, ship, applicable, hit, metric, control })), automation: usage.automation, limited: usage.rule === 'limited', excluded_own: Boolean(usage.excluded_own), lines: copy.usageLines({ ...usage, limited: usage.rule === 'limited' }) } } : {}),
   };
 }

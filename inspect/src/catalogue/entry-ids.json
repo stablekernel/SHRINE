@@ -43,5 +43,15 @@
     "page_id": "stack/harness",
     "anchor": "anti-patterns",
     "match": "under-investing in harness proficiency"
+  },
+  "progress-breadcrumbs.ap.done-without-evidence": {
+    "page_id": "patterns/progress-breadcrumbs",
+    "anchor": "anti-patterns",
+    "match": "breadcrumbs without evidence"
+  },
+  "fail-fast-recover-smart.sov.no-mid-run-checks": {
+    "page_id": "principles/fail-fast-recover-smart",
+    "anchor": "signal-of-violation",
+    "match": "no mid-run checks"
   }
 }

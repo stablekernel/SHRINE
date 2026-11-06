@@ -1,0 +1,8 @@
+{
+  "version": 1,
+  "note": "Matched at shell command position only (src/probes/command-position.mjs); case-sensitive.",
+  "commit": ["git(\\s+-C\\s+\\S+)?\\s+commit(?![\\w-])"],
+  "pr": ["gh\\s+pr\\s+create\\b"],
+  "positive": ["git commit -m \"add parser\"", "cd app && git commit -qm 'x'", "git -C /w/app commit -m x", "gh pr create --fill"],
+  "negative": ["grep 'git commit' notes.md", "echo \"run git commit later\"", "git log --grep commit", "git commit-tree abc"]
+}

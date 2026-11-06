@@ -479,3 +479,30 @@ test('round-9 free-text rules run in linear time on adversarial runs', () => {
     assert.ok(g < 10, `${JSON.stringify(unit)}: 4x input took ${g.toFixed(1)}x as long`);
   }
 });
+
+test('a project named like a word of the report copy is masked only where it stands alone', async () => {
+  const { copyVocabulary } = await import('../../src/copy/templates.mjs');
+  const k = buildIdentifiers({ projects: ['skills', 'acme-api'], vocabulary: copyVocabulary() });
+  const out = maskDeep({ run: { scope: { projects: ['skills', 'acme-api'] } }, configured: [{ item: 'skills', count: 3 }], title: 'Setup has no hooks or skills', note: 'see acme-api docs' }, k);
+  assert.deepEqual(out.run.scope.projects, ['<project-2>', '<project-1>']);
+  assert.equal(out.configured[0].item, 'skills');
+  assert.equal(out.title, 'Setup has no hooks or skills');
+  assert.equal(out.note, 'see <project-1> docs');
+});
+
+test('a vocabulary-named project is still masked as a path segment; people are never vocabulary-exact', async () => {
+  const { copyVocabulary } = await import('../../src/copy/templates.mjs');
+  const k = buildIdentifiers({ projects: ['skills'], authors: [{ name: 'setup', email: 'a@b.example' }], vocabulary: copyVocabulary() });
+  assert.equal(mask('~/src/skills/CLAUDE.md', k), '~/<path>/CLAUDE.md');
+  assert.equal(mask('see ~/w/skills', k), 'see ~/<path>/<project-1>');
+  assert.equal(mask('run setup now', k), 'run <author-1> now');
+});
+
+test('a vocabulary-named project is masked in paths followed by punctuation', async () => {
+  const { copyVocabulary } = await import('../../src/copy/templates.mjs');
+  const k = buildIdentifiers({ projects: ['skills'], vocabulary: copyVocabulary() });
+  for (const s of ['/opt/code/skills.', 'see /opt/x/skills, then', '(/opt/x/skills)', '/opt/x/skills:12', 'C:\\code\\skills']) {
+    assert.ok(!/skills/.test(mask(s, k)), `${s} -> ${mask(s, k)}`);
+  }
+  assert.equal(mask('/opt/x/skills.md', k), '<path>/<file>.md', 'a different file name is not the project');
+});

@@ -212,3 +212,49 @@ test('with zero findings, the next step drops the session-history ask once histo
   assert.match(unread, /session history/);
   assert.doesNotMatch(read, /run again with session history/i);
 });
+
+test('with history: chips for sessions and correction candidates, a usage block in the appendix, no usage finding', async () => {
+  const { t0HistoryFindings } = await import('../synth/t0-findings.mjs');
+  const f = t0HistoryFindings();
+  const html = renderReport(f);
+  const body = outsideScripts(html);
+  assert.match(body, /<span class="chip">66 sessions reviewed<\/span>/);
+  assert.match(body, /<span class="chip">40 correction candidates<\/span>/);
+  assert.match(body, /<summary>Usage from session history<\/summary>/);
+  assert.match(body, /Housekeeping automation left out: 987 of 1172 sessions \(84%\)/);
+  assert.match(body, /Spawned automation: 100 sessions linked to 14 of your sessions as byproducts, not judged/);
+  assert.match(body, /Unattributed automation: 20 sessions/);
+  assert.match(body, /Possible rework \(file overlap\): 48 of 136 episodes/);
+  assert.match(body, /Rework \(named reverts\) within 72 hours: 2 of 60 episodes with linked commits \(3%\)/);
+  assert.match(body, /Possible rework \(later-session fix\): 7 of 60 episodes with linked commits/);
+  assert.match(body, /Iteration commits: 85 fix commits in the same session or within 1 hour/);
+  assert.match(body, /Done claims with no test or check run before them: 4 of 12 claims\. Count only/);
+  assert.match(body, /setup, repos, and local session logs parsed by code/);
+  assert.ok(!f.findings.some((x) => x.lens === 'usage'));
+});
+
+test('limited history shows in the depth band and the appendix', async () => {
+  const { t0HistoryFindings } = await import('../synth/t0-findings.mjs');
+  const body = outsideScripts(renderReport(t0HistoryFindings({ limited: true })));
+  assert.match(body, /<span>limited history<\/span>/);
+  assert.match(body, /Limited history: 6 sessions, fewer than 10 sessions/);
+});
+
+test('no history: no usage block and the "History not read" chip', () => {
+  const body = outsideScripts(renderReport(t0()));
+  assert.ok(!body.includes('Usage from session history'));
+  assert.match(body, /History not read/);
+});
+
+test('config strip: unknown scope with history read hides sessions-since; history not read says so', async () => {
+  const { t0HistoryFindings } = await import('../synth/t0-findings.mjs');
+  const withStrip = (f, sessions_since) => ({ ...f, findings: f.findings.map((x, i) => (i === 0 ? { ...x, config_strip: { mtime: '2026-01-08T12:00:00.000Z', last_git_change: null, sessions_since } } : x)) });
+  const read = t0HistoryFindings();
+  assert.equal(read.history.read, true);
+  const body = outsideScripts(renderReport(withStrip(read, null)));
+  assert.match(body, /Last change /);
+  assert.doesNotMatch(body, /sessions since: history not read/);
+  assert.match(outsideScripts(renderReport(withStrip(read, 4))), /4 sessions since/);
+  const unread = { ...read, history: { ...read.history, read: false } };
+  assert.match(outsideScripts(renderReport(withStrip(unread, null))), /sessions since: history not read/);
+});
