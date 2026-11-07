@@ -79,6 +79,15 @@ A local health check of your Claude Code setup and session history, measured aga
 shrine-inspect run --tier T0
 ```
 
+- Without `--tier`, `run` asks which tier, then goes on as if you had passed it:
+
+  ```
+  Type T0 or T1:
+  ```
+
+  - It asks only in an interactive terminal. Anywhere else, and always for `start`, it stops (exit 2, `E_TIER_REQUIRED`) and names `--tier T0|T1`.
+  - Picking T1 there is not consent. Gate B still asks for a typed `yes`.
+
 - It stops at Gate A and asks whether to read your session history too:
 
   ```

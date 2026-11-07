@@ -15,6 +15,10 @@ Status: pre-release trial (background runs, a thin skill, a checksummed release)
 ## Run
 
 - `node bin/shrine-inspect.mjs run --tier T0 --no-history`: setup and repos only
+- `run` with no `--tier` prints a T0/T1 menu and asks `Type T0 or T1:` (case-insensitive) in an interactive terminal; there is no default
+  - 3 wrong or empty answers, or Ctrl-D, stop with `E_TIER_NOT_CHOSEN` (exit 2) and create no run
+  - No terminal (piped stdin, a skill, a worker): `E_TIER_REQUIRED` (exit 2), naming `--tier T0|T1`; nothing is read from stdin
+  - A T1 pick is not Gate B consent; Gate A and Gate B ask as with `--tier T1`
 - Without `--no-history`, the run pauses at Gate A (exit 3) until you answer in your own terminal: `node bin/shrine-inspect.mjs approve <run> A <no-history|history>`
 - Gate A lists projects, session files with the dates they last changed, size on disk, and a size-based time estimate; every run asks again
   - The report counts sessions, not files: the appendix says how many files were forks with nothing new, this run's own session, unreadable, or housekeeping
@@ -59,7 +63,7 @@ Status: pre-release trial (background runs, a thin skill, a checksummed release)
 
 ## Background runs
 
-- `shrine-inspect start --tier T0|T1 [--session-id <id>]`: creates the run and continues it in a detached worker, so closing the terminal does not stop it; prints the run id, pid, and log
+- `shrine-inspect start --tier T0|T1 [--session-id <id>]`: creates the run and continues it in a detached worker, so closing the terminal does not stop it; prints the run id, pid, and log; `--tier` is required (`E_TIER_REQUIRED`, exit 2), since `start` never asks
 - The worker has no terminal, so it pauses at every gate; it never answers one
 - `shrine-inspect status [<run>] [--json]`: `running` (with judging progress), `gate` (with the exact `approve` line to type), `done` (report paths), `died` (no worker, no report), or `stopped`
 - `approve <run> <gate> [choice] --background`: you answer in your terminal, then a worker does the rest

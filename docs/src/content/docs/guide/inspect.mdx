@@ -106,6 +106,12 @@ It checks that it changed nothing it read. If anything changed, the report shows
   shrine-inspect run --tier T0 --no-history
   ```
 
+- Not sure which tier? Leave out `--tier`; in an interactive terminal it asks `Type T0 or T1:`. Picking T1 there is not consent: Gate B still asks for a typed `yes`. Elsewhere, and always for `start`, it stops (exit 2) and names `--tier T0|T1`
+
+  ```sh
+  shrine-inspect run
+  ```
+
 - T1 run: type `history` at Gate A, then `yes` at Gate B after reading its estimate
 
   ```sh
