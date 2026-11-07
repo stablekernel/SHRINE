@@ -85,8 +85,9 @@ export function createRun(opts, io) {
     // The sample seed, drawn once per run (T1 only) and printed in the report footer.
     // io.seed is an in-process test seam (the bin never sets it).
     seed: opts.tier === 'T1' ? (Number.isInteger(io.seed) ? io.seed : newSeed()) : null,
-    // Gate B: --tier T0 sets it; --tier T1 asks after the scan, T0 pre-selected.
-    gates: { A: opts.noHistory ? { choice: 'no-history', by: 'flag', at } : null, B: opts.tier === 'T0' ? { choice: 'T0', by: 'flag', at } : null },
+    // Gate B: T0 (by --tier, or picked at the tier prompt) sets it; T1 asks
+    // after the scan, T0 pre-selected. A T1 pick never sets it.
+    gates: { A: opts.noHistory ? { choice: 'no-history', by: 'flag', at } : null, B: opts.tier === 'T0' ? { choice: 'T0', by: opts.tierBy ?? 'flag', at } : null },
   };
   folder.writeJson('state.json', state);
   return { folder, ctx, state };
