@@ -3,7 +3,7 @@
 import { createInterface } from 'node:readline/promises';
 import { InspectError, EXIT } from '../cli/errors.mjs';
 
-// The one interactive-terminal check: every question this CLI asks uses it.
+// The interactive-terminal check, the same `stdin.isTTY` test the gates use.
 export const isTerminal = (input) => Boolean(input?.isTTY);
 
 const notTty = () =>
