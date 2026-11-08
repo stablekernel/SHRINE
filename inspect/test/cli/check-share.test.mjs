@@ -63,7 +63,9 @@ test('bin --help exits 0 as a child process', () => {
   const state = mkdtempSync(join(tmpdir(), 'si-state-'));
   const r = spawnSync(process.execPath, [BIN, '--help'], { env: env(h, state), encoding: 'utf8' });
   assert.equal(r.status, 0, r.stderr);
-  assert.match(r.stdout, /shrine-inspect run --tier/);
+  assert.match(r.stdout, /shrine-inspect run \[--tier T0\|T1\]/);
+  assert.match(r.stdout, /shrine-inspect start --tier T0\|T1/);
+  assert.match(r.stdout, /no --tier asks for one in an interactive terminal/);
   h.cleanup();
 });
 

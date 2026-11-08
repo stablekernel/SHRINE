@@ -7,7 +7,7 @@ import { underHome } from '../scrub/mask.mjs';
 import { THRESHOLDS } from '../probes/config.mjs';
 import { controlTest, usageConfidence, usageSeverity } from './stats.mjs';
 
-export const TOOL_VERSION = '0.1.3';
+export const TOOL_VERSION = '0.1.4';
 const SEV_RANK = { high: 3, medium: 2, low: 1 };
 const KIND_ORDER = ['blanket_permissions', 'stale_instructions', 'oversized_instructions', 'done_without_test', 'no_owner_or_review', 'stack_gap', 'short_retention'];
 

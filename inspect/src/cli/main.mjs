@@ -6,9 +6,10 @@ import { purgeCommand } from './purge.mjs';
 import { checkShareCommand } from './checkshare.mjs';
 import { GRANT_ENV, resumeCommand, startCommand, statusCommand } from './background.mjs';
 import { TOOL_VERSION } from '../scorer/score.mjs';
+import { askTier, tierRequired } from './tier.mjs';
 
 const USAGE = `usage:
-  shrine-inspect run --tier T0|T1 [--no-history] [--session-id <id>] [--json]
+  shrine-inspect run [--tier T0|T1] [--no-history] [--session-id <id>] [--json]
   shrine-inspect start --tier T0|T1 [--no-history] [--session-id <id>] [--json]
   shrine-inspect status [<run>] [--json]
   shrine-inspect approve <run> <A|B|C> [choice] [--background]
@@ -17,6 +18,7 @@ const USAGE = `usage:
   shrine-inspect purge [--json]
   shrine-inspect version
   shrine-inspect --help
+run with no --tier asks for one in an interactive terminal; start always needs --tier.
 Any command takes --skill-version <v>: a mismatch with this CLI stops before any read.`;
 
 // Every command, for the skill test: the skill names only these.
@@ -45,7 +47,7 @@ export function parseArgs(argv) {
       out.sessionId = a.includes('=') ? a.slice(13) : argv[++i];
       if (!out.sessionId || !/^[A-Za-z0-9][\w-]*$/.test(out.sessionId)) throw new InspectError('E_USAGE', 'bad --session-id', { hint: USAGE, exit: EXIT.USAGE });
     }
-    else if (a === '--tier') out.tier = argv[++i];
+    else if (a === '--tier') out.tier = value(++i, '--tier');
     else if (a.startsWith('--tier=')) out.tier = a.slice(7);
     else if (a.startsWith('--')) throw new InspectError('E_USAGE', `unknown option ${a}`, { hint: USAGE, exit: EXIT.USAGE });
     else out.positional.push(a);
@@ -81,8 +83,15 @@ export async function main(argv, io) {
       io.stdout.write(json ? `${JSON.stringify({ version: TOOL_VERSION })}\n` : `shrine-inspect ${TOOL_VERSION}\n`);
       return EXIT.OK;
     }
-    if (args.cmd === 'run') return (await runCommand(args, cio)).code;
-    if (args.cmd === 'start') return startCommand(args, cio, { createRun }).code;
+    if (args.cmd === 'run') {
+      // No --tier: a person picks one in their terminal; the pick is not Gate B consent.
+      const opts = args.tier === null ? { ...args, tier: await askTier(cio), tierBy: 'prompt' } : args;
+      return (await runCommand(opts, cio)).code;
+    }
+    if (args.cmd === 'start') {
+      if (args.tier === null) throw tierRequired('start');
+      return startCommand(args, cio, { createRun }).code;
+    }
     if (args.cmd === 'status') return statusCommand({ runId: args.positional[0] }, cio, deps).code;
     if (args.cmd === 'resume') return (await resumeCommand({ runId: args.positional[0], worker: args.worker, grant: args.worker ? grant ?? null : null }, cio, deps)).code;
     if (args.cmd === 'approve') {

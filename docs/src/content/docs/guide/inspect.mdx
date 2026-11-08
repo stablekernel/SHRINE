@@ -8,7 +8,7 @@ import { Aside, Steps } from '@astrojs/starlight/components';
 *SHRINE Inspect is a local, read-only command-line tool. It measures your AI coding setup and session history against SHRINE and reports what to change first. It changes nothing itself.*
 
 <Aside type="caution" title="Pre-release">
-This is a trial release. Get the newest `inspect-v*` release from the [releases page](https://github.com/stablekernel/SHRINE/releases). The steps below use `inspect-v0.1.3`. Trial testers also follow [TRIAL.md](https://github.com/stablekernel/SHRINE/blob/main/inspect/TRIAL.md).
+This is a trial release. Get the newest `inspect-v*` release from the [releases page](https://github.com/stablekernel/SHRINE/releases). The steps below use `inspect-v0.1.4`. Trial testers also follow [TRIAL.md](https://github.com/stablekernel/SHRINE/blob/main/inspect/TRIAL.md).
 </Aside>
 
 - The first release reads one harness: Claude Code; other harnesses come later
@@ -54,9 +54,9 @@ It checks that it changed nothing it read. If anything changed, the report shows
 2. Download the three release files into a new folder
 
    ```sh
-   mkdir -p ~/shrine-inspect-0.1.3 && cd ~/shrine-inspect-0.1.3
-   base=https://github.com/stablekernel/SHRINE/releases/download/inspect-v0.1.3
-   curl -fLO "$base/shrine-inspect-0.1.3.tgz"
+   mkdir -p ~/shrine-inspect-0.1.4 && cd ~/shrine-inspect-0.1.4
+   base=https://github.com/stablekernel/SHRINE/releases/download/inspect-v0.1.4
+   curl -fLO "$base/shrine-inspect-0.1.4.tgz"
    curl -fLO "$base/install.sh"
    curl -fLO "$base/SHA256SUMS"
    ```
@@ -104,6 +104,12 @@ It checks that it changed nothing it read. If anything changed, the report shows
 
   ```sh
   shrine-inspect run --tier T0 --no-history
+  ```
+
+- Not sure which tier? Leave out `--tier`; in an interactive terminal it asks `Type T0 or T1:`. Picking T1 there is not consent: Gate B still asks for a typed `yes`. Elsewhere, and always for `start`, it stops (exit 2) and names `--tier T0|T1`
+
+  ```sh
+  shrine-inspect run
   ```
 
 - T1 run: type `history` at Gate A, then `yes` at Gate B after reading its estimate

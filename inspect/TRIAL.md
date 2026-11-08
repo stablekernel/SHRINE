@@ -13,12 +13,12 @@ A local health check of your Claude Code setup and session history, measured aga
    node --version
    ```
 
-2. Download the 3 release files into a new folder. With the GitHub CLI, use `gh release download inspect-v0.1.3 -R stablekernel/SHRINE` in place of the `curl` lines.
+2. Download the 3 release files into a new folder. With the GitHub CLI, use `gh release download inspect-v0.1.4 -R stablekernel/SHRINE` in place of the `curl` lines.
 
    ```sh
-   mkdir -p ~/shrine-inspect-0.1.3 && cd ~/shrine-inspect-0.1.3
-   base=https://github.com/stablekernel/SHRINE/releases/download/inspect-v0.1.3
-   curl -fLO "$base/shrine-inspect-0.1.3.tgz"
+   mkdir -p ~/shrine-inspect-0.1.4 && cd ~/shrine-inspect-0.1.4
+   base=https://github.com/stablekernel/SHRINE/releases/download/inspect-v0.1.4
+   curl -fLO "$base/shrine-inspect-0.1.4.tgz"
    curl -fLO "$base/install.sh"
    curl -fLO "$base/SHA256SUMS"
    ```
@@ -33,7 +33,7 @@ A local health check of your Claude Code setup and session history, measured aga
 
    ```
    install.sh: OK
-   shrine-inspect-0.1.3.tgz: OK
+   shrine-inspect-0.1.4.tgz: OK
    ```
 
 4. Install. Run it from the folder that holds the files.
@@ -43,9 +43,9 @@ A local health check of your Claude Code setup and session history, measured aga
    ```
 
    - Usage: `sh install.sh [--skill] [path/to/tgz]`.
-   - With no path, it uses `shrine-inspect-0.1.3.tgz` next to `install.sh`, not in your current folder.
+   - With no path, it uses `shrine-inspect-0.1.4.tgz` next to `install.sh`, not in your current folder.
    - It checks Node, then checks the tarball against the SHA-256 written in `install.sh`, then extracts it. A mismatch installs nothing.
-   - The CLI goes to `~/.local/share/shrine-inspect/0.1.3/`, linked as `~/.local/bin/shrine-inspect`.
+   - The CLI goes to `~/.local/share/shrine-inspect/0.1.4/`, linked as `~/.local/bin/shrine-inspect`.
    - `--skill` copies the Claude Code skill to `~/.claude/skills/shrine-inspect/`. Leave it out to use the CLI only.
    - To install somewhere else, set the install folder and the link folder first:
 
@@ -68,7 +68,7 @@ A local health check of your Claude Code setup and session history, measured aga
    ```
 
    ```
-   shrine-inspect 0.1.3
+   shrine-inspect 0.1.4
    ```
 
    - All commands: `shrine-inspect --help`.
@@ -78,6 +78,15 @@ A local health check of your Claude Code setup and session history, measured aga
 ```sh
 shrine-inspect run --tier T0
 ```
+
+- Without `--tier`, `run` asks which tier, then goes on as if you had passed it:
+
+  ```
+  Type T0 or T1:
+  ```
+
+  - It asks only in an interactive terminal. Anywhere else, and always for `start`, it stops (exit 2, `E_TIER_REQUIRED`) and names `--tier T0|T1`.
+  - Picking T1 there is not consent. Gate B still asks for a typed `yes`.
 
 - It stops at Gate A and asks whether to read your session history too:
 
